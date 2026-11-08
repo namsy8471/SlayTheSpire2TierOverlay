@@ -11,6 +11,7 @@ using Sts2Overlay.App.ViewModels;
 using Sts2Overlay.App.Views;
 using Sts2Overlay.Core.Archetypes;
 using Sts2Overlay.Core.Data;
+using Sts2Overlay.Core.Localization;
 using Sts2Overlay.Core.Map;
 using Sts2Overlay.Core.Model;
 using Sts2Overlay.Core.Scoring;
@@ -51,6 +52,7 @@ public sealed partial class AppController : IDisposable
     /// <summary>Card portraits for the panel rows (thumbnail + hover); rebuilt when data/local is regenerated.</summary>
     private CardArtProvider _art = CardArtProvider.ForLocalData();
     private string _packDir;
+    private bool _packLoaded;
     private int _engineVersion;
 
     private IGameStateSource _source = new NullGameStateSource();
@@ -61,6 +63,9 @@ public sealed partial class AppController : IDisposable
     private IReadOnlyList<BadgeSpec> _lastBadges = [];
     private SkipSpec? _lastSkip;
     private string? _lastRemovalText;
+
+    /// <summary>The recognition the 추천 tab's card offer was built from (kept after the screen closes, for a re-render).</summary>
+    private RecognitionResult? _offerSource;
     private bool _userHidden;
     private bool _clickThrough;
 
@@ -83,7 +88,8 @@ public sealed partial class AppController : IDisposable
         _vm = vm;
         _packDir = packDir;
         CatalogPath = catalogPath;
-        (_engine, _cards) = LoadPack(packDir, catalogPath, vm);
+        (_engine, _cards, _packLoaded) = LoadPack(packDir, catalogPath);
+        vm.PackText = PackText();
         _cardText = CardTextProvider.ForLocalData(_engine.Pack, packDir);
         InitForecastReview(packDir, catalogPath); // forecast + run review (AppController.ForecastReview.cs)
         InitMapOverlay(); // marks on the game's map (AppController.MapOverlay.cs)
@@ -224,7 +230,7 @@ public sealed partial class AppController : IDisposable
             SetMapRecommendation(null);
             return;
         }
-        var key = $"{map.ActId}|{map.Current}|{run.Hp}/{run.MaxHp}|{run.Gold}|{run.Deck.Count}|{run.Deck.Count(c => c.Upgrade > 0)}#{_engineVersion}";
+        var key = $"{map.ActId}|{map.Current}|{run.Hp}/{run.MaxHp}|{run.Gold}|{run.Deck.Count}|{run.Deck.Count(c => c.Upgrade > 0)}#{_engineVersion}@{Loc.CurrentCode}";
         if (key == _pathKey) return;
         _pathKey = key;
         try
@@ -240,42 +246,57 @@ public sealed partial class AppController : IDisposable
         }
     }
 
-    private static readonly string[] PathLabels = ["추천", "대안 1", "대안 2"];
+    /// <summary>Label of the i-th path option: the best, then alternatives.</summary>
+    private static string PathLabel(int i) => i switch
+    {
+        0 => Loc.T("추천", "Best"),
+        1 => Loc.T("대안 1", "Alt 1"),
+        _ => Loc.T("대안 2", "Alt 2"),
+    };
 
     internal static PathView? ToPathView(PathRecommendation rec, MapGraph map)
     {
-        if (rec.IsEmpty) return new PathView([], null, "보스 앞이거나 갈 수 있는 길이 없습니다");
+        if (rec.IsEmpty) return new PathView([], null, Loc.T("보스 앞이거나 갈 수 있는 길이 없습니다", "At the Boss, or no path left to take"));
         var options = rec.Top.Select((o, i) => new PathOptionView(
-            PathLabels[Math.Min(i, PathLabels.Length - 1)],
-            $"엘리트 {o.Elites} · 휴식 {o.Rests} · 상점 {o.CountOf(MapNodeType.Shop)} · ? {o.CountOf(MapNodeType.Unknown)} · 보스 도착 HP {o.ExpectedBossHp:P0}",
-            o.Risks.Concat(o.Chips).Distinct().Take(5).ToArray(),
+            PathLabel(i),
+            Loc.T($"엘리트 {o.Elites} · 휴식 {o.Rests} · 상점 {o.CountOf(MapNodeType.Shop)} · ? {o.CountOf(MapNodeType.Unknown)} · 보스 도착 HP {o.ExpectedBossHp:P0}",
+                  $"Elite {o.Elites} · Rest {o.Rests} · Shop {o.CountOf(MapNodeType.Shop)} · ? {o.CountOf(MapNodeType.Unknown)} · HP at Boss {o.ExpectedBossHp:P0}"),
+            PathChips(o),
             o.Total,
             i == 0)).ToArray();
         string? next = rec.NextStep is { } n && map.Nodes.TryGetValue(n, out var node)
-            ? $"다음: {NodeName(node.Type)} {Direction(map.Current ?? map.Start, n)}"
+            ? Loc.T($"다음: {NodeName(node.Type)} {Direction(map.Current ?? map.Start, n)}", $"Next: {NodeName(node.Type)} {Direction(map.Current ?? map.Start, n)}")
             : null;
-        var note = $"덱 강도 {rec.DeckStrength:0.00} 기준 · 경로 {rec.TotalPaths}개 중" + (rec.Exhaustive ? "" : " 일부") + " 비교 [추정 가중치]";
+        var note = Loc.T(
+            $"덱 강도 {rec.DeckStrength:0.00} 기준 · 경로 {rec.TotalPaths}개 중" + (rec.Exhaustive ? "" : " 일부") + " 비교 [추정 가중치]",
+            $"Deck strength {rec.DeckStrength:0.00} · compared {(rec.Exhaustive ? "all" : "some")} of {rec.TotalPaths} paths [est. weights]");
         return new PathView(options, next, note);
     }
 
+    /// <summary>
+    /// The path's reason chips, at most 5. <see cref="PathAdvisor"/> already puts the worded risks first.
+    /// <see cref="PathOption.Risks"/> holds raw keys ("elite_chain") and is never shown.
+    /// </summary>
+    internal static IReadOnlyList<string> PathChips(PathOption o) => o.Chips.Distinct().Take(5).ToArray();
+
     private static string NodeName(MapNodeType t) => t switch
     {
-        MapNodeType.Monster => "일반 전투",
-        MapNodeType.Elite => "엘리트",
-        MapNodeType.RestSite => "휴식처",
-        MapNodeType.Shop => "상점",
-        MapNodeType.Treasure => "보물",
-        MapNodeType.Boss => "보스",
-        MapNodeType.Ancient => "고대의 존재",
-        _ => "? 이벤트",
+        MapNodeType.Monster => Loc.T("일반 전투", "Enemy"),
+        MapNodeType.Elite => Loc.T("엘리트", "Elite"),
+        MapNodeType.RestSite => Loc.T("휴식처", "Rest Site"),
+        MapNodeType.Shop => Loc.T("상점", "Shop"),
+        MapNodeType.Treasure => Loc.T("보물", "Treasure"),
+        MapNodeType.Boss => Loc.T("보스", "Boss"),
+        MapNodeType.Ancient => Loc.T("고대의 존재", "Ancient"),
+        _ => Loc.T("? 이벤트", "? Event"),
     };
 
     /// <summary>Map columns grow to the right on screen, so the column delta reads as left/straight/right.</summary>
     private static string Direction(MapCoord from, MapCoord to) => (to.Col - from.Col) switch
     {
-        < 0 => "(왼쪽)",
-        > 0 => "(오른쪽)",
-        _ => "(위)",
+        < 0 => Loc.T("(왼쪽)", "(left)"),
+        > 0 => Loc.T("(오른쪽)", "(right)"),
+        _ => Loc.T("(위)", "(up)"),
     };
 
     private static bool IsOfferHint(ScreenHint h) => h is ScreenHint.RewardLikely or ScreenHint.ShopLikely;
@@ -324,13 +345,15 @@ public sealed partial class AppController : IDisposable
         if (r.ScreenKind == ScreenKind.Reward && _source is Sts2Overlay.GameState.Tracking.ICardOfferSink sink) sink.OnCardOfferSeen(r.Cards.Select(c => c.Card).ToList());
 
         var offerKey = r.ScreenKind + ":" + string.Join(",", r.Cards.Select(c => $"{c.Card}${c.Price}{(c.Unaffordable == true ? "r" : "")}{(c.OnSale ? "s" : "")}"));
-        var evalKey = $"{offerKey}@{_snapshot.UpdatedAt.Ticks}#{_engineVersion}";
+        var evalKey = $"{offerKey}@{_snapshot.UpdatedAt.Ticks}#{_engineVersion}@{Loc.CurrentCode}";
         if (evalKey != _lastEvalKey)
         {
             try
             {
                 var (offer, badges, skip, removal) = r.ScreenKind == ScreenKind.Shop ? EvaluateShop(r) : EvaluateReward(r);
                 _vm.Offer = offer;
+                _offerSource = r;
+                _eventOfferRebuild = null;
                 _lastBadges = badges;
                 _lastSkip = skip;
                 _lastRemovalText = removal;
@@ -339,7 +362,7 @@ public sealed partial class AppController : IDisposable
             catch (Exception ex)
             {
                 AppLog.Error("recommendation failed", ex);
-                ShowMessage("추천 계산 실패: " + ex.Message);
+                ShowMessage(Loc.T("추천 계산 실패: ", "Recommendation failed: ") + ex.Message);
                 return;
             }
             if (offerKey != _lastOfferKey)
@@ -376,9 +399,9 @@ public sealed partial class AppController : IDisposable
         var rows = new List<OfferRowVm>();
         foreach (var (e, i) in eval.Cards.Select((e, i) => (e, i)).OrderBy(x => x.e.Rank))
         {
-            var sub = $"{e.Rank}위 · 데이터 신뢰도 {e.Confidence:P0}";
-            if (r.Cards[i].Confidence < 0.8) sub += $" · 인식 {r.Cards[i].Confidence:P0}";
-            if (!e.IsRated) sub += " · 미평가 카드";
+            var sub = Loc.T($"{e.Rank}위 · 데이터 신뢰도 {e.Confidence:P0}", $"#{e.Rank} · data confidence {e.Confidence:P0}");
+            if (r.Cards[i].Confidence < 0.8) sub += Loc.T($" · 인식 {r.Cards[i].Confidence:P0}", $" · recognized {r.Cards[i].Confidence:P0}");
+            if (!e.IsRated) sub += Loc.T(" · 미평가 카드", " · unrated card");
             if (ScoringLabels.BuildRoleText(e.BuildRoles) is { } buildRole) sub = buildRole + "\n" + sub;
             rows.Add(new OfferRowVm
             {
@@ -390,19 +413,19 @@ public sealed partial class AppController : IDisposable
                 IsEstimate = e.IsEstimate,
                 IsUpgraded = e.Card.IsUpgraded,
                 SubText = sub,
-                Tip = _engine.Pack.FindTier(run.Character, e.Card.Id)?.Tip,
+                Tip = _engine.Pack.FindTier(run.Character, e.Card.Id)?.LocalTip,
                 Art = ArtOf(e.Card.Id),
                 Chips = e.Chips.Select(c => Chip(c.Label, c.Value)).ToArray(),
             });
         }
         rows.Add(new OfferRowVm
         {
-            Name = "스킵",
+            Name = Loc.T("스킵", "Skip"),
             IsSkip = true,
             ScoreText = Fmt(eval.Skip.Total),
             BarWidth = Bar(eval.Skip.Total),
             IsBest = eval.SkipRecommended,
-            SubText = "카드를 받지 않음",
+            SubText = Loc.T("카드를 받지 않음", "Take no card"),
             Chips = eval.Skip.TopReasons(3).Select(c => Chip(c.Label, c.Value)).ToArray(),
         });
 
@@ -410,21 +433,15 @@ public sealed partial class AppController : IDisposable
         {
             Title = r.ScreenKind switch
             {
-                ScreenKind.Choice => "카드 선택",
-                ScreenKind.Grid => "카드 선택 · 이벤트",
+                ScreenKind.Choice => Loc.T("카드 선택", "Choose a Card"),
+                ScreenKind.Grid => Loc.T("카드 선택 · 이벤트", "Choose a Card · Event"),
                 _ => ContextTitle(context),
             },
-            ConfidenceText = eval.Confidence switch
-            {
-                RecommendationConfidence.Sure => "확신",
-                RecommendationConfidence.Close => "박빙",
-                RecommendationConfidence.Estimate => "추정",
-                _ => "보통",
-            },
+            ConfidenceText = ConfidenceText(eval.Confidence),
             ConfidenceKind = eval.Confidence.ToString(),
             FlipHint = eval.FlipHint,
             Rows = rows,
-            Footer = eval.Best is { } best ? $"추천: {_cards.Name(best)}" : "추천: 스킵",
+            Footer = eval.Best is { } best ? Loc.T($"추천: {_cards.Name(best)}", $"Pick: {_cards.Name(best)}") : Loc.T("추천: 스킵", "Pick: Skip"),
         };
 
         var badges = eval.Cards
@@ -447,12 +464,13 @@ public sealed partial class AppController : IDisposable
             var e = item.CardEvaluation;
             var isCard = item.Kind == ShopItemKind.Card && item.Card is not null;
             var score = e?.Total ?? item.Value.Total;
-            var sub = $"구매 가치 {Fmt(item.Value.Total)} · 골드당 {item.ValuePerGold.ToString("0.00", CultureInfo.InvariantCulture)}";
-            if (!item.Affordable) sub += " · 골드 부족";
+            var perGold = item.ValuePerGold.ToString("0.00", CultureInfo.InvariantCulture);
+            var sub = Loc.T($"구매 가치 {Fmt(item.Value.Total)} · 골드당 {perGold}", $"Buy value {Fmt(item.Value.Total)} · per Gold {perGold}");
+            if (!item.Affordable) sub += Loc.T(" · 골드 부족", " · not enough Gold");
             if (e is not null && ScoringLabels.BuildRoleText(e.BuildRoles) is { } buildRole) sub = buildRole + "\n" + sub;
             return new OfferRowVm
             {
-                Name = isCard ? _cards.Name(item.Card!.Value) : $"카드 제거 ({(item.RemovalTarget is { } t ? _cards.Name(t) : "?")})",
+                Name = isCard ? _cards.Name(item.Card!.Value) : $"{RemovalName()} ({(item.RemovalTarget is { } t ? _cards.Name(t) : "?")})",
                 TierText = e?.DisplayTier.ToString() ?? "—",
                 ScoreText = Fmt(score),
                 BarWidth = Bar(score),
@@ -468,14 +486,18 @@ public sealed partial class AppController : IDisposable
         }).ToArray();
 
         var names = eval.RecommendedPurchase
-            .Select(i => i.Kind == ShopItemKind.Card && i.Card is { } c ? _cards.Name(c) : "카드 제거")
+            .Select(i => i.Kind == ShopItemKind.Card && i.Card is { } c ? _cards.Name(c) : RemovalName())
             .ToArray();
         var section = new OfferSectionVm
         {
-            Title = eval.GoldCorrectedByScreen ? $"상점 · 보유 ~{eval.Gold}골드 (가격 색으로 보정)" : $"상점 · 보유 {eval.Gold}골드",
+            Title = eval.GoldCorrectedByScreen
+                ? Loc.T($"상점 · 보유 ~{eval.Gold}골드 (가격 색으로 보정)", $"Shop · ~{eval.Gold} Gold (from price colors)")
+                : Loc.T($"상점 · 보유 {eval.Gold}골드", $"Shop · {eval.Gold} Gold"),
             ConfidenceText = "",
             Rows = rows,
-            Footer = names.Length > 0 ? $"추천 구매: {string.Join(" + ", names)} · 남는 골드 {eval.GoldLeft}" : "추천 구매 없음 (골드 아끼기)",
+            Footer = names.Length > 0
+                ? Loc.T($"추천 구매: {string.Join(" + ", names)} · 남는 골드 {eval.GoldLeft}", $"Buy: {string.Join(" + ", names)} · {eval.GoldLeft} Gold left")
+                : Loc.T("추천 구매 없음 (골드 아끼기)", "Buy nothing (save Gold)"),
         };
 
         // Badges in recognition order. Match each on-screen card to its evaluated item (a queue per card handles duplicates).
@@ -495,7 +517,11 @@ public sealed partial class AppController : IDisposable
 
     /// <summary>"75골드", "~150골드 (추정)" for an unread label, "37골드 세일" for the half-price card.</summary>
     private static string ShopPriceText(ShopItemEvaluation item)
-        => (item.PriceEstimated ? $"~{item.Price}골드 (추정)" : $"{item.Price}골드") + (item.OnSale ? " 세일" : "");
+        => (item.PriceEstimated ? Loc.T($"~{item.Price}골드 (추정)", $"~{item.Price} Gold (est.)") : Loc.T($"{item.Price}골드", $"{item.Price} Gold"))
+           + (item.OnSale ? Loc.T(" 세일", " sale") : "");
+
+    /// <summary>The merchant's card-removal service (game term: Card Removal).</summary>
+    private static string RemovalName() => Loc.T("카드 제거", "Card Removal");
     // --- end shop prices ---
 
     private void ClearBadges()
@@ -512,6 +538,8 @@ public sealed partial class AppController : IDisposable
     {
         ClearBadges();
         _vm.Offer = OfferSectionVm.Empty;
+        _offerSource = null;
+        _eventOfferRebuild = null;
     }
 
     // ---- deck / build tabs ------------------------------------------------------------------------------------
@@ -520,14 +548,16 @@ public sealed partial class AppController : IDisposable
     {
         if (run is null)
         {
-            _vm.RunText = "런 정보 없음";
+            _vm.RunText = Loc.T("런 정보 없음", "No run info");
             _vm.Deck = DeckSectionVm.Empty;
             _vm.Build = BuildSectionVm.Empty;
             return;
         }
 
-        var asc = run.Ascension > 0 ? $" · 승천 {run.Ascension}" : "";
-        _vm.RunText = $"{CharacterName(run.Character)} · {run.Act}막 {run.Floor}층 · HP {run.Hp}/{run.MaxHp} · {run.Gold}골드{asc}";
+        var asc = run.Ascension > 0 ? Loc.T($" · 승천 {run.Ascension}", $" · Ascension {run.Ascension}") : "";
+        _vm.RunText = Loc.T(
+            $"{CharacterName(run.Character)} · {run.Act}막 {run.Floor}층 · HP {run.Hp}/{run.MaxHp} · {run.Gold}골드{asc}",
+            $"{CharacterName(run.Character)} · Act {run.Act} Floor {run.Floor} · HP {run.Hp}/{run.MaxHp} · {run.Gold} Gold{asc}");
         try
         {
             var profile = _engine.Analyze(run);
@@ -537,25 +567,25 @@ public sealed partial class AppController : IDisposable
         catch (Exception ex)
         {
             AppLog.Error("deck/build analysis failed", ex);
-            ShowMessage("덱 분석 실패: " + ex.Message);
+            ShowMessage(Loc.T("덱 분석 실패: ", "Deck analysis failed: ") + ex.Message);
         }
     }
 
     private DeckSectionVm BuildDeck(RunState run, DeckProfile profile)
     {
-        string GroupOf(string id) => _cards.Type(run.Character, id) switch
+        // Grouped by a kind (not by its label), so the order and grouping don't depend on the display language.
+        DeckGroup GroupOf(string id) => _cards.Type(run.Character, id) switch
         {
-            CardTypes.Attack => "공격",
-            CardTypes.Skill => "스킬",
-            CardTypes.Power => "파워",
-            CardTypes.Curse or CardTypes.Status => "저주·상태",
-            _ => "기타",
+            CardTypes.Attack => DeckGroup.Attack,
+            CardTypes.Skill => DeckGroup.Skill,
+            CardTypes.Power => DeckGroup.Power,
+            CardTypes.Curse or CardTypes.Status => DeckGroup.CurseStatus,
+            _ => DeckGroup.Other,
         };
-        string[] order = ["공격", "스킬", "파워", "저주·상태", "기타"];
 
         var groups = run.Deck
             .GroupBy(c => GroupOf(c.Id))
-            .OrderBy(g => Array.IndexOf(order, g.Key))
+            .OrderBy(g => g.Key)
             .Select(g =>
             {
                 var cards = g.GroupBy(c => c.Id)
@@ -564,15 +594,15 @@ public sealed partial class AppController : IDisposable
                         var tier = TierOf(run, byId.Key);
                         var count = byId.Count();
                         var upgraded = byId.Count(c => c.Upgrade > 0);
-                        var upText = upgraded == 0 ? null : count == 1 ? "강화" : $"강화 {upgraded}";
-                        string? doubt = _snapshot.Doubts?.CardReasons.GetValueOrDefault(byId.Key);
+                        var upText = upgraded == 0 ? null : count == 1 ? Loc.T("강화", "Upgraded") : Loc.T($"강화 {upgraded}", $"Upgraded {upgraded}");
+                        string? doubt = _snapshot.Doubts?.ReasonText(byId.Key);
                         return (Tier: tier, Vm: new DeckCardVm(tier?.ToString() ?? "?", _cards.Name(byId.Key), $"×{count}", upText, doubt, ArtOf(byId.Key)));
                     })
                     .OrderBy(x => x.Tier is null ? 99 : (int)x.Tier)
                     .ThenBy(x => x.Vm.Name, StringComparer.CurrentCulture)
                     .Select(x => x.Vm)
                     .ToArray();
-                return new DeckGroupVm($"{g.Key} ({g.Count()})", cards);
+                return new DeckGroupVm($"{DeckGroupName(g.Key)} ({g.Count()})", cards);
             })
             .ToArray();
 
@@ -589,20 +619,41 @@ public sealed partial class AppController : IDisposable
             .ToArray();
 
         var upgradedTotal = run.Deck.Count(c => c.Upgrade > 0);
-        var summary = $"덱 {run.Deck.Count}장 · 강화 {upgradedTotal}장 · 파워 {profile.PowerCount}장";
-        if (profile.Curses > 0) summary += $" · 저주 {profile.Curses}장";
+        var summary = Loc.T(
+            $"덱 {run.Deck.Count}장 · 강화 {upgradedTotal}장 · 파워 {profile.PowerCount}장",
+            $"Deck {run.Deck.Count} · Upgraded {upgradedTotal} · Powers {profile.PowerCount}");
+        if (profile.Curses > 0) summary += Loc.T($" · 저주 {profile.Curses}장", $" · Curses {profile.Curses}");
         if (_snapshot.Doubts is { } d)
         {
             // Log-only rebuild (co-op guest): say what it can't know yet. Exact again at run end (.run file).
             var parts = new List<string>();
-            if (d.Unidentified > 0) parts.Add($"미확인 카드 {d.Unidentified}장");
-            if (d.UnknownUpgrades > 0) parts.Add($"위치 모를 강화 {d.UnknownUpgrades}회");
-            if (d.UnknownRemovals > 0) parts.Add($"모를 제거 {d.UnknownRemovals}장");
-            if (d.CardReasons.Count > 0) parts.Add($"? 표시 {d.CardReasons.Count}종");
-            summary += " · 추정: " + string.Join(" · ", parts);
+            if (d.Unidentified > 0) parts.Add(Loc.T($"미확인 카드 {d.Unidentified}장", $"{d.Unidentified} unidentified cards"));
+            if (d.UnknownUpgrades > 0) parts.Add(Loc.T($"위치 모를 강화 {d.UnknownUpgrades}회", $"{d.UnknownUpgrades} unplaced upgrades"));
+            if (d.UnknownRemovals > 0) parts.Add(Loc.T($"모를 제거 {d.UnknownRemovals}장", $"{d.UnknownRemovals} unknown removals"));
+            if (d.CardReasons.Count > 0) parts.Add(Loc.T($"? 표시 {d.CardReasons.Count}종", $"{d.CardReasons.Count} marked ?"));
+            summary += Loc.T(" · 추정: ", " · Estimated: ") + string.Join(" · ", parts);
         }
         return new DeckSectionVm { Summary = summary, Groups = groups, Roles = roles };
     }
+
+    /// <summary>Deck tab groups, in display order.</summary>
+    private enum DeckGroup
+    {
+        Attack,
+        Skill,
+        Power,
+        CurseStatus,
+        Other,
+    }
+
+    private static string DeckGroupName(DeckGroup g) => g switch
+    {
+        DeckGroup.Attack => Loc.T("공격", "Attack"),
+        DeckGroup.Skill => Loc.T("스킬", "Skill"),
+        DeckGroup.Power => Loc.T("파워", "Power"),
+        DeckGroup.CurseStatus => Loc.T("저주·상태", "Curse·Status"),
+        _ => Loc.T("기타", "Other"),
+    };
 
     private Tier? TierOf(RunState run, string id)
     {
@@ -637,8 +688,8 @@ public sealed partial class AppController : IDisposable
         BuildCardVm Card(string id, string role, bool owned)
         {
             var rarity = _cards.Rarity(run.Character, id);
-            return new BuildCardVm(_cards.Name(id), role, rarity is null ? null : CardInfoProvider.RarityKorean(rarity),
-                TierOf(run, id)?.ToString() ?? "?", owned, ArtOf(id), _cardText.For(id));
+            return new BuildCardVm(_cards.Name(id), role, rarity is null ? null : CardInfoProvider.RarityName(rarity),
+                TierOf(run, id)?.ToString() ?? "?", owned, ArtOf(id), _cardText.For(id, Loc.CurrentCode));
         }
 
         var items = report.Statuses.Take(5).Select(st =>
@@ -651,18 +702,21 @@ public sealed partial class AppController : IDisposable
             string? prob = null;
             var missing = st.MissingCards.Count == 0
                 ? null
-                : "필요: " + string.Join(", ", st.MissingCards.Take(5).Select(m =>
-                    $"{_cards.Name(m.CardId)}({RoleName(m.Role)}, {CardInfoProvider.RarityKorean(m.Rarity)})"));
+                : Loc.T("필요: ", "Needs: ") + string.Join(", ", st.MissingCards.Take(5).Select(m =>
+                    Loc.T($"{_cards.Name(m.CardId)}({RoleName(m.Role)}, {CardInfoProvider.RarityName(m.Rarity)})",
+                          $"{_cards.Name(m.CardId)} ({RoleName(m.Role)}, {CardInfoProvider.RarityName(m.Rarity)})")));
             // 코어 먼저: before a core the scorer locks this build's synergy; after it, essentials (payoff + enabler) before support.
             var cores = string.Join(", ", st.MissingCore.Take(3).Select(m => _cards.Name(m.CardId)));
             var stage = st.CoreTarget == 0 || st.Commit <= 0 ? null
-                : st.OwnedCore == 0 ? $"코어 전: 시너지 점수 잠김 · 먼저 노릴 코어 {cores}"
-                : (st.EssentialTarget > 0 ? $"필수 시너지 {Math.Min(st.OwnedEssential, st.EssentialTarget)}/{st.EssentialTarget}" : "")
-                  + (st.CoreSecured ? "" : $" · 코어 {st.OwnedCore}/{st.CoreTarget}, 다음 코어 {cores}");
+                : st.OwnedCore == 0 ? Loc.T($"코어 전: 시너지 점수 잠김 · 먼저 노릴 코어 {cores}", $"No Core yet: synergy locked · go for {cores}")
+                : (st.EssentialTarget > 0
+                      ? Loc.T($"필수 시너지 {Math.Min(st.OwnedEssential, st.EssentialTarget)}/{st.EssentialTarget}", $"Key synergy {Math.Min(st.OwnedEssential, st.EssentialTarget)}/{st.EssentialTarget}")
+                      : "")
+                  + (st.CoreSecured ? "" : Loc.T($" · 코어 {st.OwnedCore}/{st.CoreTarget}, 다음 코어 {cores}", $" · Core {st.OwnedCore}/{st.CoreTarget}, next Core {cores}"));
             if (!string.IsNullOrWhiteSpace(stage)) missing = stage.TrimStart(' ', '·') + (missing is null ? "" : "\n" + missing);
             var needs = st.UnmetNeeds.Count == 0
                 ? null
-                : "조건 미충족: " + string.Join(", ", st.UnmetNeeds.Select(n =>
+                : Loc.T("조건 미충족: ", "Unmet: ") + string.Join(", ", st.UnmetNeeds.Select(n =>
                     $"{(n.Role is { } r ? ScoringLabels.Role(r) : n.Tag ?? "?")} {Fmt1(n.Min)}+"));
             return new ArchetypeVm
             {
@@ -674,7 +728,9 @@ public sealed partial class AppController : IDisposable
                 CardsSummaryText = BuildCardsPresenter.Summary(groups),
                 IsExpanded = _buildCardsExpanded.TryGetValue(a.Id, out var open) ? open : isPrimary,
                 ToggleCardsCommand = new RelayCommand(_ => ToggleBuildCards(a.Id)),
-                CommitText = $"몰입 {st.Commit:P0} · 완성도 {st.CompletionPercent:0}%{(st.IsCommitted ? " · 방향 확정" : "")}",
+                CommitText = Loc.T(
+                    $"몰입 {st.Commit:P0} · 완성도 {st.CompletionPercent:0}%{(st.IsCommitted ? " · 방향 확정" : "")}",
+                    $"Commit {st.Commit:P0} · Completion {st.CompletionPercent:0}%{(st.IsCommitted ? " · locked in" : "")}"),
                 CompletionBarWidth = Math.Clamp(st.CompletionPercent, 0, 100) / 100 * 356,
                 StageText = new string('●', st.Stage) + new string('○', Math.Max(0, 5 - st.Stage)),
                 ProbabilityText = prob,
@@ -684,10 +740,11 @@ public sealed partial class AppController : IDisposable
         }).ToArray();
 
         var summary = report.Primary is not { } primary
-            ? "아직 정해진 빌드 방향이 없습니다"
+            ? Loc.T("아직 정해진 빌드 방향이 없습니다", "No build direction yet")
             : report.IsHybrid && report.Statuses.Count > 1
-                ? $"현재 방향: {primary.Archetype.DisplayName} + {report.Statuses[1].Archetype.DisplayName} (하이브리드)"
-                : $"현재 방향: {primary.Archetype.DisplayName}";
+                ? Loc.T($"현재 방향: {primary.Archetype.DisplayName} + {report.Statuses[1].Archetype.DisplayName} (하이브리드)",
+                        $"Direction: {primary.Archetype.DisplayName} + {report.Statuses[1].Archetype.DisplayName} (hybrid)")
+                : Loc.T($"현재 방향: {primary.Archetype.DisplayName}", $"Direction: {primary.Archetype.DisplayName}");
         return new BuildSectionVm { Summary = summary, Archetypes = items };
     }
 
@@ -709,10 +766,12 @@ public sealed partial class AppController : IDisposable
         var info = _tracker.Current;
         _vm.StatusText = info switch
         {
-            null => "게임 창을 찾는 중…",
-            { IsSimulated: true } => $"데모 (가상 화면 {info.CaptureRect.Width}x{info.CaptureRect.Height})",
-            { IsMinimized: true } => "게임 최소화됨",
-            _ => $"게임 {info.CaptureRect.Width}x{info.CaptureRect.Height} · x{Dpi.ScaleForRect(info.CaptureRect):0.##}{(info.IsForeground ? "" : " (뒤에 있음)")}",
+            null => Loc.T("게임 창을 찾는 중…", "Looking for the game window…"),
+            { IsSimulated: true } => Loc.T($"데모 (가상 화면 {info.CaptureRect.Width}x{info.CaptureRect.Height})", $"Demo (virtual screen {info.CaptureRect.Width}x{info.CaptureRect.Height})"),
+            { IsMinimized: true } => Loc.T("게임 최소화됨", "Game minimized"),
+            _ => Loc.T(
+                $"게임 {info.CaptureRect.Width}x{info.CaptureRect.Height} · x{Dpi.ScaleForRect(info.CaptureRect):0.##}{(info.IsForeground ? "" : " (뒤에 있음)")}",
+                $"Game {info.CaptureRect.Width}x{info.CaptureRect.Height} · x{Dpi.ScaleForRect(info.CaptureRect):0.##}{(info.IsForeground ? "" : " (in background)")}"),
         };
         ApplyUiScale();
         UpdateVisibility();
@@ -736,7 +795,7 @@ public sealed partial class AppController : IDisposable
         _settings.UiScale = scale;
         SettingsStore.Save(AppPaths.SettingsFile, _settings);
         ApplyUiScale();
-        ShowMessage("UI 배율: " + _vm.UiScaleText);
+        ShowMessage(Loc.T("UI 배율: ", "UI scale: ") + _vm.UiScaleText);
         StateChanged?.Invoke();
     }
 
@@ -757,7 +816,7 @@ public sealed partial class AppController : IDisposable
         var (effective, isAuto) = CurrentUiScale;
         var dpi = _panel.Hwnd != IntPtr.Zero ? Math.Max(1u, NativeMethods.GetDpiForWindow(_panel.Hwnd)) / 96.0 : 1.0;
         _vm.UiScale = UiScale.LayoutFactor(effective, dpi);
-        _vm.UiScaleText = $"UI {effective * 100:0}%{(isAuto ? " (자동)" : "")}";
+        _vm.UiScaleText = $"UI {effective * 100:0}%{(isAuto ? Loc.T(" (자동)", " (auto)") : "")}";
         _badges.ScaleMultiplier = effective / auto;
         SetMapScale(effective / auto);
     }
@@ -815,7 +874,9 @@ public sealed partial class AppController : IDisposable
         SettingsStore.Save(AppPaths.SettingsFile, _settings);
         _panel.KeepOnTop = _settings.AlwaysOnTop;
         AppLog.Info($"always on top = {_settings.AlwaysOnTop}");
-        ShowMessage(_settings.AlwaysOnTop ? "항상 맨 앞에 표시 켜짐" : "항상 맨 앞에 표시 꺼짐: 패널이 일반 창처럼 다른 창 뒤로 갈 수 있습니다");
+        ShowMessage(_settings.AlwaysOnTop
+            ? Loc.T("항상 맨 앞에 표시 켜짐", "Always on top: on")
+            : Loc.T("항상 맨 앞에 표시 꺼짐: 패널이 일반 창처럼 다른 창 뒤로 갈 수 있습니다", "Always on top: off. The panel can go behind other windows like a normal window"));
         UpdateVisibility();
     }
 
@@ -833,8 +894,10 @@ public sealed partial class AppController : IDisposable
         SettingsStore.Save(AppPaths.SettingsFile, _settings);
         AppLog.Info($"show overlay in capture = {_settings.ShowOverlayInCapture}");
         ShowMessage(_settings.ShowOverlayInCapture
-            ? "방송·캡처에 오버레이 표시 켜짐: OBS 디스플레이 캡처, 디스코드 화면 공유, 스크린샷에 보입니다"
-            : "방송·캡처에 오버레이 표시 꺼짐: 내 화면에만 보이고 녹화·방송·스크린샷에는 안 나옵니다");
+            ? Loc.T("방송·캡처에 오버레이 표시 켜짐: OBS 디스플레이 캡처, 디스코드 화면 공유, 스크린샷에 보입니다",
+                    "Overlay in streams/captures: on. Visible in OBS display capture, Discord screen share and screenshots")
+            : Loc.T("방송·캡처에 오버레이 표시 꺼짐: 내 화면에만 보이고 녹화·방송·스크린샷에는 안 나옵니다",
+                    "Overlay in streams/captures: off. Only on your screen, not in recordings, streams or screenshots"));
     }
 
     // ---- commands (hotkeys / tray) ------------------------------------------------------------------------
@@ -851,7 +914,9 @@ public sealed partial class AppController : IDisposable
         _clickThrough = !_clickThrough;
         _panel.SetClickThrough(_clickThrough);
         _vm.ClickThrough = _clickThrough;
-        ShowMessage(_clickThrough ? "클릭 통과 켜짐: 마우스가 게임으로 갑니다" : "클릭 통과 꺼짐: 패널을 클릭할 수 있습니다");
+        ShowMessage(_clickThrough
+            ? Loc.T("클릭 통과 켜짐: 마우스가 게임으로 갑니다", "Click-through on: the mouse goes to the game")
+            : Loc.T("클릭 통과 꺼짐: 패널을 클릭할 수 있습니다", "Click-through off: the panel can be clicked"));
     }
 
     // ---- debug outline mode (tray / Ctrl+F11): draw the recognised card and price boxes on the badge layer ----
@@ -863,14 +928,16 @@ public sealed partial class AppController : IDisposable
     {
         DebugOutlines = !DebugOutlines;
         AppLog.Info($"debug outlines = {DebugOutlines}");
-        ShowMessage(DebugOutlines ? "인식 영역 표시 켜짐: 카드(파랑)·가격(주황) 상자" : "인식 영역 표시 꺼짐");
+        ShowMessage(DebugOutlines
+            ? Loc.T("인식 영역 표시 켜짐: 카드(파랑)·가격(주황) 상자", "Recognition outlines on: card (blue) and price (orange) boxes")
+            : Loc.T("인식 영역 표시 꺼짐", "Recognition outlines off"));
         _pipeline.RequestRecognize(); // redraw with the next result
         StateChanged?.Invoke();
     }
 
     public void RecognizeNow()
     {
-        ShowMessage("지금 인식하는 중…");
+        ShowMessage(Loc.T("지금 인식하는 중…", "Recognizing now…"));
         _pipeline.RequestRecognize();
     }
 
@@ -878,14 +945,15 @@ public sealed partial class AppController : IDisposable
 
     public void ReloadPack()
     {
-        (_engine, _cards) = LoadPack(_packDir, CatalogPath, _vm);
+        (_engine, _cards, _packLoaded) = LoadPack(_packDir, CatalogPath);
+        _vm.PackText = PackText();
         _cardText = CardTextProvider.ForLocalData(_engine.Pack, _packDir);
         _engineVersion++;
         RefreshRunViews(_snapshot.Run);
         ReloadForecastReview(); // AppController.ForecastReview.cs
         ReloadEvents(); // AppController.Events.cs
         if (_lastResult is not null) ApplyRecognition(_lastResult);
-        ShowMessage("데이터 팩을 다시 읽었습니다");
+        ShowMessage(Loc.T("데이터 팩을 다시 읽었습니다", "Data pack reloaded"));
         PackReloaded?.Invoke();
     }
 
@@ -914,7 +982,7 @@ public sealed partial class AppController : IDisposable
             _ = Task.Run(recognizer.Preload);
         }
         ReloadPack();
-        ShowMessage("게임 리소스를 준비했습니다 (카드 그림·이름)");
+        ShowMessage(Loc.T("게임 리소스를 준비했습니다 (카드 그림·이름)", "Game resources ready (card art and names)"));
     }
     // ---- end local resources ----
 
@@ -929,15 +997,21 @@ public sealed partial class AppController : IDisposable
 
     // ---- helpers ------------------------------------------------------------------------------------------
 
+    /// <summary>"팩 sample", or "팩 sample 로드 실패" when the last load failed. Rebuilt on a language change.</summary>
+    private string PackText()
+    {
+        var name = Path.GetFileName(_packDir.TrimEnd('\\', '/'));
+        return _packLoaded ? Loc.T($"팩 {name}", $"Pack {name}") : Loc.T($"팩 {name} 로드 실패", $"Pack {name} failed to load");
+    }
+
     /// <summary>Loads the data pack with <see cref="DataPackLoader.LoadDirectory"/>; an error leaves an empty pack (every card unrated).</summary>
-    private static (RecommendationEngine, CardInfoProvider) LoadPack(string dir, string? catalogPath, PanelViewModel vm)
+    private static (RecommendationEngine, CardInfoProvider, bool Loaded) LoadPack(string dir, string? catalogPath)
     {
         DataPack pack;
-        var name = Path.GetFileName(dir.TrimEnd('\\', '/'));
+        var loaded = true;
         try
         {
             pack = DataPackLoader.LoadDirectory(dir);
-            vm.PackText = $"팩 {name}";
             // The catalog comes from data/catalog next to the packs (DataPackLoader.SiblingCatalogPath). Without it curses
             // and statuses look like unrated cards (e.g. a curse offered as the best upgrade), so say so loudly.
             var catalogText = pack.Catalog is { } cat ? $"{cat.Cards.Count} catalog cards" : "NO CATALOG: curse/status detection off";
@@ -948,29 +1022,30 @@ public sealed partial class AppController : IDisposable
         {
             AppLog.Error($"pack load failed: {dir}", ex);
             pack = new DataPack();
-            vm.PackText = $"팩 {name} 로드 실패";
+            loaded = false;
         }
-        return (new RecommendationEngine(pack), CardInfoProvider.Load(catalogPath, pack));
+        return (new RecommendationEngine(pack), CardInfoProvider.Load(catalogPath, pack), loaded);
     }
 
     private static string ContextTitle(OfferContext c) => c switch
     {
-        OfferContext.EliteReward => "카드 보상 · 엘리트",
-        OfferContext.BossReward => "카드 보상 · 보스",
-        OfferContext.Event => "카드 선택 · 이벤트",
-        OfferContext.Shop => "상점",
-        _ => "카드 보상",
+        OfferContext.EliteReward => Loc.T("카드 보상 · 엘리트", "Card Reward · Elite"),
+        OfferContext.BossReward => Loc.T("카드 보상 · 보스", "Card Reward · Boss"),
+        OfferContext.Event => Loc.T("카드 선택 · 이벤트", "Choose a Card · Event"),
+        OfferContext.Shop => Loc.T("상점", "Shop"),
+        _ => Loc.T("카드 보상", "Card Reward"),
     };
 
-    private static string CharacterName(string id) => id switch
+    /// <summary>The panel's confidence label for a recommendation (cards and events).</summary>
+    private static string ConfidenceText(RecommendationConfidence c) => c switch
     {
-        "CHARACTER.IRONCLAD" => "아이언클래드",
-        "CHARACTER.SILENT" => "사일런트",
-        "CHARACTER.DEFECT" => "디펙트",
-        "CHARACTER.REGENT" => "리젠트",
-        "CHARACTER.NECROBINDER" => "네크로바인더",
-        _ => id.Replace("CHARACTER.", "", StringComparison.Ordinal),
+        RecommendationConfidence.Sure => Loc.T("확신", "Confident"),
+        RecommendationConfidence.Close => Loc.T("박빙", "Close call"),
+        RecommendationConfidence.Estimate => Loc.T("추정", "Estimate"),
+        _ => Loc.T("보통", "Moderate"),
     };
+
+    private static string CharacterName(string id) => ForecastReviewPresenter.CharacterName(id);
 
     private static ChipVm Chip(string label, double value)
         => new($"{label} {value.ToString("+0;-0;0", CultureInfo.InvariantCulture)}", value >= 0);

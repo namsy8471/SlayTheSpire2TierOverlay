@@ -3,12 +3,13 @@ using System.Windows.Media;
 using Sts2Overlay.App.Services;
 using Sts2Overlay.App.ViewModels;
 using Sts2Overlay.Core.Forecast;
+using Sts2Overlay.Core.Localization;
 using Sts2Overlay.Core.Model;
 using Sts2Overlay.Core.Replay;
 
 namespace Sts2Overlay.App.Controllers;
 
-/// <summary>Turns forecast and review results from Core into Korean view models. Pure formatting, no state.</summary>
+/// <summary>Turns forecast and review results from Core into view models in the current language. Pure formatting, no state.</summary>
 internal static class ForecastReviewPresenter
 {
     private const double BarMax = 356;
@@ -28,19 +29,28 @@ internal static class ForecastReviewPresenter
             Name = a.Archetype.DisplayName,
             Color = ParseColor(a.Archetype.Color),
             IsCompleteNow = a.IsCompleteNow,
-            EndText = a.IsCompleteNow ? "완성" : Pct(a.CalibratedIfSurvive),
+            EndText = a.IsCompleteNow ? Loc.T("완성", "Complete") : Pct(a.CalibratedIfSurvive),
             BarWidth = (a.IsCompleteNow ? 1 : a.CalibratedIfSurvive) * BarMax,
             DetailText = a.IsCompleteNow
-                ? $"이미 방향 확정 (몰입 {Pct(a.CurrentCommit)}) · 3막 끝 완성도 평균 {a.EndOfRun.MeanCompletionPercent:0}%"
-                : $"사망 포함 {Pct(a.CalibratedAll)} · 보정 전 {Pct(a.EndOfRun.PComplete)} · 지금 몰입 {Pct(a.CurrentCommit)} · 완성도 {a.CurrentCompletionPercent:0}%",
+                ? Loc.T($"이미 방향 확정 (몰입 {Pct(a.CurrentCommit)}) · 3막 끝 완성도 평균 {a.EndOfRun.MeanCompletionPercent:0}%",
+                        $"Already locked in (commit {Pct(a.CurrentCommit)}) · avg completion at Act 3 end {a.EndOfRun.MeanCompletionPercent:0}%")
+                : Loc.T($"사망 포함 {Pct(a.CalibratedAll)} · 보정 전 {Pct(a.EndOfRun.PComplete)} · 지금 몰입 {Pct(a.CurrentCommit)} · 완성도 {a.CurrentCompletionPercent:0}%",
+                        $"incl. death {Pct(a.CalibratedAll)} · uncalibrated {Pct(a.EndOfRun.PComplete)} · commit now {Pct(a.CurrentCommit)} · completion {a.CurrentCompletionPercent:0}%"),
         }).ToArray();
 
         var e = result.ExpectedUntilEnd;
-        var source = result.UsedMap ? "이번 막은 지도 기준" : "이번 막은 보통 길이 기준";
+        var source = result.UsedMap ? Loc.T("이번 막은 지도 기준", "this act from the Map") : Loc.T("이번 막은 보통 길이 기준", "this act at a typical length");
         var note = result.PoolSize == 0
-            ? "카드 풀 데이터가 없어 지금 덱 기준으로만 표시합니다."
-            : $"큰 숫자 = 3막 보스까지 살아남는다면, 지난 런 기록으로 보정한 값 · 남은 카드 기회 약 {e.Total:0}번 (일반 {e.Normal:0.#} · 엘리트 {e.Elite:0.#} · 보스 {e.Boss:0} · 상점 {e.Shop:0.#}), {source} · 시뮬레이션 {result.Simulations}회 [추정]";
-        return new ForecastSectionVm { Title = "빌드 완성 확률 (살아남는다면 · 사망 포함)", Rows = rows, Note = note };
+            ? Loc.T("카드 풀 데이터가 없어 지금 덱 기준으로만 표시합니다.", "No card pool data: based on the current deck only.")
+            : Loc.T(
+                $"큰 숫자 = 3막 보스까지 살아남는다면, 지난 런 기록으로 보정한 값 · 남은 카드 기회 약 {e.Total:0}번 (일반 {e.Normal:0.#} · 엘리트 {e.Elite:0.#} · 보스 {e.Boss:0} · 상점 {e.Shop:0.#}), {source} · 시뮬레이션 {result.Simulations}회 [추정]",
+                $"Big number = if you survive to the Act 3 Boss, calibrated on past runs · ~{e.Total:0} card chances left (Enemy {e.Normal:0.#} · Elite {e.Elite:0.#} · Boss {e.Boss:0} · Shop {e.Shop:0.#}), {source} · {result.Simulations} simulations [est.]");
+        return new ForecastSectionVm
+        {
+            Title = Loc.T("빌드 완성 확률 (살아남는다면 · 사망 포함)", "Build completion odds (if you survive · incl. death)"),
+            Rows = rows,
+            Note = note,
+        };
     }
 
     /// <summary>
@@ -50,13 +60,14 @@ internal static class ForecastReviewPresenter
     public static BuildSectionVm WithForecast(BuildSectionVm build, ForecastResult? result)
     {
         if (!build.HasContent || build.Archetypes.Count == 0) return build;
-        var byName = new Dictionary<string, ArchetypeForecast>(StringComparer.Ordinal);
-        foreach (var f in result?.Archetypes ?? []) byName.TryAdd(f.Archetype.DisplayName, f);
+        // Matched by archetype id: the display name depends on the language (and two packs could share a name).
+        var byId = new Dictionary<string, ArchetypeForecast>(StringComparer.Ordinal);
+        foreach (var f in result?.Archetypes ?? []) byId.TryAdd(f.Archetype.Id, f);
 
         var changed = false;
         var items = build.Archetypes.Select(a =>
         {
-            var text = byName.TryGetValue(a.Name, out var f) ? ForecastLine(f) : null;
+            var text = byId.TryGetValue(a.Id, out var f) ? ForecastLine(f) : null;
             if (text == a.ProbabilityText) return a;
             changed = true;
             return a with { ProbabilityText = text };
@@ -66,47 +77,56 @@ internal static class ForecastReviewPresenter
 
     internal static string? ForecastLine(ArchetypeForecast f) => f.IsCompleteNow
         ? null
-        : $"3막 끝 완성 확률: 살아남는다면 {Pct(f.CalibratedIfSurvive)} · 사망 포함 {Pct(f.CalibratedAll)} [추정]";
+        : Loc.T($"3막 끝 완성 확률: 살아남는다면 {Pct(f.CalibratedIfSurvive)} · 사망 포함 {Pct(f.CalibratedAll)} [추정]",
+                $"Complete by Act 3 end: {Pct(f.CalibratedIfSurvive)} if you survive · {Pct(f.CalibratedAll)} incl. death [est.]");
 
     public static ReviewSectionVm Review(RunReview review, CardInfoProvider cards, bool showBanner)
     {
         var run = review.Run;
-        var result = run.Win ? "승리" : run.WasAbandoned ? $"포기 ({review.FloorReached}층)" : $"패배 ({review.FloorReached}층)";
+        var result = run.Win ? Loc.T("승리", "Victory")
+            : run.WasAbandoned ? Loc.T($"포기 ({review.FloorReached}층)", $"Abandoned (Floor {review.FloorReached})")
+            : Loc.T($"패배 ({review.FloorReached}층)", $"Defeat (Floor {review.FloorReached})");
         var when = DateTimeOffset.FromUnixTimeSeconds(run.StartTime).ToLocalTime().ToString("MM-dd HH:mm", Inv);
-        var asc = run.Ascension > 0 ? $" · 승천 {run.Ascension}" : "";
-        var coop = run.IsMultiplayer ? " · 협동" : "";
+        var asc = run.Ascension > 0 ? Loc.T($" · 승천 {run.Ascension}", $" · Ascension {run.Ascension}") : "";
+        var coop = run.IsMultiplayer ? Loc.T(" · 협동", " · Multiplayer") : "";
 
         var rate = review.AgreementRate;
         var agreement = review.Decisions == 0
-            ? "비교할 카드 선택이 없습니다"
-            : $"카드 선택 {review.Decisions}번 · 추천 1순위와 같은 선택 {review.Agreements}번 ({Pct(rate ?? 0)})";
-        if (review.ShopVisits > 0) agreement += $" · 상점 {review.ShopVisits}번은 제외";
+            ? Loc.T("비교할 카드 선택이 없습니다", "No card picks to compare")
+            : Loc.T($"카드 선택 {review.Decisions}번 · 추천 1순위와 같은 선택 {review.Agreements}번 ({Pct(rate ?? 0)})",
+                    $"{review.Decisions} card picks · {review.Agreements} matched the top pick ({Pct(rate ?? 0)})");
+        if (review.ShopVisits > 0) agreement += Loc.T($" · 상점 {review.ShopVisits}번은 제외", $" · {review.ShopVisits} Shop visits left out");
 
         var build = review.Build;
         string buildText;
         if (build.Primary is not { } p || p.Commit <= 0)
         {
-            buildText = "뚜렷한 빌드 없이 끝났습니다";
+            buildText = Loc.T("뚜렷한 빌드 없이 끝났습니다", "Ended without a clear build");
         }
         else
         {
-            var name = p.Archetype.DisplayName + (build.HybridWith is { } h ? $" + {h.Archetype.DisplayName} (하이브리드)" : "");
-            buildText = $"{(p.IsCommitted ? "완성된 빌드" : "가장 가까웠던 빌드")}: {name} · 몰입 {Pct(p.Commit)} · 완성도 {p.CompletionPercent:0}%";
-            if (build.CommittedAtFloor is { } f) buildText += $" · {f}층에 방향 확정";
-            buildText += $" · 덱 {build.DeckSize}장";
+            var name = p.Archetype.DisplayName + (build.HybridWith is { } h ? Loc.T($" + {h.Archetype.DisplayName} (하이브리드)", $" + {h.Archetype.DisplayName} (hybrid)") : "");
+            buildText = Loc.T(
+                $"{(p.IsCommitted ? "완성된 빌드" : "가장 가까웠던 빌드")}: {name} · 몰입 {Pct(p.Commit)} · 완성도 {p.CompletionPercent:0}%",
+                $"{(p.IsCommitted ? "Completed build" : "Closest build")}: {name} · commit {Pct(p.Commit)} · completion {p.CompletionPercent:0}%");
+            if (build.CommittedAtFloor is { } f) buildText += Loc.T($" · {f}층에 방향 확정", $" · locked in on Floor {f}");
+            buildText += Loc.T($" · 덱 {build.DeckSize}장", $" · deck {build.DeckSize} cards");
         }
 
         var disagreements = review.BiggestDisagreements.Select(d => new ReviewDisagreementVm
         {
-            Header = $"{d.Floor}층 · {ContextLabel(d.Context)}",
-            OfferedText = "제시: " + string.Join(", ", d.Offered.Select(cards.Name)),
-            ChoiceText = $"추천 {Choice(d.EnginePick, cards)} ({Fmt(d.EngineScore)}) · 내 선택 {Choice(d.UserPick, cards)} ({Fmt(d.UserScore)})",
-            GapText = $"−{Fmt(d.Gap)}점",
+            Header = Loc.T($"{d.Floor}층 · {ContextLabel(d.Context)}", $"Floor {d.Floor} · {ContextLabel(d.Context)}"),
+            OfferedText = Loc.T("제시: ", "Offered: ") + string.Join(", ", d.Offered.Select(cards.Name)),
+            ChoiceText = Loc.T(
+                $"추천 {Choice(d.EnginePick, cards)} ({Fmt(d.EngineScore)}) · 내 선택 {Choice(d.UserPick, cards)} ({Fmt(d.UserScore)})",
+                $"Pick {Choice(d.EnginePick, cards)} ({Fmt(d.EngineScore)}) · You {Choice(d.UserPick, cards)} ({Fmt(d.UserScore)})"),
+            GapText = Loc.T($"−{Fmt(d.Gap)}점", $"−{Fmt(d.Gap)} pts"),
         }).ToArray();
 
         var banner = review.Decisions == 0
-            ? "런 리뷰가 준비됐습니다"
-            : $"런 리뷰: 추천 일치 {Pct(rate ?? 0)} · 큰 차이 {disagreements.Length}번";
+            ? Loc.T("런 리뷰가 준비됐습니다", "Run review is ready")
+            : Loc.T($"런 리뷰: 추천 일치 {Pct(rate ?? 0)} · 큰 차이 {disagreements.Length}번",
+                    $"Run review: {Pct(rate ?? 0)} matched picks · {disagreements.Length} big gaps");
 
         return new ReviewSectionVm
         {
@@ -117,31 +137,33 @@ internal static class ForecastReviewPresenter
             BuildColor = ParseColor(build.Primary?.Archetype.Color),
             Disagreements = disagreements,
             Note = disagreements.Length == 0 && review.Decisions > 0
-                ? "모든 카드 선택이 추천 1순위와 같았습니다."
-                : "점수 차 = 추천 1순위 점수 − 내 선택 점수 (지금 데이터 팩 기준으로 다시 계산) [추정]",
+                ? Loc.T("모든 카드 선택이 추천 1순위와 같았습니다.", "Every card pick matched the top pick.")
+                : Loc.T("점수 차 = 추천 1순위 점수 − 내 선택 점수 (지금 데이터 팩 기준으로 다시 계산) [추정]",
+                        "Gap = top pick score − your pick score (recomputed with the current data pack) [est.]"),
             ShowBanner = showBanner,
             BannerText = banner,
         };
     }
 
-    private static string Choice(CardRef? card, CardInfoProvider cards) => card is { } c ? cards.Name(c) : "스킵";
+    private static string Choice(CardRef? card, CardInfoProvider cards) => card is { } c ? cards.Name(c) : Loc.T("스킵", "Skip");
 
     private static string ContextLabel(OfferContext c) => c switch
     {
-        OfferContext.EliteReward => "엘리트",
-        OfferContext.BossReward => "보스",
-        OfferContext.Event => "이벤트",
-        OfferContext.Shop => "상점",
-        _ => "일반 전투",
+        OfferContext.EliteReward => Loc.T("엘리트", "Elite"),
+        OfferContext.BossReward => Loc.T("보스", "Boss"),
+        OfferContext.Event => Loc.T("이벤트", "Event"),
+        OfferContext.Shop => Loc.T("상점", "Shop"),
+        _ => Loc.T("일반 전투", "Enemy"),
     };
 
+    /// <summary>Character display name (game titles: "The Ironclad" …); an unknown id loses its prefix.</summary>
     internal static string CharacterName(string id) => id switch
     {
-        "CHARACTER.IRONCLAD" => "아이언클래드",
-        "CHARACTER.SILENT" => "사일런트",
-        "CHARACTER.DEFECT" => "디펙트",
-        "CHARACTER.REGENT" => "리젠트",
-        "CHARACTER.NECROBINDER" => "네크로바인더",
+        "CHARACTER.IRONCLAD" => Loc.T("아이언클래드", "The Ironclad"),
+        "CHARACTER.SILENT" => Loc.T("사일런트", "The Silent"),
+        "CHARACTER.DEFECT" => Loc.T("디펙트", "The Defect"),
+        "CHARACTER.REGENT" => Loc.T("리젠트", "The Regent"),
+        "CHARACTER.NECROBINDER" => Loc.T("네크로바인더", "The Necrobinder"),
         _ => id.Replace("CHARACTER.", "", StringComparison.Ordinal),
     };
 

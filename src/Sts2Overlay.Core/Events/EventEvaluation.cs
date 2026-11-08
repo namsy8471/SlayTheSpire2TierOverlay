@@ -27,7 +27,7 @@ public sealed record EventOptionEvaluation
     /// <summary>The option has a random outcome (an effect with a chance, or a random pick).</summary>
     public bool IsRandom { get; init; }
 
-    /// <summary>Korean one-liners describing what the option does, in effect order (e.g. "체력 9 잃음").</summary>
+    /// <summary>One-liners in the current language (<see cref="Localization.Loc"/>) describing what the option does, in effect order (e.g. "체력 9 잃음" / "Lose 9 HP").</summary>
     public IReadOnlyList<string> EffectTexts { get; init; } = [];
 
     /// <summary>HP of the option's training-dummy fight after multiplayer scaling; null when it has none.</summary>

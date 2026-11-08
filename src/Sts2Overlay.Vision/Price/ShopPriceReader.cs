@@ -22,6 +22,12 @@ public enum PriceTint
 /// <param name="Bounds">The digits' bounding box in frame pixels.</param>
 public sealed record PriceReading(int? Value, string Text, PriceTint Tint, float MinScore, float MinMargin, bool Plausible, PixelRect Bounds)
 {
+    /// <summary>The template set (<see cref="PriceGlyphs.Name"/>) that matched the digits best.</summary>
+    public string Font { get; init; } = "";
+
+    /// <summary>How much better the chosen set's worst digit matched than that of a set reading other digits (1 = none did).</summary>
+    public float FontGap { get; init; } = 1;
+
     /// <summary>The label is red: the game itself says the player cannot pay for it right now.</summary>
     public bool Unaffordable => Tint == PriceTint.Red;
 
@@ -38,6 +44,13 @@ public sealed record PriceReaderOptions
     public float MinDigitScore { get; init; } = 0.60f;
     /// <summary>... and beat the second-best digit by this much.</summary>
     public float MinDigitMargin { get; init; } = 0.04f;
+    /// <summary>
+    /// When two template sets (fonts) read DIFFERENT digits, the better one's worst digit must beat the other's by
+    /// this much; otherwise the label is unclear (calibrated with <c>TitleBench digits</c> and the price bench).
+    /// </summary>
+    public float MinFontGap { get; init; } = 0.10f;
+    /// <summary>Template sets to try (one per label font); null = every committed one (<see cref="PriceGlyphs.All"/>).</summary>
+    public IReadOnlyList<PriceGlyphs>? Glyphs { get; init; }
     /// <summary>Relic price factors allowed by the plausibility check (null = all known ones).</summary>
     public IReadOnlyList<double>? PriceFactors { get; init; }
 }
@@ -52,7 +65,8 @@ public sealed record PriceReaderOptions
 /// digit separates neighbouring digits.</item>
 /// <item><b>Connected components</b> of the mask; pieces of one glyph that overlap horizontally are merged.</item>
 /// <item><b>Digit row.</b> Components about one digit high, on a common baseline and close together.</item>
-/// <item><b>Classify</b> each digit by NCC against 10 templates (<see cref="PriceGlyphs"/>).</item>
+/// <item><b>Classify</b> each digit by NCC against 10 templates (<see cref="PriceGlyphs"/>), once per font (the label
+/// font depends on the game language); the set whose worst digit matches best wins.</item>
 /// <item><b>Check</b> the number against the game's price rules (<see cref="ShopPriceRules"/>).</item>
 /// </list>
 /// Thread-safe: all scratch memory is per call.
@@ -62,7 +76,7 @@ public sealed class ShopPriceReader
     /// <summary>The label box under the card (merchant_card.tscn "Cost": y 220..278 in card units), padded a bit.</summary>
     public static readonly RectF LabelBox = new(-150, 212, 300, 76);
 
-    /// <summary>Height of a digit (Kreon Bold 39 px cap height) in card units; measured on the captures.</summary>
+    /// <summary>Height of a digit (font size 39; GyeonggiBatang and Kreon Bold figures are equally tall) in card units; measured on the captures.</summary>
     public const float DigitHeight = 26.6f;
 
     /// <summary>Vertical centre of the digits in card units (the label is vertically centred in its 220..278 box).</summary>
@@ -85,17 +99,40 @@ public sealed class ShopPriceReader
     /// <summary>Most bright non-label coverage allowed around the digits before the label counts as partly covered.</summary>
     public const float MaxOccluderFraction = 0.05f;
 
-    /// <summary>Slack around <see cref="PriceGlyphs.WidthRange"/>: one grid cell at the smallest label size (1/17).</summary>
+    /// <summary>Slack around <see cref="PriceGlyphs.Widths"/>: one grid cell at the smallest label size (1/17).</summary>
     public const float WidthTolerance = 0.06f;
 
-    private readonly PriceGlyphs _glyphs;
+    private readonly IReadOnlyList<PriceGlyphs> _sets;
 
     public PriceReaderOptions Options { get; }
 
+    /// <param name="glyphs">One template set to use; null = <see cref="PriceReaderOptions.Glyphs"/>.</param>
+    /// <param name="options">Thresholds; null = the calibrated defaults.</param>
     public ShopPriceReader(PriceGlyphs? glyphs = null, PriceReaderOptions? options = null)
     {
-        _glyphs = glyphs ?? PriceGlyphs.Default;
         Options = options ?? new PriceReaderOptions();
+        _sets = glyphs != null ? [glyphs] : Options.Glyphs ?? PriceGlyphs.All;
+    }
+
+    private sealed record Digits(PriceGlyphs Set, string Text, float MinScore, float MinMargin, bool WidthsOk);
+
+    /// <summary>The row's digits read with one template set; null when a glyph is blank.</summary>
+    private static Digits? Classify(PriceGlyphs set, DigitRow row)
+    {
+        var text = new char[row.Glyphs.Count];
+        float minScore = 1, minMargin = 1;
+        bool widthsOk = true;
+        for (int i = 0; i < row.Glyphs.Count; i++)
+        {
+            (int d, float s, float m) = set.Classify(row.Glyphs[i]);
+            if (d < 0) return null;
+            text[i] = (char)('0' + d);
+            minScore = Math.Min(minScore, s);
+            minMargin = Math.Min(minMargin, m);
+            (float lo, float hi) = set.Widths[d];
+            if (i < row.Widths.Count && (row.Widths[i] < lo - WidthTolerance || row.Widths[i] > hi + WidthTolerance)) widthsOk = false;
+        }
+        return new Digits(set, new string(text), minScore, minMargin, widthsOk);
     }
 
     /// <summary>
@@ -107,20 +144,19 @@ public sealed class ShopPriceReader
     {
         DigitRow? row = Segment(frame, cx, cy, scale);
         if (row == null) return null;
-        var text = new char[row.Glyphs.Count];
-        float minScore = 1, minMargin = 1;
-        bool widthsOk = true;
-        for (int i = 0; i < row.Glyphs.Count; i++)
-        {
-            (int d, float s, float m) = _glyphs.Classify(row.Glyphs[i]);
-            if (d < 0) return null;
-            text[i] = (char)('0' + d);
-            minScore = Math.Min(minScore, s);
-            minMargin = Math.Min(minMargin, m);
-            (float lo, float hi) = PriceGlyphs.WidthRange[d];
-            if (i < row.Widths.Count && (row.Widths[i] < lo - WidthTolerance || row.Widths[i] > hi + WidthTolerance)) widthsOk = false;
-        }
-        string digits = new(text);
+        // Every font's reading. A font whose digit widths do not fit is the wrong font; among the rest, the one whose
+        // WORST digit fits best wins (a wrong font has at least one poor digit).
+        var readings = new List<Digits>(_sets.Count);
+        foreach (PriceGlyphs set in _sets)
+            if (Classify(set, row) is { } r) readings.Add(r);
+        if (readings.Count == 0) return null;
+        Digits best = readings.OrderByDescending(r => r.WidthsOk).ThenByDescending(r => r.MinScore).First();
+        // Another font that fits as well and reads a DIFFERENT number about equally well: do not guess.
+        Digits? rival = readings.Where(r => r != best && r.Text != best.Text && r.WidthsOk == best.WidthsOk)
+            .OrderByDescending(r => r.MinScore).FirstOrDefault();
+        float fontGap = rival == null ? 1 : best.MinScore - rival.MinScore;
+        bool fontClear = fontGap >= Options.MinFontGap;
+        (string digits, float minScore, float minMargin, bool widthsOk) = (best.Text, best.MinScore, best.MinMargin, best.WidthsOk);
         int value = int.Parse(digits, System.Globalization.CultureInfo.InvariantCulture);
         bool plausible = digits[0] != '0' && ShopPriceRules.IsPlausible(value, kind, rarity, Options.PriceFactors);
         // Is this the WHOLE number? A digit hidden under the merchant's hand would leave a shorter, still
@@ -128,8 +164,12 @@ public sealed class ShopPriceReader
         // and the block is centred where complete numbers are (a missing digit shifts it by half a digit).
         bool complete = row.CoinFraction >= MinCoinFraction && Math.Abs(row.CenterX - DigitBlockCenterX) <= DigitBlockTolerance
                         && row.OccluderFraction <= MaxOccluderFraction;
-        bool clear = minScore >= Options.MinDigitScore && minMargin >= Options.MinDigitMargin && complete && widthsOk;
-        return new PriceReading(plausible && clear ? value : null, digits, row.Tint, minScore, minMargin, plausible, row.Bounds);
+        bool clear = minScore >= Options.MinDigitScore && minMargin >= Options.MinDigitMargin && complete && widthsOk && fontClear;
+        return new PriceReading(plausible && clear ? value : null, digits, row.Tint, minScore, minMargin, plausible, row.Bounds)
+        {
+            Font = best.Set.Name,
+            FontGap = fontGap,
+        };
     }
 
     // ------------------------------------------------------------------ segmentation
@@ -318,7 +358,7 @@ public sealed class ShopPriceReader
             {
                 Comp prev = current[^1];
                 int gap = c.MinX - prev.MaxX - 1;
-                // Kreon's digits are all the same height, so a height jump means "not the same row" (e.g. a fingernail).
+                // Lining figures (both fonts) are all the same height, so a height jump means "not the same row" (e.g. a fingernail).
                 bool sameHeight = Math.Max(c.H, prev.H) <= 1.2f * Math.Min(c.H, prev.H);
                 if (gap > 0.6f * hExp || gap < -0.2f * hExp || Math.Abs(c.CenterY - prev.CenterY) > 0.2f * hExp || !sameHeight)
                 {

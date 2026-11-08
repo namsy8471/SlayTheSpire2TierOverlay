@@ -3,6 +3,7 @@ using Sts2Overlay.App.Integration;
 using Sts2Overlay.App.Interop;
 using Sts2Overlay.App.Services;
 using Sts2Overlay.App.Views;
+using Sts2Overlay.Core.Localization;
 using Sts2Overlay.Core.Map;
 
 namespace Sts2Overlay.App.Controllers;
@@ -46,7 +47,10 @@ public sealed partial class AppController
         _settings.MapOverlay = !_settings.MapOverlay;
         SettingsStore.Save(AppPaths.SettingsFile, _settings);
         AppLog.Info($"map overlay = {_settings.MapOverlay}");
-        ShowMessage(_settings.MapOverlay ? "게임 화면 위 추천 켜짐: 맵의 추천 노드·경로, 휴식처의 추천 버튼·강화 카드를 표시합니다" : "게임 화면 위 추천 꺼짐 (맵·휴식처)");
+        ShowMessage(_settings.MapOverlay
+            ? Loc.T("게임 화면 위 추천 켜짐: 맵의 추천 노드·경로, 휴식처의 추천 버튼·강화 카드를 표시합니다",
+                    "On-screen picks on: the recommended node and path on the Map, the Rest Site option and card to Upgrade")
+            : Loc.T("게임 화면 위 추천 꺼짐 (맵·휴식처)", "On-screen picks off (Map and Rest Site)"));
         UpdateMapTarget(_snapshot);
         UpdateVisibility();
         UpdateCadence();

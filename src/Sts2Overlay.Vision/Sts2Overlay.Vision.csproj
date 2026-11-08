@@ -22,6 +22,7 @@
     <InternalsVisibleTo Include="Sts2Overlay.Vision.Tests" />
     <InternalsVisibleTo Include="VisionBench" />
     <InternalsVisibleTo Include="MapBench" />
+    <InternalsVisibleTo Include="TitleBench" />
   </ItemGroup>
 </Project>
 

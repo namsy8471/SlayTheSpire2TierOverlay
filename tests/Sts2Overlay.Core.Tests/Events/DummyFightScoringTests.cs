@@ -1,6 +1,7 @@
 using Sts2Overlay.Core.Combat;
 using Sts2Overlay.Core.Data;
 using Sts2Overlay.Core.Events;
+using Sts2Overlay.Core.Localization;
 using Sts2Overlay.Core.Model;
 
 namespace Sts2Overlay.Core.Tests.Events;
@@ -53,6 +54,20 @@ public class DummyFightScoringTests
         Assert.Contains(Option(e, Setting1).EffectTexts, t => t.Contains("체력 75 인형을 3턴 안에 처치 · 예상 확률 100%"));
         Assert.All(e.Options, o => Assert.False(o.HasUnmodelled));
         Assert.NotNull(e.Forecast);
+    }
+
+    [Fact]
+    public void English_effect_texts_for_the_dummy()
+    {
+        using var _ = Loc.Use(Lang.Eng);
+
+        var known = Evaluate(new EventContext { Forecast = Always(100) });
+        var unknown = Evaluate(null);
+
+        Assert.Contains(Option(known, Setting1).EffectTexts, t => t.Contains("Kill the 75 HP dummy within 3 turns · est. chance 100%"));
+        Assert.Contains(Option(unknown, Setting1).EffectTexts, t => t.Contains("Kill the 75 HP dummy within 3 turns"));
+        Assert.All(known.Options.Concat(unknown.Options).SelectMany(o => o.EffectTexts),
+            t => Assert.DoesNotMatch("[가-힣]", t));
     }
 
     [Fact]

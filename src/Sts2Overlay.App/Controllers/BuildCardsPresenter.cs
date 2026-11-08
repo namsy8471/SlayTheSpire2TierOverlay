@@ -1,6 +1,7 @@
 using Sts2Overlay.App.ViewModels;
 using Sts2Overlay.Core.Archetypes;
 using Sts2Overlay.Core.Data;
+using Sts2Overlay.Core.Localization;
 
 namespace Sts2Overlay.App.Controllers;
 
@@ -11,16 +12,18 @@ namespace Sts2Overlay.App.Controllers;
 /// </summary>
 internal static class BuildCardsPresenter
 {
-    private static readonly (string Role, string Title)[] RoleOrder =
-    [
-        (ArchetypeRoles.Core, "핵심"),
-        (ArchetypeRoles.Payoff, "완성"),
-        (ArchetypeRoles.Enabler, "조력"),
-        (ArchetypeRoles.Support, "보조"),
-    ];
+    /// <summary>Roles in display order. Titles come from <see cref="RoleName"/>, so they follow the current language.</summary>
+    private static readonly string[] RoleOrder = [ArchetypeRoles.Core, ArchetypeRoles.Payoff, ArchetypeRoles.Enabler, ArchetypeRoles.Support];
 
-    public static string RoleName(string role)
-        => RoleOrder.FirstOrDefault(r => r.Role == role).Title ?? role;
+    /// <summary>Display name of an archetype card role ("핵심" / "Core" …); an unknown role is shown as it is.</summary>
+    public static string RoleName(string role) => role switch
+    {
+        ArchetypeRoles.Core => Loc.T("핵심", "Core"),
+        ArchetypeRoles.Payoff => Loc.T("완성", "Payoff"),
+        ArchetypeRoles.Enabler => Loc.T("조력", "Enabler"),
+        ArchetypeRoles.Support => Loc.T("보조", "Support"),
+        _ => role,
+    };
 
     /// <param name="canonical">Alias → canonical card id (<see cref="DataPack.Canonical"/>); OwnedCards holds canonical ids.</param>
     /// <param name="card">Builds the tile for (canonical id, role title, owned).</param>
@@ -31,8 +34,9 @@ internal static class BuildCardsPresenter
         // A card listed under two roles is shown once, under the first (same rule as ArchetypeDetector).
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var groups = new List<BuildCardGroupVm>();
-        foreach (var (role, title) in RoleOrder)
+        foreach (var role in RoleOrder)
         {
+            var title = RoleName(role);
             var cards = ListFor(status.Archetype.Cards, role)
                 .Select(canonical)
                 .Where(seen.Add)
@@ -48,7 +52,7 @@ internal static class BuildCardsPresenter
     public static string Summary(IReadOnlyList<BuildCardGroupVm> groups)
     {
         var all = groups.SelectMany(g => g.Cards).ToArray();
-        return $"카드 {all.Count(c => c.Owned)}/{all.Length} 보유";
+        return Loc.T($"카드 {all.Count(c => c.Owned)}/{all.Length} 보유", $"Cards {all.Count(c => c.Owned)}/{all.Length} owned");
     }
 
     private static List<string> ListFor(ArchetypeCards cards, string role) => role switch

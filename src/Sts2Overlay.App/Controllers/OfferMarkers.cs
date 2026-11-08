@@ -1,5 +1,6 @@
 using System.Globalization;
 using Sts2Overlay.App.ViewModels;
+using Sts2Overlay.Core.Localization;
 using Sts2Overlay.Core.Scoring;
 using Sts2Overlay.Core.Shop;
 
@@ -14,8 +15,11 @@ namespace Sts2Overlay.App.Controllers;
 /// </summary>
 public static class OfferMarkers
 {
-    public const string RecommendRibbon = "추천!";
-    public const string BuyRibbon = "구매!";
+    /// <summary>Ribbon on the recommended card's badge (a property, so it follows the current language).</summary>
+    public static string RecommendRibbon => Loc.T("추천!", "Pick!");
+
+    /// <summary>Ribbon on a shop card worth buying.</summary>
+    public static string BuyRibbon => Loc.T("구매!", "Buy!");
 
     /// <summary>At most this many chips under a card: more would be a wall of text over the game.</summary>
     public const int MaxChips = 2;
@@ -54,6 +58,8 @@ public static class OfferMarkers
     {
         var removal = eval.RecommendedPurchase.FirstOrDefault(i => i.Kind == ShopItemKind.CardRemoval);
         if (removal is null) return null;
-        return removal.RemovalTarget is { } id ? $"제거 추천: {cardName(id)}" : "제거 추천";
+        return removal.RemovalTarget is { } id
+            ? Loc.T($"제거 추천: {cardName(id)}", $"Remove: {cardName(id)}")
+            : Loc.T("제거 추천", "Remove a card");
     }
 }

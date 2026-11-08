@@ -5,6 +5,7 @@ using Sts2Overlay.App.ViewModels;
 using Sts2Overlay.App.Views;
 using Sts2Overlay.Core.Combat;
 using Sts2Overlay.Core.Events;
+using Sts2Overlay.Core.Localization;
 using Sts2Overlay.Core.Scoring;
 using Sts2Overlay.GameState.Tracking;
 using Sts2Overlay.Vision;
@@ -114,7 +115,7 @@ public sealed partial class AppController
         var tracked = ((GameStateAdapter)_source!).Tracked!;
         var context = EventContextFor(active.EventId, tracked, run);
         var key = $"{active.EventId}|{page}|{string.Join(",", keys ?? [])}|{run.Hp}/{run.MaxHp}|{run.Gold}|{run.Deck.Count}"
-                  + $"|{context.PlayerCount}|{(context.Forecast is null ? "-" : _dummy?.Key)}#{_engineVersion}";
+                  + $"|{context.PlayerCount}|{(context.Forecast is null ? "-" : _dummy?.Key)}#{_engineVersion}@{Loc.CurrentCode}";
         if (key == _eventKey)
         {
             ShowEventMarkers(); // same options; the buttons may have moved
@@ -140,6 +141,12 @@ public sealed partial class AppController
         var first = _lastEvent?.Event.Id != eval.Event.Id;
         _lastEvent = eval;
         _vm.Offer = EventOffer(eval, active, match);
+        _offerSource = null;
+        // Core bakes its reason labels in the current language when it scores, so a re-render scores again.
+        var scorer = _eventScorer;
+        _eventOfferRebuild = () => scorer.Evaluate(run, active.EventId, keys, page, active.PossibleKeys) is { } again
+            ? EventOffer(again, active, match)
+            : null;
         if (first) _vm.SelectedTab = PanelTab.Offer;
         AppLog.Info($"event {eval.Event.Id} page {eval.Page} ({active.Source}{(match is null ? "" : $", {match.Keys.Count} buttons on screen")}): best {eval.Best?.Option.Key ?? "-"}");
         if (eval.Forecast is { } fc)
@@ -211,12 +218,12 @@ public sealed partial class AppController
         {
             var o = eval.Options[i];
             var b = match.Buttons[i];
-            var warning = o.IsLethal ? "죽음 위험"
-                : o.Option.Key.EndsWith(EventSlots.LockedSuffix, StringComparison.Ordinal) ? "잠김"
-                : o.IsUnaffordable ? "골드 부족"
-                : o.WinChance < HardKill ? "처치 어려움"
+            var warning = o.IsLethal ? LethalText()
+                : o.Option.Key.EndsWith(EventSlots.LockedSuffix, StringComparison.Ordinal) ? LockedText()
+                : o.IsUnaffordable ? NoGoldText()
+                : o.WinChance < HardKill ? HardKillText()
                 : null;
-            var score = o.WinChance is { } w ? $"{Fmt(o.Total)} · 처치 {w * 100:0}%" : Fmt(o.Total);
+            var score = o.WinChance is { } w ? Loc.T($"{Fmt(o.Total)} · 처치 {w * 100:0}%", $"{Fmt(o.Total)} · kill {w * 100:0}%") : Fmt(o.Total);
             specs.Add(new EventMarkerSpec(new PixelRect(b.X + _eventOrigin.X, b.Y + _eventOrigin.Y, b.Width, b.Height),
                 o.Rank, o.IsBest, score, warning));
         }
@@ -274,29 +281,29 @@ public sealed partial class AppController
         // An ancient's options that weren't drawn this time: their own ranking, below, for reference.
         var extra = eval.NotOffered.Select(o => EventRow(o, rankOnly: true)).ToList();
 
-        var source = active.Source == EventSource.Log ? "로그" : active.Certain ? "세이브 예측" : "세이브 예측 (추정)";
-        var options = match is not null ? " · 화면 버튼 일치"
-            : active.OptionsReplayed ? " · 선택지는 시드로 계산"
+        var source = active.Source == EventSource.Log ? Loc.T("로그", "log")
+            : active.Certain ? Loc.T("세이브 예측", "save prediction")
+            : Loc.T("세이브 예측 (추정)", "save prediction (est.)");
+        var options = match is not null ? Loc.T(" · 화면 버튼 일치", " · matches the buttons on screen")
+            : active.OptionsReplayed ? Loc.T(" · 선택지는 시드로 계산", " · options from the seed")
             : eval.OptionsExact ? ""
-            : " · 선택지는 데이터 기준";
+            : Loc.T(" · 선택지는 데이터 기준", " · options from data");
         return new OfferSectionVm
         {
-            Title = $"이벤트 · {_eventText.EventTitle(eval.Event.Id)}",
-            ConfidenceText = eval.Confidence switch
-            {
-                RecommendationConfidence.Sure => "확신",
-                RecommendationConfidence.Close => "박빙",
-                RecommendationConfidence.Estimate => "추정",
-                _ => "보통",
-            },
+            Title = Loc.T($"이벤트 · {_eventText.EventTitle(eval.Event.Id)}", $"Event · {_eventText.EventTitle(eval.Event.Id)}"),
+            ConfidenceText = ConfidenceText(eval.Confidence),
             ConfidenceKind = eval.Confidence.ToString(),
             FlipHint = eval.Forecast is { } f ? ForecastText(f, eval.ForecastNotes)
-                : eval.Event.Id == DummyFight.EventId && _dummyPending is not null ? "예상 피해 계산 중…"
+                : eval.Event.Id == DummyFight.EventId && _dummyPending is not null ? Loc.T("예상 피해 계산 중…", "Estimating damage…")
                 : null,
             Rows = rows,
-            Footer = (eval.Best is { } best ? $"추천: {_eventText.OptionTitle(best.Option.Key)}" : "추천 없음")
-                     + $" · 인식: {source}{options}",
-            ExtraTitle = extra.Count > 0 ? $"이번에 안 나온 선택지 {extra.Count}개 · 참고 순위" : null,
+            Footer = (eval.Best is { } best
+                         ? Loc.T($"추천: {_eventText.OptionTitle(best.Option.Key)}", $"Pick: {_eventText.OptionTitle(best.Option.Key)}")
+                         : Loc.T("추천 없음", "No pick"))
+                     + Loc.T($" · 인식: {source}{options}", $" · source: {source}{options}"),
+            ExtraTitle = extra.Count > 0
+                ? Loc.T($"이번에 안 나온 선택지 {extra.Count}개 · 참고 순위", $"{extra.Count} options not offered this time · ranked for reference")
+                : null,
             ExtraRows = extra,
         };
     }
@@ -304,14 +311,19 @@ public sealed partial class AppController
     /// <summary>One option row. <paramref name="rankOnly"/>: the sub line is just "N위" (one-line rows of the lower block).</summary>
     private OfferRowVm EventRow(EventOptionEvaluation o, bool rankOnly = false)
     {
-        var sub = new List<string> { $"{o.Rank}위" };
+        var sub = new List<string> { Loc.T($"{o.Rank}위", $"#{o.Rank}") };
         if (!rankOnly)
         {
-            if (o.IsLethal) sub.Add("죽음 위험");
-            if (o.IsUnaffordable) sub.Add(o.Option.Key.EndsWith(EventSlots.LockedSuffix, StringComparison.Ordinal) ? "잠김" : "골드 부족");
-            if (o.WinChance is { } w) sub.Add(w < HardKill ? $"처치 어려움 ({w * 100:0}%)" : $"처치 확률 {w * 100:0}%");
-            else if (o.IsRandom) sub.Add("운 요소");
-            if (o.HasUnmodelled) sub.Add("일부 효과 미반영");
+            if (o.IsLethal) sub.Add(LethalText());
+            if (o.IsUnaffordable) sub.Add(o.Option.Key.EndsWith(EventSlots.LockedSuffix, StringComparison.Ordinal) ? LockedText() : NoGoldText());
+            if (o.WinChance is { } w)
+            {
+                sub.Add(w < HardKill
+                    ? Loc.T($"처치 어려움 ({w * 100:0}%)", $"Hard to kill ({w * 100:0}%)")
+                    : Loc.T($"처치 확률 {w * 100:0}%", $"Kill chance {w * 100:0}%"));
+            }
+            else if (o.IsRandom) sub.Add(Loc.T("운 요소", "Random"));
+            if (o.HasUnmodelled) sub.Add(Loc.T("일부 효과 미반영", "Some effects not modeled"));
         }
         return new OfferRowVm
         {
@@ -345,6 +357,17 @@ public sealed partial class AppController
 
     private static string DisplayEffect(string text) => text.Length > 60 ? text[..57] + "…" : text;
 
+    private static string LethalText() => Loc.T("죽음 위험", "Lethal risk");
+
+    private static string LockedText() => Loc.T("잠김", "Locked");
+
+    private static string NoGoldText() => Loc.T("골드 부족", "Not enough Gold");
+
+    private static string HardKillText() => Loc.T("처치 어려움", "Hard to kill");
+
+    /// <summary>Re-scores and re-formats the last event offer shown (also after the room closed and it went stale); null when none.</summary>
+    private Func<OfferSectionVm?>? _eventOfferRebuild;
+
     // ---- training dummy: 3-turn damage forecast ----------------------------------------------------------------------
 
     /// <summary>Below this kill chance an option is flagged "처치 어려움".</summary>
@@ -356,8 +379,9 @@ public sealed partial class AppController
     /// </summary>
     private static string ForecastText(DamageForecast f, IReadOnlyList<string> notes)
     {
-        var turns = string.Join(" · ", f.MeanPerTurn.Select((t, i) => $"{i + 1}턴 {t:0}"));
-        var line = $"예상 피해 (자동 플레이, 포션 제외) · {turns} · 합계 평균 {f.Mean:0}";
+        var turns = string.Join(" · ", f.MeanPerTurn.Select((t, i) => Loc.T($"{i + 1}턴 {t:0}", $"turn {i + 1} {t:0}")));
+        var line = Loc.T($"예상 피해 (자동 플레이, 포션 제외) · {turns} · 합계 평균 {f.Mean:0}",
+            $"Expected damage (auto-play, no potions) · {turns} · total avg {f.Mean:0}");
         return notes.Count == 0 ? line : line + Environment.NewLine + string.Join(" · ", notes);
     }
 
@@ -397,7 +421,8 @@ public sealed partial class AppController
         static string Deck(IEnumerable<Core.Model.DeckCard> cards)
             => string.Join(",", cards.Select(c => $"{c.Id}+{c.Upgrade}{(c.EnchantmentId is null ? "" : $"/{c.EnchantmentId}{c.EnchantmentAmount}")}"));
         var partners = string.Join(";", tracked.Partners.Select(p => $"{p.Character}:{Deck(p.Deck)}:{string.Join(",", p.Relics)}"));
-        return $"{tracked.PlayerCount}|{run.Character}|{Deck(run.Deck)}|{string.Join(",", run.Relics)}|{partners}";
+        // The language too: the forecast's notes (and the card names in them) are written once, in the current language.
+        return $"{tracked.PlayerCount}|{run.Character}|{Deck(run.Deck)}|{string.Join(",", run.Relics)}|{partners}@{Loc.CurrentCode}";
     }
 
     /// <summary>
@@ -427,11 +452,22 @@ public sealed partial class AppController
         var forecast = DummyFight.Forecast(sim, everyone);
 
         var notes = new List<string>();
-        if (assumed > 0) notes.Add($"동료 {assumed}명은 덱을 몰라 내 덱 피해로 가정");
-        if (tracked.DeckApproximate) notes.Add("덱 일부가 추정");
+        if (assumed > 0)
+        {
+            notes.Add(Loc.T($"동료 {assumed}명은 덱을 몰라 내 덱 피해로 가정",
+                assumed == 1 ? "1 teammate's deck unknown: assumed my deck's damage" : $"{assumed} teammates' decks unknown: assumed my deck's damage"));
+        }
+        if (tracked.DeckApproximate) notes.Add(Loc.T("덱 일부가 추정", "Part of the deck is estimated"));
         var cov = forecast.Coverage;
-        if (cov.UnknownCards.Count > 0) notes.Add($"효과 미반영: {string.Join(", ", cov.UnknownCards.Select(cardName))}");
-        if (cov.ApproxCards.Count > 0) notes.Add($"근사 계산 {cov.ApproxCards.Count}종");
+        if (cov.UnknownCards.Count > 0)
+        {
+            var names = string.Join(", ", cov.UnknownCards.Select(cardName));
+            notes.Add(Loc.T($"효과 미반영: {names}", $"Effects not modeled: {names}"));
+        }
+        if (cov.ApproxCards.Count > 0)
+        {
+            notes.Add(Loc.T($"근사 계산 {cov.ApproxCards.Count}종", $"{cov.ApproxCards.Count} card(s) approximated"));
+        }
         AppLog.Info($"dummy forecast: {everyone.Count} player(s), {forecast.Samples} samples in {watch.ElapsedMilliseconds} ms");
         return new DummyForecast(key, forecast, notes);
     }

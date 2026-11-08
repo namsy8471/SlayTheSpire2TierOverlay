@@ -5,6 +5,7 @@ using Sts2Overlay.App.ViewModels;
 using Sts2Overlay.Core.Data;
 using Sts2Overlay.Resources;
 using Sts2Overlay.Vision;
+using Sts2Overlay.Core.Localization;
 
 namespace Sts2Overlay.App.Services;
 
@@ -27,7 +28,8 @@ public sealed class LocalResourceService : IDisposable
     private readonly CancellationTokenSource _cts = new();
 
     private InstalledGame? _game;
-    private string? _prepareLine;
+    /// <summary>Builds the preparation line in the current language (re-run on a language change).</summary>
+    private Func<string>? _prepareLine;
     private IReadOnlyList<string> _guardLines = [];
     private (DataPack Pack, string PackDir)? _lastPack;
 
@@ -50,7 +52,7 @@ public sealed class LocalResourceService : IDisposable
     {
         // Progress<T> remembers the current SynchronizationContext (the UI dispatcher), so Report() from the worker
         // runs the callback on the UI thread, in order.
-        var progress = new Progress<PrepareProgress>(p => SetPrepareLine($"{p.Text} · {p.Fraction * 100:0}%"));
+        var progress = new Progress<PrepareProgress>(p => SetPrepareLine(() => $"{p.Text} · {p.Fraction * 100:0}%"));
         return Task.Run(() => Run(progress, _cts.Token));
     }
 
@@ -63,7 +65,7 @@ public sealed class LocalResourceService : IDisposable
             {
                 AppLog.Warn($"resources: Slay the Spire 2 install not found (settings gameDir = {_configuredGameDir ?? "(auto)"})");
                 if (_preparer.Layout.ManifestCatalog() is null)
-                    Post(() => SetPrepareLine("게임 설치 폴더를 찾지 못해 카드 그림·이름을 준비하지 못했습니다 (settings.json의 gameDir 지정)"));
+                    Post(() => SetPrepareLine(() => Loc.T("게임 설치 폴더를 찾지 못해 카드 그림·이름을 준비하지 못했습니다 (settings.json의 gameDir 지정)", "Game folder not found, so card art and names were not prepared (set gameDir in settings.json)")));
                 return;
             }
 
@@ -97,13 +99,13 @@ public sealed class LocalResourceService : IDisposable
         catch (PrepareBusyException)
         {
             AppLog.Warn("resources: another process is preparing; using what is there");
-            Post(() => SetPrepareLine("다른 프로세스가 리소스를 준비 중입니다. 끝나면 오버레이를 다시 시작해 주세요"));
+            Post(() => SetPrepareLine(() => Loc.T("다른 프로세스가 리소스를 준비 중입니다. 끝나면 오버레이를 다시 시작해 주세요", "Another process is preparing resources. Restart the overlay when it is done")));
         }
         catch (Exception ex)
         {
             // Keep the overlay alive: the old resources (if any) stay in place, see ResourcePreparer.
             AppLog.Error("resources: preparation failed", ex);
-            Post(() => SetPrepareLine($"리소스 준비 실패: {ex.Message} (app.log 참고, --prepare로 다시 시도)"));
+            Post(() => SetPrepareLine(() => Loc.T($"리소스 준비 실패: {ex.Message} (app.log 참고, --prepare로 다시 시도)", $"Resource preparation failed: {ex.Message} (see app.log, retry with --prepare)")));
         }
     }
 
@@ -138,7 +140,14 @@ public sealed class LocalResourceService : IDisposable
         => pack.Tiers.Values.Select(t => t.DataVersion).FirstOrDefault(v => !string.IsNullOrWhiteSpace(v))
            ?? Path.GetFileName(packDir.TrimEnd('\\', '/'));
 
-    private void SetPrepareLine(string? line)
+    /// <summary>Rebuilds the banner in the current language (UI thread): the guard lines and the preparation line.</summary>
+    public void RefreshLanguage()
+    {
+        if (_lastPack is { } lp) EvaluateGuard(lp.Pack, lp.PackDir);
+        UpdateBanner();
+    }
+
+    private void SetPrepareLine(Func<string>? line)
     {
         _prepareLine = line;
         UpdateBanner();
@@ -146,7 +155,7 @@ public sealed class LocalResourceService : IDisposable
 
     private void UpdateBanner()
     {
-        var lines = (_prepareLine is null ? Enumerable.Empty<string>() : [_prepareLine]).Concat(_guardLines).ToList();
+        var lines = (_prepareLine is null ? Enumerable.Empty<string>() : [_prepareLine()]).Concat(_guardLines).ToList();
         _vm.ResourceBanner = lines.Count == 0 ? null : string.Join("\n", lines);
     }
 

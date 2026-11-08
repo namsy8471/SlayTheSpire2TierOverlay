@@ -1,4 +1,5 @@
 using System.Windows.Media;
+using Sts2Overlay.Core.Localization;
 
 namespace Sts2Overlay.App.ViewModels;
 
@@ -28,7 +29,14 @@ public sealed record ForecastSectionVm
     public static ForecastSectionVm Empty { get; } = new() { HasContent = false };
 
     public bool HasContent { get; init; } = true;
-    public string Title { get; init; } = "빌드 완성 확률";
+    private readonly string? _title;
+
+    /// <summary>Set by the presenter; the default follows the current language.</summary>
+    public string Title
+    {
+        get => _title ?? Loc.T("빌드 완성 확률", "Build completion odds");
+        init => _title = value;
+    }
     public IReadOnlyList<ForecastRowVm> Rows { get; init; } = [];
 
     /// <summary>Assumptions and cost: remaining rewards, policy, simulation count.</summary>

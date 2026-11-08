@@ -1,4 +1,5 @@
 using System.Globalization;
+using Sts2Overlay.Core.Localization;
 
 namespace Sts2Overlay.Core.Map;
 
@@ -120,7 +121,7 @@ public static class MapMarkLayout
             foreach (var alt in rec.Top.Skip(1)) AddPath(rec.Origin, alt.Coords, MapLineKind.Alternative, bestEdges, lines);
 
             if (rec.NextStep is { } next && At(next, out var nx, out var ny) && Visible(ny))
-                nodes.Add(new MapNodeMark(next, nx, ny, MapNodeMarkKind.Recommended, "추천!"));
+                nodes.Add(new MapNodeMark(next, nx, ny, MapNodeMarkKind.Recommended, Loc.T("추천!", "Pick!")));
 
             // The save's "?" odds are for the NEXT "?" room only: the immediate choices that are "?", and the first "?"
             // further along the recommended path (it is the next "?" if that path is taken).
@@ -137,7 +138,7 @@ public static class MapMarkLayout
 
         foreach (var g in partnerVotes.GroupBy(c => c))
             if (At(g.Key, out var px, out var py) && Visible(py))
-                nodes.Add(new MapNodeMark(g.Key, px, py, MapNodeMarkKind.Partner, g.Count() > 1 ? $"동료 ×{g.Count()}" : "동료"));
+                nodes.Add(new MapNodeMark(g.Key, px, py, MapNodeMarkKind.Partner, g.Count() > 1 ? Loc.T($"동료 ×{g.Count()}", $"Ally ×{g.Count()}") : Loc.T("동료", "Ally")));
 
         return new MapMarkPlan(lines, nodes);
 
@@ -167,7 +168,7 @@ public static class MapMarkLayout
         }
     }
 
-    /// <summary>"전투 10% · 상점 3% · 보물 2% · 이벤트 85%"; outcomes that can't happen (negative odds) are left out.</summary>
+    /// <summary>"전투 10% · 상점 3% · 보물 2% · 이벤트 85%" (English: "Fight 10% · Shop 3% · …"); outcomes that can't happen (negative odds) are left out.</summary>
     public static string? OddsText(UnknownRoomOdds o)
     {
         var parts = new List<string>();
@@ -175,11 +176,11 @@ public static class MapMarkLayout
         {
             if (p > 0) parts.Add($"{name} {Pct(p)}");
         }
-        Add("전투", o.Monster);
-        Add("엘리트", o.Elite);
-        Add("상점", o.Shop);
-        Add("보물", o.Treasure);
-        Add("이벤트", o.Event);
+        Add(Loc.T("전투", "Fight"), o.Monster);
+        Add(Loc.T("엘리트", "Elite"), o.Elite);
+        Add(Loc.T("상점", "Shop"), o.Shop);
+        Add(Loc.T("보물", "Treasure"), o.Treasure);
+        Add(Loc.T("이벤트", "Event"), o.Event);
         return parts.Count > 0 ? string.Join(" · ", parts) : null;
     }
 

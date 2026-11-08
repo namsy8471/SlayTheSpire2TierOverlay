@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    TitleBench: renders card titles the way the game draws them (fonts read from the game's .pck at run time,
+    layout from scenes/cards/card.tscn) and measures the upgrade detector's title evidence on them, for every
+    card in Korean and English. Validates the renderer against real captures first. Nothing it reads (fonts,
+    names, captures) is ever written into the repo.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Sts2Overlay.Tools.TitleBench</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Sts2Overlay.Resources\Sts2Overlay.Resources.csproj" />
+    <ProjectReference Include="..\..\src\Sts2Overlay.Vision\Sts2Overlay.Vision.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- MIT licensed. Godot stores imported fonts zstd-compressed (RSCC); HarfBuzz shapes text like the game does. -->
+    <PackageReference Include="ZstdSharp.Port" Version="0.8.6" />
+    <PackageReference Include="HarfBuzzSharp" Version="8.3.1.1" />
+  </ItemGroup>
+</Project>

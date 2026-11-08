@@ -219,6 +219,7 @@ public static class PackEditing
             DupFactor = e.DupFactor,
             Cycle = e.Cycle,
             Tip = e.Tip,
+            TipEng = e.TipEng,
             Confidence = e.Confidence,
             ChangedIn = e.ChangedIn,
             Source = e.Source,
