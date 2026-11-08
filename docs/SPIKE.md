@@ -137,6 +137,21 @@ PckTool extract-images "images/packed/card_portraits/**/*.png" data\local\pck\ca
 | 클릭해도 게임 포커스 유지 | ⏳ |
 | GDI 캡처가 검지 않음 | ⏳ |
 
+## 4.1 카드 그림 지각 해시 (pHash) [실행 확인, 오프라인]
+
+`tools/VisionSpike` (net10.0, ImageSharp)
+
+```
+VisionSpike build-hashes                      # 카드 그림 → data/local/cardart-hashes.v0.107.1.json
+VisionSpike selftest                          # 250×190 축소 + 흐림 + 어둡게 한 뒤 다시 찾기
+VisionSpike match <capture.png> <x,y,w,h>     # 캡처의 카드 그림 영역 → 가장 가까운 카드 5개
+```
+
+- 해시 616개 (본 그림 + 본 그림 없는 카드의 베타 그림).
+- 카드끼리 가장 가까운 해시 거리: 중앙값 **18비트**(64비트 중) → 서로 잘 구별됩니다.
+- **자체 테스트 615/616 정답.** 틀린 1장은 `BLACKENED_BLADE`와 `BLADE_OF_INK`: 두 카드가 **같은 그림**을 써서 거리 0입니다 → 이런 쌍은 이름 OCR이나 캐릭터 풀로 구분해야 합니다.
+- 실제 게임 화면은 카드 테두리가 그림 일부를 가리므로, 캡처로 다시 확인해야 합니다 ⏳
+
 ## 5. 추천 엔진용 수치 [코드 확인]
 
 **카드 희귀도** (`Odds/CardRarityOdds.cs`, 괄호는 승천 7)
