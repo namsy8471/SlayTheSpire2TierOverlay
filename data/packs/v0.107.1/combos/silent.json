@@ -1,0 +1,18 @@
+// 사일런트 2장 콤보 초안 (claude-draft-v1)
+{
+  "character": "CHARACTER.SILENT",
+  "combos": [
+    { "cards": ["CARD.ACCURACY", "CARD.INFINITE_BLADES"], "name": "단도 강화 + 매 턴 단도", "why": "매 턴 공짜 단도가 강해짐", "w": 8 },
+    { "cards": ["CARD.ACCURACY", "CARD.BLADE_DANCE"], "name": "단도 강화 + 단도 묶음", "why": "한 장으로 여러 단도 피해가 모두 증가", "w": 6 },
+    { "cards": ["CARD.FAN_OF_KNIVES", "CARD.INFINITE_BLADES"], "name": "광역 단도", "why": "모든 단도가 전체 공격이 됨", "w": 5 },
+    { "cards": ["CARD.PHANTOM_BLADES", "CARD.INFINITE_BLADES"], "name": "보존 단도", "why": "단도를 모아 두었다가 한 번에", "w": 5 },
+    { "cards": ["CARD.KNIFE_TRAP", "CARD.STORM_OF_STEEL"], "name": "단도 재사용", "why": "소멸된 단도를 한꺼번에 다시 던짐", "w": 6 },
+    { "cards": ["CARD.ENVENOM", "CARD.BLADE_DANCE"], "name": "다단 중독", "why": "단도 한 장마다 독이 쌓임", "w": 5 },
+    { "cards": ["CARD.NOXIOUS_FUMES", "CARD.ACCELERANT"], "name": "광역 독 가속", "why": "매 턴 쌓이는 독이 여러 번 발동", "w": 7 },
+    { "cards": ["CARD.BOUNCING_FLASK", "CARD.ACCELERANT"], "name": "독 가속", "why": "큰 독 묶음을 빨리 터뜨림", "w": 6 },
+    { "cards": ["CARD.NOXIOUS_FUMES", "CARD.OUTBREAK"], "name": "독 부여 → 광역 피해", "why": "매 턴 독 부여가 광역 피해로도 이어짐", "w": 5 },
+    { "cards": ["CARD.TOOLS_OF_THE_TRADE", "CARD.TACTICIAN"], "name": "매 턴 버리기 + 교활 에너지", "why": "버리는 순간 에너지를 공짜로", "w": 6 },
+    { "cards": ["CARD.TOOLS_OF_THE_TRADE", "CARD.REFLEX"], "name": "매 턴 버리기 + 교활 드로우", "why": "버리는 순간 드로우가 터짐", "w": 6 },
+    { "cards": ["CARD.SPEEDSTER", "CARD.ACROBATICS"], "name": "드로우 → 광역 피해", "why": "한 번에 많이 뽑을수록 피해", "w": 5 }
+  ]
+}

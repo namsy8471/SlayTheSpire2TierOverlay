@@ -1,0 +1,113 @@
+// 아이언클래드 아키타입 초안 (claude-draft-v1). 시작 덱 카드(BASH 등)와 시작 유물은 commit을 부풀리므로 넣지 않습니다.
+{
+  "character": "CHARACTER.IRONCLAD",
+  "archetypes": [
+    {
+      "id": "ironclad.strength",
+      "names": { "kor": "힘 성장", "eng": "Strength" },
+      "color": "#c0392b",
+      "cards": {
+        "core": ["CARD.DEMON_FORM", "CARD.INFLAME"],
+        "enabler": ["CARD.BRAND", "CARD.FIGHT_ME", "CARD.DOMINATE", "CARD.RUPTURE"],
+        "payoff": ["CARD.WHIRLWIND", "CARD.SWORD_BOOMERANG", "CARD.TWIN_STRIKE", "CARD.CONFLAGRATION", "CARD.THRASH"],
+        "support": ["CARD.SETUP_STRIKE", "CARD.ONE_TWO_PUNCH"]
+      },
+      "fullWeight": 4.0,
+      "keyRelics": [
+        { "id": "RELIC.VAJRA", "w": 0.5 },
+        { "id": "RELIC.SWORD_OF_JADE", "w": 0.5 },
+        { "id": "RELIC.RUINED_HELMET", "w": 0.6 },
+        { "id": "RELIC.GIRYA", "w": 0.5 },
+        { "id": "RELIC.SHURIKEN", "w": 0.5 },
+        { "id": "RELIC.BRIMSTONE", "w": 0.6 }
+      ],
+      "needs": [{ "tag": "STRENGTH", "min": 2 }, { "role": "block", "min": 3 }],
+      "desc": "힘을 영구히 쌓고 다단 공격으로 한꺼번에 터뜨리는 정석 빌드. 방어를 소홀히 하기 쉬우니 주의",
+      "guideHeroCard": "CARD.DEMON_FORM"
+    },
+    {
+      "id": "ironclad.exhaust",
+      "names": { "kor": "소멸", "eng": "Exhaust" },
+      "color": "#8e44ad",
+      "cards": {
+        "core": ["CARD.CORRUPTION", "CARD.FEEL_NO_PAIN", "CARD.DARK_EMBRACE"],
+        "enabler": ["CARD.BURNING_PACT", "CARD.TRUE_GRIT", "CARD.SECOND_WIND", "CARD.STOKE", "CARD.FIEND_FIRE", "CARD.BRAND"],
+        "payoff": ["CARD.ASHEN_STRIKE", "CARD.PACTS_END", "CARD.HOWL_FROM_BEYOND", "CARD.DRUM_OF_BATTLE", "CARD.FORGOTTEN_RITUAL", "CARD.EVIL_EYE"],
+        "support": ["CARD.OFFERING", "CARD.BATTLE_TRANCE"]
+      },
+      "fullWeight": 4.5,
+      "keyRelics": [
+        { "id": "RELIC.CHARONS_ASHES", "w": 0.7 },
+        { "id": "RELIC.BURNING_STICKS", "w": 0.4 },
+        { "id": "RELIC.JOSS_PAPER", "w": 0.5 },
+        { "id": "RELIC.FORGOTTEN_SOUL", "w": 0.5 },
+        { "id": "RELIC.ENDLESS_APPETITE", "w": 0.6 },
+        { "id": "RELIC.TOASTY_MITTENS", "w": 0.4 }
+      ],
+      "needs": [{ "tag": "EXHAUST", "min": 3 }],
+      "desc": "카드를 소멸시킬 때마다 방어도·드로우를 얻는 엔진. 스킬을 공짜로 만드는 고대 파워를 얻으면 완성에 가까워짐",
+      "guideHeroCard": "CARD.FEEL_NO_PAIN"
+    },
+    {
+      "id": "ironclad.block",
+      "names": { "kor": "방어 누적", "eng": "Barricade" },
+      "color": "#7f8c8d",
+      "cards": {
+        "core": ["CARD.BARRICADE"],
+        "enabler": ["CARD.UNMOVABLE", "CARD.IMPERVIOUS", "CARD.FLAME_BARRIER", "CARD.STONE_ARMOR", "CARD.CRIMSON_MANTLE", "CARD.RAGE"],
+        "payoff": ["CARD.BODY_SLAM", "CARD.JUGGERNAUT"],
+        "support": ["CARD.SHRUG_IT_OFF", "CARD.ARMAMENTS", "CARD.COLOSSUS", "CARD.TAUNT", "CARD.IRON_WAVE"]
+      },
+      "fullWeight": 4.0,
+      "keyRelics": [
+        { "id": "RELIC.STURDY_CLAMP", "w": 0.6 },
+        { "id": "RELIC.VAMBRACE", "w": 0.4 },
+        { "id": "RELIC.PAELS_LEGION", "w": 0.4 },
+        { "id": "RELIC.PARRYING_SHIELD", "w": 0.5 },
+        { "id": "RELIC.ANCHOR", "w": 0.3 }
+      ],
+      "needs": [{ "tag": "BLOCK", "min": 3 }, { "role": "block", "min": 4 }],
+      "desc": "방어도를 다음 턴까지 유지하고, 쌓인 방어도를 피해로 바꾸는 느린 빌드",
+      "guideHeroCard": "CARD.BARRICADE"
+    },
+    {
+      "id": "ironclad.self_damage",
+      "names": { "kor": "자해", "eng": "Self-damage" },
+      "color": "#e74c3c",
+      "cards": {
+        "core": ["CARD.RUPTURE", "CARD.INFERNO"],
+        "enabler": ["CARD.BLOODLETTING", "CARD.OFFERING", "CARD.HEMOKINESIS", "CARD.BREAKTHROUGH", "CARD.BLOOD_WALL", "CARD.CRIMSON_MANTLE"],
+        "payoff": ["CARD.TEAR_ASUNDER", "CARD.SPITE"],
+        "support": ["CARD.FEED", "CARD.NOT_YET"]
+      },
+      "fullWeight": 3.5,
+      "keyRelics": [
+        { "id": "RELIC.RED_SKULL", "w": 0.5 },
+        { "id": "RELIC.SELF_FORMING_CLAY", "w": 0.5 }
+      ],
+      "needs": [{ "tag": "SELF_DAMAGE", "min": 3 }],
+      "desc": "스스로 체력을 깎을 때마다 힘이나 광역 피해를 얻는 빌드. 회복 수단이 함께 필요",
+      "guideHeroCard": "CARD.RUPTURE"
+    },
+    {
+      "id": "ironclad.vulnerable",
+      "names": { "kor": "취약", "eng": "Vulnerable" },
+      "color": "#d35400",
+      "cards": {
+        "core": ["CARD.VICIOUS", "CARD.DISMANTLE"],
+        "enabler": ["CARD.THUNDERCLAP", "CARD.TREMBLE", "CARD.TAUNT", "CARD.UPPERCUT", "CARD.DOMINATE", "CARD.BREAK"],
+        "payoff": ["CARD.BULLY", "CARD.CRUELTY", "CARD.COLOSSUS", "CARD.MOLTEN_FIST"],
+        "support": []
+      },
+      "fullWeight": 3.5,
+      "keyRelics": [
+        { "id": "RELIC.PAPER_PHROG", "w": 0.6 },
+        { "id": "RELIC.BAG_OF_MARBLES", "w": 0.4 },
+        { "id": "RELIC.HAND_DRILL", "w": 0.4 }
+      ],
+      "needs": [{ "tag": "VULNERABLE", "min": 3 }],
+      "desc": "취약을 자주 걸어 드로우·추가 타격·피해 감소를 얻는 빌드",
+      "guideHeroCard": "CARD.VICIOUS"
+    }
+  ]
+}
