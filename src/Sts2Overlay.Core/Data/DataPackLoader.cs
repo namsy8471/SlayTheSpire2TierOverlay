@@ -71,8 +71,27 @@ public static class DataPackLoader
     public static readonly string DefaultCatalogRelativePath = Path.Combine("data", "catalog", "cards.v0.107.1.json");
 
     /// <summary>
+    /// The committed catalog that belongs to a pack directory by name: <c>data/packs/v0.107.1</c> →
+    /// <c>data/catalog/cards.v0.107.1.json</c> (the same layout in a checkout and in an installed build). Null when the
+    /// directory has no parent of a parent. The file may not exist (e.g. the <c>sample</c> pack has none).
+    /// </summary>
+    public static string? SiblingCatalogPath(string packDirectory)
+    {
+        var full = Path.GetFullPath(packDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var name = Path.GetFileName(full);
+        var dataDir = Path.GetDirectoryName(Path.GetDirectoryName(full));
+        return string.IsNullOrEmpty(name) || string.IsNullOrEmpty(dataDir)
+            ? null
+            : Path.Combine(dataDir, "catalog", $"cards.{name}.json");
+    }
+
+    /// <summary>
     /// Loads a pack directory. Every part is optional; missing parts become defaults (weights) or empty collections.
-    /// Catalog precedence: <paramref name="catalog"/>, then the file at <paramref name="catalogPath"/>, then <c>catalog.json</c> in the directory.
+    /// Catalog precedence: <paramref name="catalog"/>, then the file at <paramref name="catalogPath"/>, then <c>catalog.json</c>
+    /// in the directory, then the committed catalog of the same version next to the packs (<see cref="SiblingCatalogPath"/>).
+    /// <para>Why the last step: without a catalog the pack knows only the cards it rates, so every curse, status and
+    /// quest card looks like an ordinary unrated card. The overlay once loaded its pack that way and advised upgrading
+    /// the curse 탐욕 (Greed) at a rest site.</para>
     /// </summary>
     /// <param name="directory">The pack directory.</param>
     /// <param name="catalog">An already loaded catalog.</param>
@@ -132,6 +151,10 @@ public static class DataPackLoader
         if (catalog is null && File.Exists(packCatalogPath))
         {
             catalog = LoadFile(packCatalogPath, LoadCatalog);
+        }
+        if (catalog is null && SiblingCatalogPath(directory) is { } sibling && File.Exists(sibling))
+        {
+            catalog = LoadFile(sibling, LoadCatalog);
         }
 
         return new DataPack
