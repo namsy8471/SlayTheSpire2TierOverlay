@@ -104,7 +104,7 @@ public static partial class LogLineParser
                 if ((m = Rarity().Match(line)).Success)
                 {
                     return TryDouble(m, "roll", out double roll) && TryDouble(m, "need", out double need) && TryDouble(m, "off", out double off)
-                        ? new CardRarityRolledEvent(roll, need, off)
+                        ? new CardRarityRolledEvent(roll, need, off) { RollFloat = ParseFloat(m.Groups["roll"].Value) }
                         : null;
                 }
                 if ((m = CombatRoom().Match(line)).Success)
@@ -254,4 +254,7 @@ public static partial class LogLineParser
     // NumberStyles.Float accepts "1E-05" too, which .NET prints for tiny floats.
     private static bool TryDouble(Match m, string g, out double v) =>
         double.TryParse(m.Groups[g].ValueSpan, NumberStyles.Float, CultureInfo.InvariantCulture, out v);
+
+    private static float ParseFloat(string s) =>
+        float.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out float v) ? v : float.NaN;
 }

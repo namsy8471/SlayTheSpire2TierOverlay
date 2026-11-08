@@ -18,6 +18,17 @@ public enum SelectMeaning
     Duplicate,
 }
 
+/// <summary>How a random upgrade picks its cards (see <see cref="DeckEffect.Pick"/>).</summary>
+public enum UpgradePick
+{
+    /// <summary>A stream we can't replay (the run's shared Niche stream: its position depends on every monster spawned).</summary>
+    Unknown,
+    /// <summary><c>deck.Where(IsUpgradable).ToList().StableShuffle(event.Rng).Take(n)</c> as the event's first RNG use.</summary>
+    EventShuffle,
+    /// <summary><c>event.Rng.NextItem(deck.Where(IsUpgradable))</c> as the event's call number <see cref="DeckEffect.EventRngCall"/>.</summary>
+    EventNextItem,
+}
+
 /// <summary>
 /// The deck side of one event option or relic pickup, as far as v0.107.1 does it deterministically.
 /// Random parts are counted, not guessed: <see cref="RandomUpgrades"/> (which card is upgraded comes from the game RNG and
@@ -36,6 +47,21 @@ public sealed record DeckEffect
     /// <summary>Fixed cards removed from the deck (e.g. the Lantern Key).</summary>
     public IReadOnlyList<string> Removes { get; init; } = [];
     public int RandomUpgrades { get; init; }
+    /// <summary>Card type the random upgrades are limited to (Whetstone: Attack, War Paint: Skill); null = any.</summary>
+    public string? RandomUpgradeType { get; init; }
+    /// <summary>
+    /// How the random upgrades pick cards, when the stream is one we can replay from the run seed: the event's own
+    /// stream (<c>EventModel.Rng</c>, seeded by run seed + player slot + event id, fresh for each event).
+    /// </summary>
+    public UpgradePick Pick { get; init; }
+    /// <summary><see cref="UpgradePick.EventNextItem"/>: which call of the event stream picks the card (0-based).</summary>
+    public int EventRngCall { get; init; }
+    /// <summary>
+    /// A random transform (<see cref="TransformTo"/> null) done with the event's own stream
+    /// (<c>CardCmd.TransformToRandom(card, Rng)</c>): which call of that stream picks the new card (0-based). Null = a
+    /// stream we can't replay.
+    /// </summary>
+    public int? TransformRngCall { get; init; }
     public int UnknownAdds { get; init; }
     public int RandomRemoves { get; init; }
     /// <summary>Upgrade one basic Strike and one basic Defend (Neow's Talisman).</summary>
@@ -63,20 +89,24 @@ public static class DeckEffects
     private static DeckEffect Sel(SelectMeaning m, params string[] adds) => new() { Select = m, Adds = adds.Select(a => C + a).ToList() };
     private static DeckEffect Add(params string[] cards) => new() { Adds = cards.Select(a => C + a).ToList() };
     private static DeckEffect Ench(string? enchantment = null) => new() { Select = SelectMeaning.Enchant, Enchantment = enchantment is null ? null : "ENCHANTMENT." + enchantment };
-    private static DeckEffect Upgrades(int n) => new() { RandomUpgrades = n };
+    private static DeckEffect Upgrades(int n, string? type = null) => new() { RandomUpgrades = n, RandomUpgradeType = type };
+    // Tablet of Truth: decipher k (1..4) upgrades Rng.NextItem(upgradable deck cards) with the event's k-th call.
+    // An event's random transform: CardCmd.TransformToRandom(card, event Rng) as the event stream's call number `call`.
+    private static DeckEffect EventTransform(int call) => new() { Select = SelectMeaning.Transform, TransformRngCall = call };
+    private static DeckEffect Decipher(int k) => new() { RandomUpgrades = 1, Pick = UpgradePick.EventNextItem, EventRngCall = k - 1 };
 
     /// <summary>Event options by full choice key (<c>EVENT.pages.PAGE.options.OPTION</c>).</summary>
     private static readonly Dictionary<string, DeckEffect> s_events = new(StringComparer.Ordinal)
     {
         ["AMALGAMATOR.pages.INITIAL.options.COMBINE_STRIKES"] = Sel(SelectMeaning.Remove, "ULTIMATE_STRIKE"),
         ["AMALGAMATOR.pages.INITIAL.options.COMBINE_DEFENDS"] = Sel(SelectMeaning.Remove, "ULTIMATE_DEFEND"),
-        ["AROMA_OF_CHAOS.pages.INITIAL.options.LET_GO"] = Sel(SelectMeaning.Transform),
+        ["AROMA_OF_CHAOS.pages.INITIAL.options.LET_GO"] = EventTransform(0),
         ["AROMA_OF_CHAOS.pages.INITIAL.options.MAINTAIN_CONTROL"] = Sel(SelectMeaning.Upgrade),
         ["BATTLEWORN_DUMMY.pages.INITIAL.options.SETTING_2"] = Upgrades(2), // after winning the dummy fight: 2 random upgrades
         ["BRAIN_LEECH.pages.INITIAL.options.SHARE_KNOWLEDGE"] = Sel(SelectMeaning.AddChosen),
         ["BYRDONIS_NEST.pages.INITIAL.options.TAKE"] = Add("BYRDONIS_EGG"),
         ["CRYSTAL_SPHERE.pages.INITIAL.options.PAYMENT_PLAN"] = Add("DEBT"),
-        ["DOORS_OF_LIGHT_AND_DARK.pages.INITIAL.options.LIGHT"] = Upgrades(2),
+        ["DOORS_OF_LIGHT_AND_DARK.pages.INITIAL.options.LIGHT"] = new() { RandomUpgrades = 2, Pick = UpgradePick.EventShuffle },
         ["DOORS_OF_LIGHT_AND_DARK.pages.INITIAL.options.DARK"] = Sel(SelectMeaning.Remove),
         ["ENDLESS_CONVEYOR.pages.INITIAL.options.OBSERVE_CHEF"] = Upgrades(1),
         ["ENDLESS_CONVEYOR.pages.ALL.options.JELLY_LIVER"] = Sel(SelectMeaning.Transform),
@@ -90,7 +120,7 @@ public static class DeckEffects
         ["INFESTED_AUTOMATON.pages.INITIAL.options.TOUCH_CORE"] = new() { UnknownAdds = 1 },
         ["LOST_WISP.pages.INITIAL.options.CLAIM"] = Add("DECAY"),
         ["LUMINOUS_CHOIR.pages.INITIAL.options.REACH_INTO_THE_FLESH"] = Sel(SelectMeaning.Remove, "SPORE_MIND"),
-        ["MORPHIC_GROVE.pages.INITIAL.options.GROUP"] = Sel(SelectMeaning.Transform),
+        ["MORPHIC_GROVE.pages.INITIAL.options.GROUP"] = EventTransform(0),
         ["PUNCH_OFF.pages.INITIAL.options.NAB"] = Add("INJURY"),
         ["REFLECTIONS.pages.INITIAL.options.SHATTER"] = Add("BAD_LUCK"),
         ["ROOM_FULL_OF_CHEESE.pages.INITIAL.options.GORGE"] = Sel(SelectMeaning.AddChosen),
@@ -106,13 +136,13 @@ public static class DeckEffects
         ["STONE_OF_ALL_TIME.pages.INITIAL.options.PUSH"] = Ench(),
         ["SUNKEN_TREASURY.pages.INITIAL.options.SECOND_CHEST"] = Add("GREED"),
         ["SYMBIOTE.pages.INITIAL.options.APPROACH"] = Ench("CORRUPTED"),
-        ["SYMBIOTE.pages.INITIAL.options.KILL_WITH_FIRE"] = Sel(SelectMeaning.Transform),
+        ["SYMBIOTE.pages.INITIAL.options.KILL_WITH_FIRE"] = EventTransform(0),
         // THE_LANTERN_KEY FIGHT: the key comes as a special card reward after the fight, which IS logged ("obtained ... from special card reward").
         // Tablet of Truth (TabletOfTruth.LoseMaxHpAndUpgrade): each decipher upgrades one random card, the 5th all of them.
-        ["TABLET_OF_TRUTH.pages.INITIAL.options.DECIPHER_1"] = Upgrades(1),
-        ["TABLET_OF_TRUTH.pages.DECIPHER_1.options.DECIPHER"] = Upgrades(1),
-        ["TABLET_OF_TRUTH.pages.DECIPHER_2.options.DECIPHER"] = Upgrades(1),
-        ["TABLET_OF_TRUTH.pages.DECIPHER_3.options.DECIPHER"] = Upgrades(1),
+        ["TABLET_OF_TRUTH.pages.INITIAL.options.DECIPHER_1"] = Decipher(1),
+        ["TABLET_OF_TRUTH.pages.DECIPHER_1.options.DECIPHER"] = Decipher(2),
+        ["TABLET_OF_TRUTH.pages.DECIPHER_2.options.DECIPHER"] = Decipher(3),
+        ["TABLET_OF_TRUTH.pages.DECIPHER_3.options.DECIPHER"] = Decipher(4),
         ["TABLET_OF_TRUTH.pages.DECIPHER_4.options.DECIPHER"] = new() { UpgradeAll = true },
         ["THE_LEGENDS_WERE_TRUE.pages.INITIAL.options.NAB_THE_MAP"] = Add("SPOILS_MAP"),
         ["THIS_OR_THAT.pages.INITIAL.options.ORNATE"] = Add("CLUMSY"),
@@ -131,7 +161,7 @@ public static class DeckEffects
         // Wongo's bargain bin: an unnamed common relic (RelicFactory.PullNextRelicFromFront, no log line). Whetstone /
         // War Paint would upgrade 2 random cards: count them as possible unplaced upgrades.
         ["WELCOME_TO_WONGOS.pages.INITIAL.options.BARGAIN_BIN"] = Upgrades(2),
-        ["WHISPERING_HOLLOW.pages.INITIAL.options.HUG"] = Sel(SelectMeaning.Transform),
+        ["WHISPERING_HOLLOW.pages.INITIAL.options.HUG"] = EventTransform(1), // CalculateVars draws the gold first
         ["WOOD_CARVINGS.pages.INITIAL.options.BIRD"] = new() { Select = SelectMeaning.Transform, TransformTo = C + "PECK" },
         ["WOOD_CARVINGS.pages.INITIAL.options.SNAKE"] = Ench("SLITHER"),
         ["WOOD_CARVINGS.pages.INITIAL.options.TORUS"] = new() { Select = SelectMeaning.Transform, TransformTo = C + "TORIC_TOUGHNESS" },
@@ -182,8 +212,8 @@ public static class DeckEffects
         ["RELIC.STORYBOOK"] = Add("BRIGHTEST_FLAME"),
         ["RELIC.TANXS_WHISTLE"] = Add("WHISTLE"),
         ["RELIC.TRI_BOOMERANG"] = Ench("INSTINCT"),
-        ["RELIC.WAR_PAINT"] = Upgrades(2),
-        ["RELIC.WHETSTONE"] = Upgrades(2),
+        ["RELIC.WAR_PAINT"] = Upgrades(2, "Skill"),
+        ["RELIC.WHETSTONE"] = Upgrades(2, "Attack"),
         ["RELIC.YUMMY_COOKIE"] = Sel(SelectMeaning.Upgrade),
     };
 

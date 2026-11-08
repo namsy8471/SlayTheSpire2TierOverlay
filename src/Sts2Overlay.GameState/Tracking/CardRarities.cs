@@ -9,7 +9,7 @@ namespace Sts2Overlay.GameState.Tracking;
 /// </summary>
 public static class CardRarities
 {
-    private sealed record Info(string Rarity, string Type, bool Exhaust, int MaxUpgrade);
+    private sealed record Info(string Rarity, string Type, bool Exhaust, int MaxUpgrade, string Multiplayer);
 
     private static readonly Lazy<Dictionary<string, Info>> s_cards = new(() =>
     {
@@ -26,7 +26,8 @@ public static class CardRarities
             bool exhaust = c.TryGetProperty("keywords", out JsonElement k) && k.ValueKind == JsonValueKind.Array
                            && k.EnumerateArray().Any(x => x.GetString() == "Exhaust");
             int max = c.TryGetProperty("maxUpgrade", out JsonElement mu) && mu.TryGetInt32(out int m) ? m : 1;
-            map[i] = new Info(rarity, type, exhaust, max);
+            string mp = c.TryGetProperty("multiplayer", out JsonElement mpe) ? mpe.GetString() ?? "None" : "None";
+            map[i] = new Info(rarity, type, exhaust, max, mp);
         }
         return map;
     });
@@ -38,6 +39,18 @@ public static class CardRarities
 
     /// <summary>How many times the card can be upgraded (0 for curses ...; 1 if the id is unknown).</summary>
     public static int MaxUpgrade(string cardId) => s_cards.Value.GetValueOrDefault(cardId)?.MaxUpgrade ?? 1;
+
+    /// <summary>
+    /// Whether the card can show up in a run with this many players (CardMultiplayerConstraint: some cards exist only in
+    /// single player, some only in co-op).
+    /// </summary>
+    public static bool AllowedWithPlayers(string cardId, bool multiplayer) =>
+        s_cards.Value.GetValueOrDefault(cardId)?.Multiplayer switch
+        {
+            "SingleplayerOnly" => !multiplayer,
+            "MultiplayerOnly" => multiplayer,
+            _ => true,
+        };
 
     /// <summary>Tokens (Shiv, Soul ...) and statuses (Slimed, Wound ...) are made during a fight; a deck never holds them.</summary>
     public static bool IsCombatOnly(string cardId) => Of(cardId) is "Token" or "Status";

@@ -340,7 +340,12 @@
                                     <TextBlock Text="{Binding TierText}" FontSize="12.5" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"
                                                Foreground="{Binding TierText, Converter={StaticResource TierBrush}, ConverterParameter=fg}" />
                                   </Border>
-                                  <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center" />
+                                  <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                                    <!-- log-only rebuild: this card's copy / upgrade is a guess; the tooltip says why -->
+                                    <TextBlock Text=" ?" FontWeight="Bold" Foreground="#F1C40F" VerticalAlignment="Center" ToolTip="{Binding Doubt}"
+                                               Visibility="{Binding Doubt, Converter={StaticResource BoolVis}}" />
+                                  </StackPanel>
                                   <TextBlock Grid.Column="2" Text="{Binding UpgradeText}" Foreground="{StaticResource UpgradeFg}" FontSize="12" Margin="6,0,0,0" VerticalAlignment="Center" />
                                   <TextBlock Grid.Column="3" Text="{Binding CountText}" FontWeight="Bold" Margin="8,0,2,0" VerticalAlignment="Center" />
                                 </Grid>
