@@ -35,6 +35,8 @@ public static class ScoringLabels
     public const string PowerSaturation = "파워 과다";
     public const string Dilution = "덱 비대";
     public const string Duplicate = "중복";
+    public const string CorePriority = "코어 확보";
+    public const string CoreMissing = "코어 없음";
 
     public const string SkipBase = "스킵 기준";
     public const string SkipDeckSize = "덱 크기";

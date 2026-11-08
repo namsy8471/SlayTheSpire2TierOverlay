@@ -8,10 +8,13 @@
       "id": "regent.stars",
       "names": { "kor": "별", "eng": "Stars" },
       "color": "#f4d03f",
+      // 코어 정리: ASTRAL_PULSE(일반, 별 3 소비 광역 2회)·SEVEN_STARS(별 7 소비 광역)는 별을 쓰는 소비 카드라 core → payoff.
+      // 일반 소비 카드 한 장으로 코어 확보가 되면 GENESIS(매 턴 별 생산) 우선 추천이 꺼짐.
+      // BLACK_HOLE("별을 쓰거나 얻을 때마다 모든 적에게 피해")은 별 자원을 빌드로 바꾸는 파워라 payoff → core (희귀 GENESIS만 남으면 코어가 너무 드묾).
       "cards": {
-        "core": ["CARD.GENESIS", "CARD.ASTRAL_PULSE", "CARD.SEVEN_STARS"],
+        "core": ["CARD.GENESIS", "CARD.BLACK_HOLE"],
         "enabler": ["CARD.GATHER_LIGHT", "CARD.GLOW", "CARD.HIDDEN_CACHE", "CARD.SOLAR_STRIKE", "CARD.SHINING_STRIKE", "CARD.BIG_BANG", "CARD.CONVERGENCE", "CARD.THE_SEALED_THRONE"],
-        "payoff": ["CARD.BLACK_HOLE", "CARD.CHILD_OF_THE_STARS", "CARD.RADIATE", "CARD.DEVASTATE", "CARD.COMET", "CARD.ALIGNMENT", "CARD.GAMMA_BLAST", "CARD.METEOR_SHOWER"],
+        "payoff": ["CARD.ASTRAL_PULSE", "CARD.SEVEN_STARS", "CARD.CHILD_OF_THE_STARS", "CARD.RADIATE", "CARD.DEVASTATE", "CARD.COMET", "CARD.ALIGNMENT", "CARD.GAMMA_BLAST", "CARD.METEOR_SHOWER"],
         "support": ["CARD.REFLECT", "CARD.NEUTRON_AEGIS", "CARD.PARTICLE_WALL"]
       },
       "fullWeight": 4.5,
@@ -45,10 +48,12 @@
       "id": "regent.creation",
       "names": { "kor": "카드 생성", "eng": "Creation" },
       "color": "#48c9b0",
+      // 코어 정리: SUPERMASSIVE("이번 전투에 만든 카드 1장당 추가 피해")는 생성 수를 소비하는 공격 보상이라 core → payoff.
+      // 코어는 "카드를 만들 때마다 …" 파워 ARSENAL·PILLAR_OF_CREATION.
       "cards": {
-        "core": ["CARD.ARSENAL", "CARD.PILLAR_OF_CREATION", "CARD.SUPERMASSIVE"],
+        "core": ["CARD.ARSENAL", "CARD.PILLAR_OF_CREATION"],
         "enabler": ["CARD.SPECTRUM_SHIFT", "CARD.MANIFEST_AUTHORITY", "CARD.QUASAR", "CARD.BUNDLE_OF_JOY", "CARD.COLLISION_COURSE", "CARD.CRASH_LANDING", "CARD.BEGONE", "CARD.CHARGE", "CARD.GUARDS"],
-        "payoff": ["CARD.HEIRLOOM_HAMMER"],
+        "payoff": ["CARD.SUPERMASSIVE", "CARD.HEIRLOOM_HAMMER"],
         "support": []
       },
       "fullWeight": 4.0,

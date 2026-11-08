@@ -7,9 +7,11 @@
       "id": "necrobinder.osty",
       "names": { "kor": "오스티 소환", "eng": "Osty" },
       "color": "#c8a165",
+      // 코어 정리: SIC_EM("오스티가 피해, 이 적을 칠 때마다 소환")은 소환을 보태는 오스티 공격 한 장이라 core → enabler.
+      // 코어는 오스티를 빌드의 축으로 만드는 파워 NECRO_MASTERY("오스티가 잃은 체력만큼 모든 적도 잃음")와 CALCIFY("오스티 공격 피해 증가").
       "cards": {
-        "core": ["CARD.NECRO_MASTERY", "CARD.CALCIFY", "CARD.SIC_EM"],
-        "enabler": ["CARD.PULL_AGGRO", "CARD.INVOKE", "CARD.REANIMATE", "CARD.DIRGE", "CARD.SPUR", "CARD.AFTERLIFE"],
+        "core": ["CARD.NECRO_MASTERY", "CARD.CALCIFY"],
+        "enabler": ["CARD.SIC_EM", "CARD.PULL_AGGRO", "CARD.INVOKE", "CARD.REANIMATE", "CARD.DIRGE", "CARD.SPUR", "CARD.AFTERLIFE"],
         "payoff": ["CARD.SQUEEZE", "CARD.RATTLE", "CARD.FLATTEN", "CARD.HIGH_FIVE", "CARD.BONE_SHARDS", "CARD.SACRIFICE", "CARD.RIGHT_HAND_HAND"],
         "support": ["CARD.FETCH", "CARD.POKE", "CARD.SNAP"]
       },
@@ -26,10 +28,12 @@
       "id": "necrobinder.doom",
       "names": { "kor": "파멸", "eng": "Doom" },
       "color": "#6c3483",
+      // 코어 정리: END_OF_DAYS("모든 적에게 파멸, 파멸 ≥ 체력인 적 처치")는 쌓인 파멸을 거두는 마무리 카드라 core → payoff.
+      // 이 카드만 있으면 파멸을 매 턴 쌓는 엔진(REAPER_FORM·COUNTDOWN)이 없어도 코어 확보로 처리되는 문제가 있었음.
       "cards": {
-        "core": ["CARD.REAPER_FORM", "CARD.COUNTDOWN", "CARD.END_OF_DAYS"],
+        "core": ["CARD.REAPER_FORM", "CARD.COUNTDOWN"],
         "enabler": ["CARD.BLIGHT_STRIKE", "CARD.SCOURGE", "CARD.NEGATIVE_PULSE", "CARD.DEATHBRINGER", "CARD.OBLIVION", "CARD.NO_ESCAPE"],
-        "payoff": ["CARD.TIMES_UP", "CARD.DEATHS_DOOR", "CARD.SHROUD"],
+        "payoff": ["CARD.END_OF_DAYS", "CARD.TIMES_UP", "CARD.DEATHS_DOOR", "CARD.SHROUD"],
         "support": ["CARD.MISERY", "CARD.SLEIGHT_OF_FLESH"]
       },
       "fullWeight": 4.0,
@@ -45,10 +49,12 @@
       "id": "necrobinder.souls",
       "names": { "kor": "영혼", "eng": "Souls" },
       "color": "#5dade2",
+      // 코어 정리: SOUL_STORM("소멸 더미의 영혼 1장당 추가 피해")은 영혼을 소비하는 공격 보상이라 core → payoff.
+      // 코어는 "영혼을 쓸 때마다 …" 파워 DEVOUR_LIFE·HAUNT.
       "cards": {
-        "core": ["CARD.DEVOUR_LIFE", "CARD.HAUNT", "CARD.SOUL_STORM"],
+        "core": ["CARD.DEVOUR_LIFE", "CARD.HAUNT"],
         "enabler": ["CARD.CAPTURE_SPIRIT", "CARD.GRAVE_WARDEN", "CARD.REAVE", "CARD.SEVERANCE", "CARD.DIRGE", "CARD.SEANCE"],
-        "payoff": [],
+        "payoff": ["CARD.SOUL_STORM"],
         "support": ["CARD.DREDGE"]
       },
       "fullWeight": 3.5,

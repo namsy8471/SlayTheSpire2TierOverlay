@@ -615,6 +615,13 @@ public sealed partial class AppController : IDisposable
                 ? null
                 : "필요: " + string.Join(", ", st.MissingCards.Take(5).Select(m =>
                     $"{_cards.Name(m.CardId)}({RoleName(m.Role)}, {CardInfoProvider.RarityKorean(m.Rarity)})"));
+            // 코어 먼저: until the build owns its core card(s), name them first (the scorer pushes them as "코어 확보").
+            if (!st.CoreSecured && st.MissingCore.Count > 0 && st.Commit > 0)
+            {
+                missing = $"먼저 노릴 코어 ({st.OwnedCore}/{st.CoreTarget}): "
+                    + string.Join(", ", st.MissingCore.Take(3).Select(m => _cards.Name(m.CardId)))
+                    + (missing is null ? "" : "\n" + missing);
+            }
             var needs = st.UnmetNeeds.Count == 0
                 ? null
                 : "조건 미충족: " + string.Join(", ", st.UnmetNeeds.Select(n =>

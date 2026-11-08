@@ -29,6 +29,21 @@ public sealed record ArchetypeStatus
 
     public IReadOnlyList<ArchetypeNeed> UnmetNeeds { get; init; } = [];
 
+    /// <summary>Distinct core-role cards of this archetype in the deck.</summary>
+    public int OwnedCore { get; init; }
+
+    /// <summary>
+    /// Core cards the deck still needs: <see cref="Archetype.CoreTarget"/> clamped to the number of distinct core cards
+    /// (0 for an archetype without core cards).
+    /// </summary>
+    public int CoreTarget { get; init; }
+
+    /// <summary>Missing core-role cards only, in list order (the core part of <see cref="MissingCards"/>).</summary>
+    public IReadOnlyList<MissingCard> MissingCore { get; init; } = [];
+
+    /// <summary>The deck owns enough core cards (<see cref="OwnedCore"/> ≥ <see cref="CoreTarget"/>).</summary>
+    public bool CoreSecured => OwnedCore >= CoreTarget;
+
     public bool IsCommitted => Commit >= Archetype.CommitThreshold;
 }
 

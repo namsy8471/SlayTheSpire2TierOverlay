@@ -6,9 +6,11 @@
       "id": "defect.orb_focus",
       "names": { "kor": "냉기·밀집 구체", "eng": "Frost / Focus orbs" },
       "color": "#3498db",
+      // 코어 정리: COOLHEADED(일반, "냉기 1 채널 + 드로우")는 COLD_SNAP·CHILL과 바꿔 쓸 수 있는 냉기 공급원이라 core → enabler.
+      // 일반 카드가 core면 한 장만 집어도 코어 확보로 처리되어 DEFRAGMENT(밀집) 우선 추천이 꺼짐.
       "cards": {
-        "core": ["CARD.DEFRAGMENT", "CARD.GLACIER", "CARD.COOLHEADED"],
-        "enabler": ["CARD.COLD_SNAP", "CARD.CHILL", "CARD.CAPACITOR", "CARD.BIASED_COGNITION", "CARD.CONSUMING_SHADOW", "CARD.DARKNESS", "CARD.RAINBOW"],
+        "core": ["CARD.DEFRAGMENT", "CARD.GLACIER"],
+        "enabler": ["CARD.COOLHEADED", "CARD.COLD_SNAP", "CARD.CHILL", "CARD.CAPACITOR", "CARD.BIASED_COGNITION", "CARD.CONSUMING_SHADOW", "CARD.DARKNESS", "CARD.RAINBOW"],
         "payoff": ["CARD.LOOP", "CARD.COOLANT", "CARD.HAILSTORM", "CARD.MULTI_CAST", "CARD.SHATTER", "CARD.SYNCHRONIZE"],
         "support": ["CARD.HOTFIX", "CARD.MODDED", "CARD.CHAOS", "CARD.SHADOW_SHIELD"]
       },
@@ -47,11 +49,13 @@
       "id": "defect.powers",
       "names": { "kor": "파워", "eng": "Powers" },
       "color": "#9b59b6",
+      // 코어 정리: ECHO_FORM("매 턴 첫 카드를 한 번 더 사용")은 파워와 무관한 범용 강화라 core → support.
+      // 코어는 파워 공급 엔진 CREATIVE_AI와 파워 사용 보상의 상징 STORM만 남김.
       "cards": {
-        "core": ["CARD.CREATIVE_AI", "CARD.STORM", "CARD.ECHO_FORM"],
+        "core": ["CARD.CREATIVE_AI", "CARD.STORM"],
         "enabler": ["CARD.WHITE_NOISE", "CARD.SYNTHESIS", "CARD.SIGNAL_BOOST"],
         "payoff": ["CARD.SUBROUTINE"],
-        "support": ["CARD.MACHINE_LEARNING", "CARD.DEFRAGMENT", "CARD.CAPACITOR", "CARD.BUFFER", "CARD.LOOP"]
+        "support": ["CARD.ECHO_FORM", "CARD.MACHINE_LEARNING", "CARD.DEFRAGMENT", "CARD.CAPACITOR", "CARD.BUFFER", "CARD.LOOP"]
       },
       "fullWeight": 4.0,
       "keyRelics": [
@@ -70,17 +74,19 @@
       "id": "defect.zero_cost",
       "names": { "kor": "0코스트(클로)", "eng": "Zero-cost / Claw" },
       "color": "#e67e22",
+      // 코어 정리: CLAW(일반, "모든 클로 카드 피해 증가")는 0코스트를 되돌리는 엔진이 있어야 여러 번 쓰여 커지는 보상 카드라 core → payoff.
+      // 엔진은 ALL_FOR_ONE("버린 더미의 0코스트를 모두 손으로")과 FERAL("0코스트 공격을 손으로 되돌림"). guideHeroCard도 ALL_FOR_ONE으로.
       "cards": {
-        "core": ["CARD.CLAW", "CARD.ALL_FOR_ONE", "CARD.FERAL"],
+        "core": ["CARD.ALL_FOR_ONE", "CARD.FERAL"],
         "enabler": ["CARD.SCRAPE", "CARD.BEAM_CELL", "CARD.GO_FOR_THE_EYES", "CARD.FTL", "CARD.MOMENTUM_STRIKE", "CARD.ADAPTIVE_STRIKE"],
-        "payoff": ["CARD.HELIX_DRILL"],
+        "payoff": ["CARD.CLAW", "CARD.HELIX_DRILL"],
         "support": ["CARD.HOTFIX", "CARD.TURBO", "CARD.BOOST_AWAY"]
       },
       "fullWeight": 3.5,
       "keyRelics": [{ "id": "RELIC.POWER_CELL", "w": 0.5 }],
       "needs": [{ "tag": "ZERO_COST", "min": 4 }],
       "desc": "0코스트 카드를 잔뜩 모아 한 턴에 여러 번 쓰고 되돌리는 빌드",
-      "guideHeroCard": "CARD.CLAW"
+      "guideHeroCard": "CARD.ALL_FOR_ONE"
     },
     {
       "id": "defect.status",
