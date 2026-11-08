@@ -43,6 +43,9 @@ public sealed record MapGraph
     public required MapCoord Start { get; init; }
     public required MapCoord Boss { get; init; }
 
+    /// <summary>Second boss (double-boss ascension, <c>saved_map.second_boss</c>), or null.</summary>
+    public MapCoord? SecondBoss { get; init; }
+
     /// <summary>Last visited coordinate in this act (<c>visited_map_coords</c> tail), or null before the first step.</summary>
     public MapCoord? Current { get; init; }
 
