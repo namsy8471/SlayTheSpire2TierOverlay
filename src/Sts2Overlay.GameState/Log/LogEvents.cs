@@ -143,3 +143,31 @@ public sealed record PotionUsedEvent(ulong PlayerId, string PotionId, bool Disca
 
 /// <summary>Co-op Debug only: <c>[RestSiteSynchronizer] Rest site option index 1 chosen for player X with success True. Option: SMITH</c>.</summary>
 public sealed record RestSiteOptionEvent(ulong PlayerId, string Option, bool Success) : LogEvent;
+
+/// <summary>
+/// Co-op Debug: <c>[EventSynchronizer] Option index 2 chosen for player X in event EVENT.NEOW. Choice key: NEOW.pages.INITIAL.options.PRECARIOUS_SHEARS</c>.
+/// Logged for every player (local and remote). Tells what a following <c>chose cards</c> line means (remove /
+/// transform / upgrade ...) and which fixed cards the option adds (see <c>Tracking/DeckEffects</c>).
+/// </summary>
+/// <param name="ChoiceKey">Text key of the option. For an ancient (Neow etc.) the last segment is the relic id.</param>
+public sealed record EventOptionChosenEvent(ulong PlayerId, string EventId, string ChoiceKey) : LogEvent;
+
+/// <summary>
+/// Co-op Debug: <c>[ActionQueueSet] Enqueueing action PlayCardAction card: CARD.X (hash) index: 13 targetid: 2 to player queue owned by P</c>
+/// (ActionQueueSet.cs:142). <paramref name="CombatIndex"/> is the card's combat id: at combat start the game numbers
+/// every player's deck in player order (NetCombatCardDb.StartCombat), so player 0's deck is 0..n0-1, player 1's deck
+/// n0..n0+n1-1, and cards created during the fight come after all decks.
+/// </summary>
+public sealed record CardPlayedEvent(ulong OwnerId, string CardId, int CombatIndex) : LogEvent;
+
+/// <summary>
+/// Co-op Debug, REMOTE players only: <c>[RunLocationTargetedMessageBuffer] Handling map-targeted message RewardObtainedMessage type: Card ...
+/// skipped: False Card: CARD.X (hash) from P ...</c>. Seen for another player's shop purchase (their own client logs nothing).
+/// </summary>
+public sealed record RemoteShopPurchaseEvent(ulong PlayerId, string ItemId) : LogEvent;
+
+/// <summary>
+/// <c>Monster THIEVING_HOPPER performing move THIEVERY_MOVE</c>. Only the moves that change a deck are reported
+/// (Thieving Hopper's steal: one card from every living player, SwipePower.Steal; nothing names the card).
+/// </summary>
+public sealed record MonsterMoveEvent(string MonsterId, string Move) : LogEvent;

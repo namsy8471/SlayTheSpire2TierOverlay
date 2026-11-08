@@ -86,13 +86,17 @@ public class GameStateTrackerTests
         Assert.Equal(17, run.State.Floor);
         Assert.Equal(1, run.State.Act);
 
-        // Starting 10 + 6 reward cards - 1 shop removal (event "chose cards" lines are ignored).
-        Assert.Equal(15, run.State.Deck.Count);
+        // Starting 10 + 6 reward cards - 1 shop removal + FIGHT_ME. Single player logs no event options, so event
+        // "chose cards" lines can't be interpreted: those cards are kept and flagged.
+        Assert.Equal(16, run.State.Deck.Count);
         Assert.Equal(4, Count(run, "CARD.STRIKE_IRONCLAD"));
+        Assert.Contains(run.UncertainCards, u => u.CardId == "CARD.STRIKE_IRONCLAD" && u.Reason == UncertainReason.UnknownCardSelect);
         Assert.Equal(1, run.State.CardRemovalsBought);
-        // Rest-site smith: one JUGGLING upgraded, the other (picked later) not. FIGHT_ME came from Neow
-        // (not logged) so its upgrade has nothing to apply to.
+        // Rest-site smith: one JUGGLING upgraded, the other (picked later) not. FIGHT_ME came from Neow (not logged),
+        // but smithing it proves it is in the deck: it is added (Inferred) with the upgrade.
         Assert.Equal([0, 1], run.State.Deck.Where(c => c.Id == "CARD.JUGGLING").Select(c => c.Upgrade).Order());
+        Assert.Equal(1, Assert.Single(run.State.Deck, c => c.Id == "CARD.FIGHT_ME").Upgrade);
+        Assert.Contains(run.UncertainCards, u => u.CardId == "CARD.FIGHT_ME" && u.Reason == UncertainReason.Inferred);
         Assert.Equal(99 + 11 + 11 + 17 + 14 + 20 + 36, run.State.Gold);
         Assert.Equal(["RELIC.BURNING_BLOOD", "RELIC.HORN_CLEAT"], run.State.Relics);
         Assert.Contains(run.Potions, p => p.Id == "POTION.DEXTERITY_POTION");
@@ -317,7 +321,8 @@ public class GameStateTrackerTests
         Assert.False(run.HpGoldReliable);
         Assert.Equal("CHARACTER.SILENT", run.State.Character);
         Assert.Equal(70, run.State.MaxHp); // Silent's starting HP
-        Assert.Equal(1, Count(run, "CARD.LEADING_STRIKE"));
+        // One from a card reward, one bought in a shop (a remote player's purchase is logged on the host).
+        Assert.Equal(2, Count(run, "CARD.LEADING_STRIKE"));
         Assert.Equal(0, Count(run, "CARD.COOLHEADED"));
         Assert.Contains("RELIC.RING_OF_THE_SNAKE", run.State.Relics);
 
@@ -328,8 +333,8 @@ public class GameStateTrackerTests
             .GetProperty("deck").EnumerateArray().Select(c => c.GetProperty("id").GetString()!).ToList();
         int common = run.State.Deck.Select(c => c.Id).GroupBy(id => id)
             .Sum(g => Math.Min(g.Count(), finalDeck.Count(id => id == g.Key)));
-        // Events, Neow, shop purchases and transforms are invisible in the log, so this is not exact;
-        // the bulk of the deck (starting cards that survived + reward picks) should still line up.
+        // This excerpt is trimmed (no event options, no fight plays), so it can't be exact; the full-run check is
+        // CoopGuestDeckTests.Real_coop_runs_every_card_is_right_or_flagged_and_run_end_is_exact.
         Assert.True(common >= finalDeck.Count / 2, $"only {common}/{finalDeck.Count} cards match");
     }
 }
