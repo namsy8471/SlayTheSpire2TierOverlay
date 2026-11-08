@@ -1,0 +1,33 @@
+# .NET build output
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.idea/
+*.DotSettings.user
+TestResults/
+artifacts/
+publish/
+
+# Game files must never be committed (copyright). Reference via Directory.Build.props.
+*.pck
+0Harmony.dll
+sts2.dll
+GodotSharp.dll
+
+# Locally generated catalog dumps contain game text (copyright) - keep local only.
+catalog.*.json
+data/local/
+dumps/
+
+# Decompiled game source (ILSpy output) - local reference only
+decompiled/
+
+# Local overrides
+Directory.Build.local.props
+user_overrides.json
+
+# OS
+Thumbs.db
+.DS_Store
