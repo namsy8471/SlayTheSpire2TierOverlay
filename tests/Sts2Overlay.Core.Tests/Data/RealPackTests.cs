@@ -74,11 +74,31 @@ public class RealPackTests
         Assert.NotEmpty(pack.Combos);
     }
 
+    /// <summary>
+    /// Builds whose core list is empty on purpose: no card passed the core test in the top-player win data
+    /// (docs/research/build-sources). For these the core-first rule is off; the validator warns about each one.
+    /// </summary>
+    private static readonly string[] IntentionallyCoreless =
+    [
+        "defect.dark_orbs", "defect.orb_focus", "defect.zero_cost",
+        "ironclad.attack_replay", "ironclad.block", "ironclad.strength", "ironclad.strike_tempo", "ironclad.vulnerable",
+        "necrobinder.ethereal",
+        "regent.creation",
+        "silent.sly_discard",
+    ];
+
     [Fact]
-    public void Validator_ReportsNoErrorsOrWarnings()
+    public void Validator_ReportsNoErrorsAndOnlyTheIntentionalEmptyCoreWarnings()
     {
         var issues = DataPackValidator.Validate(Pack.Value);
-        Assert.True(issues.Count == 0, string.Join(Environment.NewLine, issues.Select(i => $"[{i.Severity}] {i.Where}: {i.Message}")));
+        var expected = IntentionallyCoreless.Select(id => $"archetypes[{id}].cards.core").ToHashSet(StringComparer.Ordinal);
+        bool IsExpected(ValidationIssue i)
+            => i.Severity == ValidationSeverity.Warning && expected.Contains(i.Where) && i.Message.Contains("no core card", StringComparison.Ordinal);
+
+        var unexpected = issues.Where(i => !IsExpected(i)).ToList();
+        Assert.True(unexpected.Count == 0, string.Join(Environment.NewLine, unexpected.Select(i => $"[{i.Severity}] {i.Where}: {i.Message}")));
+        // Every listed build really is core-less (so the list cannot hide a build that got a core back).
+        Assert.Equal(expected.Order(StringComparer.Ordinal), issues.Where(IsExpected).Select(i => i.Where).Order(StringComparer.Ordinal));
     }
 
     [Fact]
@@ -144,13 +164,15 @@ public class RealPackTests
         }
     }
 
-    [Fact]
-    public void EveryCharacter_HasThreeToFiveArchetypes()
+    /// <summary>Archetype count per character, as documented in data/packs/v0.107.1/README.md (top-player build sources).</summary>
+    [Theory]
+    [InlineData("CHARACTER.IRONCLAD", 8)]
+    [InlineData("CHARACTER.SILENT", 3)]
+    [InlineData("CHARACTER.DEFECT", 6)]
+    [InlineData("CHARACTER.NECROBINDER", 3)]
+    [InlineData("CHARACTER.REGENT", 4)]
+    public void EveryCharacter_HasTheDocumentedArchetypeCount(string character, int expected)
     {
-        foreach (var character in PoolToCharacter.Values.Where(c => c != DataPack.Colorless))
-        {
-            var count = Pack.Value.Archetypes.Count(a => a.Character == character);
-            Assert.InRange(count, 3, 5);
-        }
+        Assert.Equal(expected, Pack.Value.Archetypes.Count(a => a.Character == character));
     }
 }
