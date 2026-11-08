@@ -542,6 +542,9 @@
           <!-- local resources / version guard banner (Services.LocalResourceService) -->
           <TextBlock Text="{Binding ResourceBanner}" Style="{StaticResource Dim}" Foreground="#F0B27A" TextWrapping="Wrap" Margin="12,2,12,2"
                      Visibility="{Binding ResourceBanner, Converter={StaticResource BoolVis}}" />
+          <!-- downloaded update waiting to be applied (Services.UpdateService) -->
+          <TextBlock Text="{Binding UpdateText}" Style="{StaticResource Dim}" Foreground="#58D68D" TextWrapping="Wrap" Margin="12,2,12,2"
+                     Visibility="{Binding UpdateText, Converter={StaticResource BoolVis}}" />
           <TextBlock Text="{Binding MessageText}" Style="{StaticResource Dim}" Foreground="#F5B041" Margin="12,2,12,2"
                      Visibility="{Binding MessageText, Converter={StaticResource BoolVis}}" />
           <Border Height="1" Background="#26FFFFFF" Margin="8,4,8,0" />

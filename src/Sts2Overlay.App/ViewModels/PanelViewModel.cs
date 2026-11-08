@@ -117,6 +117,15 @@ public sealed class PanelViewModel : ObservableObject
     }
     // ---- end local resources ----
 
+    private string? _updateText;
+
+    /// <summary>"새 버전 v0.2.0 준비됨 …" once an update was downloaded (Services.UpdateService). Null hides it.</summary>
+    public string? UpdateText
+    {
+        get => _updateText;
+        set => Set(ref _updateText, value);
+    }
+
     public bool ClickThrough
     {
         get => _clickThrough;

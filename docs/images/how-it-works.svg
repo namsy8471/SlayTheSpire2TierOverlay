@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 440" width="1000" height="440" role="img" aria-label="작동 방식: 세이브·로그 감시와 화면 캡처에서 카드 인식, 추천 엔진을 거쳐 배지와 패널로 표시">
+  <style>
+    text { font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; fill: #EEF0F4; }
+    .t { font-size: 17px; font-weight: 700; }
+    .s { font-size: 13px; fill: #9AA3B2; }
+    .n { font-size: 14px; font-weight: 700; }
+    .box { fill: #1F2330; stroke: #3A4152; stroke-width: 1.5; }
+    .hl { fill: #2A2410; stroke: #F1C40F; stroke-width: 2; }
+    .src { fill: #18202B; stroke: #3498DB; stroke-width: 1.5; }
+    .arrow { stroke: #9AA3B2; stroke-width: 2; fill: none; marker-end: url(#a); }
+    .dash { stroke: #6B7385; stroke-width: 1.5; fill: none; stroke-dasharray: 5 4; marker-end: url(#a2); }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#9AA3B2"/></marker>
+    <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#6B7385"/></marker>
+  </defs>
+  <rect x="0" y="0" width="1000" height="440" rx="16" fill="#14161D"/>
+  <text x="32" y="44" class="t" style="font-size:20px">작동 방식</text>
+  <text x="130" y="44" class="s">게임은 그대로, 오버레이가 옆에서 읽고 그립니다</text>
+
+  <!-- inputs -->
+  <rect x="32" y="78" width="220" height="92" rx="10" class="src"/>
+  <text x="48" y="106" class="t">세이브·로그 감시</text>
+  <text x="48" y="130" class="s">current_run.save, godot.log</text>
+  <text x="48" y="150" class="s">덱 · HP · 골드 · 맵 · 화면 신호</text>
+
+  <rect x="32" y="196" width="220" height="92" rx="10" class="src"/>
+  <text x="48" y="224" class="t">화면 캡처</text>
+  <text x="48" y="248" class="s">게임 창만, 메모리에서 바로 처리</text>
+  <text x="48" y="268" class="s">보상·상점·맵·휴식처·이벤트</text>
+
+  <!-- recognition -->
+  <rect x="300" y="196" width="200" height="92" rx="10" class="box"/>
+  <text x="316" y="224" class="t">카드 인식</text>
+  <text x="316" y="248" class="s">카드 그림 매칭 · 강화 여부</text>
+  <text x="316" y="268" class="s">상점 가격 · 버튼 위치</text>
+
+  <!-- engine -->
+  <rect x="548" y="120" width="200" height="126" rx="10" class="box"/>
+  <text x="564" y="148" class="t">추천 엔진</text>
+  <text x="564" y="172" class="s">티어 + 지금 덱에 필요한 것</text>
+  <text x="564" y="192" class="s">빌드 감지 · 완성 확률</text>
+  <text x="564" y="212" class="s">스킵 · 상점 예산 · 경로</text>
+  <text x="564" y="232" class="s">휴식처 · 이벤트 선택지</text>
+
+  <!-- output -->
+  <rect x="790" y="120" width="184" height="126" rx="10" class="hl"/>
+  <text x="806" y="148" class="t" style="fill:#F1C40F">배지 · 패널</text>
+  <text x="806" y="172" class="s" style="fill:#D8CFA8">카드 위 티어 배지</text>
+  <text x="806" y="192" class="s" style="fill:#D8CFA8">"추천!" 리본 · 이유 칩</text>
+  <text x="806" y="212" class="s" style="fill:#D8CFA8">패널: 추천/덱/빌드/경로</text>
+  <text x="806" y="232" class="s" style="fill:#D8CFA8">맵·휴식처 위 표시</text>
+
+  <!-- local resources -->
+  <rect x="300" y="78" width="200" height="92" rx="10" class="box" style="stroke-dasharray:5 4"/>
+  <text x="316" y="106" class="t">로컬 리소스 (첫 실행)</text>
+  <text x="316" y="130" class="s">내 PC의 게임 파일에서 읽기만</text>
+  <text x="316" y="150" class="s">카드 그림·이름을 내 PC에 추출</text>
+
+  <!-- arrows -->
+  <path d="M252,242 L296,242" class="arrow"/>
+  <path d="M500,242 L520,242 L520,200 L544,200" class="arrow"/>
+  <path d="M252,124 L270,124 L270,60 L520,60 L520,160 L544,160" class="arrow"/>
+  <path d="M400,170 L400,192" class="dash"/>
+  <path d="M748,183 L786,183" class="arrow"/>
+
+  <!-- notes -->
+  <rect x="32" y="322" width="456" height="86" rx="10" fill="#17251D" stroke="#2E7D4F" stroke-width="1.5"/>
+  <text x="52" y="356" class="n" style="fill:#7FD6A1">게임 모드 없음</text>
+  <text x="52" y="384" class="s" style="fill:#B9D9C5">게임 파일을 바꾸지 않고, 게임 안에 아무것도 넣지 않습니다.</text>
+  <rect x="512" y="322" width="456" height="86" rx="10" fill="#17251D" stroke="#2E7D4F" stroke-width="1.5"/>
+  <text x="532" y="356" class="n" style="fill:#7FD6A1">외부로 보내는 데이터 없음 (업데이트 확인만)</text>
+  <text x="532" y="384" class="s" style="fill:#B9D9C5">캡처·덱·기록은 내 PC 밖으로 나가지 않습니다.</text>
+</svg>

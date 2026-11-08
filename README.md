@@ -1,136 +1,180 @@
 # Slay the Spire 2 티어 오버레이
 
-슬레이 더 스파이어 2를 실시간으로 읽어 **카드 위에 티어 배지**를 띄우고, 보상·상점 화면에서 **지금 덱에 맞는 카드**와 **갈 길**을 추천하는 데스크톱 오버레이입니다.
-**게임 모드를 쓰지 않습니다.** 게임 파일은 읽기만 하고, 세이브·로그 감시와 화면 캡처 인식으로 상태를 읽습니다.
+슬레이 더 스파이어 2 화면 위에 **카드 티어 배지**를 띄우고, 보상·상점·맵·휴식처에서 **지금 내 덱에 맞는 선택**을 추천하는 Windows용 오버레이입니다.
 
-- 설계: [docs/PLAN.md](docs/PLAN.md) · 기술 검증(M0) 결과: [docs/SPIKE.md](docs/SPIKE.md) · 경쟁 도구 분석: [docs/research/DECK_COMPASS.md](docs/research/DECK_COMPASS.md)
-- 데이터 팩 형식: [docs/DATA_SCHEMA.md](docs/DATA_SCHEMA.md) · 현재 팩: [data/packs/v0.107.1](data/packs/v0.107.1/README.md) (초안)
+![보상 화면 위에 뜬 티어 배지와 추천 패널 (일러스트 목업: 카드는 단순 도형, 배지와 패널은 실제 앱 렌더링)](docs/images/hero-reward.png)
 
-## 구성
+<sub>위 그림은 설명용 목업입니다. 카드는 직접 그린 도형이고, 배지와 오른쪽 패널만 실제 앱이 그린 것입니다. 카드 이름은 "파워 카드 B"처럼 가린 예시 이름입니다.</sub>
 
-| 프로젝트 | 대상 | 역할 |
+> **비공식 팬 도구입니다.** Mega Crit과 관련이 없고, Mega Crit의 승인이나 보증을 받지 않았습니다.
+
+## 이런 프로그램입니다
+
+- **게임 모드를 쓰지 않습니다.** 게임 파일을 바꾸거나 게임 안에 무언가를 넣지 않습니다.
+- 세이브·로그 파일을 **읽기만** 해서 덱·HP·골드·맵을 알고, 보상·상점에 뜬 카드는 **게임 창 화면을 인식**해서 알아냅니다.
+- 티어만 보여 주는 게 아니라, **지금 덱에 부족한 것**(광역, 방어, 드로우…), **노리는 빌드**, **남은 골드**, **갈 길**까지 따져서 점수를 매깁니다.
+- 한국어 UI. 1인 플레이와 협동(손님 포함) 모두 지원합니다.
+
+## 기능
+
+### 카드 위 배지와 "추천!" 리본
+
+보상·상점 화면이 열리면 카드마다 **티어 글자(S·A·B·C·D)와 점수** 배지를 붙입니다. 가장 좋은 카드에는 금색 테두리와 **"추천!"**(상점은 **"구매!"**) 리본이 붙고, 카드 아래에는 점수의 이유가 칩으로 나옵니다(`성장 부족 +6`, `중복 -15` 같은). 카드를 안 받는 게 나으면 **"스킵 추천!"**, 상점에서 카드 제거가 이득이면 제거 버튼 위에 **"제거 추천: …"**을 띄웁니다.
+
+| 티어 | S | A | B | C | D |
+|---|---|---|---|---|---|
+| 배지 색 | 금색 | 보라 | 파랑 | 회색 | 진한 빨강 |
+
+![상점 화면 목업: 카드별 배지, 구매! 리본, 제거 추천 표시, 왼쪽 패널](docs/images/mock-shop.png)
+
+<sub>상점 목업. 가격 색(빨간 가격 = 살 수 없음)까지 읽어 예산 안에서 살 조합을 고릅니다. 가격표가 가려지면 희귀도로 추정합니다("~50골드 (추정)").</sub>
+
+### 패널: 추천 · 덱 · 빌드 · 경로
+
+게임 오른쪽에 붙는 작은 패널입니다. 끌어서 옮길 수 있고, 위치와 마지막 탭을 기억합니다. 보상·상점이 열리면 자동으로 **추천** 탭으로 바뀝니다.
+
+| 추천 (카드 보상) | 추천 (상점) |
+|---|---|
+| ![추천 탭: 카드 보상 순위와 이유](docs/images/panel-offer-reward.png) | ![추천 탭: 상점 구매 가치와 예산](docs/images/panel-offer-shop.png) |
+| 순위, 점수, 이유 칩, 스킵 점수 | 구매 가치, 골드당 가치, 추천 구매 조합과 남는 골드 |
+
+| 덱 | 빌드 | 경로 |
 |---|---|---|
-| `src/Sts2Overlay.Core` | net10.0 | 추천 엔진: 카드 점수, 스킵, 상점, 빌드 감지, **경로 추천(`Map/PathAdvisor`)**, 런 기록 리플레이 |
-| `src/Sts2Overlay.GameState` | net10.0 | `current_run.save` 감시 + `godot.log` 꼬리 읽기 → 덱·HP·골드·맵·화면 힌트. 협동 손님(세이브 없음)은 로그로 재구성 |
-| `src/Sts2Overlay.Vision` | net10.0 | 캡처 화면에서 보상·상점 판별, 카드 상자 탐색, 카드 그림 NCC 매칭, 강화 판별 |
-| `src/Sts2Overlay.Resources` | net10.0 | 설치된 게임에서 로컬 리소스 자동 생성 (pck 추출, `sts2.dll` 카탈로그), 게임 버전·지문, 버전 경고 |
-| `src/Sts2Overlay.App` | net10.0-windows10.0.22621.0 | WPF 오버레이: 게임 창 추적, 화면 캡처(Windows.Graphics.Capture, 안 되면 GDI), 카드 위 배지, 패널(추천/덱/빌드/경로), 트레이, 단축키 |
-| `tests/*` | | xUnit 테스트 (게임 파일이 필요한 테스트는 없으면 건너뜀) |
-| `tools/CatalogBuilder` | | `sts2.dll` 정적 분석 → 카드 카탈로그, 시작 덱 (수동 실행용) |
-| `tools/PckTool` | | `SlayTheSpire2.pck` 읽기 전용 추출 (카드 그림, 현지화, 수동 실행용) |
-| `tools/refresh-local.ps1` | | `data/local` 다시 만들기 (`--prepare` 실행) |
-| `tools/VisionBench` | | 캡처 모음으로 인식 정확도 측정 (세이브의 `card_choices`로 자동 채점) |
-| `tools/StateProbe` | | 세이브·로그 추적 결과를 실시간 출력 |
-| `tools/RunHistoryAnalyzer` | | `.run` 기록을 엔진으로 리플레이해 "추천과 내 선택" 비교 |
-| `tools/PathStats` | | `.run` 기록에서 방 종류·막별 HP 손실, 골드, 휴식, 사망률을 재고 경로 가중치를 맞춘 뒤 이전 값과 백테스트 |
+| ![덱 탭: 역할 공급과 카드 목록](docs/images/panel-deck.png) | ![빌드 탭: 빌드 완성 확률과 현재 방향](docs/images/panel-build.png) | ![경로 탭: 경로 후보 비교 (데모 데이터)](docs/images/panel-path.png) |
+| 초반 딜·광역·방어·성장·드로우가 목표만큼 있는지, 카드별 티어 | 지금 덱이 향하는 빌드, 3막까지 완성될 확률, 먼저 노릴 핵심 카드 | 엘리트·휴식·상점 수와 보스 도착 HP 예상으로 경로 비교 |
 
-## 로컬 리소스 (자동)
+<sub>스크린샷은 데모 모드(`--demo`)의 패널을 화면에 띄우지 않고 그대로 렌더링한 것입니다. 카드 이름은 "공격 카드 A"처럼 가린 예시 이름이고 카드 그림 썸네일은 뺐습니다. 실제로는 내 PC에서 만든 한국어 카드 이름과 작은 카드 그림이 나옵니다. 경로 탭은 데모용 고정 데이터입니다.</sub>
 
-게임 이미지·텍스트는 레포에 없습니다. **앱을 켜면 설치된 게임에서 자동으로 추출**합니다 (`data/local/`, gitignore. 약 2초).
+### 게임 화면 위 추천 (맵 · 휴식처 · 이벤트)
 
-- 게임 버전은 설치 폴더의 `release_info.json`(게임이 직접 읽는 파일)에서 읽고, `sts2.dll` 해시와 `SlayTheSpire2.pck` 크기·수정 시각을 지문으로 `data/local/manifest.json`에 저장합니다. 게임이 업데이트되어 지문이 바뀌면 다음 실행 때 다시 만듭니다. 그대로면 아무것도 하지 않습니다.
-- 진행 상황과 경고는 패널 아래 주황색 줄에 나옵니다. 게임 버전이 데이터 팩(`data/packs/v0.107.1`)과 다르면 "게임 버전 …이 데이터 팩 …보다 새롭습니다"와 티어 없는 새 카드 목록(기본 티어로 계산)을 보여 줍니다.
-- 게임 폴더를 못 찾으면 `settings.json`에 `"gameDir"`을 적거나 `--game-dir <폴더>`를 쓰세요 (Steam 라이브러리는 자동 검색).
+- **맵**: 추천하는 다음 칸과 길을 게임 지도 위에 직접 그립니다. 지도를 스크롤해도 따라갑니다.
+- **휴식처**: 휴식과 강화 중 추천하는 버튼, 강화할 카드에 "추천!"을 붙입니다.
+- **이벤트**: 추천하는 선택지 버튼에 "추천!"을 붙입니다.
+- 맵·휴식처 표시는 `Ctrl+F5` 또는 트레이 "맵·휴식처 위 추천 표시"로 끄고 켭니다.
 
-미리 만들거나 강제로 다시 만들기:
+### 리뷰
+
+런이 끝나면 **리뷰** 탭에서 내 카드 선택을 추천과 비교해 줍니다(추천 1순위와 같았던 비율, 가장 크게 달랐던 선택).
+
+## 작동 방식
+
+![작동 방식: 세이브·로그 감시와 화면 캡처 → 카드 인식 → 추천 엔진 → 배지·패널](docs/images/how-it-works.svg)
+
+- **세이브·로그 감시**: 게임이 쓰는 `current_run.save`와 `godot.log`를 읽어 덱, HP, 골드, 맵, "지금 보상 화면이 열렸다" 같은 신호를 얻습니다.
+- **화면 캡처**: 세이브는 카드를 고른 뒤에야 바뀌므로, 보상·상점에 뜬 카드는 게임 창을 캡처해 알아냅니다. 게임 창만, 게임이 앞에 있을 때만 캡처하고(보상·상점일 때 초당 3번, 평소에는 더 드물게), 메모리에서 처리한 뒤 버립니다. `Ctrl+F9`로 직접 저장할 때만 파일로 남습니다.
+- **카드 인식**: 처음 실행할 때 **내 PC에 설치된 게임 파일을 읽어** 카드 그림과 이름을 내 PC 안에만 만들어 두고, 캡처 속 카드 그림과 맞춰 봅니다.
+- **추천 엔진**: 티어 데이터에 지금 덱 상황, 빌드, 골드, 남은 길을 더해 점수를 매깁니다.
+
+## 설치
+
+**필요한 것**: Windows 10 2004 이상(64비트), Steam으로 설치한 Slay the Spire 2.
+
+1. [**최신 릴리스 페이지**](https://github.com/namsy8471/SlayTheSpire2TierOverlay/releases/latest)에서 `namsy8471.Sts2Overlay-win-Setup.exe`를 받습니다.
+2. 실행하면 바로 설치되고 시작 메뉴와 바탕 화면에 바로 가기가 생깁니다. 관리자 권한은 필요 없습니다(내 계정의 `%LocalAppData%\namsy8471.Sts2Overlay`에 설치).
+3. **"Windows의 PC 보호"** 파란 창이 뜨면 **추가 정보 → 실행**을 누르세요. 코드 서명 인증서가 없는 개인 프로젝트라서 뜨는 경고입니다.
+4. 첫 실행 때 게임 폴더를 찾아 카드 그림·이름을 `%LOCALAPPDATA%\Sts2Overlay\local`에 만듭니다(몇 초). 진행 상황은 패널 아래 주황색 줄에 나옵니다.
+
+그다음부터는 게임과 오버레이를 켜 두기만 하면 됩니다. 오버레이는 **게임이 앞에 있을 때만** 보입니다.
+
+## 자동 업데이트
+
+![자동 업데이트: GitHub Releases 확인 → 백그라운드 다운로드 → 재시작 또는 종료 시 적용](docs/images/auto-update.svg)
+
+- 오버레이가 켜지고 **약 15초 뒤** GitHub Releases에 새 버전이 있는지 확인하고, 그 뒤로는 **최대 6시간마다** 확인합니다.
+- 새 버전이 있으면 **백그라운드에서** 받습니다. 바뀐 부분만 받는 델타 패키지라서 보통 작습니다.
+- 다 받으면 패널 아래에 초록색으로 "새 버전 vX 준비됨"이 뜨고, 트레이 메뉴에 **"업데이트 적용 (재시작) vX"**가 생깁니다. 누르면 바로 바꾸고 다시 켭니다. 안 누르면 **오버레이를 끌 때 조용히** 적용됩니다. 게임 중에 스스로 재시작하는 일은 없습니다.
+- 트레이 메뉴에 지금 버전이 나오고, **"업데이트 확인"**으로 바로 확인할 수도 있습니다.
+- 끄려면 `settings.json`에 `"autoUpdate": false`를 적으세요.
+- 설정과 기록(`%LOCALAPPDATA%\Sts2Overlay`)은 업데이트해도 그대로입니다.
+
+## 사용법
+
+### 단축키
+
+게임이 앞에 있어도 동작합니다.
+
+| 키 | 기능 |
+|---|---|
+| `Ctrl+F5` | 맵·휴식처 위 추천 표시 켜기/끄기 |
+| `Ctrl+F6` | 패널 항상 맨 앞에 표시 켜기/끄기 |
+| `Ctrl+F7` | 패널 클릭 통과 (패널 아래를 클릭해야 할 때) |
+| `Ctrl+F8` | 오버레이 모두 숨기기/보이기 |
+| `Ctrl+F9` | 지금 화면 캡처 저장 (문제 신고용) |
+| `Ctrl+F10` | 지금 바로 인식 |
+| `Ctrl+F11` | 인식 영역 표시 (카드·가격 상자, 점검용) |
+
+다른 프로그램이 같은 키를 쓰고 있으면 패널에 "단축키 등록 실패"가 나옵니다.
+
+### 트레이 아이콘
+
+작업 표시줄 알림 영역의 금색 **S** 아이콘입니다. 더블클릭하면 숨기기/보이기. 오른쪽 클릭 메뉴에는 숨기기, 항상 맨 앞, 맵·휴식처 위 추천, **UI 배율**(자동: FHD 100%, 4K 150%), 지금 인식, 캡처 저장, 인식 영역 표시, 데모 모드, 데이터 팩 다시 읽기, 캡처 폴더 열기, 로그 열기, 버전·업데이트 확인, 종료가 있습니다.
+
+### 설정과 기록 위치
+
+모두 `%LOCALAPPDATA%\Sts2Overlay`에 있습니다. 업데이트나 제거를 해도 지워지지 않습니다.
+
+| 파일·폴더 | 내용 |
+|---|---|
+| `settings.json` | 설정. 패널 위치·탭은 자동 저장되니, 손으로 고칠 때는 오버레이를 끈 뒤에 고치세요 |
+| `app.log` | 기록 (5 MB를 넘으면 `app.log.1`로 넘김). 문제를 알릴 때 첨부해 주세요 |
+| `captures\` | `Ctrl+F9`로 저장한 캡처 |
+| `local\` | 내 PC의 게임 파일에서 만든 카드 그림·이름 (설치판) |
+
+`settings.json`에서 자주 쓰는 항목:
+
+| 항목 | 기본값 | 설명 |
+|---|---|---|
+| `gameDir` | `null` (자동) | 게임 설치 폴더. Steam 라이브러리에서 못 찾을 때만 적으세요 |
+| `uiScale` | `null` (자동) | UI 배율 (`1.5` = 150%). 트레이에서도 바꿀 수 있습니다 |
+| `panelOpacity` | `0.86` | 패널 배경 불투명도 (0.3~1) |
+| `alwaysOnTop` | `true` | 패널 항상 맨 앞 (`Ctrl+F6`) |
+| `mapOverlay` | `true` | 맵·휴식처 위 추천 (`Ctrl+F5`) |
+| `hideOverlayFromCapture` | `true` | 오버레이를 화면 캡처·녹화에서 숨김 (아래 FAQ) |
+| `captureBackend` | `"auto"` | `"gdi"`로 바꾸면 느린 대신 호환성이 좋은 캡처 |
+| `autoUpdate` | `true` | 자동 업데이트 |
+| `updateUrl` | `null` | 업데이트를 받을 곳 (테스트용. 비우면 공식 릴리스) |
+
+## 개인정보와 저작권
+
+- **비공식 팬 도구**입니다. Mega Crit과 관련이 없으며 승인이나 보증을 받지 않았습니다. Slay the Spire 2와 그 그림·텍스트의 권리는 Mega Crit에 있습니다.
+- **게임 파일을 배포하지 않습니다.** 설치 파일과 이 저장소에는 카드 그림도, 카드 이름·설명 같은 게임 텍스트도 없습니다. 데이터 팩은 게임 내부 ID(`CARD.BALL_LIGHTNING` 같은)와 우리가 매긴 티어·주석만 담습니다.
+- 카드 그림과 이름은 **플레이어 본인의 PC에서, 본인이 설치한 게임 파일을 읽어** `%LOCALAPPDATA%\Sts2Overlay\local`에만 만듭니다. 게임 파일은 읽기만 합니다.
+- **외부로 보내는 데이터가 없습니다.** 캡처, 덱, 런 기록, 로그는 PC 밖으로 나가지 않습니다. 유일한 네트워크 통신은 GitHub에 새 버전이 있는지 묻고 받는 업데이트입니다.
+
+## 자주 묻는 질문
+
+**게임이 업데이트되면요?**
+오버레이는 다음 실행 때 게임 파일이 바뀐 것을 알아채고 카드 그림·이름을 다시 만듭니다(몇 초). 게임 버전이 데이터 팩보다 새로우면 패널 아래 주황색 줄에 "게임 버전 …이 데이터 팩 …보다 새롭습니다"와 **티어가 없는 새 카드 목록**이 나옵니다. 이 카드들은 기본 티어로 계산되고, 나머지는 그대로 동작합니다. 새 데이터 팩이 담긴 버전이 나오면 자동 업데이트로 받아지니, 그때까지 새 카드 점수는 참고만 하세요.
+
+**"Windows의 PC 보호" 창이 떠요.**
+서명 인증서가 없는 프로그램이면 뜨는 SmartScreen 경고입니다. **추가 정보 → 실행**을 누르면 됩니다. 꺼림칙하면 이 저장소의 코드로 직접 빌드할 수도 있습니다(아래 개발자 안내).
+
+**오버레이가 안 보여요.**
+- 게임 창이 **앞에 있을 때만** 보입니다. 다른 창을 클릭했다면 게임을 다시 클릭하세요.
+- `Ctrl+F8`로 숨겨 둔 건 아닌지 확인하세요(트레이 메뉴 첫 줄이 "오버레이 보이기"면 숨긴 상태).
+- 배지는 보상·상점 화면에서만 나옵니다. 바로 안 뜨면 `Ctrl+F10`(지금 인식)을 눌러 보세요.
+- 게임을 **창 모드나 테두리 없는 전체 화면**으로 쓰세요. 독점 전체 화면에서는 다른 창이 위에 그려지지 않을 수 있습니다.
+- 그래도 안 되면 트레이 "로그 열기"로 `app.log`를 확인하거나, 이슈에 첨부해 주세요.
+
+**방송·녹화 화면에 오버레이가 안 나와요.**
+기본값으로 오버레이 창을 화면 캡처에서 빼 둡니다. 우리 배지가 인식할 화면에 섞이지 않게 하려는 것인데, 그 때문에 OBS나 스크린샷에도 안 나옵니다. 보이게 하려면 `"hideOverlayFromCapture": false`로 바꾸세요(인식이 조금 불안정해질 수 있습니다).
+
+**지우려면요?**
+Windows **설정 → 앱 → 설치된 앱**에서 "STS2 티어 오버레이"를 제거하세요. 설정·기록·만들어 둔 카드 그림이 있는 `%LOCALAPPDATA%\Sts2Overlay` 폴더는 남으니, 깨끗이 지우려면 이 폴더도 직접 지우세요.
+
+**"이미 실행 중입니다"라고 나와요.**
+한 번에 하나만 켤 수 있습니다. 알림 영역의 금색 S 아이콘을 확인하세요.
+
+## 개발자 안내
+
+.NET 10 SDK와 Windows가 필요합니다. 프로젝트 구성, 점검 도구, 데이터 팩 검증 명령은 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)에, 릴리스와 자동 업데이트 구조는 [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md)에 있습니다.
 
 ```powershell
-pwsh tools/refresh-local.ps1          # 바뀐 경우에만
-pwsh tools/refresh-local.ps1 -Force   # 항상 다시
-```
-
-추출 코드는 `src/Sts2Overlay.Resources`에 있고, `tools/PckTool`·`tools/CatalogBuilder`는 같은 코드를 쓰는 수동 도구로 남아 있습니다.
-
-## 실행
-
-실행 파일 만들기 (한 번, 이후 `dist\Sts2Overlay.exe`를 더블클릭. exe는 위 폴더로 올라가며 `data/packs`를 찾으므로 `dist`는 레포 안에 둡니다):
-
-```bash
-dotnet publish src/Sts2Overlay.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -o dist
-```
-
-개발 중 바로 실행:
-
-```bash
-dotnet run --project src/Sts2Overlay.App
-```
-
-- 게임을 켜 두면 창을 찾아 그 위에 패널과 배지를 띄웁니다. 보상·상점 화면일 때만 초당 3번 캡처합니다.
-- 화면 없이 보기: `-- --demo reward` (또는 `shop`, `other`)
-- 리소스만 준비하고 끝내기: `-- --prepare [--force] [--game-dir <폴더>]`
-- UI 배율: 게임 해상도에 맞춰 자동 (FHD 100%, 4K 150%). 트레이 메뉴 "UI 배율"에서 바꿀 수 있습니다.
-- 단축키: `Ctrl+F7` 패널 클릭 통과, `Ctrl+F8` 모두 숨기기, `Ctrl+F9` 캡처 저장, `Ctrl+F10` 지금 인식, `Ctrl+F11` 인식 영역 표시(카드·가격 상자, 디버그)
-- 기록: `%LOCALAPPDATA%\Sts2Overlay\app.log`, 설정: `settings.json`
-- 캡처 방식: 기본은 Windows.Graphics.Capture(4K 한 장 약 4 ms). 지원되지 않거나 실패하면 GDI(약 50 ms)로 자동 전환합니다. `settings.json`의 `"captureBackend": "gdi"`로 GDI를 강제할 수 있고, 실제로 쓰인 방식은 app.log의 `capture backend` 줄에 남습니다.
-
-## 빌드와 테스트
-
-```bash
 dotnet build SlayTheSpire2TierOverlay.sln
-```
-
-```bash
 dotnet test SlayTheSpire2TierOverlay.sln
+dotnet run --project src/Sts2Overlay.App -- --demo reward   # 게임 없이 UI 보기 (reward | shop | other)
 ```
 
-## 점검 도구
-
-```bash
-dotnet run --project tools/StateProbe -- --once
-```
-
-캡처 속도 비교(GDI 대 WGC, 창을 띄우지 않음)와 정확도 검증(WGC 결과가 GDI·저장된 캡처와 픽셀 단위로 같은지, 인식 결과가 같은지, 크기 변경·창 닫힘 처리):
-
-```bash
-dotnet run --project src/Sts2Overlay.App -- --bench-capture 60
-```
-
-```bash
-dotnet run --project src/Sts2Overlay.App -- --verify-capture 16
-```
-
-```bash
-dotnet run --project tools/VisionBench -- bench
-```
-
-```bash
-dotnet run --project tools/RunHistoryAnalyzer -- replay "%APPDATA%\SlayTheSpire2\steam\<id>\profile1\saves\history" --pack data/packs/v0.107.1 --out data/local/replay.md
-```
-
-튜닝에 쓰지 않은 런으로 데이터 팩을 검증 (홀드아웃·교차 검증, [팩 README §4.1](data/packs/v0.107.1/README.md)):
-
-```bash
-dotnet run --project tools/RunHistoryAnalyzer -- validate "%APPDATA%\SlayTheSpire2\steam\<id>\profile1\saves\history" --pack data/packs/v0.107.1 --player <id> --tuned-until 1794134406 --all-players --out data/local/holdout/validate.md
-```
-
-경로 가중치 측정·백테스트 (협동 런은 두 계정 폴더에 같은 런이 있어도 한 번만 셉니다):
-
-```bash
-dotnet run --project tools/PathStats -- "%APPDATA%\SlayTheSpire2\steam\<id>\profile1\saves\history" --pack data/packs/v0.107.1 --map tests/Sts2Overlay.Core.Tests/Map/Fixtures/map_act2.json
-```
-
-결과는 `data/local/path/`(stats.md, stats.json, backtest.md, backtest.json)에 생깁니다. 측정값은 `PathWeights`의 `[측정]` 주석에 표본 수와 함께 옮겨 둡니다.
-
-빌드 완성 확률(몬테카를로) 보정 확인: 기록의 체크포인트마다 예측한 확률과 실제 마지막 덱을 비교합니다.
-이벤트 카드 비율·막별 사망률·보정 곡선은 해당 런을 뺀 나머지 런으로 맞춥니다(leave-one-run-out). 협동 기록이 있으면 Steam 폴더를 모두 넘기세요.
-`--emit`은 모든 런으로 맞춘 기본값(`ForecastFit`, `ForecastCalibration.Default`에 붙여 넣을 값)을 출력합니다.
-
-```bash
-dotnet run --project tools/RunHistoryAnalyzer -c Release -- calibrate "%APPDATA%\SlayTheSpire2\steam\<id>\profile1\saves\history" --pack data/packs/v0.107.1 --sims 1000 [--emit]
-```
-
-점수 가중치를 같은 방식으로 탐색 (fold마다 다시 맞추고, 현재 값 쪽으로 규제):
-
-```bash
-dotnet run --project tools/RunHistoryAnalyzer -- tune-weights "%APPDATA%\SlayTheSpire2\steam\<id>\profile1\saves\history" --pack data/packs/v0.107.1 --player <id> --tuned-until 1794134406 --all-players --lambda 0.005
-```
-
-휴식처 조언(휴식 vs 강화, 강화할 카드)을 기록의 선택과 비교 (일치율은 대리 지표, 남은 길은 실제로 걸은 방):
-
-```bash
-dotnet run --project tools/RunHistoryAnalyzer -- rest-advice "%APPDATA%\SlayTheSpire2\steam\<id>\profile1\saves\history" --pack data/packs/v0.107.1 [--all-players] [--out rest.md]
-```
-
-## 저작권
-
-게임 텍스트·이미지는 레포에 넣지 않습니다. 데이터는 게임 내부 ID(`CARD.BALL_LIGHTNING` 등)와 우리 주석만 담고, 이름이 들어간 카탈로그와 카드 그림은 사용자 PC에서만 생성합니다.
+- **`build-exe.cmd`** (더블클릭): `git pull --ff-only`로 최신 코드를 받아 `dist\Sts2Overlay.exe`(단일 파일)를 다시 만듭니다. 내 PC에서 쓰는 용도이고 자동 업데이트는 없습니다. 옵션 `-NoPull`, `-Restart`, `-NoRestart`, `-NoPause`.
+- **`release.cmd <버전>`** (`tools\release.ps1`): 작업 트리가 깨끗하고 push됐는지 확인한 뒤 태그 `v<버전>`을 만들어 push합니다. 테스트, 패키지, 릴리스 업로드는 GitHub Actions가 합니다. `-DryRun`은 검사만, `-Local`은 이 PC에서 빌드·업로드.
+- 설계: [docs/PLAN.md](docs/PLAN.md) · 기술 검증: [docs/SPIKE.md](docs/SPIKE.md) · 데이터 팩 형식: [docs/DATA_SCHEMA.md](docs/DATA_SCHEMA.md) · 현재 팩: [data/packs/v0.107.1](data/packs/v0.107.1/README.md) · 경쟁 도구 분석: [docs/research/DECK_COMPASS.md](docs/research/DECK_COMPASS.md)

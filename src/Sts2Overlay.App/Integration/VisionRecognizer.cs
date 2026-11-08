@@ -14,7 +14,6 @@ namespace Sts2Overlay.App.Integration;
 /// </summary>
 public sealed class VisionRecognizer : ICardRecognizer
 {
-    private readonly string? _repoRoot = AppPaths.FindRepoRoot();
     private readonly RecognitionTracker _tracker = new();
     private readonly Lock _loadLock = new();
     private volatile CardRecognizer? _recognizer;
@@ -87,13 +86,13 @@ public sealed class VisionRecognizer : ICardRecognizer
     private CardRecognizer? LoadLocked()
     {
         if (_unavailable) return null;
-        var root = _repoRoot ?? AppContext.BaseDirectory;
-        var artRoot = Path.Combine(root, "data", "local", "pck", "card_art");
+        var local = AppPaths.LocalDataDir;
+        var artRoot = Path.Combine(local, "pck", "card_art");
         // The catalog generated from the INSTALLED game (data/local, see LocalResourceService) knows cards added by a game
         // update; the committed names-free catalog is the fallback.
-        var catalog = new Sts2Overlay.Resources.LocalLayout(Path.Combine(root, "data", "local")).ManifestCatalog()
-            ?? Path.Combine(root, "data", "catalog", "cards.v0.107.1.json");
-        var cache = Path.Combine(root, "data", "local", "vision", "card-art.bin");
+        var catalog = new Sts2Overlay.Resources.LocalLayout(local).ManifestCatalog()
+            ?? AppPaths.CommittedCatalogFile;
+        var cache = Path.Combine(local, "vision", "card-art.bin");
         if (!Directory.Exists(artRoot))
         {
             _unavailable = true;

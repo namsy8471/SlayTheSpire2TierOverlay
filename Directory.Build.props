@@ -15,6 +15,8 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <Deterministic>true</Deterministic>
     <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- App version (tray "버전 ..." and the Velopack package). Releases override it: dotnet publish -p:Version=1.2.3 -->
+    <Version Condition="'$(Version)' == ''">0.1.0</Version>
     <Sts2GameDir Condition="'$(Sts2GameDir)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Slay the Spire 2</Sts2GameDir>
     <Sts2DataDir>$(Sts2GameDir)\data_sts2_windows_x86_64</Sts2DataDir>
   </PropertyGroup>
