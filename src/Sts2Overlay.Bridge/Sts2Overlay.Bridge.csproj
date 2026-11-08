@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- The game runs on .NET 9.0.7 (sts2.runtimeconfig.json), so the mod must target net9.0. -->
+    <TargetFramework>net9.0</TargetFramework>
+    <AssemblyName>Sts2Overlay.Bridge</AssemblyName>
+    <RootNamespace>Sts2Overlay.Bridge</RootNamespace>
+    <!-- ModManager loads "<mod id>.dll" from the mod folder, so AssemblyName must equal the manifest id. -->
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <ModDeployDir>$(Sts2GameDir)\mods\Sts2Overlay.Bridge</ModDeployDir>
+  </PropertyGroup>
+
+  <!-- Game assemblies: compile against them, but never copy them (the game already loads them). -->
+  <ItemGroup>
+    <Reference Include="sts2">
+      <HintPath>$(Sts2DataDir)\sts2.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="GodotSharp">
+      <HintPath>$(Sts2DataDir)\GodotSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>$(Sts2DataDir)\0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Sts2Overlay.Bridge.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- dotnet build -p:DeployMod=true copies the dll + manifest into <game>\mods\Sts2Overlay.Bridge -->
+  <Target Name="DeployMod" AfterTargets="Build" Condition="'$(DeployMod)' == 'true'">
+    <MakeDir Directories="$(ModDeployDir)" />
+    <Copy SourceFiles="$(TargetPath);$(OutDir)Sts2Overlay.Bridge.json" DestinationFolder="$(ModDeployDir)" />
+    <Message Importance="high" Text="Mod deployed to $(ModDeployDir)" />
+  </Target>
+
+</Project>
