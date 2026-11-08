@@ -81,6 +81,9 @@ public sealed class CardInfoProvider
     public string? Rarity(string character, string id)
         => _pack.CardRarity(character, id) ?? (_local.TryGetValue(_pack.Canonical(id), out var info) ? info.Rarity : null);
 
+    /// <summary>Rarity display name. TEMPORARY stand-in (app-controllers branch) until the language-aware version lands.</summary>
+    public static string RarityName(string? rarity) => RarityKorean(rarity);
+
     public static string RarityKorean(string? rarity) => rarity switch
     {
         "basic" => "기본",
