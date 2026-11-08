@@ -1,0 +1,19 @@
+// 아이언클래드 2장 콤보 초안 (claude-draft-v1). 이름·이유는 우리 말로 적은 요약입니다.
+{
+  "character": "CHARACTER.IRONCLAD",
+  "combos": [
+    { "cards": ["CARD.CORRUPTION", "CARD.FEEL_NO_PAIN"], "name": "공짜 스킬 + 소멸 방어", "why": "스킬을 쓸 때마다 소멸되어 방어도가 쌓임", "w": 8 },
+    { "cards": ["CARD.CORRUPTION", "CARD.DARK_EMBRACE"], "name": "공짜 스킬 + 소멸 드로우", "why": "스킬을 쓸수록 카드를 더 뽑아 손이 마르지 않음", "w": 8 },
+    { "cards": ["CARD.FEEL_NO_PAIN", "CARD.BRAND"], "name": "반복 소멸", "why": "0코스트로 매 턴 소멸 + 힘을 얻어 방어와 성장을 동시에", "w": 6 },
+    { "cards": ["CARD.BARRICADE", "CARD.BODY_SLAM"], "name": "방어 유지 + 방어 공격", "why": "쌓아 둔 방어도가 그대로 피해가 됨", "w": 7 },
+    { "cards": ["CARD.BARRICADE", "CARD.JUGGERNAUT"], "name": "방어 유지 + 방어 반격", "why": "방어도를 얻을 때마다 적에게 피해", "w": 5 },
+    { "cards": ["CARD.UNMOVABLE", "CARD.BODY_SLAM"], "name": "방어 두 배 + 방어 공격", "why": "두 배로 얻은 방어도로 큰 한 방", "w": 5 },
+    { "cards": ["CARD.RUPTURE", "CARD.OFFERING"], "name": "자해 → 힘", "why": "체력을 깎는 카드가 힘으로 바뀜", "w": 5 },
+    { "cards": ["CARD.RUPTURE", "CARD.BLOODLETTING"], "name": "자해 → 힘", "why": "0코스트 자해로 에너지와 힘을 함께", "w": 5 },
+    { "cards": ["CARD.INFERNO", "CARD.RUPTURE"], "name": "자해 엔진", "why": "매 턴 체력 손실이 광역 피해와 힘 둘 다로 이어짐", "w": 6 },
+    { "cards": ["CARD.DEMON_FORM", "CARD.WHIRLWIND"], "name": "힘 + 광역 다단", "why": "힘이 타격 횟수만큼 곱해짐", "w": 5 },
+    { "cards": ["CARD.INFLAME", "CARD.CONFLAGRATION"], "name": "힘 + 광역 다단", "why": "낮은 기본 피해를 힘으로 보강", "w": 5 },
+    { "cards": ["CARD.VICIOUS", "CARD.THUNDERCLAP"], "name": "취약 → 드로우", "why": "광역 취약으로 드로우까지", "w": 5 },
+    { "cards": ["CARD.PERFECTED_STRIKE", "CARD.HELLRAISER"], "name": "타격 카드 덱", "why": "타격 카드 수를 유지할 이유가 두 배", "w": 4 }
+  ]
+}

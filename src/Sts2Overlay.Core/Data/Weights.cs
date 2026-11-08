@@ -103,6 +103,10 @@ public sealed class Weights
     [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
     public CompletionWeights Completion { get; set; } = new();
 
+    // ---- Map path advisor (PLAN §7.6) ----
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+    public Map.PathWeights Path { get; set; } = new();
+
     public static Weights Default => new();
 
     /// <summary>Looks up an act-keyed value, falling back to the closest lower act, then the lowest act.</summary>

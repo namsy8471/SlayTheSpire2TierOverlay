@@ -1,0 +1,112 @@
+<Window x:Class="Sts2Overlay.App.Views.BadgeWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="STS2 Badges"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        Topmost="True" ShowInTaskbar="False" ShowActivated="False" ResizeMode="NoResize"
+        Focusable="False" IsHitTestVisible="False"
+        Left="0" Top="0" Width="100" Height="100"
+        FontFamily="{StaticResource UiFont}">
+  <!--
+    Full-game-size transparent layer. Click-through is done with WS_EX_TRANSPARENT in code-behind
+    (IsHitTestVisible only affects WPF's own hit testing, not where Windows sends the mouse).
+  -->
+  <Grid>
+    <!-- Demo only: dashed outline of each recognised card, to check that badges sit outside the card. -->
+    <ItemsControl ItemsSource="{Binding Bounds}">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <Canvas />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemContainerStyle>
+        <Style TargetType="ContentPresenter">
+          <Setter Property="Canvas.Left" Value="{Binding Left}" />
+          <Setter Property="Canvas.Top" Value="{Binding Top}" />
+        </Style>
+      </ItemsControl.ItemContainerStyle>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate>
+          <Rectangle Width="{Binding Width}" Height="{Binding Height}" Stroke="#AA5DADE2" StrokeThickness="2"
+                     StrokeDashArray="4 3" Fill="#145DADE2" RadiusX="8" RadiusY="8" />
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+
+    <ItemsControl ItemsSource="{Binding Badges}">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <Canvas />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemContainerStyle>
+        <Style TargetType="ContentPresenter">
+          <Setter Property="Canvas.Left" Value="{Binding Left}" />
+          <Setter Property="Canvas.Top" Value="{Binding Top}" />
+        </Style>
+      </ItemsControl.ItemContainerStyle>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate>
+          <Border x:Name="Pill" Width="170" Height="40" CornerRadius="9" Background="#EC15161C"
+                  BorderThickness="2" BorderBrush="{Binding TierText, Converter={StaticResource TierBrush}}">
+            <Border.LayoutTransform>
+              <ScaleTransform ScaleX="{Binding Scale}" ScaleY="{Binding Scale}" />
+            </Border.LayoutTransform>
+            <Grid Margin="3,0,6,0">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <!-- Tier letter tile -->
+              <Border Width="31" Height="31" CornerRadius="6" VerticalAlignment="Center"
+                      Background="{Binding TierText, Converter={StaticResource TierBrush}}">
+                <TextBlock Text="{Binding TierText}" FontSize="21" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Foreground="{Binding TierText, Converter={StaticResource TierBrush}, ConverterParameter=fg}" />
+              </Border>
+              <!-- Score, upgrade "+", estimate tag -->
+              <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="7,0,0,0">
+                <TextBlock Text="{Binding ScoreText}" FontSize="20" FontWeight="Bold" Foreground="White" VerticalAlignment="Center" />
+                <TextBlock Text="+" FontSize="21" FontWeight="Black" Foreground="{StaticResource UpgradeFg}" Margin="2,-2,0,0" VerticalAlignment="Center"
+                           Visibility="{Binding IsUpgraded, Converter={StaticResource BoolVis}}" />
+                <Border Background="{StaticResource EstimateBg}" CornerRadius="4" Padding="4,0" Margin="5,0,0,0" VerticalAlignment="Center"
+                        Visibility="{Binding IsEstimate, Converter={StaticResource BoolVis}}">
+                  <TextBlock Text="추정" FontSize="11" FontWeight="Bold" Foreground="White" />
+                </Border>
+              </StackPanel>
+              <!-- Recommended pick -->
+              <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"
+                          Visibility="{Binding IsBest, Converter={StaticResource BoolVis}}">
+                <Path Data="{StaticResource CrownGeometry}" Fill="{StaticResource Gold}" Width="17" Height="15" Stretch="Uniform" VerticalAlignment="Center" />
+                <TextBlock Text="추천" FontSize="13" FontWeight="Bold" Foreground="{StaticResource Gold}" Margin="3,0,0,0" VerticalAlignment="Center" />
+              </StackPanel>
+            </Grid>
+          </Border>
+          <DataTemplate.Triggers>
+            <DataTrigger Binding="{Binding IsBest}" Value="True">
+              <Setter TargetName="Pill" Property="BorderBrush" Value="{StaticResource Gold}" />
+              <Setter TargetName="Pill" Property="BorderThickness" Value="3" />
+              <Setter TargetName="Pill" Property="Background" Value="#F2231E0C" />
+            </DataTrigger>
+          </DataTemplate.Triggers>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+
+    <!-- "스킵 추천" pill under the cards when the engine recommends skipping -->
+    <Canvas>
+      <Border x:Name="SkipPill" Canvas.Left="{Binding Skip.Left}" Canvas.Top="{Binding Skip.Top}"
+              Visibility="{Binding Skip, Converter={StaticResource BoolVis}}"
+              Width="170" Height="40" CornerRadius="9" Background="#F2231E0C" BorderBrush="{StaticResource Gold}" BorderThickness="3">
+        <Border.LayoutTransform>
+          <ScaleTransform ScaleX="{Binding Skip.Scale}" ScaleY="{Binding Skip.Scale}" />
+        </Border.LayoutTransform>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+          <Path Data="{StaticResource CrownGeometry}" Fill="{StaticResource Gold}" Width="17" Height="15" Stretch="Uniform" />
+          <TextBlock Text="스킵 추천" FontSize="16" FontWeight="Bold" Foreground="{StaticResource Gold}" Margin="6,0,0,0" />
+          <TextBlock Text="{Binding Skip.ScoreText}" FontSize="16" FontWeight="Bold" Foreground="White" Margin="8,0,0,0" />
+        </StackPanel>
+      </Border>
+    </Canvas>
+  </Grid>
+</Window>

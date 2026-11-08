@@ -1,0 +1,66 @@
+// 리젠트 아키타입 초안 (claude-draft-v1). 시작 덱 카드(FALLING_STAR, VENERATE)와 시작 유물(DIVINE_RIGHT)은 넣지 않습니다.
+// 축: STAR(별 생산), FORGE(벼리기 = 검 토큰 강화), CREATE(카드 생성)
+// 커뮤니티 가이드(v0.111 베타 기준 포함)는 별 덱과 벼리기 덱을 섞지 말라고 권합니다.
+{
+  "character": "CHARACTER.REGENT",
+  "archetypes": [
+    {
+      "id": "regent.stars",
+      "names": { "kor": "별", "eng": "Stars" },
+      "color": "#f4d03f",
+      "cards": {
+        "core": ["CARD.GENESIS", "CARD.ASTRAL_PULSE", "CARD.SEVEN_STARS"],
+        "enabler": ["CARD.GATHER_LIGHT", "CARD.GLOW", "CARD.HIDDEN_CACHE", "CARD.SOLAR_STRIKE", "CARD.SHINING_STRIKE", "CARD.BIG_BANG", "CARD.CONVERGENCE", "CARD.THE_SEALED_THRONE"],
+        "payoff": ["CARD.BLACK_HOLE", "CARD.CHILD_OF_THE_STARS", "CARD.RADIATE", "CARD.DEVASTATE", "CARD.COMET", "CARD.ALIGNMENT", "CARD.GAMMA_BLAST", "CARD.METEOR_SHOWER"],
+        "support": ["CARD.REFLECT", "CARD.NEUTRON_AEGIS", "CARD.PARTICLE_WALL"]
+      },
+      "fullWeight": 4.5,
+      "keyRelics": [
+        { "id": "RELIC.GALACTIC_DUST", "w": 0.6 },
+        { "id": "RELIC.LUNAR_PASTRY", "w": 0.6 },
+        { "id": "RELIC.MINI_REGENT", "w": 0.4 },
+        { "id": "RELIC.DIVINE_DESTINY", "w": 0.4 }
+      ],
+      "needs": [{ "tag": "STAR", "min": 3 }],
+      "desc": "별을 모았다가 별 비용 카드로 한 번에 쏟아붓는 빌드. 생산만 늘리고 소비 카드가 없으면 낭비",
+      "guideHeroCard": "CARD.GENESIS"
+    },
+    {
+      "id": "regent.forge",
+      "names": { "kor": "벼리기(검 토큰)", "eng": "Forge / Sovereign Blade" },
+      "color": "#b9770e",
+      "cards": {
+        "core": ["CARD.SEEKING_EDGE", "CARD.SWORD_SAGE", "CARD.FURNACE"],
+        "enabler": ["CARD.WROUGHT_IN_WAR", "CARD.REFINE_BLADE", "CARD.BULWARK", "CARD.SPOILS_OF_BATTLE", "CARD.BEAT_INTO_SHAPE", "CARD.THE_SMITH", "CARD.BIG_BANG"],
+        "payoff": ["CARD.CONQUEROR", "CARD.SUMMON_FORTH", "CARD.PARRY"],
+        "support": []
+      },
+      "fullWeight": 4.0,
+      "keyRelics": [{ "id": "RELIC.FENCING_MANUAL", "w": 0.6 }],
+      "needs": [{ "tag": "FORGE", "min": 3 }],
+      "desc": "벼리기로 검 토큰 한 장을 계속 키우는 빌드. 광역화·재사용 파워를 얻으면 후반 마무리가 강함",
+      "guideHeroCard": "CARD.SEEKING_EDGE"
+    },
+    {
+      "id": "regent.creation",
+      "names": { "kor": "카드 생성", "eng": "Creation" },
+      "color": "#48c9b0",
+      "cards": {
+        "core": ["CARD.ARSENAL", "CARD.PILLAR_OF_CREATION", "CARD.SUPERMASSIVE"],
+        "enabler": ["CARD.SPECTRUM_SHIFT", "CARD.MANIFEST_AUTHORITY", "CARD.QUASAR", "CARD.BUNDLE_OF_JOY", "CARD.COLLISION_COURSE", "CARD.CRASH_LANDING", "CARD.BEGONE", "CARD.CHARGE", "CARD.GUARDS"],
+        "payoff": ["CARD.HEIRLOOM_HAMMER"],
+        "support": []
+      },
+      "fullWeight": 4.0,
+      "keyRelics": [
+        { "id": "RELIC.REGALITE", "w": 0.6 },
+        { "id": "RELIC.VITRUVIAN_MINION", "w": 0.4 },
+        { "id": "RELIC.ORANGE_DOUGH", "w": 0.3 },
+        { "id": "RELIC.TOOLBOX", "w": 0.3 }
+      ],
+      "needs": [{ "tag": "CREATE", "min": 3 }],
+      "desc": "무색·잔해·하수인 카드를 만들어 낼 때마다 힘·방어도를 얻는 빌드",
+      "guideHeroCard": "CARD.ARSENAL"
+    }
+  ]
+}

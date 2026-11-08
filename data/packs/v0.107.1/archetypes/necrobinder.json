@@ -1,0 +1,80 @@
+// 네크로바인더 아키타입 초안 (claude-draft-v1). 시작 덱 카드(BODYGUARD, UNLEASH)와 시작 유물(BOUND_PHYLACTERY)은 넣지 않습니다.
+// 축: SUMMON(오스티 소환/체력), OSTY_ATTACK(오스티가 공격하는 카드), DOOM(파멸), SOUL(영혼 토큰), ETHEREAL(영체 카드)
+{
+  "character": "CHARACTER.NECROBINDER",
+  "archetypes": [
+    {
+      "id": "necrobinder.osty",
+      "names": { "kor": "오스티 소환", "eng": "Osty" },
+      "color": "#c8a165",
+      "cards": {
+        "core": ["CARD.NECRO_MASTERY", "CARD.CALCIFY", "CARD.SIC_EM"],
+        "enabler": ["CARD.PULL_AGGRO", "CARD.INVOKE", "CARD.REANIMATE", "CARD.DIRGE", "CARD.SPUR", "CARD.AFTERLIFE"],
+        "payoff": ["CARD.SQUEEZE", "CARD.RATTLE", "CARD.FLATTEN", "CARD.HIGH_FIVE", "CARD.BONE_SHARDS", "CARD.SACRIFICE", "CARD.RIGHT_HAND_HAND"],
+        "support": ["CARD.FETCH", "CARD.POKE", "CARD.SNAP"]
+      },
+      "fullWeight": 4.5,
+      "keyRelics": [
+        { "id": "RELIC.BONE_FLUTE", "w": 0.6 },
+        { "id": "RELIC.PHYLACTERY_UNBOUND", "w": 0.6 }
+      ],
+      "needs": [{ "tag": "SUMMON", "min": 3 }, { "tag": "OSTY_ATTACK", "min": 3 }],
+      "desc": "오스티를 크게 키워 방패와 주 딜러로 함께 쓰는 빌드. 커뮤니티 가이드에서 가장 무난하다는 평",
+      "guideHeroCard": "CARD.NECRO_MASTERY"
+    },
+    {
+      "id": "necrobinder.doom",
+      "names": { "kor": "파멸", "eng": "Doom" },
+      "color": "#6c3483",
+      "cards": {
+        "core": ["CARD.REAPER_FORM", "CARD.COUNTDOWN", "CARD.END_OF_DAYS"],
+        "enabler": ["CARD.BLIGHT_STRIKE", "CARD.SCOURGE", "CARD.NEGATIVE_PULSE", "CARD.DEATHBRINGER", "CARD.OBLIVION", "CARD.NO_ESCAPE"],
+        "payoff": ["CARD.TIMES_UP", "CARD.DEATHS_DOOR", "CARD.SHROUD"],
+        "support": ["CARD.MISERY", "CARD.SLEIGHT_OF_FLESH"]
+      },
+      "fullWeight": 4.0,
+      "keyRelics": [
+        { "id": "RELIC.UNDYING_SIGIL", "w": 0.5 },
+        { "id": "RELIC.BOOK_REPAIR_KNIFE", "w": 0.4 }
+      ],
+      "needs": [{ "tag": "DOOM", "min": 3 }, { "role": "block", "min": 3 }],
+      "desc": "파멸을 쌓아 체력보다 높아지면 처치하는 빌드. 느리게 굴러가므로 방어가 함께 필요",
+      "guideHeroCard": "CARD.REAPER_FORM"
+    },
+    {
+      "id": "necrobinder.souls",
+      "names": { "kor": "영혼", "eng": "Souls" },
+      "color": "#5dade2",
+      "cards": {
+        "core": ["CARD.DEVOUR_LIFE", "CARD.HAUNT", "CARD.SOUL_STORM"],
+        "enabler": ["CARD.CAPTURE_SPIRIT", "CARD.GRAVE_WARDEN", "CARD.REAVE", "CARD.SEVERANCE", "CARD.DIRGE", "CARD.SEANCE"],
+        "payoff": [],
+        "support": ["CARD.DREDGE"]
+      },
+      "fullWeight": 3.5,
+      "keyRelics": [{ "id": "RELIC.FUNERARY_MASK", "w": 0.6 }],
+      "needs": [{ "tag": "SOUL", "min": 3 }],
+      "desc": "드로우 토큰인 영혼을 덱에 섞고, 영혼을 쓸 때마다 소환·피해를 얻는 빌드. 주력보다 보조 축에 가깝다는 평도 있음",
+      "guideHeroCard": "CARD.HAUNT"
+    },
+    {
+      "id": "necrobinder.ethereal",
+      "names": { "kor": "영체", "eng": "Ethereal" },
+      "color": "#a9cce3",
+      "cards": {
+        "core": ["CARD.PULL_FROM_BELOW", "CARD.BANSHEES_CRY", "CARD.SPIRIT_OF_ASH"],
+        "enabler": ["CARD.DEFILE", "CARD.DEFY", "CARD.FEAR", "CARD.PARSE", "CARD.ENFEEBLING_TOUCH", "CARD.SCULPTING_STRIKE", "CARD.CALL_OF_THE_VOID", "CARD.DEMESNE"],
+        "payoff": ["CARD.PAGESTORM", "CARD.VEILPIERCER"],
+        "support": ["CARD.LETHALITY"]
+      },
+      "fullWeight": 4.0,
+      "keyRelics": [
+        { "id": "RELIC.BIG_HAT", "w": 0.6 },
+        { "id": "RELIC.GHOST_SEED", "w": 0.4 }
+      ],
+      "needs": [{ "tag": "ETHEREAL", "min": 4 }],
+      "desc": "손에서 쓰지 않으면 사라지는 영체 카드를 많이 쓰고, 쓴 횟수만큼 강해지는 카드로 마무리",
+      "guideHeroCard": "CARD.PULL_FROM_BELOW"
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The overlay app (PLAN §5.0 / §5.4): game window tracking, GDI capture, badge layer, panel, tray, hotkeys.
+    Game-state reading and card recognition are plugged in through Integration/ interfaces.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <!-- Only for the tray icon (System.Windows.Forms.NotifyIcon) and drawing its icon (System.Drawing). -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace>Sts2Overlay.App</RootNamespace>
+    <AssemblyName>Sts2Overlay</AssemblyName>
+    <!-- WPF text layout (Korean IME, number formatting in bindings) wants real culture data. -->
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <!-- Declares Per-Monitor V2 DPI awareness; see the comments in app.manifest. -->
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!--
+      WFO0003 is a WinForms analyzer rule ("set DPI via Application.SetHighDpiMode, not the manifest"). It assumes
+      WinForms owns startup; here WPF does, and the manifest is the documented way to make a WPF app Per-Monitor V2.
+    -->
+    <NoWarn>$(NoWarn);WFO0003</NoWarn>
+  </PropertyGroup>
+
+  <!-- WinForms adds global usings (System.Windows.Forms, System.Drawing) whose names clash with WPF (Application, Point, Brush...). -->
+  <ItemGroup>
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Sts2Overlay.Core\Sts2Overlay.Core.csproj" />
+    <ProjectReference Include="..\Sts2Overlay.GameState\Sts2Overlay.GameState.csproj" />
+    <ProjectReference Include="..\Sts2Overlay.Vision\Sts2Overlay.Vision.csproj" />
+  </ItemGroup>
+
+</Project>

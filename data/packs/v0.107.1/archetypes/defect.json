@@ -1,0 +1,102 @@
+// 디펙트 아키타입 초안 (claude-draft-v1). 시작 덱 카드(ZAP, DUALCAST)와 시작 유물(CRACKED_CORE)은 넣지 않습니다.
+{
+  "character": "CHARACTER.DEFECT",
+  "archetypes": [
+    {
+      "id": "defect.orb_focus",
+      "names": { "kor": "냉기·밀집 구체", "eng": "Frost / Focus orbs" },
+      "color": "#3498db",
+      "cards": {
+        "core": ["CARD.DEFRAGMENT", "CARD.GLACIER", "CARD.COOLHEADED"],
+        "enabler": ["CARD.COLD_SNAP", "CARD.CHILL", "CARD.CAPACITOR", "CARD.BIASED_COGNITION", "CARD.CONSUMING_SHADOW", "CARD.DARKNESS", "CARD.RAINBOW"],
+        "payoff": ["CARD.LOOP", "CARD.COOLANT", "CARD.HAILSTORM", "CARD.MULTI_CAST", "CARD.SHATTER", "CARD.SYNCHRONIZE"],
+        "support": ["CARD.HOTFIX", "CARD.MODDED", "CARD.CHAOS", "CARD.SHADOW_SHIELD"]
+      },
+      "fullWeight": 4.5,
+      "keyRelics": [
+        { "id": "RELIC.DATA_DISK", "w": 0.6 },
+        { "id": "RELIC.RUNIC_CAPACITOR", "w": 0.5 },
+        { "id": "RELIC.GOLD_PLATED_CABLES", "w": 0.5 },
+        { "id": "RELIC.EMOTION_CHIP", "w": 0.3 },
+        { "id": "RELIC.SYMBIOTIC_VIRUS", "w": 0.3 }
+      ],
+      "needs": [{ "tag": "ORB_FROST", "min": 2 }, { "tag": "FOCUS", "min": 1 }],
+      "desc": "냉기 구체로 버티고 밀집으로 모든 구체를 키우는 디펙트의 기본 축",
+      "guideHeroCard": "CARD.DEFRAGMENT"
+    },
+    {
+      "id": "defect.lightning",
+      "names": { "kor": "번개", "eng": "Lightning" },
+      "color": "#f1c40f",
+      "cards": {
+        "core": ["CARD.THUNDER"],
+        "enabler": ["CARD.BALL_LIGHTNING", "CARD.LIGHTNING_ROD", "CARD.TEMPEST", "CARD.STORM", "CARD.RAINBOW"],
+        "payoff": ["CARD.TESLA_COIL", "CARD.VOLTAIC"],
+        "support": ["CARD.CAPACITOR", "CARD.DEFRAGMENT", "CARD.COMPILE_DRIVER", "CARD.BARRAGE"]
+      },
+      "fullWeight": 3.5,
+      "keyRelics": [
+        { "id": "RELIC.INFUSED_CORE", "w": 0.6 },
+        { "id": "RELIC.METRONOME", "w": 0.3 }
+      ],
+      "needs": [{ "tag": "ORB_LIGHTNING", "min": 3 }],
+      "desc": "번개 구체를 많이 채널하고 발동·방출 피해를 키우는 공격형 구체 빌드",
+      "guideHeroCard": "CARD.THUNDER"
+    },
+    {
+      "id": "defect.powers",
+      "names": { "kor": "파워", "eng": "Powers" },
+      "color": "#9b59b6",
+      "cards": {
+        "core": ["CARD.CREATIVE_AI", "CARD.STORM", "CARD.ECHO_FORM"],
+        "enabler": ["CARD.WHITE_NOISE", "CARD.SYNTHESIS", "CARD.SIGNAL_BOOST"],
+        "payoff": ["CARD.SUBROUTINE"],
+        "support": ["CARD.MACHINE_LEARNING", "CARD.DEFRAGMENT", "CARD.CAPACITOR", "CARD.BUFFER", "CARD.LOOP"]
+      },
+      "fullWeight": 4.0,
+      "keyRelics": [
+        { "id": "RELIC.GAME_PIECE", "w": 0.5 },
+        { "id": "RELIC.LOST_WISP", "w": 0.5 },
+        { "id": "RELIC.MUMMIFIED_HAND", "w": 0.5 },
+        { "id": "RELIC.FROZEN_EGG", "w": 0.3 },
+        { "id": "RELIC.PERMAFROST", "w": 0.3 },
+        { "id": "RELIC.LASTING_CANDY", "w": 0.3 }
+      ],
+      "needs": [{ "tag": "POWER", "min": 4 }, { "role": "block", "min": 3 }],
+      "desc": "파워 카드를 계속 깔아 파워 사용 보너스로 이득을 보는 빌드. 깔 동안 버틸 방어가 필요",
+      "guideHeroCard": "CARD.CREATIVE_AI"
+    },
+    {
+      "id": "defect.zero_cost",
+      "names": { "kor": "0코스트(클로)", "eng": "Zero-cost / Claw" },
+      "color": "#e67e22",
+      "cards": {
+        "core": ["CARD.CLAW", "CARD.ALL_FOR_ONE", "CARD.FERAL"],
+        "enabler": ["CARD.SCRAPE", "CARD.BEAM_CELL", "CARD.GO_FOR_THE_EYES", "CARD.FTL", "CARD.MOMENTUM_STRIKE", "CARD.ADAPTIVE_STRIKE"],
+        "payoff": ["CARD.HELIX_DRILL"],
+        "support": ["CARD.HOTFIX", "CARD.TURBO", "CARD.BOOST_AWAY"]
+      },
+      "fullWeight": 3.5,
+      "keyRelics": [{ "id": "RELIC.POWER_CELL", "w": 0.5 }],
+      "needs": [{ "tag": "ZERO_COST", "min": 4 }],
+      "desc": "0코스트 카드를 잔뜩 모아 한 턴에 여러 번 쓰고 되돌리는 빌드",
+      "guideHeroCard": "CARD.CLAW"
+    },
+    {
+      "id": "defect.status",
+      "names": { "kor": "상태이상 재활용", "eng": "Status" },
+      "color": "#7f8c8d",
+      "cards": {
+        "core": ["CARD.SMOKESTACK", "CARD.TRASH_TO_TREASURE"],
+        "enabler": ["CARD.BOOST_AWAY", "CARD.GUNK_UP", "CARD.OVERCLOCK", "CARD.TURBO", "CARD.FIGHT_THROUGH"],
+        "payoff": ["CARD.FLAK_CANNON", "CARD.ROCKET_PUNCH", "CARD.COMPACT", "CARD.ITERATION"],
+        "support": []
+      },
+      "fullWeight": 3.5,
+      "keyRelics": [],
+      "needs": [{ "tag": "STATUS", "min": 3 }],
+      "desc": "자기 덱에 상태이상을 넣는 대가로 이득을 보는 카드들을 오히려 보상으로 바꾸는 빌드",
+      "guideHeroCard": "CARD.SMOKESTACK"
+    }
+  ]
+}

@@ -1,0 +1,86 @@
+using System.IO;
+using System.Text.Json;
+
+namespace Sts2Overlay.App.Infrastructure;
+
+/// <summary>User settings persisted to <c>%LOCALAPPDATA%\Sts2Overlay\settings.json</c>.</summary>
+public sealed class AppSettings
+{
+    /// <summary>Panel top-left in PHYSICAL screen pixels (not WPF DIPs, which are ambiguous across monitors with different DPI).</summary>
+    public int? PanelX { get; set; }
+
+    public int? PanelY { get; set; }
+
+    public bool PanelCollapsed { get; set; }
+
+    /// <summary>Last selected panel tab (<see cref="ViewModels.PanelTab"/> name).</summary>
+    public string? SelectedTab { get; set; }
+
+    /// <summary>Data pack directory; relative paths are resolved against the repo root. Null = data/packs/v0.107.1.</summary>
+    public string? PackDir { get; set; }
+
+    /// <summary>Card catalog JSON with Korean names. Null = newest data/local/catalog.*.json.</summary>
+    public string? CatalogPath { get; set; }
+
+    /// <summary>
+    /// "UI 배율" override as a physical size factor relative to the 1080p look (1.5 = 150 %). Null = automatic from the
+    /// game's resolution (1080p → 1.0, 1440p → 1.25, 2160p → 1.5). See <see cref="Views.UiScale"/>.
+    /// </summary>
+    public double? UiScale { get; set; }
+
+    /// <summary>Capture/recognition rate while a reward or shop screen is likely.</summary>
+    public double RecognizeHz { get; set; } = 3;
+
+    /// <summary>
+    /// Excludes our own windows from screen capture (SetWindowDisplayAffinity WDA_EXCLUDEFROMCAPTURE), so the badges never
+    /// end up in the frames we recognise. Side effect: they are also invisible to screenshots and streaming software.
+    /// </summary>
+    public bool HideOverlayFromCapture { get; set; } = true;
+
+    /// <summary>Panel background opacity 0..1.</summary>
+    public double PanelOpacity { get; set; } = 0.86;
+}
+
+/// <summary>Loads and saves <see cref="AppSettings"/>. A broken file falls back to defaults (and is logged).</summary>
+public static class SettingsStore
+{
+    private static readonly JsonSerializerOptions Options = new()
+    {
+        WriteIndented = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        ReadCommentHandling = JsonCommentHandling.Skip,
+        AllowTrailingCommas = true,
+    };
+
+    public static AppSettings Load(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                return JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(path), Options) ?? new AppSettings();
+            }
+        }
+        catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
+        {
+            AppLog.Warn($"settings: could not read {path}, using defaults ({ex.Message})");
+        }
+        return new AppSettings();
+    }
+
+    public static void Save(string path, AppSettings settings)
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            // Write to a temp file and swap it in, so a crash mid-write can't leave a half-written settings.json.
+            var tmp = path + ".tmp";
+            File.WriteAllText(tmp, JsonSerializer.Serialize(settings, Options));
+            File.Move(tmp, path, overwrite: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            AppLog.Warn($"settings: could not save {path} ({ex.Message})");
+        }
+    }
+}

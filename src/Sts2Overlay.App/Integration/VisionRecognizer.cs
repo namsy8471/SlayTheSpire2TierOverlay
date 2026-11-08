@@ -1,0 +1,80 @@
+using System.IO;
+using Sts2Overlay.App.Infrastructure;
+using Sts2Overlay.Core.Model;
+using Sts2Overlay.Vision;
+using VisionKind = Sts2Overlay.Vision.ScreenKind;
+
+namespace Sts2Overlay.App.Integration;
+
+/// <summary>
+/// Adapts <see cref="CardRecognizer"/> (Sts2Overlay.Vision) to the App's <see cref="ICardRecognizer"/> seam.
+/// The art database is built from locally extracted card portraits (data/local/pck/card_art), so it is loaded lazily on
+/// the capture worker thread: the first call pays ~0.5 s (or ~5 ms from the cache), the UI never waits.
+/// </summary>
+public sealed class VisionRecognizer : ICardRecognizer
+{
+    private readonly string? _repoRoot = AppPaths.FindRepoRoot();
+    private readonly RecognitionTracker _tracker = new();
+    private CardRecognizer? _recognizer;
+    private bool _unavailable;
+
+    public RecognitionResult? Recognize(CapturedFrame frame, string? characterHint)
+    {
+        var rec = _recognizer ?? Load();
+        if (rec is null) return null; // no local art: behave like "can't tell"
+
+        var vf = new ScreenFrame(frame.Bgra, frame.Width, frame.Height, frame.Stride);
+        var raw = rec.Recognize(vf, new RecognitionHints(characterHint));
+        // The tracker merges a few frames: a tooltip or the merchant's hand covering one card for a moment
+        // should not make its badge blink.
+        var shown = _tracker.Update(raw, DateTime.UtcNow);
+
+        var kind = shown.Kind switch
+        {
+            VisionKind.RewardCardSelect => ScreenKind.Reward,
+            VisionKind.Shop => ScreenKind.Shop,
+            _ => ScreenKind.Other,
+        };
+        if (kind == ScreenKind.Other) return RecognitionResult.Other;
+
+        var cards = shown.Cards
+            .Where(c => c.Accepted && c.CardId is not null)
+            .Select(c => new RecognizedCard(
+                new CardRef(c.CardId!, c.Upgraded ? 1 : 0),
+                // Vision works in frame pixels; the badge layer wants screen pixels, so add the capture origin.
+                new PixelRect(c.CardBounds.X, c.CardBounds.Y, c.CardBounds.Width, c.CardBounds.Height)
+                    .Offset(frame.ScreenRect.X, frame.ScreenRect.Y),
+                c.Score,
+                c.Price))
+            .ToArray();
+        return new RecognitionResult(kind, cards);
+    }
+
+    private CardRecognizer? Load()
+    {
+        if (_unavailable) return null;
+        var root = _repoRoot ?? AppContext.BaseDirectory;
+        var artRoot = Path.Combine(root, "data", "local", "pck", "card_art");
+        var catalog = Path.Combine(root, "data", "catalog", "cards.v0.107.1.json");
+        var cache = Path.Combine(root, "data", "local", "vision", "card-art.bin");
+        if (!Directory.Exists(artRoot))
+        {
+            _unavailable = true;
+            AppLog.Error($"card art not found at {artRoot}; run PckTool extract-images first (see docs/SPIKE.md §2). Recognition disabled.");
+            return null;
+        }
+        try
+        {
+            var db = CardArtDatabase.LoadOrBuild(artRoot, File.Exists(catalog) ? catalog : null, cache, msg => AppLog.Info("[vision] " + msg));
+            _recognizer = new CardRecognizer(db);
+            AppLog.Info("[vision] recognizer ready");
+            return _recognizer;
+        }
+        catch (Exception ex)
+        {
+            _unavailable = true;
+            AppLog.Error("card art database failed to load; recognition disabled", ex);
+            return null;
+        }
+    }
+}

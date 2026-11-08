@@ -1,0 +1,114 @@
+{
+  "gameVersion": "v0.107.1",
+  "source": "tools/CatalogBuilder --starting-decks (static IL of sts2.dll: CharacterModel.StartingDeck/StartingRelics/StartingHp/StartingGold)",
+  "note": "Game facts only (model ids and numbers). Ascension 5 and above also adds CARD.ASCENDERS_BANE at run start (AscensionManager.ApplyEffectsTo).",
+  "characters": [
+    {
+      "character": "CHARACTER.IRONCLAD",
+      "startingHp": 80,
+      "startingGold": 99,
+      "maxEnergy": 3,
+      "deck": [
+        "CARD.STRIKE_IRONCLAD",
+        "CARD.STRIKE_IRONCLAD",
+        "CARD.STRIKE_IRONCLAD",
+        "CARD.STRIKE_IRONCLAD",
+        "CARD.STRIKE_IRONCLAD",
+        "CARD.DEFEND_IRONCLAD",
+        "CARD.DEFEND_IRONCLAD",
+        "CARD.DEFEND_IRONCLAD",
+        "CARD.DEFEND_IRONCLAD",
+        "CARD.BASH"
+      ],
+      "relics": [
+        "RELIC.BURNING_BLOOD"
+      ]
+    },
+    {
+      "character": "CHARACTER.SILENT",
+      "startingHp": 70,
+      "startingGold": 99,
+      "maxEnergy": 3,
+      "deck": [
+        "CARD.STRIKE_SILENT",
+        "CARD.STRIKE_SILENT",
+        "CARD.STRIKE_SILENT",
+        "CARD.STRIKE_SILENT",
+        "CARD.STRIKE_SILENT",
+        "CARD.DEFEND_SILENT",
+        "CARD.DEFEND_SILENT",
+        "CARD.DEFEND_SILENT",
+        "CARD.DEFEND_SILENT",
+        "CARD.DEFEND_SILENT",
+        "CARD.NEUTRALIZE",
+        "CARD.SURVIVOR"
+      ],
+      "relics": [
+        "RELIC.RING_OF_THE_SNAKE"
+      ]
+    },
+    {
+      "character": "CHARACTER.REGENT",
+      "startingHp": 75,
+      "startingGold": 99,
+      "maxEnergy": 3,
+      "deck": [
+        "CARD.STRIKE_REGENT",
+        "CARD.STRIKE_REGENT",
+        "CARD.STRIKE_REGENT",
+        "CARD.STRIKE_REGENT",
+        "CARD.DEFEND_REGENT",
+        "CARD.DEFEND_REGENT",
+        "CARD.DEFEND_REGENT",
+        "CARD.DEFEND_REGENT",
+        "CARD.FALLING_STAR",
+        "CARD.VENERATE"
+      ],
+      "relics": [
+        "RELIC.DIVINE_RIGHT"
+      ]
+    },
+    {
+      "character": "CHARACTER.NECROBINDER",
+      "startingHp": 66,
+      "startingGold": 99,
+      "maxEnergy": 3,
+      "deck": [
+        "CARD.STRIKE_NECROBINDER",
+        "CARD.STRIKE_NECROBINDER",
+        "CARD.STRIKE_NECROBINDER",
+        "CARD.STRIKE_NECROBINDER",
+        "CARD.DEFEND_NECROBINDER",
+        "CARD.DEFEND_NECROBINDER",
+        "CARD.DEFEND_NECROBINDER",
+        "CARD.DEFEND_NECROBINDER",
+        "CARD.BODYGUARD",
+        "CARD.UNLEASH"
+      ],
+      "relics": [
+        "RELIC.BOUND_PHYLACTERY"
+      ]
+    },
+    {
+      "character": "CHARACTER.DEFECT",
+      "startingHp": 75,
+      "startingGold": 99,
+      "maxEnergy": 3,
+      "deck": [
+        "CARD.STRIKE_DEFECT",
+        "CARD.STRIKE_DEFECT",
+        "CARD.STRIKE_DEFECT",
+        "CARD.STRIKE_DEFECT",
+        "CARD.DEFEND_DEFECT",
+        "CARD.DEFEND_DEFECT",
+        "CARD.DEFEND_DEFECT",
+        "CARD.DEFEND_DEFECT",
+        "CARD.ZAP",
+        "CARD.DUALCAST"
+      ],
+      "relics": [
+        "RELIC.CRACKED_CORE"
+      ]
+    }
+  ]
+}

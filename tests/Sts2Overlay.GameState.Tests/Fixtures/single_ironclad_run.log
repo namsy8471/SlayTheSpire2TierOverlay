@@ -1,0 +1,192 @@
+[INFO] Profile-scoped data path initialized: user://steam/76561190000000001/profile1
+[INFO] Preloading 'IntroLogo' assets... count=3 vfx=0
+[INFO] Preloading 'MainMenuEssentials' assets... count=5 vfx=0
+[INFO] Unloading 4 missed cache assets
+[INFO] Preloading 'Common' assets... count=686 vfx=92
+[INFO] Wrote 2227 bytes to path=user://steam/76561190000000001/settings.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 295 bytes to path=user://steam/76561190000000001/profile1\saves\prefs.save save_dir=user://steam/76561190000000001
+[INFO] [StartRunLobby (1)] Local player 1 is ready
+[INFO] Embarking on a singleplayer IRONCLAD run. Ascension: 0 Seed: R9REQLA5XL
+[INFO] Preloading 'characters=IRONCLAD' assets... count=37 vfx=9
+[INFO] Preloading 'Act=OVERGROWTH' assets... count=8 vfx=0
+[INFO] Preloading 'Act=OVERGROWTH' assets... count=0 vfx=0
+[INFO] Wrote 126286 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 44854 bytes to path=user://steam/76561190000000001/profile1\saves\current_run.save save_dir=user://steam/76561190000000001
+[INFO] Unloading 2 missed cache assets
+[INFO] Preloading 'Event Room' assets... count=2 vfx=0
+[INFO] Wrote 126286 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 47778 bytes to path=user://steam/76561190000000001/profile1\saves\current_run.save save_dir=user://steam/76561190000000001
+[INFO] Player vote changed for 1: ->MapVote (gen: 1 coord: (3, 1))
+[INFO] Wrote 126286 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 47622 bytes to path=user://steam/76561190000000001/profile1\saves\current_run.save save_dir=user://steam/76561190000000001
+[INFO] Unloading 2 missed cache assets
+[INFO] Preloading 'Combat Room' assets... count=11 vfx=0
+[INFO] Creating NCombatRoom with mode=ActiveCombat encounter=SLIMES_WEAK.
+[WARN] Warning: Packet writer is growing from 1024 bytes to 2048 bytes!
+[WARN] Warning: Packet writer is growing from 2048 bytes to 4096 bytes!
+[INFO] Wrote 48740 bytes to path=user://steam/76561190000000001/profile1\saves\current_run.save save_dir=user://steam/76561190000000001
+[INFO] CHARACTER.IRONCLAD has won against encounter ENCOUNTER.SLIMES_WEAK. That's 2 wins
+[INFO] CHARACTER.IRONCLAD has killed a MONSTER.TWIG_SLIME_S. That's 2 kills
+[INFO] CHARACTER.IRONCLAD has killed a MONSTER.TWIG_SLIME_M. That's 2 kills
+[INFO] CHARACTER.IRONCLAD has killed a MONSTER.LEAF_SLIME_S. That's 2 kills
+[INFO] Wrote 126286 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Card rarity: Rolled 0.58266187, need < -0.020000001 for rare (offset = -0.05)
+[INFO] Card rarity: Rolled 0.9132916, need < -0.01 for rare (offset = -0.04)
+[INFO] Card rarity: Rolled 0.19927086, need < 0 for rare (offset = -0.03)
+[INFO] Player 1 obtained 11 gold from reward
+[INFO] Player 1 selected card reward
+[INFO] Player 1 obtained CARD.ANGER from card reward
+[INFO] Player vote changed for 1: ->MapVote (gen: 1 coord: (3, 2))
+[INFO] Wrote 126286 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 49338 bytes to path=user://steam/76561190000000001/profile1\saves\current_run.save save_dir=user://steam/76561190000000001
+[INFO] Unloading 3 missed cache assets
+[INFO] Preloading 'Event Room' assets... count=2 vfx=0
+[INFO] Player 1 chose cards [STRIKE_IRONCLAD]
+[INFO] Player vote changed for 1: ->MapVote (gen: 1 coord: (3, 3))
+[INFO] Wrote 126286 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 50757 bytes to path=user://steam/76561190000000001/profile1\saves\current_run.save save_dir=user://steam/76561190000000001
+[INFO] Unloading 1 missed cache assets
+[INFO] Preloading 'Combat Room' assets... count=9 vfx=0
+[INFO] Creating NCombatRoom with mode=ActiveCombat encounter=FUZZY_WURM_CRAWLER_WEAK.
+[INFO] Wrote 51790 bytes to path=user://steam/76561190000000001/profile1\saves\current_run.save save_dir=user://steam/76561190000000001
+[INFO] CHARACTER.IRONCLAD fought ENCOUNTER.FUZZY_WURM_CRAWLER_WEAK for the first time and WON >:)
+[INFO] CHARACTER.IRONCLAD fought MONSTER.FUZZY_WURM_CRAWLER for the first time and WON >:(
+[INFO] Wrote 126514 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Card rarity: Rolled 0.4859466, need < 0.01 for rare (offset = -0.02)
+[INFO] Card rarity: Rolled 0.0783122, need < 0.02 for rare (offset = -0.01)
+[INFO] Card rarity: Rolled 0.48432413, need < 0.03 for rare (offset = 0)
+[INFO] Player 1 obtained 11 gold from reward
+[INFO] Player 1 selected card reward
+[INFO] Player 1 obtained CARD.BLOODLETTING from card reward
+[INFO] Player vote changed for 1: ->MapVote (gen: 1 coord: (2, 4))
+[INFO] Wrote 126514 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 52397 bytes to path=user://steam/76561190000000001/profile1\saves\current_run.save save_dir=user://steam/76561190000000001
+[INFO] Card rarity: Rolled 0.539953, need < 0.1 for rare (offset = 0.01)
+[INFO] Card rarity: Rolled 0.5445203, need < 0.1 for rare (offset = 0.01)
+[INFO] Card rarity: Rolled 0.110755, need < 0.1 for rare (offset = 0.01)
+[INFO] Card rarity: Rolled 0.52175635, need < 0.1 for rare (offset = 0.01)
+[INFO] Card rarity: Rolled 0.44607, need < 0.1 for rare (offset = 0.01)
+[INFO] Unloading 2 missed cache assets
+[INFO] Preloading 'Merchant Room' assets... count=1 vfx=0
+[INFO] Player vote changed for 1: ->MapVote (gen: 1 coord: (1, 5))
+[INFO] Wrote 126538 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 54980 bytes to path=user://steam/76561190000000001/profile1\saves\current_run.save save_dir=user://steam/76561190000000001
+[INFO] Unloading 1 missed cache assets
+[INFO] Preloading 'Combat Room' assets... count=10 vfx=0
+[INFO] Creating NCombatRoom with mode=ActiveCombat encounter=NIBBITS_WEAK.
+[INFO] Wrote 55978 bytes to path=user://steam/76561190000000001/profile1\saves\current_run.save save_dir=user://steam/76561190000000001
+[INFO] CHARACTER.IRONCLAD has won against encounter ENCOUNTER.NIBBITS_WEAK. That's 2 wins
+[INFO] CHARACTER.IRONCLAD has killed a MONSTER.NIBBIT. That's 2 kills
+[INFO] Wrote 126538 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Card rarity: Rolled 0.84347045, need < 0.04 for rare (offset = 0.01)
+[INFO] Card rarity: Rolled 0.8985159, need < 0.049999997 for rare (offset = 0.02)
+[INFO] Card rarity: Rolled 0.043171495, need < 0.06 for rare (offset = 0.03)
+[INFO] Player 1 obtained 17 gold from reward
+[INFO] Player 1 obtained POTION.MAZALETHS_GIFT from potion reward
+[INFO] Player 1 selected card reward
+[INFO] Player 1 obtained CARD.FIEND_FIRE from card reward
+[INFO] Player vote changed for 1: ->MapVote (gen: 1 coord: (1, 6))
+[INFO] Wrote 126562 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 56959 bytes to path=user://steam/76561190000000001/profile1\saves\current_run.save save_dir=user://steam/76561190000000001
+[INFO] Unloading 2 missed cache assets
+[INFO] Preloading 'RestSite Room' assets... count=3 vfx=2
+[INFO] Player 1 chose cards [FIGHT_ME]
+[INFO] Player vote changed for 1: ->MapVote (gen: 1 coord: (0, 7))
+[INFO] Wrote 126562 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 57847 bytes to path=user://steam/76561190000000001/profile1\saves\current_run.save save_dir=user://steam/76561190000000001
+[INFO] Unloading 1 missed cache assets
+[INFO] Preloading 'Combat Room' assets... count=9 vfx=0
+[INFO] Creating NCombatRoom with mode=ActiveCombat encounter=CUBEX_CONSTRUCT_NORMAL.
+[INFO] Wrote 58875 bytes to path=user://steam/76561190000000001/profile1\saves\current_run.save save_dir=user://steam/76561190000000001
+[INFO] CHARACTER.IRONCLAD fought ENCOUNTER.CUBEX_CONSTRUCT_NORMAL for the first time and WON >:)
+[INFO] CHARACTER.IRONCLAD fought MONSTER.CUBEX_CONSTRUCT for the first time and WON >:(
+[INFO] Wrote 126790 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Card rarity: Rolled 0.063549556, need < -0.020000001 for rare (offset = -0.05)
+[INFO] Card rarity: Rolled 0.064548746, need < -0.01 for rare (offset = -0.04)
+[INFO] Card rarity: Rolled 0.8357656, need < 0 for rare (offset = -0.03)
+[INFO] Player 1 obtained 14 gold from reward
+[INFO] Player 1 selected card reward
+[INFO] Player 1 obtained CARD.JUGGLING from card reward
+[INFO] Player vote changed for 1: ->MapVote (gen: 1 coord: (1, 8))
+[INFO] Wrote 126790 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 59472 bytes to path=user://steam/76561190000000001/profile1\saves\current_run.save save_dir=user://steam/76561190000000001
+[INFO] Card rarity: Rolled 0.82537585, need < 0.07000001 for rare (offset = -0.02)
+[INFO] Card rarity: Rolled 0.9834693, need < 0.07000001 for rare (offset = -0.02)
+[INFO] Card rarity: Rolled 0.4558017, need < 0.07000001 for rare (offset = -0.02)
+[INFO] Card rarity: Rolled 0.3403787, need < 0.07000001 for rare (offset = -0.02)
+[INFO] Card rarity: Rolled 0.055243134, need < 0.07000001 for rare (offset = -0.02)
+[INFO] Unloading 4 missed cache assets
+[INFO] Preloading 'Merchant Room' assets... count=1 vfx=0
+[INFO] Player 1 chose cards [STRIKE_IRONCLAD]
+[INFO] Player vote changed for 1: ->MapVote (gen: 1 coord: (1, 9))
+[INFO] Wrote 126790 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 62086 bytes to path=user://steam/76561190000000001/profile1\saves\current_run.save save_dir=user://steam/76561190000000001
+[INFO] Unloading 1 missed cache assets
+[INFO] Preloading 'Treasure Room' assets... count=2 vfx=0
+[INFO] Player vote changed for 1: ->MapVote (gen: 1 coord: (1, 10))
+[INFO] Wrote 126790 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 62980 bytes to path=user://steam/76561190000000001/profile1\saves\current_run.save save_dir=user://steam/76561190000000001
+[INFO] Preloading 'RestSite Room' assets... count=3 vfx=2
+[INFO] Player 1 chose cards [JUGGLING]
+[INFO] Player vote changed for 1: ->MapVote (gen: 1 coord: (0, 11))
+[INFO] Wrote 126790 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 63869 bytes to path=user://steam/76561190000000001/profile1\saves\current_run.save save_dir=user://steam/76561190000000001
+[INFO] Unloading 1 missed cache assets
+[INFO] Preloading 'Combat Room' assets... count=12 vfx=0
+[INFO] Creating NCombatRoom with mode=ActiveCombat encounter=RUBY_RAIDERS_NORMAL.
+[INFO] Wrote 65014 bytes to path=user://steam/76561190000000001/profile1\saves\current_run.save save_dir=user://steam/76561190000000001
+[INFO] CHARACTER.IRONCLAD fought ENCOUNTER.RUBY_RAIDERS_NORMAL for the first time and WON >:)
+[INFO] CHARACTER.IRONCLAD fought MONSTER.BRUTE_RUBY_RAIDER for the first time and WON >:(
+[INFO] CHARACTER.IRONCLAD fought MONSTER.CROSSBOW_RUBY_RAIDER for the first time and WON >:(
+[INFO] CHARACTER.IRONCLAD fought MONSTER.AXE_RUBY_RAIDER for the first time and WON >:(
+[INFO] Wrote 127246 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Card rarity: Rolled 0.37053543, need < 0.01 for rare (offset = -0.02)
+[INFO] Card rarity: Rolled 0.2673438, need < 0.02 for rare (offset = -0.01)
+[INFO] Card rarity: Rolled 0.9850399, need < 0.03 for rare (offset = 0)
+[INFO] Player 1 obtained 20 gold from reward
+[INFO] Player 1 selected card reward
+[INFO] Player 1 obtained CARD.DISMANTLE from card reward
+[INFO] Player vote changed for 1: ->MapVote (gen: 1 coord: (0, 12))
+[INFO] Wrote 127246 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 65624 bytes to path=user://steam/76561190000000001/profile1\saves\current_run.save save_dir=user://steam/76561190000000001
+[INFO] Unloading 4 missed cache assets
+[INFO] Preloading 'Event Room' assets... count=2 vfx=1
+[INFO] Player 1 chose cards [STRIKE_IRONCLAD]
+[INFO] Player vote changed for 1: ->MapVote (gen: 1 coord: (0, 13))
+[INFO] Wrote 127246 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 67050 bytes to path=user://steam/76561190000000001/profile1\saves\current_run.save save_dir=user://steam/76561190000000001
+[INFO] Unloading 2 missed cache assets
+[INFO] Preloading 'Combat Room' assets... count=8 vfx=0
+[INFO] Creating NCombatRoom with mode=ActiveCombat encounter=BYRDONIS_ELITE.
+[WARN] Warning: Packet writer is growing from 4096 bytes to 8192 bytes!
+[INFO] Wrote 68050 bytes to path=user://steam/76561190000000001/profile1\saves\current_run.save save_dir=user://steam/76561190000000001
+[INFO] CHARACTER.IRONCLAD has won against encounter ENCOUNTER.BYRDONIS_ELITE. That's 2 wins
+[INFO] CHARACTER.IRONCLAD has killed a MONSTER.BYRDONIS. That's 2 kills
+[INFO] Wrote 127246 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Card rarity: Rolled 0.5457039, need < 0.11 for rare (offset = 0.01)
+[INFO] Card rarity: Rolled 0.15843602, need < 0.120000005 for rare (offset = 0.02)
+[INFO] Card rarity: Rolled 0.6890903, need < 0.13 for rare (offset = 0.03)
+[INFO] Player 1 obtained 36 gold from reward
+[INFO] Player 1 obtained POTION.DEXTERITY_POTION from potion reward
+[INFO] Player 1 obtained RELIC.HORN_CLEAT from relic reward
+[INFO] Player 1 selected card reward
+[INFO] Player 1 obtained CARD.JUGGLING from card reward
+[INFO] Player vote changed for 1: ->MapVote (gen: 1 coord: (1, 14))
+[INFO] Wrote 127246 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 69128 bytes to path=user://steam/76561190000000001/profile1\saves\current_run.save save_dir=user://steam/76561190000000001
+[INFO] Unloading 8 missed cache assets
+[INFO] Preloading 'Event Room' assets... count=2 vfx=1
+[INFO] Player vote changed for 1: ->MapVote (gen: 1 coord: (2, 15))
+[INFO] Wrote 127246 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 71015 bytes to path=user://steam/76561190000000001/profile1\saves\current_run.save save_dir=user://steam/76561190000000001
+[INFO] Unloading 1 missed cache assets
+[INFO] Preloading 'RestSite Room' assets... count=3 vfx=2
+[INFO] Player vote changed for 1: ->MapVote (gen: 1 coord: (3, 16))
+[INFO] Wrote 127246 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 71786 bytes to path=user://steam/76561190000000001/profile1\saves\current_run.save save_dir=user://steam/76561190000000001
+[INFO] Preloading 'Combat Room' assets... count=8 vfx=0
+[INFO] Creating NCombatRoom with mode=ActiveCombat encounter=VANTOM_BOSS.
+[INFO] CHARACTER.IRONCLAD has lost to encounter ENCOUNTER.VANTOM_BOSS. That's 1 losses
+[INFO] Wrote 127421 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 28825 bytes to path=user://steam/76561190000000001/profile1\saves\history\1794130978.run save_dir=user://steam/76561190000000001
+[INFO] Saved run history: 1794130978.run

@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    PckTool: lists and extracts files from the game's Godot resource pack (SlayTheSpire2.pck).
+    The overlay app is NOT a mod, so it cannot ask the game for card names or artwork at runtime.
+    Instead we pull those assets out of the pack once, into data/local/pck/ (gitignored, never committed).
+    The pack is always opened read-only.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+</Project>

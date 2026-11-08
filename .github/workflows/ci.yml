@@ -7,14 +7,25 @@ on:
 
 jobs:
   core:
-    # Cloud CI builds and tests only Contracts + Core (+ tools). The bridge mod and the WPF app
-    # need the game DLLs / Windows and are built locally (PLAN §14).
+    # Platform-neutral projects: engine and save/log tracker.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 9.0.x
-      - run: dotnet restore SlayTheSpire2TierOverlay.sln
-      - run: dotnet build SlayTheSpire2TierOverlay.sln --no-restore -c Release
-      - run: dotnet test SlayTheSpire2TierOverlay.sln --no-build -c Release --logger "console;verbosity=normal"
+          dotnet-version: 10.0.x
+      - run: dotnet test tests/Sts2Overlay.Core.Tests -c Release --logger "console;verbosity=normal"
+      - run: dotnet test tests/Sts2Overlay.GameState.Tests -c Release
+      - run: dotnet build tools/RunHistoryAnalyzer -c Release
+
+  windows:
+    # Screen recognition (SkiaSharp native assets for Windows) and the WPF app.
+    # Tests that need the locally extracted game art skip themselves here.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet test tests/Sts2Overlay.Vision.Tests -c Release
+      - run: dotnet build src/Sts2Overlay.App -c Release

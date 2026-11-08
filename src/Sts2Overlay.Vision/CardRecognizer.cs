@@ -1,0 +1,347 @@
+using System.Diagnostics;
+using System.Globalization;
+
+namespace Sts2Overlay.Vision;
+
+/// <summary>Thresholds and search ranges. Defaults are calibrated with tools/VisionBench on real captures.</summary>
+public sealed record RecognizerOptions
+{
+    /// <summary>Minimum full-resolution NCC to accept a card (clean matches score 0.9-1.0).</summary>
+    public float AcceptScore { get; init; } = 0.70f;
+    /// <summary>Minimum gap to the best different card.</summary>
+    public float AcceptMargin { get; init; } = 0.10f;
+    /// <summary>
+    /// Second acceptance path for partly covered cards (merchant hand, tooltip edge): a lower score is enough
+    /// when the winner stands far above every other card. On the bench, wrong winners never had a margin
+    /// above 0.17 while their score was below 0.70.
+    /// </summary>
+    public float CoveredScore { get; init; } = 0.55f;
+    public float CoveredMargin { get; init; } = 0.25f;
+    /// <summary>Coarse NCC above which a slot counts as "a card is here" while choosing the layout.</summary>
+    public float SlotPresentScore { get; init; } = 0.60f;
+    /// <summary>Fraction of upgrade-green title pixels that marks an upgraded card (upgraded titles: 5-10 %).</summary>
+    public float UpgradeFraction { get; init; } = 0.02f;
+    /// <summary>Art NCC above which the card is considered fully visible (title not hidden by a tooltip).</summary>
+    public float UnoccludedScore { get; init; } = 0.85f;
+    /// <summary>A hinted-pool candidate wins if it is within this NCC of the overall best.</summary>
+    public float HintTolerance { get; init; } = 0.03f;
+    /// <summary>Local search radius around the layout position, in reference pixels.</summary>
+    public float SearchRadius { get; init; } = 12f;
+    /// <summary>Candidates kept from the coarse full-database scan for the local box search.</summary>
+    public int SearchCandidates { get; init; } = 16;
+    /// <summary>Pools that can be offered (others are never considered). Null = all database entries.</summary>
+    public IReadOnlySet<string>? CandidatePools { get; init; } = VisionCatalog.OfferablePools;
+}
+
+/// <summary>
+/// Per-frame screen recognition: classify the frame, find the offered cards, identify them.
+/// Thread-safe (the database is read-only and all scratch memory is per call).
+///
+/// <para>Typical app loop (2-4 Hz while the log says a reward or shop is open):</para>
+/// <code>
+/// var r = recognizer.Recognize(frame, new RecognitionHints(characterId));
+/// if (r.Kind != ScreenKind.Other)
+///     foreach (var c in r.Cards) DrawTierBadge(c.CardId!, c.Upgraded, c.CardBounds);
+/// </code>
+/// </summary>
+public sealed class CardRecognizer
+{
+    private readonly CardArtDatabase _db;
+    private readonly bool[] _offerable;
+
+    public RecognizerOptions Options { get; }
+    public CardArtDatabase Database => _db;
+
+    public CardRecognizer(CardArtDatabase db, RecognizerOptions? options = null)
+    {
+        _db = db;
+        Options = options ?? new RecognizerOptions();
+        _offerable = db.Entries.Select(e => Options.CandidatePools?.Contains(e.Pool) ?? true).ToArray();
+    }
+
+    public ScreenRecognition Recognize(in ScreenFrame frame, RecognitionHints? hints = null)
+    {
+        var sw = Stopwatch.StartNew();
+        frame.Validate();
+        ScreenGate gate = ScreenClassifier.Evaluate(frame);
+        RefTransform t = RefTransform.For(frame.Width, frame.Height);
+        // One table cell ≈ one reference pixel: average 2x2 source pixels on a 4K frame, 1x1 at 1080p.
+        int step = Math.Max(1, (int)MathF.Floor(t.Scale + 1e-3f));
+        var notes = new List<string>();
+        IReadOnlyList<RecognizedCard> examined = [];
+
+        if (gate.RewardLikely)
+        {
+            (List<RecognizedCard> slots, string detail) = RecognizeReward(frame, t, step, hints);
+            List<RecognizedCard> accepted = slots.Where(s => s.Accepted).ToList();
+            // Two accepted cards are required: one lucky match on a banner screen (loot list) is not enough.
+            if (accepted.Count >= 2)
+                return new ScreenRecognition(ScreenKind.RewardCardSelect, accepted, slots, gate, sw.Elapsed.TotalMilliseconds, detail);
+            notes.Add($"reward banner but {accepted.Count} card(s): {detail}");
+            examined = slots;
+        }
+
+        if (gate.ShopLikely)
+        {
+            List<RecognizedCard> slots = RecognizeShop(frame, t, step, hints);
+            List<RecognizedCard> accepted = slots.Where(s => s.Accepted).ToList();
+            if (accepted.Count >= 1)
+                return new ScreenRecognition(ScreenKind.Shop, accepted, slots, gate, sw.Elapsed.TotalMilliseconds, "shop");
+            notes.Add("shop rug but no cards");
+            examined = slots;
+        }
+
+        return new ScreenRecognition(ScreenKind.Other, [], examined, gate, sw.Elapsed.TotalMilliseconds, string.Join("; ", notes));
+    }
+
+    // ------------------------------------------------------------------ reward screen
+
+    private (List<RecognizedCard>, string) RecognizeReward(in ScreenFrame frame, RefTransform t, int step, RecognitionHints? hints)
+    {
+        // Band covering portrait + title of every possible slot (cards at scale <= 1.04 plus the search radius).
+        using IntegralImage img = IntegralImage.Build(frame, t.ToPixelRect(new RectF(80, 380, 1760, 285)), step);
+
+        // Layout hypotheses, most likely first. A settled 3-card screen is decided after the first one.
+        SlotLayout[]? chosen = null;
+        string detail = "";
+        foreach (int n in (int[])[3, 4, 2])
+        {
+            SlotLayout[] layout = ScreenLayouts.Reward(n);
+            (int present, float sum) = QuickPresence(img, t, layout, 0.76f, 1.04f);
+            if (present >= (n >= 3 ? n - 1 : n))
+            {
+                chosen = layout;
+                detail = $"{n} cards";
+                break;
+            }
+        }
+
+        if (chosen == null)
+        {
+            // Cards still sliding apart (opening tween, 0.5 s): search the spread of a 3-card row.
+            float bestSum = 0;
+            for (float spread = 0.2f; spread < 0.99f; spread += 0.05f)
+            {
+                SlotLayout[] layout = ScreenLayouts.Reward(3, spread);
+                (int present, float sum) = QuickPresence(img, t, layout, 0.76f, 0.84f);
+                if (present >= 2 && sum > bestSum)
+                {
+                    bestSum = sum;
+                    chosen = layout;
+                    detail = string.Create(CultureInfo.InvariantCulture, $"3 cards, opening (spread {spread:F2})");
+                }
+            }
+        }
+
+        if (chosen == null) return ([], "no card row found");
+        var cards = new RecognizedCard[chosen.Length];
+        // Slots are independent and only READ the shared table, so they can be matched on several cores.
+        Parallel.For(0, chosen.Length, i => cards[i] = MatchSlot(img, t, chosen[i], 0.76f, 1.04f, hints));
+        return ([.. cards], detail);
+    }
+
+    // ------------------------------------------------------------------ shop
+
+    private List<RecognizedCard> RecognizeShop(in ScreenFrame frame, RefTransform t, int step, RecognitionHints? hints)
+    {
+        // Two bands: the character-card row (centre y 383) and the colourless row (centre y 756).
+        using IntegralImage top = IntegralImage.Build(frame, t.ToPixelRect(new RectF(285, 190, 1355, 235)), step);
+        using IntegralImage bottom = IntegralImage.Build(frame, t.ToPixelRect(new RectF(375, 563, 535, 235)), step);
+        SlotLayout[] slots = ScreenLayouts.Shop();
+        var cards = new RecognizedCard[slots.Length];
+        // 7 independent slots reading two immutable tables: one task per slot (~2-3 ms each at 4K).
+        Parallel.For(0, slots.Length, i =>
+        {
+            IntegralImage img = slots[i].Kind == CardSlotKind.ShopColorless ? bottom : top;
+            cards[i] = MatchSlot(img, t, slots[i], 0.61f, 0.84f, hints);
+        });
+        return [.. cards];
+    }
+
+    // ------------------------------------------------------------------ per-slot matching
+
+    /// <summary>
+    /// How many slots of a layout look like a card: best coarse NCC over the whole database at the small and
+    /// the hovered scale. ~0.3 ms per slot; used only to choose between layout hypotheses.
+    /// </summary>
+    private (int Present, float Sum) QuickPresence(IntegralImage img, RefTransform t, SlotLayout[] layout, float minScale, float maxScale)
+    {
+        Span<float> v = stackalloc float[Ncc.CoarseLength];
+        int present = 0;
+        float sum = 0;
+        foreach (SlotLayout slot in layout)
+        {
+            float best = 0;
+            foreach (float s in (float[])[slot.SmallScale, slot.HoverScale])
+            {
+                if (s < minScale || s > maxScale) continue;
+                if (!ExtractAt(img, t, slot.CenterX, slot.CenterY, s, v)) continue;
+                ArtMatch[] top = _db.TopK(v, 1, Allowed);
+                if (top.Length > 0) best = Math.Max(best, top[0].Score);
+            }
+            sum += best;
+            if (best >= Options.SlotPresentScore) present++;
+        }
+        return (present, sum);
+    }
+
+    private bool Allowed(ArtEntry e) => _offerable[e.Index];
+
+    private static bool ExtractAt(IntegralImage img, RefTransform t, float cx, float cy, float scale, Span<float> dst)
+    {
+        RectF art = t.ToPixels(CardGeometry.Place(CardGeometry.Art, cx, cy, scale));
+        int w = dst.Length == Ncc.FullLength ? Ncc.FullW : Ncc.CoarseW;
+        int h = dst.Length == Ncc.FullLength ? Ncc.FullH : Ncc.CoarseH;
+        return Ncc.Extract(img, art, w, h, dst);
+    }
+
+    /// <summary>
+    /// Finds the exact card box around a layout slot and identifies the card.
+    /// Coarse-to-fine: (1) whole-database coarse scan at the nominal box keeps the best few candidates;
+    /// (2) sweep the node scale (hover/unhover tween) at the nominal centre; (3) 4-px grid of offsets;
+    /// (4) 1-px refinement. Steps 2-4 only score the kept candidates, so each probe costs ~16 short dot
+    /// products instead of a full scan. (5) One full-resolution scan at the best box decides the card.
+    /// </summary>
+    private RecognizedCard MatchSlot(IntegralImage img, RefTransform t, SlotLayout slot, float minScale, float maxScale, RecognitionHints? hints)
+    {
+        Span<float> coarse = stackalloc float[Ncc.CoarseLength];
+
+        // (1) candidates
+        var candidates = new HashSet<int>();
+        foreach (float s in (float[])[slot.SmallScale, slot.HoverScale])
+        {
+            if (!ExtractAt(img, t, slot.CenterX, slot.CenterY, s, coarse)) continue;
+            foreach (ArtMatch m in _db.TopK(coarse, Options.SearchCandidates, Allowed)) candidates.Add(m.EntryIndex);
+        }
+        if (candidates.Count == 0) return Empty(t, slot);
+        int[] cand = candidates.ToArray();
+
+        float bestScore = float.NegativeInfinity, bx = slot.CenterX, by = slot.CenterY, bs = slot.SmallScale;
+        void Try(float cx, float cy, float s, Span<float> buf)
+        {
+            if (!ExtractAt(img, t, cx, cy, s, buf)) return;
+            float score = _db.BestOf(buf, cand, out _);
+            if (score > bestScore)
+            {
+                bestScore = score;
+                bx = cx;
+                by = cy;
+                bs = s;
+            }
+        }
+
+        // (2) scale sweep at the layout centre
+        for (float s = minScale; s <= maxScale + 1e-4f; s += 0.02f) Try(slot.CenterX, slot.CenterY, s, coarse);
+        // (3) coarse offsets
+        float r = Options.SearchRadius;
+        float cx0 = bx, cy0 = by, s0 = bs;
+        for (float dy = -r; dy <= r + 1e-3f; dy += 4)
+            for (float dx = -r; dx <= r + 1e-3f; dx += 4)
+                Try(cx0 + dx, cy0 + dy, s0, coarse);
+        // (4) fine offsets, then a final scale nudge
+        cx0 = bx;
+        cy0 = by;
+        for (float dy = -2; dy <= 2; dy++)
+            for (float dx = -2; dx <= 2; dx++)
+                Try(cx0 + dx, cy0 + dy, s0, coarse);
+        Try(bx, by, bs - 0.01f, coarse);
+        Try(bx, by, bs + 0.01f, coarse);
+
+        // (5) full-resolution identification over the whole (allowed) database
+        float[] full = new float[Ncc.FullLength];
+        if (!ExtractAt(img, t, bx, by, bs, full)) return Empty(t, slot);
+        ArtMatch[] top = _db.TopK(full, 8, Allowed);
+        if (top.Length == 0) return Empty(t, slot);
+
+        (ArtMatch pick, string? ambiguous) = Decide(top, hints);
+        float runnerUp = top.Where(m => m.CardId != pick.CardId && !_db.TwinsOf(pick.CardId).Contains(m.CardId))
+            .Select(m => m.Score).DefaultIfEmpty(-1).Max();
+        float margin = pick.Score - runnerUp;
+        bool accepted = (pick.Score >= Options.AcceptScore && margin >= Options.AcceptMargin)
+                        || (pick.Score >= Options.CoveredScore && margin >= Options.CoveredMargin);
+
+        float green = UpgradeDetector.GreenFraction(img, t, bx, by, bs);
+        bool upgraded = green >= Options.UpgradeFraction;
+        // A clean art match means nothing covers the card, so a title without green really is not upgraded.
+        bool upgradeKnown = upgraded || pick.Score >= Options.UnoccludedScore;
+        PixelRect? price = slot.Kind == CardSlotKind.Reward ? null : t.ToPixelRect(ScreenLayouts.ShopPrice(bx, by, bs));
+        return new RecognizedCard(slot.Index, slot.Kind, pick.CardId, upgraded, pick.Score, margin, accepted,
+            ambiguous, green, upgradeKnown, bs,
+            t.ToPixelRect(CardGeometry.Place(CardGeometry.Art, bx, by, bs)),
+            t.ToPixelRect(CardGeometry.Place(CardGeometry.Card, bx, by, bs)),
+            price, null, top.Take(3).ToArray());
+    }
+
+    /// <summary>
+    /// Picks the card from the ranked candidates: a candidate from the hinted character's pool (or colourless)
+    /// wins near-ties, and identical-art twins are resolved by pool when possible.
+    /// </summary>
+    private (ArtMatch Pick, string? Ambiguous) Decide(ArtMatch[] top, RecognitionHints? hints)
+    {
+        string? charPool = hints?.CharacterId is { } ch ? VisionCatalog.PoolOfCharacter(ch) : null;
+        bool Preferred(ArtMatch m) => charPool != null &&
+            (_db.Entries[m.EntryIndex].Pool == charPool || _db.Entries[m.EntryIndex].Pool == VisionCatalog.ColorlessPool);
+
+        ArtMatch pick = top[0];
+        if (charPool != null && !Preferred(pick))
+        {
+            foreach (ArtMatch m in top)
+            {
+                if (m.Score < pick.Score - Options.HintTolerance) break;
+                if (Preferred(m))
+                {
+                    pick = m;
+                    break;
+                }
+            }
+        }
+
+        string? ambiguous = null;
+        IReadOnlySet<string> twins = _db.TwinsOf(pick.CardId);
+        foreach (ArtMatch m in top)
+        {
+            if (m.CardId == pick.CardId || !twins.Contains(m.CardId) || m.Score < pick.Score - 0.03f) continue;
+            if (charPool != null && Preferred(pick) && !Preferred(m)) continue; // resolved by the hint
+            if (charPool != null && Preferred(m) && !Preferred(pick))
+            {
+                pick = m;
+                continue;
+            }
+            ambiguous = m.CardId;
+        }
+        return (pick, ambiguous);
+    }
+
+    private static RecognizedCard Empty(RefTransform t, SlotLayout slot) =>
+        new(slot.Index, slot.Kind, null, false, 0, 0, false, null, 0, false, slot.SmallScale,
+            t.ToPixelRect(CardGeometry.Place(CardGeometry.Art, slot.CenterX, slot.CenterY, slot.SmallScale)),
+            t.ToPixelRect(CardGeometry.Place(CardGeometry.Card, slot.CenterX, slot.CenterY, slot.SmallScale)),
+            null, null, []);
+}
+
+/// <summary>
+/// Upgraded cards draw their title in StsColors.green = #7FFF00 (NCard.UpdateTitleLabel), normal cards in
+/// cream #FFF6E2. We count title-area pixels that are clearly chartreuse: green dominant, red at most ~60 %
+/// of green, almost no blue. Ratios rather than absolute values keep it working while the card fades in
+/// from black. The tightest look-alike is the rare (gold) banner, whose shading reaches (120,165,28):
+/// red/green 0.73, so the red limit sits at 0.62 (measured: rare banner 0 %, upgraded titles 5-10 %).
+/// </summary>
+public static class UpgradeDetector
+{
+    public static bool IsUpgradeGreen(float r, float g, float b) =>
+        g >= 50 && r <= 0.62f * g && b <= 0.35f * g;
+
+    internal static float GreenFraction(IntegralImage img, RefTransform t, float cx, float cy, float scale)
+    {
+        RectF title = t.ToPixels(CardGeometry.Place(CardGeometry.Title, cx, cy, scale));
+        // About one sample per table cell: thin glyph strokes must not be averaged away.
+        int gw = Math.Clamp((int)(title.Width / img.Step), 8, 400);
+        int gh = Math.Clamp((int)(title.Height / img.Step), 4, 120);
+        float[] rgb = new float[gw * gh * 3];
+        img.SampleGrid(title, gw, gh, rgb);
+        int green = 0;
+        for (int i = 0; i < rgb.Length; i += 3)
+            if (IsUpgradeGreen(rgb[i], rgb[i + 1], rgb[i + 2])) green++;
+        return green / (float)(gw * gh);
+    }
+}

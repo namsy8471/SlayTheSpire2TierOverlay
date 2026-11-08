@@ -1,0 +1,26 @@
+<Application x:Class="Sts2Overlay.App.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:v="clr-namespace:Sts2Overlay.App.Views"
+             ShutdownMode="OnExplicitShutdown">
+  <!-- No StartupUri: App.OnStartup composes the services and creates the windows itself. -->
+  <Application.Resources>
+    <v:TierBrushConverter x:Key="TierBrush" />
+    <v:EnumMatchConverter x:Key="EnumMatch" />
+    <v:BoolVisibilityConverter x:Key="BoolVis" />
+
+    <SolidColorBrush x:Key="Gold" Color="#F1C40F" />
+    <SolidColorBrush x:Key="TextMain" Color="#EEF0F4" />
+    <SolidColorBrush x:Key="TextDim" Color="#9AA3B2" />
+    <SolidColorBrush x:Key="RowBg" Color="#1FFFFFFF" />
+    <SolidColorBrush x:Key="ChipPos" Color="#2E7D4F" />
+    <SolidColorBrush x:Key="ChipNeg" Color="#8E3B3B" />
+    <SolidColorBrush x:Key="EstimateBg" Color="#B9770E" />
+    <SolidColorBrush x:Key="UpgradeFg" Color="#58D68D" />
+
+    <!-- Crown icon for the recommended pick (WPF can't draw colour emoji, so it's a vector path). -->
+    <Geometry x:Key="CrownGeometry">M0,11 L1.5,3 L5,7 L8,0 L11,7 L14.5,3 L16,11 Z M0.5,12.5 L15.5,12.5 L15.5,14 L0.5,14 Z</Geometry>
+
+    <FontFamily x:Key="UiFont">Malgun Gothic, Segoe UI</FontFamily>
+  </Application.Resources>
+</Application>
