@@ -6,9 +6,11 @@
       "id": "silent.poison",
       "names": { "kor": "중독", "eng": "Poison" },
       "color": "#27ae60",
+      // 코어 정리: DEADLY_POISON(일반, "중독 N 부여")은 POISONED_STAB·SNAKEBITE와 바꿔 쓸 수 있는 중독 공급원이라 core → enabler.
+      // 일반 카드 한 장으로 코어 확보가 되면 NOXIOUS_FUMES·BOUNCING_FLASK 우선 추천이 꺼짐.
       "cards": {
-        "core": ["CARD.NOXIOUS_FUMES", "CARD.DEADLY_POISON", "CARD.BOUNCING_FLASK"],
-        "enabler": ["CARD.POISONED_STAB", "CARD.SNAKEBITE", "CARD.HAZE", "CARD.CORROSIVE_WAVE", "CARD.ENVENOM"],
+        "core": ["CARD.NOXIOUS_FUMES", "CARD.BOUNCING_FLASK"],
+        "enabler": ["CARD.DEADLY_POISON", "CARD.POISONED_STAB", "CARD.SNAKEBITE", "CARD.HAZE", "CARD.CORROSIVE_WAVE", "CARD.ENVENOM"],
         "payoff": ["CARD.ACCELERANT", "CARD.OUTBREAK", "CARD.BUBBLE_BUBBLE", "CARD.MIRAGE"],
         "support": ["CARD.MALAISE", "CARD.LEG_SWEEP", "CARD.PIERCING_WAIL", "CARD.FOOTWORK"]
       },
@@ -25,9 +27,11 @@
       "id": "silent.shiv",
       "names": { "kor": "단도", "eng": "Shiv" },
       "color": "#95a5a6",
+      // 코어 정리: BLADE_DANCE(일반, "단도 N장을 손으로")는 CLOAK_AND_DAGGER·LEADING_STRIKE와 같은 일회성 단도 공급원이라 core → enabler.
+      // 코어는 매 턴 단도를 주는 INFINITE_BLADES와 단도 피해를 올리는 ACCURACY.
       "cards": {
-        "core": ["CARD.INFINITE_BLADES", "CARD.BLADE_DANCE", "CARD.ACCURACY"],
-        "enabler": ["CARD.CLOAK_AND_DAGGER", "CARD.LEADING_STRIKE", "CARD.BLADE_OF_INK", "CARD.UP_MY_SLEEVE", "CARD.HIDDEN_DAGGERS", "CARD.STORM_OF_STEEL"],
+        "core": ["CARD.INFINITE_BLADES", "CARD.ACCURACY"],
+        "enabler": ["CARD.BLADE_DANCE", "CARD.CLOAK_AND_DAGGER", "CARD.LEADING_STRIKE", "CARD.BLADE_OF_INK", "CARD.UP_MY_SLEEVE", "CARD.HIDDEN_DAGGERS", "CARD.STORM_OF_STEEL"],
         "payoff": ["CARD.FAN_OF_KNIVES", "CARD.PHANTOM_BLADES", "CARD.KNIFE_TRAP", "CARD.FINISHER"],
         "support": ["CARD.AFTERIMAGE", "CARD.ENVENOM"]
       },
@@ -67,10 +71,12 @@
       "id": "silent.draw_burst",
       "names": { "kor": "드로우 폭발", "eng": "Draw burst" },
       "color": "#2980b9",
+      // 코어 정리: MURDER("이번 전투에 뽑은 카드 1장당 추가 피해", 3코스트 공격)는 드로우 수를 소비하는 마무리 보상이라 core → payoff.
+      // 코어는 "카드를 뽑을 때마다 모든 적에게 피해"로 빌드를 정의하는 파워 SPEEDSTER.
       "cards": {
-        "core": ["CARD.SPEEDSTER", "CARD.MURDER"],
+        "core": ["CARD.SPEEDSTER"],
         "enabler": ["CARD.ACROBATICS", "CARD.BACKFLIP", "CARD.ADRENALINE", "CARD.EXPERTISE", "CARD.PREDATOR", "CARD.ESCAPE_PLAN", "CARD.PREPARED"],
-        "payoff": ["CARD.CORROSIVE_WAVE"],
+        "payoff": ["CARD.MURDER", "CARD.CORROSIVE_WAVE"],
         "support": ["CARD.TOOLS_OF_THE_TRADE", "CARD.FOOTWORK"]
       },
       "fullWeight": 3.5,

@@ -7,7 +7,9 @@ namespace Sts2Overlay.Core.Scoring;
 
 /// <summary>
 /// PLAN §7.1: score = base + build + combo + need + situation − dilution − duplicates,
-/// plus the DECK_COMPASS rules (requires gate, saturation, weakness-first build cap).
+/// plus the DECK_COMPASS rules (requires gate, saturation, weakness-first build cap)
+/// and "core first" (<c>core_priority</c> for a leaning build's missing core card, <c>core_missing</c> for its other cards
+/// while that build owns no core card; see <see cref="CorePriorityWeights"/>).
 /// Every tunable comes from <see cref="DataPack.Weights"/>; the total is always the sum of the emitted components.
 /// </summary>
 public sealed class CardScorer(DataPack pack)
@@ -55,15 +57,26 @@ public sealed class CardScorer(DataPack pack)
         parts.Add(new ScoreComponent(ComponentKeys.Base, $"기본 {tier}", baseValue, baseDetail));
 
         // ---- archetype membership ----
+        // A non-core card of a build that owns no core card yet only counts NoCoreFactor of its role weight ("코어 먼저").
+        var cp = w.CorePriority;
         var memberships = profile.Archetypes
-            .Select(s => (Status: s, Weight: Finite(s.Archetype.WeightOf(id)), Commit: Commit(s)))
+            .Select(s =>
+            {
+                var role = s.Archetype.RoleOf(id);
+                var core = ArchetypeDetector.CoreProgress(s.Archetype, Pack, profile.Copies);
+                var noCore = role is not null && role != ArchetypeRoles.Core && core.Target > 0 && core.Owned == 0;
+                var factor = noCore && cp.NoCoreFactor.TryGetValue(role!, out var f) ? Math.Clamp(Finite(f), 0.0, 1.0) : 1.0;
+                return (Status: s, Role: role, Weight: Finite(s.Archetype.WeightOf(id)), Commit: Commit(s), Core: core, Factor: factor);
+            })
             .Where(m => m.Weight > 0)
             .ToList();
 
         // ---- build ----
         var buildRaw = w.WArch * memberships.Sum(m => m.Commit * m.Weight);
+        var buildRawNoCore = w.WArch * memberships.Sum(m => m.Commit * m.Weight * m.Factor);
         var buildCap = profile.IsWeak ? w.BuildCapWeak : w.BuildCap;
         var build = Finite(Math.Min(buildCap, buildRaw));
+        var coreMissing = Finite(Math.Min(0.0, Math.Min(buildCap, buildRawNoCore) - build));
         string buildLabel = "빌드 시너지", buildDetail = "";
         if (memberships.Count > 0)
         {
@@ -72,6 +85,15 @@ public sealed class CardScorer(DataPack pack)
             buildLabel = $"{name} 시너지";
             buildDetail = $"{name} {top.Commit * 100:0}%"
                 + (buildRaw > buildCap + Epsilon ? $", 상한 {Num(buildCap)}" + (profile.IsWeak ? " (약점 우선)" : "") : "");
+        }
+        string? coreMissingDetail = null;
+        if (coreMissing < -Epsilon)
+        {
+            var worst = memberships.Where(m => m.Factor < 1.0).OrderByDescending(m => m.Commit * m.Weight * (1 - m.Factor)).First();
+            var missingCore = worst.Status.Archetype.Cards.Core.Select(Pack.Canonical).Distinct(StringComparer.Ordinal)
+                .Where(c => profile.Copies.GetValueOrDefault(c) == 0)
+                .Select(ShortId);
+            coreMissingDetail = $"{worst.Status.Archetype.DisplayName} 코어 먼저: {string.Join(", ", missingCore)}";
         }
 
         // ---- combo ----
@@ -103,7 +125,47 @@ public sealed class CardScorer(DataPack pack)
         if (engineMissing)
         {
             build = 0;
+            coreMissing = 0;
             comboValue = 0;
+        }
+
+        // ---- core priority ("코어 확보") ----
+        // Missing core card of a leaning build that is not core-secured; max over builds, never summed.
+        double corePriority = 0;
+        string? corePriorityDetail = null;
+        if (!engineMissing)
+        {
+            var commits = profile.Archetypes.Select(Commit).ToList();
+            var topCommit = commits.DefaultIfEmpty(0.0).Max();
+            var anyLeaning = commits.Any(c => c >= cp.LeanMin - Epsilon);
+            var weakFactor = profile.IsWeak ? Math.Clamp(Finite(cp.WeakFactor), 0.0, 1.0) : 1.0;
+            foreach (var m in memberships.Where(m => m.Role == ArchetypeRoles.Core && m.Core.Owned < m.Core.Target))
+            {
+                var leaning = m.Commit >= cp.LeanMin - Epsilon && m.Commit >= topCommit - w.HybridMargin - Epsilon;
+                double value;
+                string detail;
+                if (leaning)
+                {
+                    var ramp = cp.LeanFull > Epsilon ? Math.Clamp(m.Commit / cp.LeanFull, 0.0, 1.0) : 1.0;
+                    value = Finite(cp.Bonus) * ramp * weakFactor;
+                    detail = $"{m.Status.Archetype.DisplayName} 코어 {m.Core.Owned}/{m.Core.Target}장, 몰입 {m.Commit * 100:0}%";
+                }
+                else if (!anyLeaning && act <= cp.StarterMaxAct)
+                {
+                    value = Finite(cp.StarterBonus) * weakFactor;
+                    detail = $"{m.Status.Archetype.DisplayName} 코어 (초반 방향 잡기)";
+                }
+                else
+                {
+                    continue;
+                }
+                if (profile.IsWeak) detail += " (약점 우선 절반)";
+                if (value > corePriority + Epsilon)
+                {
+                    corePriority = value;
+                    corePriorityDetail = detail;
+                }
+            }
         }
 
         // ---- need ----
@@ -162,7 +224,7 @@ public sealed class CardScorer(DataPack pack)
             }
             if (worstFactor < 1.0)
             {
-                var positive = Math.Max(0, build) + Math.Max(0, comboValue) + Math.Max(0, need);
+                var positive = Math.Max(0, build + coreMissing) + Math.Max(0, comboValue) + Math.Max(0, need);
                 saturation = Finite(-positive * (1 - worstFactor));
             }
         }
@@ -186,6 +248,8 @@ public sealed class CardScorer(DataPack pack)
 
         // ---- assemble (zero components omitted, base always kept) ----
         Add(parts, ComponentKeys.Build, buildLabel, build, buildDetail);
+        Add(parts, ComponentKeys.CoreMissing, ScoringLabels.CoreMissing, coreMissing, coreMissingDetail);
+        Add(parts, ComponentKeys.CorePriority, ScoringLabels.CorePriority, corePriority, corePriorityDetail);
         Add(parts, ComponentKeys.OffBuild, ScoringLabels.OffBuild, offBuild,
             committed.Count > 0 ? $"{committed[0].Archetype.DisplayName} 밖의 카드" : null);
         Add(parts, ComponentKeys.Combo, ScoringLabels.Combo, comboValue, comboNames.Count > 0 ? string.Join(", ", comboNames) : null);
@@ -234,6 +298,12 @@ public sealed class CardScorer(DataPack pack)
     internal static double Commit(ArchetypeStatus s) => double.IsFinite(s.Commit) ? Math.Clamp(s.Commit, 0.0, 1.0) : 0.0;
 
     private static double Finite(double v) => double.IsFinite(v) ? v : 0.0;
+
+    private static string ShortId(string id)
+    {
+        var dot = id.IndexOf('.');
+        return dot >= 0 ? id[(dot + 1)..] : id;
+    }
 
     private static string Num(double v) => v.ToString("0.#", CultureInfo.InvariantCulture);
 

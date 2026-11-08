@@ -40,6 +40,10 @@ public sealed class Weights
     /// <summary>Two archetypes within this commit distance are shown as a hybrid.</summary>
     public double HybridMargin { get; set; } = 0.15;
 
+    /// <summary>Core cards first: bonus for a leaning build's missing core card, discount for its other cards while no core is owned.</summary>
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+    public CorePriorityWeights CorePriority { get; set; } = new();
+
     // ---- Combo ----
     public double ComboCap { get; set; } = 15;
 
@@ -135,6 +139,47 @@ public sealed class SaturationWeights
 
     /// <summary>Positive synergy never drops below this fraction.</summary>
     public double MinFactor { get; set; } = 0.3;
+}
+
+/// <summary>
+/// "코어 먼저" rule. A build is <i>leaning</i> when its commit is at least <see cref="LeanMin"/> and it is the top build or within
+/// <see cref="Weights.HybridMargin"/> of it. While a leaning build is not core-secured (<see cref="Archetype.CoreTarget"/>), its
+/// missing core cards get <c>core_priority = Bonus × clamp(commit / LeanFull, 0, 1)</c> (× <see cref="WeakFactor"/> on a weak deck,
+/// 0 when the card's <c>requires</c> axis is missing); the largest value over builds counts, not the sum.
+/// While a build owns no core card at all, its payoff/enabler/support memberships count only <see cref="NoCoreFactor"/> of their
+/// role weight in the build component, and the lost value is shown as the negative <c>core_missing</c> component.
+/// </summary>
+public sealed class CorePriorityWeights
+{
+    /// <summary>
+    /// Full core-priority bonus (score points) once the build's commit reaches <see cref="LeanFull"/>. Default = one tier step (15),
+    /// so a missing core card one tier below a same-build non-core card still wins on base + build + core components.
+    /// </summary>
+    public double Bonus { get; set; } = 15;
+
+    /// <summary>Commit at which a build starts to count as leaning.</summary>
+    public double LeanMin { get; set; } = 0.15;
+
+    /// <summary>Commit at which the full <see cref="Bonus"/> applies (linear from 0 below).</summary>
+    public double LeanFull { get; set; } = 0.4;
+
+    /// <summary>Multiplier on the bonus when a weak role (block/draw) is short — fix weaknesses before builds (DECK_COMPASS rule 3).</summary>
+    public double WeakFactor { get; set; } = 0.5;
+
+    /// <summary>Small bonus for a core card of a build with no core yet while no build is leaning (early acts only).</summary>
+    public double StarterBonus { get; set; } = 3;
+
+    /// <summary>Last act in which <see cref="StarterBonus"/> applies.</summary>
+    public int StarterMaxAct { get; set; } = 1;
+
+    /// <summary>Share of a non-core role weight that still counts toward the build while the build owns no core card.</summary>
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+    public Dictionary<string, double> NoCoreFactor { get; set; } = new(StringComparer.Ordinal)
+    {
+        [ArchetypeRoles.Payoff] = 0.4,
+        [ArchetypeRoles.Support] = 0.6,
+        [ArchetypeRoles.Enabler] = 0.85,
+    };
 }
 
 public sealed class PowerSaturationWeights

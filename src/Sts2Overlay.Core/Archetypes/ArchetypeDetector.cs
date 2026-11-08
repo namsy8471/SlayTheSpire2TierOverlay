@@ -246,6 +246,7 @@ public static class ArchetypeDetector
             }
         }
 
+        var core = CoreProgress(a, pack, copies);
         var commit = a.FullWeight > 0 ? Math.Clamp(weightSum / a.FullWeight, 0.0, 1.0) : 0.0;
         var pct = totalCompletion > 0 ? Math.Clamp(ownedCompletion / totalCompletion * 100.0, 0.0, 100.0) : 0.0;
 
@@ -259,7 +260,23 @@ public static class ArchetypeDetector
             OwnedRelics = ownedRelics,
             MissingCards = missing,
             UnmetNeeds = a.Needs.Where(need => !IsMet(need, roleSupply, provides)).ToList(),
+            OwnedCore = core.Owned,
+            CoreTarget = core.Target,
+            MissingCore = missing.Where(m => m.Role == ArchetypeRoles.Core).ToList(),
         };
+    }
+
+    /// <summary>
+    /// Distinct core cards of <paramref name="a"/> owned according to <paramref name="copies"/> (canonical id → count),
+    /// and the target <see cref="Archetype.CoreTarget"/> clamped to 0..number of distinct core cards (at least 1 when there is one).
+    /// Shared by the detector and <see cref="Scoring.CardScorer"/> so both agree on "core secured".
+    /// </summary>
+    public static (int Owned, int Target) CoreProgress(Archetype a, DataPack pack, IReadOnlyDictionary<string, int> copies)
+    {
+        var cores = a.Cards.Core.Select(pack.Canonical).Distinct(StringComparer.Ordinal).ToList();
+        var owned = cores.Count(id => copies.TryGetValue(id, out var n) && n > 0);
+        var target = cores.Count == 0 ? 0 : Math.Clamp(a.CoreTarget, 1, cores.Count);
+        return (owned, target);
     }
 
     private static bool IsMet(ArchetypeNeed need, IReadOnlyDictionary<string, double>? roleSupply, IReadOnlyDictionary<string, int>? provides)

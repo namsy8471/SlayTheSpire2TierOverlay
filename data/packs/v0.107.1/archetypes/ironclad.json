@@ -29,9 +29,11 @@
       "id": "ironclad.exhaust",
       "names": { "kor": "소멸", "eng": "Exhaust" },
       "color": "#8e44ad",
+      // 코어 정리: CORRUPTION은 고대(Ancient) 희귀도라 카드 보상에 나오지 않고, "스킬 0코스트 + 사용 시 소멸"로 소멸을 공급하는 쪽이라 core → enabler.
+      // core에 두면 CORRUPTION만 가진 덱이 코어 확보로 처리되어 정작 필요한 FEEL_NO_PAIN·DARK_EMBRACE("카드가 소멸될 때마다 …") 우선 추천이 꺼짐.
       "cards": {
-        "core": ["CARD.CORRUPTION", "CARD.FEEL_NO_PAIN", "CARD.DARK_EMBRACE"],
-        "enabler": ["CARD.BURNING_PACT", "CARD.TRUE_GRIT", "CARD.SECOND_WIND", "CARD.STOKE", "CARD.FIEND_FIRE", "CARD.BRAND"],
+        "core": ["CARD.FEEL_NO_PAIN", "CARD.DARK_EMBRACE"],
+        "enabler": ["CARD.CORRUPTION", "CARD.BURNING_PACT", "CARD.TRUE_GRIT", "CARD.SECOND_WIND", "CARD.STOKE", "CARD.FIEND_FIRE", "CARD.BRAND"],
         "payoff": ["CARD.ASHEN_STRIKE", "CARD.PACTS_END", "CARD.HOWL_FROM_BEYOND", "CARD.DRUM_OF_BATTLE", "CARD.FORGOTTEN_RITUAL", "CARD.EVIL_EYE"],
         "support": ["CARD.OFFERING", "CARD.BATTLE_TRANCE"]
       },
@@ -93,10 +95,12 @@
       "id": "ironclad.vulnerable",
       "names": { "kor": "취약", "eng": "Vulnerable" },
       "color": "#d35400",
+      // 코어 정리: DISMANTLE("적이 취약이면 두 번 타격")은 BULLY처럼 취약을 소비하는 공격 보상이라 core → payoff.
+      // 코어는 "취약을 걸 때마다 드로우"로 빌드를 정의하는 VICIOUS만.
       "cards": {
-        "core": ["CARD.VICIOUS", "CARD.DISMANTLE"],
+        "core": ["CARD.VICIOUS"],
         "enabler": ["CARD.THUNDERCLAP", "CARD.TREMBLE", "CARD.TAUNT", "CARD.UPPERCUT", "CARD.DOMINATE", "CARD.BREAK"],
-        "payoff": ["CARD.BULLY", "CARD.CRUELTY", "CARD.COLOSSUS", "CARD.MOLTEN_FIST"],
+        "payoff": ["CARD.DISMANTLE", "CARD.BULLY", "CARD.CRUELTY", "CARD.COLOSSUS", "CARD.MOLTEN_FIST"],
         "support": []
       },
       "fullWeight": 3.5,

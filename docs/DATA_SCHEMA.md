@@ -94,6 +94,13 @@ ID는 게임 모델 ID 그대로입니다. 게임이 ID를 바꾼 경우(예: `R
 | `offBuildPenalty` | 숫자 | 10 | commit ≥ 기준인데 빌드 밖 카드일 때 감점 | §7.1 빌드 |
 | `commitThreshold` | 0..1 | 0.7 | 엔진 전역의 "빌드 확정" 기준(스킵 등) | §7.1, §7.2 |
 | `hybridMargin` | 0..1 | 0.15 | 상위 두 아키타입 commit 차이가 이 이하면 하이브리드 | §7.5 |
+| `corePriority.bonus` | 숫자 ≥ 0 | 15 (= 티어 한 칸) | 기울어진 빌드의 빠진 core 카드 가산 "코어 확보" (commit이 `leanFull` 이상일 때 전부) | §7.1 코어 먼저 |
+| `corePriority.leanMin` | 0..1 | 0.15 | 이 commit 이상이고 1위 빌드이거나 1위와 `hybridMargin` 이내면 "기울어진" 빌드 | §7.1 코어 먼저 |
+| `corePriority.leanFull` | (0, 1] | 0.4 | 가산이 `bonus` 전부가 되는 commit. 그 아래는 `commit / leanFull` 비례 | §7.1 코어 먼저 |
+| `corePriority.weakFactor` | 0..1 | 0.5 | 약한 역할이 있으면 가산에 곱함 (약점 먼저, 규칙 3) | §7.1 코어 먼저 |
+| `corePriority.starterBonus` | 숫자 ≥ 0 | 3 | 아직 기울어진 빌드가 없을 때 어느 빌드든 core 카드에 주는 작은 가산 | §7.1 코어 먼저 |
+| `corePriority.starterMaxAct` | 정수 | 1 | `starterBonus`를 주는 마지막 막 | §7.1 코어 먼저 |
+| `corePriority.noCoreFactor` | `{역할: 0..1}` | payoff0.4 support0.6 enabler0.85 | core를 하나도 갖지 않은 빌드에서 그 역할 카드의 빌드 가중치 중 남는 비율. 잃은 값은 "코어 없음" 감점으로 따로 표시. **키 단위 병합** | §7.1 코어 먼저 |
 | `comboCap` | 숫자 | 15 | 콤보 점수 상한 | §7.1 콤보 |
 | `wNeed` | 숫자 | 25 | 필요 점수 계수 `W_need` | §7.1 필요 |
 | `targets` | `{캐릭터 또는 "default": {막: {역할: 숫자}}}` | `default`: 1막 frontload3 aoe1 block2.5 scaling0.5 draw1 / 2막 3.5·1.5·3.5·1.5·2 / 3막 3.5·2·4·2.5·3 | 막별 역할 공급 목표치 | §7.1 필요 |
@@ -233,12 +240,15 @@ ID는 게임 모델 ID 그대로입니다. 게임이 ID를 바꾼 경우(예: `R
 | `roleWeight` | `{역할: 숫자}` | core1.0 enabler0.7 payoff0.9 support0.5 | 역할별 commit 가중치. **키 단위 병합**(적은 키만 교체) |
 | `fullWeight` | 숫자 > 0 | 4.0 | commit이 1.0이 되는 가중치 합 |
 | `commitThreshold` | (0, 1] | 0.7 | 이 아키타입이 "확정"되는 commit |
+| `coreTarget` | 정수 ≥ 1 | 1 | 빌드가 돌아가려면 필요한 서로 다른 core 카드 수. 이만큼 갖기 전까지 빠진 core를 "코어 확보"로 밀어 줌. core 카드 수보다 크면 그 수로 줄임 |
 | `keyRelics` | `[{id, w}]` | `[]` | 핵심 유물과 commit 가중치(`w` 기본 1.0) |
 | `needs` | `[{tag?, role?, min}]` | `[]` | 요구 조건. `role`은 역할 공급과, `tag`는 덱의 `provides` 축 개수와 비교. `min` 기본 1 |
 | `desc` | 문자열 | null | 한 줄 설명 (한국어) |
 | `guideHeroCard` | 카드 ID | null | 빌드 모음 탭의 대표 카드 |
 
 한 카드를 여러 역할에 적으면 core → payoff → enabler → support 순으로 처음 나온 역할 하나로만 셉니다.
+
+**`core`에 넣을 카드**: 그 카드가 없으면 빌드가 돌아가지 않는 엔진 카드만 넣습니다(보통 1~3장). 다른 카드로 바꿔 쓸 수 있는 일반 공급 카드는 `enabler`, 쌓인 자원을 터뜨리기만 하는 마무리 카드는 `payoff`에 둡니다. core는 "코어 먼저" 규칙(§3.1 `corePriority`)의 기준이라, 잘못 넣으면 그 카드 한 장으로 "코어 확보"가 끝나 진짜 엔진을 더는 밀어 주지 않습니다. 보상에 나오지 않는 카드(Ancient 등)도 core에 두지 않습니다.
 
 ### 5.1 빌드 감지 계산 (`ArchetypeDetector`, PLAN §7.5)
 
@@ -248,6 +258,8 @@ ID는 게임 모델 ID 그대로입니다. 게임이 ID를 바꾼 경우(예: `R
 - **완성도 %** = 보유 가중치 / 전체 가중치 × 100. core·payoff는 `completion.coreWeight`(100), enabler·support는 `completion.supportWeight`(56). 서로 다른 카드만 셉니다(사본은 올리지 않음).
 - **단계(불꽃)** = `ceil(완성도 / 20)`를 1..5로 제한. 아키타입 카드가 하나도 없을 때(완성도 0)만 0입니다.
 - **필요한 카드**: 보유하지 않은 core, payoff 카드(core 먼저). 희귀도는 카탈로그 → 티어 항목 순.
+- **코어 진행**: `OwnedCore`(보유한 서로 다른 core 수), `CoreTarget`(`coreTarget`을 1..core 수로 제한, core가 없으면 0), `MissingCore`(빠진 core만), `CoreSecured = OwnedCore ≥ CoreTarget`. commit 공식은 그대로입니다(예측·보정이 commit에 의존).
+- **코어 먼저 (`CardScorer`)**: 빌드 A가 기울어 있고(`corePriority.leanMin`, 1위 또는 `hybridMargin` 이내) `CoreSecured`가 아니면, A의 빠진 core 카드에 `core_priority = bonus × clamp(commit/leanFull, 0, 1)` ("코어 확보", 약한 덱이면 × `weakFactor`, `requires` 축이 없으면 0). 여러 빌드 중 가장 큰 값 하나만. A가 core를 하나도 갖지 않았으면 A의 payoff·support·enabler 카드는 빌드 점수에서 `noCoreFactor`만 남고, 잃은 만큼을 `core_missing` ("코어 없음", 설명에 먼저 노릴 core 목록)으로 따로 빼서 구성 요소 합 = 총점을 유지합니다.
 - **충족 안 된 요구**: `role` 요구는 `역할 공급[role] < min`, `tag` 요구는 `provides 개수[tag] < min`이면 미충족. 해당 입력이 없으면(null) 그 검사는 건너뜁니다.
 - **정렬**: commit 내림차순 → 완성도 내림차순 → id 사전순.
 - **하이브리드**: 상위 두 아키타입이 모두 commit > 0이고 차이 ≤ `hybridMargin`.
@@ -337,17 +349,17 @@ v0.107.1 캐릭터 풀 크기 (싱글플레이): 모든 캐릭터가 일반 20 /
 |---|---|
 | ID | 카드·유물·캐릭터 ID가 §2.2 형식이 아님 (티어 팩 키, 아키타입 카드·유물·캐릭터, `guideHeroCard`, 콤보 카드·캐릭터, 별칭 키·값) |
 | 티어 항목 | `roles` 값이 0..1 밖, `confidence`가 0..1 밖, `dupFactor`가 0..3 밖, `cycle`이 0..1 밖, `upgradedDelta`가 유한수가 아님, `actTier` 막 < 1, `cost` < 0 |
-| 아키타입 | id 없음, **id 중복**, 카드 0장, `fullWeight` ≤ 0, `commitThreshold`가 (0, 1] 밖, `roleWeight` 음수, 유물 `w` 음수, `needs`에 `tag`와 `role`이 모두 없음, `min` 음수 |
+| 아키타입 | id 없음, **id 중복**, 카드 0장, `fullWeight` ≤ 0, `commitThreshold`가 (0, 1] 밖, `coreTarget` < 1, `roleWeight` 음수, 유물 `w` 음수, `needs`에 `tag`와 `role`이 모두 없음, `min` 음수 |
 | 콤보 | 서로 다른 카드가 2장 미만 |
-| 가중치 | `unknownConfidence`·`commitThreshold`·`hybridMargin`·`weakThreshold`·`skip.lowConfidence`가 0..1 밖, `completion.cardsPerReward` < 1, `poolSize` 값 ≤ 0, `cardOdds.*`의 `rare`/`uncommon`/`rareHighAscension`이 0..1 밖, `rareMultiplierHighAscension`이 0..1 밖, `pity`의 `start`/`cap`이 -1..1 밖이거나 `start > cap`, `pity` step이나 강화 확률이 0..1 밖, `shop.cardPrice` 값 ≤ 0, `priceJitterMin`이 0 이하이거나 `priceJitterMax`보다 큼, `colorlessPriceMultiplier` ≤ 0, `saleMultiplier`가 0..1 밖 |
+| 가중치 | `unknownConfidence`·`commitThreshold`·`hybridMargin`·`weakThreshold`·`skip.lowConfidence`가 0..1 밖, `completion.cardsPerReward` < 1, `poolSize` 값 ≤ 0, `cardOdds.*`의 `rare`/`uncommon`/`rareHighAscension`이 0..1 밖, `rareMultiplierHighAscension`이 0..1 밖, `pity`의 `start`/`cap`이 -1..1 밖이거나 `start > cap`, `pity` step이나 강화 확률이 0..1 밖, `shop.cardPrice` 값 ≤ 0, `priceJitterMin`이 0 이하이거나 `priceJitterMax`보다 큼, `colorlessPriceMultiplier` ≤ 0, `saleMultiplier`가 0..1 밖, `corePriority.bonus`·`starterBonus` 음수, `leanMin`·`weakFactor`·`noCoreFactor` 값이 0..1 밖, `leanFull`이 (0, 1] 밖 |
 
 **경고(Warning)**: 데이터가 덜 채워졌을 가능성이 큽니다.
 
 | 대상 | 규칙 |
 |---|---|
 | 티어 | 알 수 없는 역할 키, `Tiers` 사전 키와 팩의 `character`가 다름 |
-| 아키타입 | 카드에 티어 항목이 없음, 같은 카드를 두 번 적음, 캐릭터의 티어 팩이 없음, 알 수 없는 `roleWeight` 키·`needs.role`, `guideHeroCard`가 아키타입 카드가 아님 |
+| 아키타입 | 카드에 티어 항목이 없음, 같은 카드를 두 번 적음, 캐릭터의 티어 팩이 없음, 알 수 없는 `roleWeight` 키·`needs.role`, `guideHeroCard`가 아키타입 카드가 아님, core 카드 0장(코어 먼저 규칙이 적용되지 않음), `coreTarget`이 core 카드 수보다 큼 |
 | 콤보 | 카드에 티어 항목이 없음, 캐릭터의 티어 팩이 없음, `w` ≤ 0 (효과 없음) |
 | 별칭 | 데이터가 현재 ID 대신 옛 ID(별칭 키)를 씀, 별칭 연쇄 |
 | 카탈로그 | (카탈로그가 있을 때) 티어·아키타입·콤보·별칭 대상 카드 ID가 카탈로그에 없음 |
-| 가중치 | `tierValue`에 빠진 티어, 출처별 `rare + uncommon`이 1 초과 |
+| 가중치 | `tierValue`에 빠진 티어, 출처별 `rare + uncommon`이 1 초과, `corePriority.leanFull < leanMin`, `noCoreFactor`에 core·알 수 없는 역할 키 |
