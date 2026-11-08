@@ -72,9 +72,10 @@ public sealed class PathScorer
             Alive = 1,
             Gold = Math.Max(0, state.Gold),
             RemovalsHere = 0,
-            Curses = profile.Curses,
+            // Only curses a shop can take: Eternal ones (Ascender's Bane, Greed, …) cannot be removed.
+            Curses = state.Deck.Count(c => DeckAnalyzer.IsCurse(pack, state.Character, c.Id) && !pack.IsEternal(c.Id)),
             Basics = profile.BasicStrikes + profile.BasicDefends,
-            Upgradable = state.Deck.Count(c => c.Upgrade == 0 && !DeckAnalyzer.IsCurse(pack, state.Character, c.Id)),
+            Upgradable = state.Deck.Count(c => UpgradeAdvisor.CanUpgrade(pack, state.Character, c)),
             Elites = map.Visited.Count(c => map.Nodes.TryGetValue(c, out var n) && n.Type == MapNodeType.Elite),
         };
     }
