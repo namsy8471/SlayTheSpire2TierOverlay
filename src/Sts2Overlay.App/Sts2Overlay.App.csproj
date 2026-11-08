@@ -29,7 +29,8 @@
       WinForms owns startup; here WPF does, and the manifest is the documented way to make a WPF app Per-Monitor V2.
     -->
     <NoWarn>$(NoWarn);WFO0003</NoWarn>
-    <!-- Exe/installer/shortcut icon: our own gold "S" tier badge (tools/make-icon.ps1), no game art. -->
+    <!-- Exe/installer/shortcut/tray icon: our own drawing (red card + spire + gold "S" coin), no game art.
+         Source: Assets/icon.svg; regenerate the .ico with tools/make-icon.ps1. -->
     <ApplicationIcon>Assets\Sts2Overlay.ico</ApplicationIcon>
     <!--
       Our own Main (App.Main in App.xaml.cs) instead of the one WPF generates from App.xaml: Velopack's
