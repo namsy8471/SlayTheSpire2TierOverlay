@@ -7,8 +7,7 @@ on:
 
 jobs:
   core:
-    # Cloud CI builds and tests only Contracts + Core (+ tools). The bridge mod and the WPF app
-    # need the game DLLs / Windows and are built locally (PLAN §14).
+    # Cloud CI builds and tests Core (+ tools). The WPF overlay app needs Windows and is built locally.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

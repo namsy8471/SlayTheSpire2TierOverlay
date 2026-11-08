@@ -8,13 +8,13 @@
 
 | 프로젝트 | 대상 | 역할 |
 |---|---|---|
-| `src/Sts2Overlay.Contracts` | net9.0 | 게임 모드 ↔ 앱 WebSocket 메시지 DTO ([docs/PROTOCOL.md](docs/PROTOCOL.md)) |
 | `src/Sts2Overlay.Core` | net9.0 | 추천 엔진: 카드 점수, 스킵, 상점, 빌드 감지, 런 기록 파서, 리플레이 |
 | `tests/*` | net9.0 | xUnit 테스트. 실제 런 기록 24개(익명화)를 픽스처로 사용 |
 | `tools/RunHistoryAnalyzer` | net9.0 | `.run` 파일을 엔진으로 리플레이해 "추천과 내 선택" 리포트를 만드는 CLI |
-| `data/` | | 데이터 팩 형식 샘플 ([docs/DATA_SCHEMA.md](docs/DATA_SCHEMA.md)) |
+| `data/catalog/` | | 게임 코드에서 뽑은 카드 카탈로그 (ID와 수치만, 이름·설명 없음) |
+| `data/packs/` | | 데이터 팩 형식 샘플 ([docs/DATA_SCHEMA.md](docs/DATA_SCHEMA.md)) |
 
-게임 모드(`Sts2Overlay.Bridge`)와 WPF 앱(`Sts2Overlay.App`)은 이후 마일스톤에서 추가합니다.
+게임 모드는 쓰지 않습니다. 세이브·로그 감시와 화면 인식으로 게임 상태를 읽는 WPF 오버레이 앱(`Sts2Overlay.App`)은 이후 마일스톤에서 추가합니다.
 
 ## 빌드와 테스트
 
