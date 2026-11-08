@@ -45,7 +45,9 @@ public sealed class VisionRecognizer : ICardRecognizer
                 new PixelRect(c.CardBounds.X, c.CardBounds.Y, c.CardBounds.Width, c.CardBounds.Height)
                     .Offset(frame.ScreenRect.X, frame.ScreenRect.Y),
                 c.Score,
-                c.Price))
+                c.Price,
+                c.Unaffordable,
+                c.PriceReading?.OnSale == true))
             .ToArray();
         return new RecognitionResult(kind, cards);
     }
@@ -66,7 +68,8 @@ public sealed class VisionRecognizer : ICardRecognizer
         try
         {
             var db = CardArtDatabase.LoadOrBuild(artRoot, File.Exists(catalog) ? catalog : null, cache, msg => AppLog.Info("[vision] " + msg));
-            _recognizer = new CardRecognizer(db);
+            // The catalog gives the price reader each card's rarity, which tightens its plausibility check.
+            _recognizer = new CardRecognizer(db, new RecognizerOptions { Catalog = File.Exists(catalog) ? VisionCatalog.Load(catalog) : null });
             AppLog.Info("[vision] recognizer ready");
             return _recognizer;
         }
