@@ -79,6 +79,12 @@ dotnet run --project tools/RunHistoryAnalyzer -- replay "%APPDATA%\SlayTheSpire2
 dotnet run --project tools/RunHistoryAnalyzer -- validate "%APPDATA%\SlayTheSpire2\steam\<id>\profile1\saves\history" --pack data/packs/v0.107.1 --player <id> --tuned-until 1794134406 --all-players --out data/local/holdout/validate.md
 ```
 
+점수 가중치를 같은 방식으로 탐색 (fold마다 다시 맞추고, 현재 값 쪽으로 규제):
+
+```bash
+dotnet run --project tools/RunHistoryAnalyzer -- tune-weights "%APPDATA%\SlayTheSpire2\steam\<id>\profile1\saves\history" --pack data/packs/v0.107.1 --player <id> --tuned-until 1794134406 --all-players --lambda 0.005
+```
+
 ## 저작권
 
 게임 텍스트·이미지는 레포에 넣지 않습니다. 데이터는 게임 내부 ID(`CARD.BALL_LIGHTNING` 등)와 우리 주석만 담고, 이름이 들어간 카탈로그와 카드 그림은 사용자 PC에서만 생성합니다.
