@@ -38,7 +38,7 @@ public sealed record RecognitionHints(string? CharacterId = null);
 /// <param name="ArtBounds">Portrait rectangle in frame pixels.</param>
 /// <param name="CardBounds">Whole card in frame pixels (draw tier badges relative to this).</param>
 /// <param name="PriceBounds">Shop only: where the price label is.</param>
-/// <param name="Price">Shop only: price in gold when it could be read (not implemented yet: always null).</param>
+/// <param name="Price">Shop only: price in gold when it was read clearly and fits the game's price rules, else null.</param>
 /// <param name="Candidates">Top candidates (debugging, bench report).</param>
 public sealed record RecognizedCard(
     int Slot,
@@ -58,8 +58,14 @@ public sealed record RecognizedCard(
     int? Price,
     IReadOnlyList<ArtMatch> Candidates)
 {
+    /// <summary>Shop only: the raw price reading (digits, label colour, scores), also when <see cref="Price"/> is null.</summary>
+    public PriceReading? PriceReading { get; init; }
+
+    /// <summary>Shop only: the game drew the price in red, i.e. the player cannot afford this card right now.</summary>
+    public bool? Unaffordable => PriceReading is { Tint: not PriceTint.Unknown } r ? r.Unaffordable : null;
+
     public override string ToString() =>
-        $"#{Slot} {CardId ?? "-"}{(Upgraded ? "+" : UpgradeKnown ? "" : "?")} s={Score:F3} m={Margin:F3}{(Accepted ? "" : " (rejected)")}{(AmbiguousWith != null ? $" ~{AmbiguousWith}" : "")}";
+        $"#{Slot} {CardId ?? "-"}{(Upgraded ? "+" : UpgradeKnown ? "" : "?")} s={Score:F3} m={Margin:F3}{(Accepted ? "" : " (rejected)")}{(AmbiguousWith != null ? $" ~{AmbiguousWith}" : "")}{(PriceReading != null ? $" ${PriceReading}" : "")}";
 }
 
 /// <summary>Result of the cheap colour-probe test that runs before any card matching.</summary>
