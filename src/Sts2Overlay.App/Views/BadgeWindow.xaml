@@ -82,9 +82,9 @@
                   <TextBlock Text="추정" FontSize="11" FontWeight="Bold" Foreground="White" />
                 </Border>
               </StackPanel>
-              <!-- Recommended pick -->
+              <!-- Recommended pick (hidden when a ribbon is pinned here: the ribbon says it louder) -->
               <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"
-                          Visibility="{Binding IsBest, Converter={StaticResource BoolVis}}">
+                          Visibility="{Binding ShowCrown, Converter={StaticResource BoolVis}}">
                 <Path Data="{StaticResource CrownGeometry}" Fill="{StaticResource Gold}" Width="17" Height="15" Stretch="Uniform" VerticalAlignment="Center" />
                 <TextBlock Text="추천" FontSize="13" FontWeight="Bold" Foreground="{StaticResource Gold}" Margin="3,0,0,0" VerticalAlignment="Center" />
               </StackPanel>
@@ -101,20 +101,106 @@
       </ItemsControl.ItemTemplate>
     </ItemsControl>
 
-    <!-- "스킵 추천" pill under the cards when the engine recommends skipping -->
+    <!--
+      Reason chips under each reward card ("광역 부족 +24"): the top 1-2 reasons, so the player does not need the panel.
+      The stack is DesignWidth wide and scaled with the card (LayoutTransform), chips are centred and trimmed to it.
+    -->
+    <ItemsControl ItemsSource="{Binding ChipStacks}">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <Canvas />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemContainerStyle>
+        <Style TargetType="ContentPresenter">
+          <Setter Property="Canvas.Left" Value="{Binding Left}" />
+          <Setter Property="Canvas.Top" Value="{Binding Top}" />
+        </Style>
+      </ItemsControl.ItemContainerStyle>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate>
+          <ItemsControl ItemsSource="{Binding Chips}" Width="{Binding DesignWidth}">
+            <ItemsControl.LayoutTransform>
+              <ScaleTransform ScaleX="{Binding Scale}" ScaleY="{Binding Scale}" />
+            </ItemsControl.LayoutTransform>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Border x:Name="Chip" Height="22" CornerRadius="11" Padding="9,0" Margin="0,0,0,3" HorizontalAlignment="Center"
+                        Background="#EB1D4A33" BorderBrush="#9958D68D" BorderThickness="1">
+                  <TextBlock Text="{Binding Text}" FontSize="13" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"
+                             TextTrimming="CharacterEllipsis" />
+                </Border>
+                <DataTemplate.Triggers>
+                  <DataTrigger Binding="{Binding Positive}" Value="False">
+                    <Setter TargetName="Chip" Property="Background" Value="#EB4A1D1D" />
+                    <Setter TargetName="Chip" Property="BorderBrush" Value="#99E57373" />
+                  </DataTrigger>
+                </DataTemplate.Triggers>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+
+    <!-- Gold "추천!" / "구매!" ribbon pinned on the right end of the recommended card's badge (a tag with a notched left end). -->
+    <ItemsControl ItemsSource="{Binding Ribbons}">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <Canvas />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemContainerStyle>
+        <Style TargetType="ContentPresenter">
+          <Setter Property="Canvas.Left" Value="{Binding Left}" />
+          <Setter Property="Canvas.Top" Value="{Binding Top}" />
+        </Style>
+      </ItemsControl.ItemContainerStyle>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate>
+          <Grid Width="84" Height="30">
+            <Grid.LayoutTransform>
+              <ScaleTransform ScaleX="{Binding Scale}" ScaleY="{Binding Scale}" />
+            </Grid.LayoutTransform>
+            <Path Data="M0,0 L84,0 L84,30 L0,30 L9,15 Z" Fill="{StaticResource Gold}" Stroke="#7A5C00" StrokeThickness="1.5" />
+            <TextBlock Text="{Binding Text}" FontSize="17" FontWeight="Black" Foreground="#2A1E00" Margin="7,0,0,0"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Grid>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+
+    <!-- "스킵 추천!" pill under the cards (below the game's own skip button) when the engine recommends skipping -->
     <Canvas>
       <Border x:Name="SkipPill" Canvas.Left="{Binding Skip.Left}" Canvas.Top="{Binding Skip.Top}"
               Visibility="{Binding Skip, Converter={StaticResource BoolVis}}"
-              Width="170" Height="40" CornerRadius="9" Background="#F2231E0C" BorderBrush="{StaticResource Gold}" BorderThickness="3">
+              Width="300" Height="40" CornerRadius="9" Background="#F2231E0C" BorderBrush="{StaticResource Gold}" BorderThickness="3">
         <Border.LayoutTransform>
           <ScaleTransform ScaleX="{Binding Skip.Scale}" ScaleY="{Binding Skip.Scale}" />
         </Border.LayoutTransform>
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="8,0">
           <Path Data="{StaticResource CrownGeometry}" Fill="{StaticResource Gold}" Width="17" Height="15" Stretch="Uniform" />
-          <TextBlock Text="스킵 추천" FontSize="16" FontWeight="Bold" Foreground="{StaticResource Gold}" Margin="6,0,0,0" />
+          <TextBlock Text="스킵 추천!" FontSize="16" FontWeight="Bold" Foreground="{StaticResource Gold}" Margin="6,0,0,0" />
           <TextBlock Text="{Binding Skip.ScoreText}" FontSize="16" FontWeight="Bold" Foreground="White" Margin="8,0,0,0" />
+          <TextBlock Text="{Binding Skip.Reason}" FontSize="13" FontWeight="Bold" Foreground="#C8CDD6" Margin="10,1,0,0" MaxWidth="130"
+                     TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
         </StackPanel>
       </Border>
+    </Canvas>
+
+    <!-- "제거 추천: 타격" over the shop's card-removal coin, with a small pointer down at the coin -->
+    <Canvas>
+      <Grid Canvas.Left="{Binding Removal.Left}" Canvas.Top="{Binding Removal.Top}" Width="230" Height="34"
+            Visibility="{Binding Removal, Converter={StaticResource BoolVis}}">
+        <Grid.LayoutTransform>
+          <ScaleTransform ScaleX="{Binding Removal.Scale}" ScaleY="{Binding Removal.Scale}" />
+        </Grid.LayoutTransform>
+        <Path Data="M107,33 L123,33 L115,42 Z" Fill="{StaticResource Gold}" />
+        <Border CornerRadius="8" Background="#F2231E0C" BorderBrush="{StaticResource Gold}" BorderThickness="2.5">
+          <TextBlock Text="{Binding Removal.Text}" FontSize="17" FontWeight="Bold" Foreground="{StaticResource Gold}" Margin="8,0"
+                     HorizontalAlignment="Center" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+        </Border>
+      </Grid>
     </Canvas>
   </Grid>
 </Window>

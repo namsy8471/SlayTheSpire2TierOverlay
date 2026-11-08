@@ -174,6 +174,7 @@ public partial class App : Application
         {
             if (!_hotkeys!.RegisterCtrl(vk, name, a)) failed.Add("Ctrl+" + name);
         }
+        Reg(HotkeyManager.VK_F5, "F5", () => _controller!.ToggleMapOverlay());
         Reg(HotkeyManager.VK_F6, "F6", () => _controller!.ToggleAlwaysOnTop());
         Reg(HotkeyManager.VK_F7, "F7", () => _controller!.ToggleClickThrough());
         Reg(HotkeyManager.VK_F8, "F8", () => _controller!.ToggleHidden());
@@ -195,6 +196,7 @@ public partial class App : Application
         _tray.DemoRequested += s => _controller!.SetDemo(s);
         _tray.DebugOutlinesRequested += () => _controller!.ToggleDebugOutlines();
         _tray.AlwaysOnTopRequested += () => _controller!.ToggleAlwaysOnTop();
+        _tray.MapOverlayRequested += () => _controller!.ToggleMapOverlay();
         _tray.ReloadPackRequested += () => _controller!.ReloadPack();
         _tray.OpenCapturesRequested += () =>
         {
@@ -215,6 +217,7 @@ public partial class App : Application
         _tray.SetState(_controller.UserHidden, _controller.Demo, scale, isAuto, "STS2 티어 오버레이 — " + _controller.StatusLine);
         _tray.SetDebugOutlines(_controller.DebugOutlines);
         _tray.SetAlwaysOnTop(_controller.AlwaysOnTop);
+        _tray.SetMapOverlay(_controller.MapOverlayOn);
     }
 
     private static void OpenShell(string path)

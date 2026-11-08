@@ -70,6 +70,13 @@ public static class DemoScenario
         ];
     }
 
+    /// <summary>The merchant's card-removal coin (reference centre 1488, 767; 170 wide), so demo mode shows its marker.</summary>
+    public static PixelRect RemovalCoin(PixelRect frame)
+    {
+        double sx = frame.Width / 1920.0, sy = frame.Height / 1080.0;
+        return new(frame.X + (int)(1403 * sx), frame.Y + (int)(682 * sy), (int)(170 * sx), (int)(170 * sy));
+    }
+
     public static PathView Path { get; } = new(
         [
             new PathOptionView("균형", "엘리트 1 · 휴식 2 · 상점 1 · 보스 도착 HP 예상 64%", ["휴식 전 엘리트 없음", "상점에서 제거"], 71, IsRecommended: true),

@@ -42,6 +42,9 @@ public enum UncertainReason
     UpgradeRoll,
 }
 
+/// <summary>Another co-op player's current map vote. <paramref name="Generation"/> = act number the vote is for.</summary>
+public sealed record PartnerVote(ulong PlayerId, int Generation, MapCoord Coord);
+
 /// <summary>How the tracker knows which event is open.</summary>
 public enum EventSource
 {
@@ -154,6 +157,12 @@ public sealed record TrackedRun
 
     /// <summary>Our net id (1 in single player, Steam ID in co-op).</summary>
     public ulong LocalPlayerId { get; init; }
+
+    /// <summary>
+    /// Co-op: where each other player currently votes to go on this act's map (<c>Player vote changed for X</c>),
+    /// since the party last moved. Empty in single player and right after entering a room.
+    /// </summary>
+    public IReadOnlyList<PartnerVote> PartnerVotes { get; init; } = [];
 
     public string? Seed { get; init; }
     public RunOutcome Outcome { get; init; }

@@ -2,6 +2,7 @@ using System.IO;
 using Sts2Overlay.App.Infrastructure;
 using Sts2Overlay.Core.Model;
 using Sts2Overlay.Vision;
+using Sts2Overlay.Vision.Rest;
 using VisionKind = Sts2Overlay.Vision.ScreenKind;
 
 namespace Sts2Overlay.App.Integration;
@@ -44,7 +45,10 @@ public sealed class VisionRecognizer : ICardRecognizer
             VisionKind.CardGrid => ScreenKind.Grid,
             _ => ScreenKind.Other,
         };
-        if (kind == ScreenKind.Other) return RecognitionResult.Other;
+        // Rest site: option buttons / Smith grid. A fixed-layout colour check, ~0.2 ms at 4K, so it runs on every frame.
+        var rest = RestSiteDetector.Detect(vf);
+        var restSeen = rest.ChoiceScreen || rest.CardGridOpen ? rest : null;
+        if (kind == ScreenKind.Other) return restSeen is null ? RecognitionResult.Other : RecognitionResult.Other with { RestSite = restSeen };
 
         var cards = shown.Cards
             .Where(c => c.Accepted && c.CardId is not null)
@@ -60,7 +64,15 @@ public sealed class VisionRecognizer : ICardRecognizer
                 c.PriceReading?.OnSale == true,
                 c.PriceBounds is { } p ? new PixelRect(p.X, p.Y, p.Width, p.Height).Offset(frame.ScreenRect.X, frame.ScreenRect.Y) : null))
             .ToArray();
-        return new RecognitionResult(kind, cards);
+        // Shop: is the card-removal service still for sale? A fixed-place colour probe (CardRemovalProbe), ~0.1 ms.
+        var removal = kind == ScreenKind.Shop ? CardRemovalProbe.Read(vf) : null;
+        return new RecognitionResult(kind, cards)
+        {
+            RemovalService = removal is { Available: true, Bounds: var b }
+                ? new PixelRect(b.X, b.Y, b.Width, b.Height).Offset(frame.ScreenRect.X, frame.ScreenRect.Y)
+                : null,
+            RestSite = restSeen,
+        };
     }
 
     private CardRecognizer? Load()

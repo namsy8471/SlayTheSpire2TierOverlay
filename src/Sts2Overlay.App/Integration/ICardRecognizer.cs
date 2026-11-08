@@ -29,6 +29,15 @@ public sealed record RecognizedCard(CardRef Card, PixelRect ScreenBounds, double
 /// <param name="Cards">Cards left to right (shop: row by row). Empty for Other.</param>
 public sealed record RecognitionResult(ScreenKind ScreenKind, IReadOnlyList<RecognizedCard> Cards)
 {
+    /// <summary>Shop: the card-removal service coin (physical SCREEN pixels) when it is visible and still for sale, else null.</summary>
+    public PixelRect? RemovalService { get; init; }
+
+    /// <summary>
+    /// Rest site: the campfire option buttons (design px) and whether a deck card grid is open (the Smith screen at a
+    /// rest site). Null when the recogniser doesn't look (demo, no art) or nothing rest-related is on screen.
+    /// </summary>
+    public Sts2Overlay.Vision.Rest.RestSiteResult? RestSite { get; init; }
+
     public static RecognitionResult Other { get; } = new(ScreenKind.Other, []);
 }
 

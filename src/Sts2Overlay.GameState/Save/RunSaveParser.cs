@@ -183,6 +183,7 @@ public static class RunSaveParser
             Nodes = nodes,
             Start = start,
             Boss = boss,
+            SecondBoss = ReadCoord(Prop(Prop(savedMap, "second_boss"), "coord")),
             Current = current,
         };
     }

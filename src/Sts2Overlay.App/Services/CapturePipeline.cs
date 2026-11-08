@@ -44,6 +44,15 @@ public sealed class CapturePipeline : IDisposable
     /// <summary>Raised on the WORKER thread with each non-null recognition result.</summary>
     public event Action<RecognitionResult>? Recognized;
 
+    /// <summary>
+    /// Raised on the WORKER thread after every periodic/manual capture while <see cref="MapWatcher"/> has a target,
+    /// whether or not the map was found (so the overlay can take its marks down when the map closes).
+    /// </summary>
+    public event Action<MapSighting>? MapSighted;
+
+    /// <summary>Looks for the act map in each captured frame; null = don't.</summary>
+    public MapScreenWatcher? MapWatcher { get; set; }
+
     /// <summary>Raised on the WORKER thread with a short Korean status line (capture saved / failed).</summary>
     public event Action<string>? Status;
 
@@ -143,6 +152,10 @@ public sealed class CapturePipeline : IDisposable
         if (save) SavePng(frame);
         if (!manual && !periodic) return;
         FrameProbe?.Invoke(frame); // before the "unchanged screen" skip: a hover change is small but matters to the probe
+
+        // The map is checked on every frame, before the "unchanged screen" shortcut below: a scrolled map can look
+        // almost the same to the coarse signature while every node moved.
+        if (MapWatcher?.Analyze(frame) is { } sighting) MapSighted?.Invoke(sighting);
 
         // Skip recognition while the screen is visually unchanged and we already have an answer for it.
         var sig = Signature(frame);
