@@ -1,0 +1,674 @@
+{
+ "_note": "Generated from the decompiled v0.107.1 classes for the 3-turn training-dummy simulator; spec in README.md.",
+ "potions": {
+  "POTION.ASHWATER": {
+   "model": "approx",
+   "use": [],
+   "ext": {
+    "use": [
+     {
+      "op": "exhaustCards",
+      "n": "choice",
+      "from": "hand"
+     }
+    ]
+   },
+   "note": "exhaust any number of chosen hand cards; only matters with exhaust synergies (no 'choice' n)"
+  },
+  "POTION.ATTACK_POTION": {
+   "model": "full",
+   "use": [
+    {
+     "op": "addCard",
+     "random": "class|attack",
+     "n": 1,
+     "upgraded": false,
+     "to": "hand",
+     "choose": 3,
+     "free": true
+    }
+   ],
+   "note": "pick 1 of 3 random class Attacks into hand, free this turn"
+  },
+  "POTION.BEETLE_JUICE": {
+   "model": "full",
+   "use": [],
+   "note": "Shrink: enemy deals less damage"
+  },
+  "POTION.BLESSING_OF_THE_FORGE": {
+   "model": "full",
+   "use": [
+    {
+     "op": "upgradeCards",
+     "n": "all",
+     "from": "hand"
+    }
+   ],
+   "note": "upgrade every card in hand (combat only)"
+  },
+  "POTION.BLOCK_POTION": {
+   "model": "full",
+   "use": [],
+   "note": "block"
+  },
+  "POTION.BLOOD_POTION": {
+   "model": "full",
+   "use": [],
+   "note": "heal"
+  },
+  "POTION.BONE_BREW": {
+   "model": "full",
+   "use": [
+    {
+     "op": "summon",
+     "n": 15
+    }
+   ]
+  },
+  "POTION.BOTTLED_POTENTIAL": {
+   "model": "full",
+   "use": [
+    {
+     "op": "redrawHand",
+     "n": 5
+    }
+   ],
+   "note": "shuffle hand into draw pile, then draw 5"
+  },
+  "POTION.CLARITY": {
+   "model": "full",
+   "use": [
+    {
+     "op": "draw",
+     "n": 1
+    },
+    {
+     "op": "perTurn",
+     "when": "start",
+     "effects": [
+      {
+       "op": "draw",
+       "n": 1
+      }
+     ]
+    }
+   ],
+   "note": "draw 1 now, +1 hand draw on the next 3 turns"
+  },
+  "POTION.COLORLESS_POTION": {
+   "model": "full",
+   "use": [
+    {
+     "op": "addCard",
+     "random": "colorless|any",
+     "n": 1,
+     "upgraded": false,
+     "to": "hand",
+     "choose": 3,
+     "free": true
+    }
+   ],
+   "note": "pick 1 of 3 random colorless cards into hand, free this turn"
+  },
+  "POTION.COSMIC_CONCOCTION": {
+   "model": "full",
+   "use": [
+    {
+     "op": "addCard",
+     "random": "colorless|any",
+     "n": 3,
+     "upgraded": true,
+     "to": "hand"
+    }
+   ],
+   "note": "3 random upgraded colorless cards to hand (not free)"
+  },
+  "POTION.CUNNING_POTION": {
+   "model": "full",
+   "use": [
+    {
+     "op": "addCard",
+     "card": "CARD.SHIV",
+     "n": 3,
+     "upgraded": true,
+     "to": "hand"
+    }
+   ]
+  },
+  "POTION.CURE_ALL": {
+   "model": "full",
+   "use": [
+    {
+     "op": "energy",
+     "n": 1
+    },
+    {
+     "op": "draw",
+     "n": 2
+    }
+   ]
+  },
+  "POTION.DEPRECATED_POTION": {
+   "model": "full",
+   "use": [],
+   "note": "no effect"
+  },
+  "POTION.DEXTERITY_POTION": {
+   "model": "full",
+   "use": [],
+   "note": "dexterity"
+  },
+  "POTION.DISTILLED_CHAOS": {
+   "model": "full",
+   "use": [
+    {
+     "op": "playTop",
+     "n": 3
+    }
+   ],
+   "note": "auto-play the top 3 cards of the draw pile"
+  },
+  "POTION.DROPLET_OF_PRECOGNITION": {
+   "model": "full",
+   "use": [
+    {
+     "op": "fetch",
+     "filter": "any",
+     "n": 1,
+     "from": "draw"
+    }
+   ],
+   "note": "put any card from the draw pile into hand"
+  },
+  "POTION.DUPLICATOR": {
+   "model": "full",
+   "use": [
+    {
+     "op": "replayNext",
+     "filter": "any",
+     "n": 1
+    }
+   ],
+   "note": "next card this turn is played twice"
+  },
+  "POTION.ENERGY_POTION": {
+   "model": "full",
+   "use": [
+    {
+     "op": "energy",
+     "n": 2
+    }
+   ]
+  },
+  "POTION.ENTROPIC_BREW": {
+   "model": "none",
+   "use": [],
+   "note": "fills empty potion slots with random potions"
+  },
+  "POTION.ESSENCE_OF_DARKNESS": {
+   "model": "full",
+   "use": [
+    {
+     "op": "channel",
+     "orb": "dark",
+     "n": "orbSlots"
+    }
+   ],
+   "note": "channels 1 Dark per orb slot"
+  },
+  "POTION.EXPLOSIVE_AMPOULE": {
+   "model": "full",
+   "use": [
+    {
+     "op": "damage",
+     "n": 10
+    }
+   ],
+   "note": "10 to all enemies"
+  },
+  "POTION.FAIRY_IN_A_BOTTLE": {
+   "model": "full",
+   "use": [],
+   "note": "revive"
+  },
+  "POTION.FIRE_POTION": {
+   "model": "full",
+   "use": [
+    {
+     "op": "damage",
+     "n": 20
+    }
+   ]
+  },
+  "POTION.FLEX_POTION": {
+   "model": "full",
+   "use": [
+    {
+     "op": "tempStrength",
+     "n": 5
+    }
+   ]
+  },
+  "POTION.FOCUS_POTION": {
+   "model": "full",
+   "use": [
+    {
+     "op": "focus",
+     "n": 2
+    }
+   ]
+  },
+  "POTION.FORTIFIER": {
+   "model": "full",
+   "use": [],
+   "note": "block"
+  },
+  "POTION.FOUL_POTION": {
+   "model": "full",
+   "use": [
+    {
+     "op": "damage",
+     "n": 12
+    }
+   ],
+   "note": "12 to every non-pet creature incl. you"
+  },
+  "POTION.FRUIT_JUICE": {
+   "model": "full",
+   "use": [],
+   "note": "max HP"
+  },
+  "POTION.FYSH_OIL": {
+   "model": "full",
+   "use": [
+    {
+     "op": "strength",
+     "n": 1
+    }
+   ],
+   "note": "+1 Dex too"
+  },
+  "POTION.GAMBLERS_BREW": {
+   "model": "none",
+   "use": [],
+   "ext": {
+    "use": [
+     {
+      "op": "mulligan"
+     }
+    ]
+   },
+   "note": "discard any cards from hand, draw that many"
+  },
+  "POTION.GHOST_IN_A_JAR": {
+   "model": "full",
+   "use": [],
+   "note": "intangible"
+  },
+  "POTION.GIGANTIFICATION_POTION": {
+   "model": "approx",
+   "use": [
+    {
+     "op": "damageMultiplier",
+     "n": 3,
+     "filter": "attack",
+     "duration": "turn",
+     "limitPerTurn": 1
+    }
+   ],
+   "note": "next Attack x3; in game it waits for an Attack across turns, here this turn only"
+  },
+  "POTION.GLOWWATER_POTION": {
+   "model": "full",
+   "use": [
+    {
+     "op": "exhaustCards",
+     "n": "all",
+     "from": "hand"
+    },
+    {
+     "op": "draw",
+     "n": 10
+    }
+   ]
+  },
+  "POTION.HEART_OF_IRON": {
+   "model": "full",
+   "use": [],
+   "note": "plating"
+  },
+  "POTION.KINGS_COURAGE": {
+   "model": "full",
+   "use": [
+    {
+     "op": "forge",
+     "n": 15
+    }
+   ]
+  },
+  "POTION.LIQUID_BRONZE": {
+   "model": "full",
+   "use": [],
+   "note": "thorns (dummy never attacks)"
+  },
+  "POTION.LIQUID_MEMORIES": {
+   "model": "approx",
+   "use": [
+    {
+     "op": "returnFromDiscard",
+     "n": 1,
+     "filter": "any"
+    },
+    {
+     "op": "costMod",
+     "filter": "hand",
+     "set": 0,
+     "duration": "turn",
+     "count": 1
+    }
+   ],
+   "note": "chosen discard card to hand, free this turn; costMod may free another hand card"
+  },
+  "POTION.LUCKY_TONIC": {
+   "model": "full",
+   "use": [],
+   "note": "buffer"
+  },
+  "POTION.MAZALETHS_GIFT": {
+   "model": "full",
+   "use": [
+    {
+     "op": "perTurn",
+     "when": "end",
+     "effects": [
+      {
+       "op": "strength",
+       "n": 1
+      }
+     ]
+    }
+   ],
+   "note": "Ritual 1: +1 Strength at the end of each of your turns"
+  },
+  "POTION.OROBIC_ACID": {
+   "model": "full",
+   "use": [
+    {
+     "op": "addCard",
+     "random": "class|attack",
+     "n": 1,
+     "upgraded": false,
+     "to": "hand",
+     "free": true
+    },
+    {
+     "op": "addCard",
+     "random": "class|skill",
+     "n": 1,
+     "upgraded": false,
+     "to": "hand",
+     "free": true
+    },
+    {
+     "op": "addCard",
+     "random": "class|power",
+     "n": 1,
+     "upgraded": false,
+     "to": "hand",
+     "free": true
+    }
+   ],
+   "note": "a random class Attack, Skill and Power to hand, all free this turn"
+  },
+  "POTION.POISON_POTION": {
+   "model": "full",
+   "use": [
+    {
+     "op": "poison",
+     "n": 6
+    }
+   ]
+  },
+  "POTION.POTION_OF_BINDING": {
+   "model": "full",
+   "use": [
+    {
+     "op": "vulnerable",
+     "n": 1
+    }
+   ],
+   "note": "also 1 Weak (ignored)"
+  },
+  "POTION.POTION_OF_CAPACITY": {
+   "model": "full",
+   "use": [
+    {
+     "op": "orbSlots",
+     "n": 2
+    }
+   ]
+  },
+  "POTION.POTION_OF_DOOM": {
+   "model": "full",
+   "use": [
+    {
+     "op": "doom",
+     "n": 33
+    }
+   ]
+  },
+  "POTION.POTION_SHAPED_ROCK": {
+   "model": "full",
+   "use": [
+    {
+     "op": "damage",
+     "n": 15
+    }
+   ]
+  },
+  "POTION.POT_OF_GHOULS": {
+   "model": "full",
+   "use": [
+    {
+     "op": "addCard",
+     "card": "CARD.SOUL",
+     "n": 2,
+     "upgraded": false,
+     "to": "hand"
+    }
+   ]
+  },
+  "POTION.POWDERED_DEMISE": {
+   "model": "full",
+   "use": [
+    {
+     "op": "perTurn",
+     "when": "start",
+     "effects": [
+      {
+       "op": "damage",
+       "n": 9
+      }
+     ]
+    }
+   ],
+   "note": "Demise 9: 9 unblockable at the end of every enemy turn (counted at your next turn start)"
+  },
+  "POTION.POWER_POTION": {
+   "model": "full",
+   "use": [
+    {
+     "op": "addCard",
+     "random": "class|power",
+     "n": 1,
+     "upgraded": false,
+     "to": "hand",
+     "choose": 3,
+     "free": true
+    }
+   ],
+   "note": "pick 1 of 3 random class Powers into hand, free this turn"
+  },
+  "POTION.RADIANT_TINCTURE": {
+   "model": "full",
+   "use": [
+    {
+     "op": "energy",
+     "n": 1
+    },
+    {
+     "op": "perTurn",
+     "when": "start",
+     "effects": [
+      {
+       "op": "energy",
+       "n": 1
+      }
+     ]
+    }
+   ],
+   "note": "+1 energy now and at the start of the next 3 turns"
+  },
+  "POTION.REGEN_POTION": {
+   "model": "full",
+   "use": [],
+   "note": "regen"
+  },
+  "POTION.SHACKLING_POTION": {
+   "model": "full",
+   "use": [],
+   "note": "enemy loses Strength this turn"
+  },
+  "POTION.SHIP_IN_A_BOTTLE": {
+   "model": "full",
+   "use": [],
+   "note": "block"
+  },
+  "POTION.SKILL_POTION": {
+   "model": "full",
+   "use": [
+    {
+     "op": "addCard",
+     "random": "class|skill",
+     "n": 1,
+     "upgraded": false,
+     "to": "hand",
+     "choose": 3,
+     "free": true
+    }
+   ],
+   "note": "pick 1 of 3 random class Skills into hand, free this turn"
+  },
+  "POTION.SNECKO_OIL": {
+   "model": "approx",
+   "use": [
+    {
+     "op": "draw",
+     "n": 7
+    }
+   ],
+   "ext": {
+    "use": [
+     {
+      "op": "draw",
+      "n": 7
+     },
+     {
+      "op": "randomizeHandCosts",
+      "lo": 0,
+      "hi": 3,
+      "duration": "turn"
+     }
+    ]
+   },
+   "note": "then every card in hand gets a random cost 0-3 (no op; in ext)"
+  },
+  "POTION.SOLDIERS_STEW": {
+   "model": "approx",
+   "use": [
+    {
+     "op": "replayNext",
+     "filter": "tag:Strike",
+     "n": 99
+    }
+   ],
+   "note": "every Strike card owned now replays +1 for the combat; the sim keeps replays for the current turn only (n 99 = all Strikes that turn). Potions are not used by the dummy advisor."
+  },
+  "POTION.SPEED_POTION": {
+   "model": "full",
+   "use": [],
+   "note": "temporary dexterity"
+  },
+  "POTION.STABLE_SERUM": {
+   "model": "full",
+   "use": [
+    {
+     "op": "retainHand"
+    },
+    {
+     "op": "nextTurn",
+     "effects": [
+      {
+       "op": "retainHand"
+      }
+     ]
+    }
+   ],
+   "note": "hand is not discarded at end of this turn and the next"
+  },
+  "POTION.STAR_POTION": {
+   "model": "full",
+   "use": [
+    {
+     "op": "stars",
+     "n": 3
+    }
+   ]
+  },
+  "POTION.STRENGTH_POTION": {
+   "model": "full",
+   "use": [
+    {
+     "op": "strength",
+     "n": 2
+    }
+   ]
+  },
+  "POTION.SWIFT_POTION": {
+   "model": "full",
+   "use": [
+    {
+     "op": "draw",
+     "n": 3
+    }
+   ]
+  },
+  "POTION.TOUCH_OF_INSANITY": {
+   "model": "approx",
+   "use": [
+    {
+     "op": "costMod",
+     "filter": "hand",
+     "set": 0,
+     "duration": "combat",
+     "count": 1
+    }
+   ],
+   "note": "a chosen hand card costs 0 for the rest of combat; count 1 frees only its first play"
+  },
+  "POTION.VULNERABLE_POTION": {
+   "model": "full",
+   "use": [
+    {
+     "op": "vulnerable",
+     "n": 3
+    }
+   ]
+  },
+  "POTION.WEAK_POTION": {
+   "model": "full",
+   "use": [],
+   "note": "Weak only"
+  }
+ }
+}

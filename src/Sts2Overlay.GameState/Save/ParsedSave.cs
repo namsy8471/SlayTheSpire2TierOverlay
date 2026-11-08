@@ -6,6 +6,12 @@ namespace Sts2Overlay.GameState.Save;
 /// <summary>A relic as saved (<c>players[].relics[]</c>): id plus the names of its saved bools that are true (<c>props.bools</c>).</summary>
 public sealed record SavedRelic(string Id, IReadOnlySet<string> TrueBools);
 
+/// <summary>
+/// Another co-op player as the save shows them (only the host has a save). Used where their deck matters to me, e.g.
+/// the training dummy fight, where everyone's damage counts.
+/// </summary>
+public sealed record PartnerPlayer(ulong NetId, string Character, IReadOnlyList<DeckCard> Deck, IReadOnlyList<string> Relics);
+
 /// <summary>A potion in a belt slot (<c>players[].potions[]</c>).</summary>
 public readonly record struct PotionSlot(string Id, int Slot);
 
@@ -34,6 +40,9 @@ public sealed record ParsedSave
 
     /// <summary>All players' <c>net_id</c>s in save order (= lobby slot order).</summary>
     public IReadOnlyList<ulong> PlayerNetIds { get; init; } = [];
+
+    /// <summary>The other players (co-op), in save order. Empty in single player.</summary>
+    public IReadOnlyList<PartnerPlayer> Partners { get; init; } = [];
 
     public IReadOnlyList<PotionSlot> Potions { get; init; } = [];
 
