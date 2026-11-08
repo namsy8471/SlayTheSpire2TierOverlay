@@ -1,1 +1,135 @@
-System.Console.WriteLine("RunHistoryAnalyzer");
+using System.Globalization;
+using Sts2Overlay.Core.Data;
+using Sts2Overlay.Core.History;
+using Sts2Overlay.Core.Replay;
+
+// RunHistoryAnalyzer: replays .run history files through the recommendation engine and prints
+// a Korean Markdown report (agreement with your picks) or personal statistics.
+//
+//   dotnet run --project tools/RunHistoryAnalyzer -- replay <runs-dir|file.run>... [--pack <dir>] [--player <steamId>] [--out <file.md>] [--summary]
+//   dotnet run --project tools/RunHistoryAnalyzer -- stats  <runs-dir|file.run>... [--player <steamId>]
+//
+// Run files live in %APPDATA%\SlayTheSpire2\steam\<steamid>\profile1\saves\history\.
+
+return Cli.Run(args);
+
+internal static class Cli
+{
+    public static int Run(string[] args)
+    {
+        if (args.Length == 0 || args[0] is "-h" or "--help")
+        {
+            PrintUsage();
+            return args.Length == 0 ? 1 : 0;
+        }
+
+        var command = args[0];
+        var inputs = new List<string>();
+        string? packDir = null, outFile = null;
+        long? player = null;
+        var summaryOnly = false;
+
+        for (var i = 1; i < args.Length; i++)
+        {
+            switch (args[i])
+            {
+                case "--pack": packDir = Next(args, ref i); break;
+                case "--out": outFile = Next(args, ref i); break;
+                case "--player": player = long.Parse(Next(args, ref i), CultureInfo.InvariantCulture); break;
+                case "--summary": summaryOnly = true; break;
+                default: inputs.Add(args[i]); break;
+            }
+        }
+
+        var files = ExpandInputs(inputs);
+        if (files.Count == 0)
+        {
+            Console.Error.WriteLine("No .run files found.");
+            return 2;
+        }
+
+        var runs = files.Select(RunHistoryReader.ReadFile).ToArray();
+
+        switch (command)
+        {
+            case "replay":
+            {
+                var pack = LoadPack(packDir);
+                var analyzer = new ReplayAnalyzer(pack);
+                var replays = runs.Select(r => analyzer.Replay(r, player is { } p && r.FindPlayer(p) is not null ? p : null)).ToArray();
+                Write(ReplayReport.ToMarkdown(replays, includeDecisions: !summaryOnly), outFile);
+                return 0;
+            }
+            case "stats":
+            {
+                var stats = PersonalStats.Compute(runs, player);
+                using var w = new StringWriter(CultureInfo.InvariantCulture);
+                w.WriteLine($"# 개인 통계 (런 {stats.Runs}개, 협동 {stats.MultiplayerRuns}개)");
+                w.WriteLine();
+                w.WriteLine("| 캐릭터 | 런 | 승리 | 승률 | 평균 도달 층 |");
+                w.WriteLine("|---|---|---|---|---|");
+                foreach (var c in stats.Characters)
+                {
+                    w.WriteLine($"| {c.Character} | {c.Runs} | {c.Wins} | {c.WinRate:P0} | {c.AverageFloorReached:0.0} |");
+                }
+                w.WriteLine();
+                w.WriteLine("| 카드 | 제시 | 선택 | 선택률 |");
+                w.WriteLine("|---|---|---|---|");
+                foreach (var c in stats.Cards.Take(40))
+                {
+                    w.WriteLine($"| {c.CardId} | {c.Offered} | {c.Picked} | {c.PickRate:P0} |");
+                }
+                Write(w.ToString(), outFile);
+                return 0;
+            }
+            default:
+                PrintUsage();
+                return 1;
+        }
+    }
+
+    private static DataPack LoadPack(string? dir)
+    {
+        if (dir is null)
+        {
+            Console.Error.WriteLine("경고: --pack 이 없어 빈 데이터 팩으로 실행합니다 (모든 카드가 미평가).");
+            return new DataPack();
+        }
+        var pack = DataPackLoader.LoadDirectory(dir);
+        foreach (var issue in DataPackValidator.Validate(pack))
+        {
+            Console.Error.WriteLine($"[{issue.Severity}] {issue.Where}: {issue.Message}");
+        }
+        return pack;
+    }
+
+    private static List<string> ExpandInputs(IEnumerable<string> inputs)
+    {
+        var files = new List<string>();
+        foreach (var input in inputs)
+        {
+            if (Directory.Exists(input)) files.AddRange(Directory.GetFiles(input, "*.run").OrderBy(f => f, StringComparer.Ordinal));
+            else if (File.Exists(input)) files.Add(input);
+            else Console.Error.WriteLine($"Not found: {input}");
+        }
+        return files;
+    }
+
+    private static string Next(string[] args, ref int i)
+        => ++i < args.Length ? args[i] : throw new ArgumentException($"Missing value after {args[i - 1]}");
+
+    private static void Write(string text, string? outFile)
+    {
+        if (outFile is null) Console.Out.Write(text);
+        else File.WriteAllText(outFile, text);
+    }
+
+    private static void PrintUsage()
+    {
+        Console.Error.WriteLine("""
+            RunHistoryAnalyzer
+              replay <runs-dir|file.run>... [--pack <dir>] [--player <steamId>] [--out <file.md>] [--summary]
+              stats  <runs-dir|file.run>... [--player <steamId>] [--out <file.md>]
+            """);
+    }
+}

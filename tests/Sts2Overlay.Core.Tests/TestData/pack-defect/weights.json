@@ -1,0 +1,4 @@
+{
+  // Partial override: everything not listed keeps Weights defaults.
+  "skip": { "margin": 0.5 }
+}

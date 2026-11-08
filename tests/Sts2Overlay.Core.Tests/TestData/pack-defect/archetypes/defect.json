@@ -1,0 +1,27 @@
+[
+  {
+    "id": "test.defect.frost",
+    "character": "CHARACTER.DEFECT",
+    "names": { "kor": "냉기 구체 (테스트)" },
+    "cards": {
+      "core": ["CARD.GLACIER", "CARD.COOLHEADED"],
+      "enabler": ["CARD.DEFRAGMENT", "CARD.HOTFIX"],
+      "payoff": ["CARD.HAILSTORM"],
+      "support": ["CARD.CHILL", "CARD.COLD_SNAP", "CARD.CAPACITOR"]
+    },
+    "fullWeight": 4.0,
+    "needs": [{ "role": "draw", "min": 1.5 }]
+  },
+  {
+    "id": "test.defect.lightning",
+    "character": "CHARACTER.DEFECT",
+    "names": { "kor": "번개 구체 (테스트)" },
+    "cards": {
+      "core": ["CARD.BALL_LIGHTNING", "CARD.TEMPEST"],
+      "enabler": ["CARD.DEFRAGMENT"],
+      "payoff": ["CARD.STORM"],
+      "support": ["CARD.LIGHTNING_ROD", "CARD.ZAP", "CARD.DUALCAST"]
+    },
+    "fullWeight": 4.0
+  }
+]
