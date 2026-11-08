@@ -9,9 +9,10 @@ using Xunit.Abstractions;
 namespace Sts2Overlay.Core.Tests.Integration;
 
 /// <summary>
-/// "코어 먼저" with the real v0.107.1 pack and catalog: an invariant over every recorded offer of the 24 fixture runs
-/// (plus counterfactual offers of every core/non-core pair of the leaning build at each of those deck states),
-/// and one scenario per character.
+/// "코어 먼저, 그다음 필수 시너지" with the real v0.107.1 pack and catalog, over every decision of the 24 fixture runs:
+/// (a) no-core synergy is exactly the unlock share, (b) after a core, essential above support until the essential target,
+/// (c) a missing core of the leaning build above same-build cards up to one tier better (recorded and counterfactual offers),
+/// and one scenario per character. Written against the archetype JSON roles only (no card ids), so a rebuilt archetype list drops in.
 /// </summary>
 public class CorePriorityReplayTests(ITestOutputHelper output)
 {
@@ -153,6 +154,123 @@ public class CorePriorityReplayTests(ITestOutputHelper output)
         var keys = p.Core.Score.Components.Concat(p.Other.Score.Components).Select(c => c.Key).Distinct()
             .Where(k => k is not (ComponentKeys.Base or ComponentKeys.Build or ComponentKeys.CoreMissing or ComponentKeys.CorePriority));
         return keys.OrderByDescending(k => p.Other.Score.ValueOf(k) - p.Core.Score.ValueOf(k)).FirstOrDefault() ?? "?";
+    }
+
+    /// <summary>One replayed decision: the deck state before it and the scored offered cards.</summary>
+    internal sealed record Replayed(string Run, int Floor, RunState State, DeckProfile Profile, IReadOnlyList<CardEvaluation> Offered, OfferContext Context);
+
+    private static readonly Lazy<IReadOnlyList<Replayed>> Decisions = new(() =>
+    {
+        var pack = RealPack.Value;
+        var scorer = new CardScorer(pack);
+        var list = new List<Replayed>();
+        foreach (var file in TestPaths.AllRuns)
+        {
+            var run = RunHistoryReader.ReadFile(file);
+            var player = LocalPlayer.Resolve(run);
+            foreach (var d in DecisionExtractor.Extract(run, player.Id))
+            {
+                var profile = DeckAnalyzer.Analyze(d.StateBefore, pack);
+                var offered = d.Offered.Distinct().Select(c => scorer.Score(d.StateBefore, profile, c, d.Context)).ToList();
+                list.Add(new Replayed(Path.GetFileNameWithoutExtension(file), d.Node.Floor, d.StateBefore, profile, offered, d.Context));
+            }
+        }
+        return list;
+    });
+
+    /// <summary>
+    /// Invariant (a): while build A owns no core, every offered non-core card of A gets exactly
+    /// <c>ungated × max(noCoreFactor[role], unlock(A))</c> from A, and <c>unlock(A) = 0</c> whenever the chance that a missing core of A
+    /// is still offered is at least <c>noCoreMaxUnlock</c>. The deck's own synergy pile plays no part in it.
+    /// </summary>
+    [Fact]
+    public void RecordedOffers_NoCore_SynergyIsExactlyTheUnlockShare()
+    {
+        var pack = RealPack.Value;
+        var cp = pack.Weights.CorePriority;
+        int checks = 0, locked = 0, unlocked = 0;
+        var maxUnlock = 0.0;
+        foreach (var r in Decisions.Value)
+        {
+            foreach (var a in r.Profile.Archetypes.Where(a => a.CoreTarget > 0 && a.OwnedCore == 0))
+            {
+                Assert.NotNull(a.CoreChance);
+                var unlock = CardScorer.SynergyUnlock(a, r.State.Act, pack.Weights);
+                if (a.CoreChance >= cp.NoCoreMaxUnlock) Assert.Equal(0.0, unlock);
+                foreach (var e in r.Offered)
+                {
+                    var role = a.Archetype.RoleOf(pack.Canonical(e.Card.Id));
+                    if (role is null or ArchetypeRoles.Core) continue;
+                    var syn = e.Synergy.Single(s => s.ArchetypeId == a.Archetype.Id);
+                    var share = Math.Max(cp.NoCoreFactor.GetValueOrDefault(role, 1.0), unlock);
+                    Assert.True(Math.Abs(syn.Value - syn.Ungated * share) < 1e-9,
+                        $"{r.Run} f{r.Floor} {a.Archetype.Id} {e.Card.Id}: {syn.Value} ≠ {syn.Ungated} × {share}");
+                    checks++;
+                    if (share == 0) locked++; else unlocked++;
+                    maxUnlock = Math.Max(maxUnlock, share);
+                }
+            }
+            // The build-role label follows the archetype JSON: ≤ 2 builds, each naming the card's role there.
+            foreach (var e in r.Offered)
+            {
+                Assert.True(e.BuildRoles.Count <= CardScorer.MaxBuildRoles);
+                foreach (var br in e.BuildRoles)
+                {
+                    var role = r.Profile.Archetypes.Single(s => s.Archetype.Id == br.ArchetypeId).Archetype.RoleOf(pack.Canonical(e.Card.Id));
+                    Assert.Equal(role switch
+                    {
+                        ArchetypeRoles.Core => BuildRoleKind.Core,
+                        ArchetypeRoles.Payoff or ArchetypeRoles.Enabler => BuildRoleKind.Essential,
+                        _ => BuildRoleKind.Sub,
+                    }, br.Kind);
+                }
+            }
+        }
+        output.WriteLine($"(a) {checks} no-core synergy checks over {Decisions.Value.Count} decisions: locked (0%) {locked}, partly unlocked {unlocked}, max share {maxUnlock:P0}");
+        Assert.True(checks > 50, $"only {checks} checks");
+    }
+
+    /// <summary>
+    /// Invariant (b): once build A owns a core but fewer than its essential target, an essential (payoff/enabler) card of A with an equal or
+    /// better base ranks above a support card of A on base + synergy + core components, for every pair of A's cards at every replayed
+    /// deck state (counterfactual offers). Cards another build also lists, and cards behind the requires gate, are left out.
+    /// Total ranks are reported only (role needs can still favour the support card).
+    /// </summary>
+    [Fact]
+    public void CounterfactualOffers_AfterCore_EssentialRanksAboveSupportUntilTheEssentialTarget()
+    {
+        var pack = RealPack.Value;
+        var scorer = new CardScorer(pack);
+        int pairs = 0, totalFirst = 0;
+        var states = 0;
+        foreach (var r in Decisions.Value)
+        {
+            foreach (var a in r.Profile.Archetypes.Where(a => a.OwnedCore > 0 && a.OwnedEssential < a.EssentialTarget))
+            {
+                states++;
+                // Only cards no other build lists (a core of another build would carry that build's core bonus).
+                bool Exclusive(string id) => !r.Profile.Archetypes.Any(o => !ReferenceEquals(o, a) && o.Archetype.RoleOf(id) is not null);
+                var evals = a.Archetype.Cards.All.Select(pack.Canonical).Distinct(StringComparer.Ordinal)
+                    .Where(Exclusive)
+                    .Select(id => (Role: a.Archetype.RoleOf(id), Eval: scorer.Score(r.State, r.Profile, new CardRef(id), r.Context)))
+                    .Where(x => x.Eval.Score.ValueOf(ComponentKeys.EngineMissing) == 0)
+                    .ToList();
+                var essentials = evals.Where(x => x.Role is ArchetypeRoles.Payoff or ArchetypeRoles.Enabler).ToList();
+                foreach (var s in evals.Where(x => x.Role == ArchetypeRoles.Support))
+                {
+                    foreach (var e in essentials.Where(e => e.Eval.Score.ValueOf(ComponentKeys.Base) >= s.Eval.Score.ValueOf(ComponentKeys.Base) - 1e-9))
+                    {
+                        pairs++;
+                        Assert.True(CorePair.RuleScore(e.Eval) > CorePair.RuleScore(s.Eval),
+                            $"{r.Run} f{r.Floor} {a.Archetype.Id}: {e.Eval.Card.Id} {e.Eval.Score} ≤ {s.Eval.Card.Id} {s.Eval.Score}");
+                        if (e.Eval.Total > s.Eval.Total) totalFirst++;
+                    }
+                }
+            }
+        }
+        output.WriteLine($"(b) {states} build states with a core and essentials below target, {pairs} essential/support pairs: "
+            + $"rule score 100%, total {Pct(totalFirst, pairs)}");
+        Assert.True(pairs > 50, $"only {pairs} pairs");
     }
 
     public static IEnumerable<object[]> Characters =>

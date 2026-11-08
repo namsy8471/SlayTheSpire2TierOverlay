@@ -38,6 +38,21 @@ public static class ScoringLabels
     public const string CorePriority = "코어 확보";
     public const string CoreMissing = "코어 없음";
 
+    /// <summary>"코어", "필수 시너지", "서브 시너지".</summary>
+    public static string BuildRoleKind(BuildRoleKind kind) => kind switch
+    {
+        Scoring.BuildRoleKind.Core => "코어",
+        Scoring.BuildRoleKind.Essential => "필수 시너지",
+        _ => "서브 시너지",
+    };
+
+    /// <summary>"냉기·밀집 구체 코어 · 파워 서브 시너지"; null when the card is in no build.</summary>
+    public static string? BuildRoleText(IEnumerable<BuildRole> roles)
+    {
+        var parts = roles.Select(r => $"{r.ArchetypeName} {BuildRoleKind(r.Kind)}").ToArray();
+        return parts.Length == 0 ? null : string.Join(" · ", parts);
+    }
+
     public const string SkipBase = "스킵 기준";
     public const string SkipDeckSize = "덱 크기";
     public const string SkipCommit = "빌드 완성";
