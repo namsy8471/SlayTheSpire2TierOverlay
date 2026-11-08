@@ -1,3 +1,7 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
+
 namespace Sts2Overlay.Core.Data;
 
 /// <summary>
@@ -12,39 +16,216 @@ namespace Sts2Overlay.Core.Data;
 /// </code>
 /// JSON uses camelCase, allows comments and trailing commas, and tier letters as strings.
 /// </summary>
+/// <remarks>
+/// <para>
+/// <c>archetypes/*.json</c> and <c>combos/*.json</c> accept either a bare array or an object
+/// <c>{ "character": "CHARACTER.X", "archetypes"|"combos": [...] }</c>; in the object form the top-level character is
+/// applied to entries that do not name their own.
+/// </para>
+/// <para>
+/// Partial <c>weights.json</c>: nested objects (e.g. <c>skip</c>) and dictionaries (e.g. <c>tierValue</c>, <c>targets</c>)
+/// are merged into the defaults (a key that is present replaces that key's value); arrays (e.g. <c>weakRoles</c>) replace the default.
+/// </para>
+/// File-level problems in <see cref="LoadDirectory"/> throw <see cref="InvalidDataException"/> whose message starts with the file path.
+/// </remarks>
 public static class DataPackLoader
 {
-    public static DataPack LoadDirectory(string directory, CardCatalog? catalog = null) => throw new NotImplementedException();
+    public const string WeightsFile = "weights.json";
+    public const string AliasesFile = "aliases.json";
+    public const string CatalogFile = "catalog.json";
+    public const string TiersDir = "tiers";
+    public const string ArchetypesDir = "archetypes";
+    public const string CombosDir = "combos";
 
-    public static Weights LoadWeights(string json) => throw new NotImplementedException();
+    private static readonly JsonSerializerOptions Options = CreateOptions();
 
-    public static TierPack LoadTierPack(string json) => throw new NotImplementedException();
+    private static readonly JsonNodeOptions NodeOptions = new() { PropertyNameCaseInsensitive = true };
 
-    public static IReadOnlyList<Archetype> LoadArchetypes(string json) => throw new NotImplementedException();
+    private static readonly JsonDocumentOptions DocumentOptions = new()
+    {
+        CommentHandling = JsonCommentHandling.Skip,
+        AllowTrailingCommas = true,
+    };
 
-    public static IReadOnlyList<Combo> LoadCombos(string json) => throw new NotImplementedException();
+    /// <summary>Shared serializer options (camelCase, comments, trailing commas, string enums). The instance is read-only.</summary>
+    public static JsonSerializerOptions JsonOptions => Options;
 
-    public static CardCatalog LoadCatalog(string json) => throw new NotImplementedException();
+    private static JsonSerializerOptions CreateOptions()
+    {
+        var o = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            DictionaryKeyPolicy = null, // dictionary keys are kept exactly as written
+            PropertyNameCaseInsensitive = true,
+            ReadCommentHandling = JsonCommentHandling.Skip,
+            AllowTrailingCommas = true,
+            WriteIndented = true,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        };
+        o.Converters.Add(new JsonStringEnumConverter(namingPolicy: null, allowIntegerValues: false));
+        o.MakeReadOnly(populateMissingResolver: true);
+        return o;
+    }
 
-    /// <summary>Shared serializer options (camelCase, comments, trailing commas, string enums).</summary>
-    public static System.Text.Json.JsonSerializerOptions JsonOptions => throw new NotImplementedException();
-}
-
-/// <summary>Finds data problems before they become silent bad advice.</summary>
-public static class DataPackValidator
-{
     /// <summary>
-    /// Errors and warnings: malformed ids (must look like <c>CARD.X</c>/<c>RELIC.X</c>), role strengths outside 0..1,
-    /// archetype cards without tier entries, duplicate archetype ids, combos with fewer than 2 cards,
-    /// and (when a catalog is present) ids missing from the catalog.
+    /// Loads a pack directory. Every part is optional; missing parts become defaults (weights) or empty collections.
+    /// <paramref name="catalog"/>, when given, wins over a <c>catalog.json</c> in the directory.
     /// </summary>
-    public static IReadOnlyList<ValidationIssue> Validate(DataPack pack) => throw new NotImplementedException();
-}
+    /// <exception cref="DirectoryNotFoundException">The directory does not exist.</exception>
+    /// <exception cref="InvalidDataException">A file is malformed or two tier files declare the same character.</exception>
+    public static DataPack LoadDirectory(string directory, CardCatalog? catalog = null)
+    {
+        if (!Directory.Exists(directory))
+        {
+            throw new DirectoryNotFoundException($"Data pack directory not found: {directory}");
+        }
 
-public enum ValidationSeverity
-{
-    Warning,
-    Error,
-}
+        var weightsPath = Path.Combine(directory, WeightsFile);
+        var weights = File.Exists(weightsPath) ? LoadFile(weightsPath, LoadWeights) : new Weights();
 
-public sealed record ValidationIssue(ValidationSeverity Severity, string Where, string Message);
+        var tiers = new Dictionary<string, TierPack>(StringComparer.Ordinal);
+        var tierSources = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var path in JsonFiles(Path.Combine(directory, TiersDir)))
+        {
+            var pack = LoadFile(path, LoadTierPack);
+            if (string.IsNullOrWhiteSpace(pack.Character))
+            {
+                throw new InvalidDataException($"{path}: tier pack has no \"character\".");
+            }
+            if (tierSources.TryGetValue(pack.Character, out var other))
+            {
+                throw new InvalidDataException($"{path}: character {pack.Character} is already defined by {other}.");
+            }
+            tiers[pack.Character] = pack;
+            tierSources[pack.Character] = path;
+        }
+
+        var archetypes = new List<Archetype>();
+        foreach (var path in JsonFiles(Path.Combine(directory, ArchetypesDir)))
+        {
+            archetypes.AddRange(LoadFile(path, LoadArchetypes));
+        }
+
+        var combos = new List<Combo>();
+        foreach (var path in JsonFiles(Path.Combine(directory, CombosDir)))
+        {
+            combos.AddRange(LoadFile(path, LoadCombos));
+        }
+
+        var aliasesPath = Path.Combine(directory, AliasesFile);
+        IReadOnlyDictionary<string, string> aliases = File.Exists(aliasesPath)
+            ? LoadFile(aliasesPath, LoadAliases)
+            : new Dictionary<string, string>(StringComparer.Ordinal);
+
+        var catalogPath = Path.Combine(directory, CatalogFile);
+        if (catalog is null && File.Exists(catalogPath))
+        {
+            catalog = LoadFile(catalogPath, LoadCatalog);
+        }
+
+        return new DataPack
+        {
+            Weights = weights,
+            Tiers = tiers,
+            Archetypes = archetypes,
+            Combos = combos,
+            IdAliases = aliases,
+            Catalog = catalog,
+        };
+    }
+
+    /// <summary>Weights with every value the JSON does not mention left at its default.</summary>
+    public static Weights LoadWeights(string json) => Deserialize<Weights>(json, "weights");
+
+    public static TierPack LoadTierPack(string json) => Deserialize<TierPack>(json, "tier pack");
+
+    /// <summary>Accepts an array of archetypes or <c>{ "character": ..., "archetypes": [...] }</c>.</summary>
+    public static IReadOnlyList<Archetype> LoadArchetypes(string json)
+    {
+        var (character, list) = DeserializeGroup<Archetype>(json, "archetypes");
+        if (character is not null)
+        {
+            foreach (var a in list.Where(a => string.IsNullOrEmpty(a.Character)))
+            {
+                a.Character = character;
+            }
+        }
+        return list;
+    }
+
+    /// <summary>Accepts an array of combos or <c>{ "character": ..., "combos": [...] }</c>.</summary>
+    public static IReadOnlyList<Combo> LoadCombos(string json)
+    {
+        var (character, list) = DeserializeGroup<Combo>(json, "combos");
+        if (character is not null)
+        {
+            foreach (var c in list.Where(c => string.IsNullOrEmpty(c.Character)))
+            {
+                c.Character = character;
+            }
+        }
+        return list;
+    }
+
+    public static CardCatalog LoadCatalog(string json) => Deserialize<CardCatalog>(json, "catalog");
+
+    /// <summary><c>aliases.json</c>: an object mapping old ids to current ids.</summary>
+    public static IReadOnlyDictionary<string, string> LoadAliases(string json)
+    {
+        var raw = Deserialize<Dictionary<string, string>>(json, "aliases");
+        return new Dictionary<string, string>(raw, StringComparer.Ordinal);
+    }
+
+    private static T Deserialize<T>(string json, string what) where T : class
+        => JsonSerializer.Deserialize<T>(json, Options) ?? throw new JsonException($"Expected a {what} object but found null.");
+
+    private static (string? Character, List<T> Items) DeserializeGroup<T>(string json, string arrayProperty)
+    {
+        var node = JsonNode.Parse(json, NodeOptions, DocumentOptions);
+        switch (node)
+        {
+            case JsonArray:
+                return (null, node.Deserialize<List<T>>(Options) ?? []);
+            case JsonObject obj:
+                string? character = null;
+                if (obj.TryGetPropertyValue("character", out var c) && c is not null)
+                {
+                    character = c.GetValue<string>();
+                }
+                if (!obj.TryGetPropertyValue(arrayProperty, out var items) || items is not JsonArray)
+                {
+                    throw new JsonException($"Expected an array or an object with a \"{arrayProperty}\" array.");
+                }
+                return (character, items.Deserialize<List<T>>(Options) ?? []);
+            default:
+                throw new JsonException($"Expected an array or an object with a \"{arrayProperty}\" array.");
+        }
+    }
+
+    private static T LoadFile<T>(string path, Func<string, T> load)
+    {
+        string text;
+        try
+        {
+            text = File.ReadAllText(path);
+        }
+        catch (IOException ex)
+        {
+            throw new InvalidDataException($"{path}: cannot read file: {ex.Message}", ex);
+        }
+
+        try
+        {
+            return load(text);
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException or NotSupportedException or FormatException)
+        {
+            throw new InvalidDataException($"{path}: {ex.Message}", ex);
+        }
+    }
+
+    private static IEnumerable<string> JsonFiles(string directory)
+        => Directory.Exists(directory)
+            ? Directory.GetFiles(directory, "*.json").OrderBy(p => p, StringComparer.Ordinal)
+            : [];
+}

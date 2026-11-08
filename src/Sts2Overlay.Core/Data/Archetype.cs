@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Sts2Overlay.Core.Data;
 
 /// <summary><c>archetypes/&lt;character&gt;.json</c> entries (PLAN §6.3).</summary>
@@ -10,6 +12,7 @@ public sealed class Archetype
     public ArchetypeCards Cards { get; set; } = new();
 
     /// <summary>Weight per role in this archetype (core/enabler/payoff/support).</summary>
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
     public Dictionary<string, double> RoleWeight { get; set; } = new(StringComparer.Ordinal)
     {
         [ArchetypeRoles.Core] = 1.0,
@@ -27,6 +30,7 @@ public sealed class Archetype
     public string? Desc { get; set; }
     public string? GuideHeroCard { get; set; }
 
+    [JsonIgnore]
     public string DisplayName => Names.TryGetValue("kor", out var k) ? k : Names.Values.FirstOrDefault() ?? Id;
 
     /// <summary>Returns the archetype role of a card ("core", "enabler", "payoff", "support") or null.</summary>
@@ -62,6 +66,7 @@ public sealed class ArchetypeCards
     public List<string> Payoff { get; set; } = [];
     public List<string> Support { get; set; } = [];
 
+    [JsonIgnore]
     public IEnumerable<string> All => Core.Concat(Enabler).Concat(Payoff).Concat(Support);
 }
 

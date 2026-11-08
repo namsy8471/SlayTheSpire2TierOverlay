@@ -9,19 +9,22 @@ public sealed record ArchetypeStatus
 {
     public required Archetype Archetype { get; init; }
 
-    /// <summary><c>min(1, (Σ owned roleWeight + key relic w) / fullWeight)</c>.</summary>
+    /// <summary>
+    /// <c>min(1, (Σ owned roleWeight + key relic w) / fullWeight)</c>. A second copy of a card adds half its role weight,
+    /// further copies add nothing (<see cref="ArchetypeDetector.SecondCopyFactor"/>).
+    /// </summary>
     public double Commit { get; init; }
 
-    /// <summary>0..100, core/payoff weighted 100, enabler/support 56.</summary>
+    /// <summary>0..100 over distinct cards, core/payoff weighted <c>CoreWeight</c> (100), enabler/support <c>SupportWeight</c> (56).</summary>
     public double CompletionPercent { get; init; }
 
-    /// <summary>1..5 flame stage for the UI.</summary>
+    /// <summary>1..5 flame stage for the UI (<c>ceil(pct/20)</c>); 0 only when no archetype card is owned.</summary>
     public int Stage { get; init; }
 
     public IReadOnlyList<string> OwnedCards { get; init; } = [];
     public IReadOnlyList<string> OwnedRelics { get; init; } = [];
 
-    /// <summary>Missing core and payoff cards.</summary>
+    /// <summary>Missing core and payoff cards (core first), with rarity from <see cref="DataPack.CardRarity"/>.</summary>
     public IReadOnlyList<MissingCard> MissingCards { get; init; } = [];
 
     public IReadOnlyList<ArchetypeNeed> UnmetNeeds { get; init; } = [];

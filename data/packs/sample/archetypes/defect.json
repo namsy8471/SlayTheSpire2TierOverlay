@@ -1,0 +1,25 @@
+// 형식 샘플: 최상위 객체 형태. 항목에 character가 없으면 최상위 값을 씁니다.
+// (배열 형태 [ {...}, {...} ]도 됩니다.) 구성과 수치는 자리표시자입니다.
+{
+  "character": "CHARACTER.DEFECT",
+  "archetypes": [
+    {
+      "id": "defect.sample_orbs",
+      "names": { "kor": "샘플 구체 덱" },
+      "color": "#3498db",
+      "cards": {
+        "core": ["CARD.DEFRAGMENT"],
+        "enabler": ["CARD.COOLHEADED", "CARD.BALL_LIGHTNING"],
+        "payoff": ["CARD.GLACIER"],
+        "support": ["CARD.HOLOGRAM"]
+      },
+      "roleWeight": { "core": 1.0, "enabler": 0.7, "payoff": 0.9, "support": 0.5 },
+      "fullWeight": 3.0,
+      "commitThreshold": 0.7,
+      "keyRelics": [{ "id": "RELIC.CRACKED_CORE", "w": 0.5 }],
+      "needs": [{ "tag": "ORB_FROST", "min": 1 }, { "role": "draw", "min": 1 }],
+      "desc": "형식 샘플용 설명",
+      "guideHeroCard": "CARD.DEFRAGMENT"
+    }
+  ]
+}

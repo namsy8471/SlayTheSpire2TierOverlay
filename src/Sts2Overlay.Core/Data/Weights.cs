@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Sts2Overlay.Core.Data;
 
 /// <summary>
@@ -8,6 +10,7 @@ namespace Sts2Overlay.Core.Data;
 public sealed class Weights
 {
     // ---- Base (PLAN §7.1) ----
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
     public Dictionary<Tier, double> TierValue { get; set; } = new()
     {
         [Tier.S] = 80, [Tier.A] = 65, [Tier.B] = 50, [Tier.C] = 35, [Tier.D] = 20,
@@ -44,6 +47,7 @@ public sealed class Weights
     public double WNeed { get; set; } = 25;
 
     /// <summary>Role supply targets: character id (or "default") → act → role → target supply.</summary>
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
     public Dictionary<string, Dictionary<int, Dictionary<string, double>>> Targets { get; set; } = new(StringComparer.Ordinal)
     {
         ["default"] = new()
@@ -55,6 +59,7 @@ public sealed class Weights
     };
 
     /// <summary>Urgency multiplier per act and role ("Jobs" framework: act 1 damage, act 2 block, later scaling/draw).</summary>
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
     public Dictionary<int, Dictionary<string, double>> Urgency { get; set; } = new()
     {
         [1] = new() { [Roles.Frontload] = 1.4, [Roles.Aoe] = 1.0, [Roles.Block] = 0.8, [Roles.Scaling] = 0.5, [Roles.Draw] = 0.6 },
@@ -64,6 +69,7 @@ public sealed class Weights
 
     // ---- Dilution / duplicates ----
     public double LambdaDilution { get; set; } = 1.5;
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
     public Dictionary<int, int> IdealDeckSize { get; set; } = new() { [1] = 15, [2] = 20, [3] = 25 };
     public double RhoDuplicate { get; set; } = 15;
 
@@ -71,13 +77,18 @@ public sealed class Weights
     /// <summary>Penalty when a card's <c>requires</c> axis is missing from the deck ("엔진 없음").</summary>
     public double RequiresPenalty { get; set; } = 15;
 
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+
     public SaturationWeights Saturation { get; set; } = new();
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
     public PowerSaturationWeights PowerSaturation { get; set; } = new();
 
     // ---- Situation ----
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
     public SituationWeights Situation { get; set; } = new();
 
     // ---- Skip (PLAN §7.2) ----
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
     public SkipWeights Skip { get; set; } = new();
 
     // ---- Confidence UX (PLAN §7.4) ----
@@ -85,9 +96,11 @@ public sealed class Weights
     public double ConfidenceCloseGap { get; set; } = 5;
 
     // ---- Shop (PLAN §7.3) ----
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
     public ShopWeights Shop { get; set; } = new();
 
     // ---- Archetype completion / probability (PLAN §7.5) ----
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
     public CompletionWeights Completion { get; set; } = new();
 
     public static Weights Default => new();
@@ -135,6 +148,7 @@ public sealed class SituationWeights
 
 public sealed class SkipWeights
 {
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
     public Dictionary<int, double> T0 { get; set; } = new() { [1] = 45, [2] = 52, [3] = 58 };
     public double LambdaSize { get; set; } = 1.5;
     public double LambdaCommit { get; set; } = 5;
@@ -170,12 +184,14 @@ public sealed class CompletionWeights
     public double SupportWeight { get; set; } = 56;
 
     /// <summary>Approximate rarity odds per reward slot. [추정] until confirmed from game code.</summary>
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
     public Dictionary<string, double> RarityOdds { get; set; } = new(StringComparer.Ordinal)
     {
         ["common"] = 0.60, ["uncommon"] = 0.37, ["rare"] = 0.03,
     };
 
     /// <summary>Fallback pool size per rarity for one character when no catalog is loaded.</summary>
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
     public Dictionary<string, int> PoolSize { get; set; } = new(StringComparer.Ordinal)
     {
         ["common"] = 20, ["uncommon"] = 36, ["rare"] = 16,

@@ -1,0 +1,57 @@
+// 형식 샘플. 티어와 수치는 자리표시자이며 실제 평가가 아닙니다.
+{
+  "character": "CHARACTER.DEFECT",
+  "dataVersion": "sample",
+  "cards": {
+    "CARD.BALL_LIGHTNING": {
+      "tier": "B",
+      "actTier": { "1": "A" },
+      "upgradedDelta": 5,
+      "roles": { "frontload": 0.5, "scaling": 0.1 },
+      "provides": ["ORB_LIGHTNING"],
+      "dupFactor": 0.8,
+      "confidence": 0.5,
+      "source": "placeholder",
+      "type": "attack",
+      "rarity": "common",
+      "cost": 1
+    },
+    "CARD.COOLHEADED": {
+      "tier": "B",
+      "roles": { "block": 0.4, "draw": 0.4 },
+      "provides": ["ORB_FROST"],
+      "cycle": 0.5,
+      "confidence": 0.5,
+      "source": "placeholder",
+      "rarity": "common"
+    },
+    "CARD.DEFRAGMENT": {
+      "tier": "A",
+      "roles": { "scaling": 0.8 },
+      "provides": ["FOCUS"],
+      "requires": ["ORB_LIGHTNING", "ORB_FROST"],
+      "dupFactor": 0.5,
+      "confidence": 0.5,
+      "source": "placeholder",
+      "rarity": "uncommon"
+    },
+    "CARD.HOLOGRAM": {
+      "tier": "C",
+      "roles": { "block": 0.3 },
+      "cycle": 0.3,
+      "confidence": 0.5,
+      "changedIn": "sample",
+      "tip": "자리표시자 팁",
+      "source": "placeholder",
+      "rarity": "common"
+    },
+    "CARD.GLACIER": {
+      "tier": "B",
+      "roles": { "block": 0.6 },
+      "provides": ["ORB_FROST"],
+      "confidence": 0.5,
+      "source": "placeholder",
+      "rarity": "uncommon"
+    },
+  },
+}
