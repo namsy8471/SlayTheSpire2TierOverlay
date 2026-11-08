@@ -300,6 +300,8 @@ public sealed partial class AppController
         {
             if (d.StartsWith("CARD.", StringComparison.Ordinal)) return $"{c.Label} {_cards.Name(d)}";
             if (d.StartsWith("RELIC.", StringComparison.Ordinal) && _eventText.RelicTitle(d) is { } r) return $"{c.Label} {r}";
+            // Relic build fit: "빌드 적합 유물 (힘 빌드)" — the detail starts with the build's name.
+            if (c.Key == EventComponentKeys.RelicFit && d.IndexOf(':') is > 0 and var colon) return $"{c.Label} ({d[..colon]})";
         }
         return c.Label;
     }
