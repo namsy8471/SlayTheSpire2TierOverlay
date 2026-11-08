@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace PckTool;
+namespace Sts2Overlay.Resources.Pck;
 
 /// <summary>One file stored inside the pack.</summary>
 /// <param name="Path">Resource path without the "res://" prefix, e.g. "localization/kor/cards.json".</param>

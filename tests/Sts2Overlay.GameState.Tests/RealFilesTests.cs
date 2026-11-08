@@ -42,6 +42,17 @@ public class RealFilesTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void Real_coop_runs_guest_rebuild_never_shows_a_wrong_card_as_certain()
+    {
+        // Same check as CoopGuestDeckTests, on whatever co-op runs the real logs hold today (new runs included).
+        string logs = Path.Combine(TestPaths.RealRoot, "logs");
+        if (RealPaths()?.SavesDirectory is not { } saves || !Directory.Exists(logs)) { output.WriteLine("no game files on this machine"); return; }
+        var results = Diagnostics.GuestDeckEvaluation.Run(logs, Path.Combine(saves, "history"));
+        foreach (var r in results) output.WriteLine(r.ToString());
+        Assert.All(results, r => Assert.True(r.SilentErrors == 0 && r.ReconciledExact, r.ToString()));
+    }
+
+    [Fact]
     public void Live_run_save_parses()
     {
         if (RealPaths() is not { SavesDirectory: { } saves } paths) { output.WriteLine("no saves folder"); return; }

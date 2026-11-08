@@ -28,12 +28,53 @@ public partial class App : Application
     private AppController? _controller;
     private PanelWindow? _panel;
     private PanelViewModel? _vm;
+    private LocalResourceService? _resources;
 
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
         AppLog.Init(AppPaths.LogFile);
         AppLog.Info($"---- start {string.Join(' ', e.Args)} (exe {AppContext.BaseDirectory})");
+        var options = AppOptions.Parse(e.Args);
+
+        if (options.VerifyCapture)
+        {
+            var exitCode = 1;
+            try
+            {
+                exitCode = CaptureVerify.Run(options) == 0 ? 0 : 1;
+            }
+            catch (Exception ex)
+            {
+                AppLog.Error("capture verification failed", ex);
+                Console.Error.WriteLine(ex);
+            }
+            Shutdown(exitCode);
+            return;
+        }
+
+        if (options.BenchCapture)
+        {
+            // Measurement mode: no windows, no single-instance check (it may run next to the overlay).
+            try
+            {
+                CaptureBench.Run(options);
+            }
+            catch (Exception ex)
+            {
+                AppLog.Error("capture benchmark failed", ex);
+                Console.Error.WriteLine(ex);
+            }
+            Shutdown();
+            return;
+        }
+
+        // ---- local resources: headless --prepare (no windows, no single-instance check) ----
+        if (e.Args.Any(a => a.Equals("--prepare", StringComparison.OrdinalIgnoreCase)))
+        {
+            Shutdown(PrepareCommand.Run(AppOptions.Parse(e.Args), SettingsStore.Load(AppPaths.SettingsFile)));
+            return;
+        }
 
         // One instance only: a second copy could not register the hotkeys anyway.
         _singleInstance = new Mutex(true, @"Local\Sts2Overlay.App", out var first);
@@ -52,7 +93,6 @@ public partial class App : Application
         };
         AppDomain.CurrentDomain.UnhandledException += (_, args) => AppLog.Error("unhandled exception", args.ExceptionObject as Exception);
 
-        var options = AppOptions.Parse(e.Args);
         _settings = SettingsStore.Load(AppPaths.SettingsFile);
         var excludeFromCapture = _settings.HideOverlayFromCapture && !options.ShowInCapture;
         var packDir = AppPaths.ResolvePackDir(options.PackDir ?? _settings.PackDir);
@@ -66,7 +106,7 @@ public partial class App : Application
         };
 
         _tracker = new GameWindowTracker();
-        _pipeline = new CapturePipeline(() => _tracker.Current);
+        _pipeline = new CapturePipeline(() => _tracker.Current, _settings.CaptureBackend);
 
         var badges = new BadgeWindow(excludeFromCapture);
         _panel = new PanelWindow(_vm, _settings, excludeFromCapture);
@@ -78,6 +118,13 @@ public partial class App : Application
         _controller = new AppController(_settings, _tracker, _pipeline, _panel, badges, _vm, packDir, catalog);
         var (state, recognizer) = options.Demo is { } demo ? IntegrationFactory.CreateDemo(demo) : IntegrationFactory.CreateReal();
         _controller.Attach(state, recognizer, options.Demo);
+
+        // ---- local resources: first-run preparation + game-version guard (Services.LocalResourceService) ----
+        _resources = new LocalResourceService(_vm, options.GameDir ?? _settings.GameDir, new Sts2Overlay.Resources.LocalLayout(AppPaths.LocalDataDir));
+        _resources.Prepared += catalogPath => _controller.ApplyPreparedResources(catalogPath);
+        _controller.PackReloaded += () => _resources.EvaluateGuard(_controller.Pack, _controller.PackDir);
+        _resources.EvaluateGuard(_controller.Pack, _controller.PackDir);
+        _resources.Start();
 
         SetUpHotkeys();
         SetUpTray();
@@ -196,6 +243,7 @@ public partial class App : Application
             SettingsStore.Save(AppPaths.SettingsFile, _settings);
             _hotkeys?.Dispose();
             _tray?.Dispose();
+            _resources?.Dispose();
             _controller?.Dispose();
             _pipeline?.Dispose();
             _tracker?.Dispose();

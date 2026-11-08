@@ -46,6 +46,10 @@ public sealed record RecognizerOptions
     public int SearchCandidates { get; init; } = 16;
     /// <summary>Pools that can be offered (others are never considered). Null = all database entries.</summary>
     public IReadOnlySet<string>? CandidatePools { get; init; } = VisionCatalog.OfferablePools;
+    /// <summary>Card catalog (rarity): lets the shop price check use the card's own price range. Optional.</summary>
+    public VisionCatalog? Catalog { get; init; }
+    /// <summary>Shop price reading; null disables it.</summary>
+    public PriceReaderOptions? Price { get; init; } = new();
 
     // ---- occlusion-robust second pass (see TileMatcher); runs only on rejected slots of a confirmed screen ----
 
@@ -88,6 +92,7 @@ public sealed class CardRecognizer
     private readonly bool[] _offerable;
     private readonly Lazy<TileMatcher> _blocks;
     private readonly Lazy<TileMatcher> _rows;
+    private readonly ShopPriceReader? _priceReader;
 
     public RecognizerOptions Options { get; }
     public CardArtDatabase Database => _db;
@@ -99,6 +104,7 @@ public sealed class CardRecognizer
         _offerable = db.Entries.Select(e => Options.CandidatePools?.Contains(e.Pool) ?? true).ToArray();
         _blocks = new Lazy<TileMatcher>(() => new TileMatcher(db, TileGrid.Blocks));
         _rows = new Lazy<TileMatcher>(() => new TileMatcher(db, TileGrid.Rows));
+        _priceReader = Options.Price is { } po ? new ShopPriceReader(options: po) : null;
     }
 
     public ScreenRecognition Recognize(in ScreenFrame frame, RecognitionHints? hints = null)
@@ -198,10 +204,11 @@ public sealed class CardRecognizer
         var cards = new RecognizedCard[slots.Length];
         var boxes = new SlotBox[slots.Length];
         IntegralImage ImageOf(int i) => slots[i].Kind == CardSlotKind.ShopColorless ? bottom : top;
+        ScreenFrame f = frame; // an `in` parameter cannot be captured by the lambda; the struct copy is cheap
         // 7 independent slots reading two immutable tables: one task per slot (~2-3 ms each at 4K).
-        Parallel.For(0, slots.Length, i => cards[i] = MatchSlot(ImageOf(i), t, slots[i], 0.61f, 0.84f, hints, out boxes[i]));
+        Parallel.For(0, slots.Length, i => cards[i] = MatchSlot(ImageOf(i), t, slots[i], 0.61f, 0.84f, hints, out boxes[i], f));
         if (cards.Any(c => c.Accepted))
-            Parallel.For(0, slots.Length, i => cards[i] = RescueCovered(ImageOf(i), t, slots[i], 0.61f, 0.84f, cards[i], boxes[i], hints));
+            Parallel.For(0, slots.Length, i => cards[i] = RescueCovered(ImageOf(i), t, slots[i], 0.61f, 0.84f, cards[i], boxes[i], hints, f));
         return [.. cards];
     }
 
@@ -272,7 +279,7 @@ public sealed class CardRecognizer
     /// products instead of a full scan. (5) One full-resolution scan at the best box decides the card.
     /// </summary>
     private RecognizedCard MatchSlot(IntegralImage img, RefTransform t, SlotLayout slot, float minScale, float maxScale, RecognitionHints? hints,
-        out SlotBox box)
+        out SlotBox box, ScreenFrame? priceFrame = null)
     {
         box = default;
         Span<float> coarse = stackalloc float[Ncc.CoarseLength];
@@ -376,11 +383,34 @@ public sealed class CardRecognizer
         // A clean art match and no tooltip panel over the title: a title without green really is not upgraded.
         bool upgradeKnown = upgraded || (pick.Score >= Options.UnoccludedScore && covered < Options.TitleCoveredFraction);
         PixelRect? price = slot.Kind == CardSlotKind.Reward ? null : t.ToPixelRect(ScreenLayouts.ShopPrice(bx, by, bs));
+        PriceReading? reading = ReadPrice(priceFrame, slot, pick.CardId, bx, by, bs);
         return new RecognizedCard(slot.Index, slot.Kind, pick.CardId, upgraded, pick.Score, margin, accepted,
             ambiguous, green, upgradeKnown, bs,
             t.ToPixelRect(CardGeometry.Place(CardGeometry.Art, bx, by, bs)),
             t.ToPixelRect(CardGeometry.Place(CardGeometry.Card, bx, by, bs)),
-            price, null, top.Take(3).ToArray());
+            price, reading?.Value, top.Take(3).ToArray())
+        {
+            PriceReading = reading,
+        };
+    }
+
+    /// <summary>
+    /// Shop: read the price label under the card box (it moves and scales with the card). A card mostly under the
+    /// merchant's hand gets an unreliable box, but its label usually still sits at the slot's resting place: retry
+    /// there (resting, then hovered size).
+    /// </summary>
+    private PriceReading? ReadPrice(ScreenFrame? priceFrame, SlotLayout slot, string cardId, float bx, float by, float bs)
+    {
+        if (priceFrame is not { } pf || _priceReader == null || slot.Kind == CardSlotKind.Reward) return null;
+        string? rarity = Options.Catalog?.Find(cardId)?.Rarity;
+        PriceReading? reading = _priceReader.Read(pf, bx, by, bs, slot.Kind, rarity);
+        foreach (float s in (float[])[slot.SmallScale, slot.HoverScale])
+        {
+            if (reading?.Value != null) break;
+            PriceReading? retry = _priceReader.Read(pf, slot.CenterX, slot.CenterY, s, slot.Kind, rarity);
+            if (retry?.Value != null || reading == null) reading = retry;
+        }
+        return reading;
     }
 
     /// <summary>
@@ -431,7 +461,7 @@ public sealed class CardRecognizer
     /// a rejected partial match is still attached for the bench and the debug view.
     /// </summary>
     private RecognizedCard RescueCovered(IntegralImage img, RefTransform t, SlotLayout slot, float minScale, float maxScale,
-        RecognizedCard c, SlotBox box, RecognitionHints? hints)
+        RecognizedCard c, SlotBox box, RecognitionHints? hints, ScreenFrame? priceFrame = null)
     {
         if (!Options.PartialMatching || c.Accepted || box.Full == null) return c;
 
@@ -508,6 +538,8 @@ public sealed class CardRecognizer
         float whole = Ncc.Dot(full, _db.FullVector(pick.EntryIndex));
         (float green, float covered) = UpgradeDetector.TitleEvidence(img, t, bx, by, bs);
         bool upgraded = green >= Options.UpgradeFraction;
+        // The price was read for the whole-art pick at the first box; read it again for this card at its box.
+        PriceReading? reading = ReadPrice(priceFrame, slot, partial.CardId, bx, by, bs);
         return c with
         {
             CardId = partial.CardId,
@@ -524,6 +556,8 @@ public sealed class CardRecognizer
             PriceBounds = slot.Kind == CardSlotKind.Reward ? null : t.ToPixelRect(ScreenLayouts.ShopPrice(bx, by, bs)),
             Candidates = ranking.Take(3).ToArray(),
             Partial = partial,
+            Price = reading?.Value,
+            PriceReading = reading,
         };
     }
 

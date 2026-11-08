@@ -22,6 +22,9 @@ public sealed class AppSettings
     /// <summary>Card catalog JSON with Korean names. Null = newest data/local/catalog.*.json.</summary>
     public string? CatalogPath { get; set; }
 
+    /// <summary>Slay the Spire 2 install folder (has SlayTheSpire2.pck). Null = find it in the Steam libraries.</summary>
+    public string? GameDir { get; set; }
+
     /// <summary>
     /// "UI 배율" override as a physical size factor relative to the 1080p look (1.5 = 150 %). Null = automatic from the
     /// game's resolution (1080p → 1.0, 1440p → 1.25, 2160p → 1.5). See <see cref="Views.UiScale"/>.
@@ -30,6 +33,12 @@ public sealed class AppSettings
 
     /// <summary>Capture/recognition rate while a reward or shop screen is likely.</summary>
     public double RecognizeHz { get; set; } = 3;
+
+    /// <summary>
+    /// How the game window is captured: "auto" (Windows.Graphics.Capture, falling back to GDI when it is unsupported or
+    /// fails), "wgc" (same as auto) or "gdi" (always the slower GDI BitBlt). The active backend is logged.
+    /// </summary>
+    public string CaptureBackend { get; set; } = "auto";
 
     /// <summary>
     /// Excludes our own windows from screen capture (SetWindowDisplayAffinity WDA_EXCLUDEFROMCAPTURE), so the badges never

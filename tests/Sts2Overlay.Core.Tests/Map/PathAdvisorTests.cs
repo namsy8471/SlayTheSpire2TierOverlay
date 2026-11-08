@@ -104,19 +104,22 @@ public class PathAdvisorTests
     [Fact]
     public void GoldEarnedOnThePath_MakesALaterShopValuable()
     {
-        // 120 gold now (< 150 threshold): shop right away is poor, after two fights (+30) it can buy.
+        // Just short of the threshold now: shop right away is poor, after two fights (+2 × MonsterGold) it can buy.
+        var w = Pack.Weights.Path;
+        var gold = w.ShopGoldThreshold - 2 * w.MonsterGold;
         var map = new MapBuilder(4, 1, (0, 1))
             .Add(0, 1, MapNodeType.Monster, (0, 2))
             .Add(0, 2, MapNodeType.Monster, (0, 3))
             .Add(0, 3, MapNodeType.Shop, (0, 4))
             .Build();
-        var state = State(1.0, gold: 120, deck: [new DeckCard(new CardRef(TestPacks.OrbCore))]); // nothing to remove
+        var state = State(1.0, gold: gold, deck: [new DeckCard(new CardRef(TestPacks.OrbCore))]); // nothing to remove
         var advisor = new PathAdvisor(Pack);
 
         var later = advisor.ScorePath(state, map, [new(0, 1), new(0, 2), new(0, 3), map.Boss]);
         var direct = advisor.ScorePath(state, new MapBuilder(2, 1, (0, 1)).Add(0, 1, MapNodeType.Shop, (0, 2)).Build(), [new(0, 1), new(0, 2)]);
 
-        Assert.Equal(Pack.Weights.Path.ShopValue, later.Score.ValueOf(PathComponentKeys.Shop), 9);
+        // Rewards are weighted by the chance to be alive; two hallway fights at full HP leave that at ~0.99999.
+        Assert.Equal(Pack.Weights.Path.ShopValue, later.Score.ValueOf(PathComponentKeys.Shop), 3);
         Assert.Equal(Pack.Weights.Path.ShopPoorValue, direct.Score.ValueOf(PathComponentKeys.Shop), 9);
     }
 
@@ -125,6 +128,7 @@ public class PathAdvisorTests
     {
         var w = new Weights();
         w.Path.TargetElites[1] = 2;
+        w.Path.DamageShape = new PathDamageShape(); // uniform damage: no death chance at full HP, so rewards are exact
         var pack = TestPacks.DefectPack(w);
         var fresh = new MapBuilder(3, 1, (0, 1))
             .Add(0, 1, MapNodeType.Elite, (0, 2))

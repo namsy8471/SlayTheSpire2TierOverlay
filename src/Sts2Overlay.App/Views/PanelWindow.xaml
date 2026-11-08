@@ -205,7 +205,19 @@
 
         <!-- Body -->
         <StackPanel Visibility="{Binding IsCollapsed, Converter={StaticResource BoolVis}, ConverterParameter=!}">
-          <UniformGrid Columns="4" Margin="8,0,8,0">
+          <!-- ==== run review banner (m2/forecast-review) ==== -->
+          <Border DataContext="{Binding Review}" Visibility="{Binding ShowBanner, Converter={StaticResource BoolVis}}"
+                  Margin="8,0,8,6" Padding="9,5" CornerRadius="7" Background="#2EF1C40F" BorderBrush="{StaticResource Gold}" BorderThickness="1">
+            <DockPanel>
+              <Button DockPanel.Dock="Right" Style="{StaticResource FlatButton}" Margin="6,0,0,0" Content="닫기"
+                      Command="{Binding DataContext.DismissReviewCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+              <Button DockPanel.Dock="Right" Style="{StaticResource FlatButton}" Content="보기"
+                      Command="{Binding DataContext.ShowReviewCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+              <TextBlock Text="{Binding BannerText}" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap" />
+            </DockPanel>
+          </Border>
+          <!-- ==== /run review banner ==== -->
+          <UniformGrid Columns="5" Margin="8,0,8,0">
             <RadioButton Style="{StaticResource TabButton}" GroupName="Tabs" Content="추천"
                          IsChecked="{Binding SelectedTab, Converter={StaticResource EnumMatch}, ConverterParameter=Offer}" />
             <RadioButton Style="{StaticResource TabButton}" GroupName="Tabs" Content="덱"
@@ -214,6 +226,8 @@
                          IsChecked="{Binding SelectedTab, Converter={StaticResource EnumMatch}, ConverterParameter=Build}" />
             <RadioButton Style="{StaticResource TabButton}" GroupName="Tabs" Content="경로"
                          IsChecked="{Binding SelectedTab, Converter={StaticResource EnumMatch}, ConverterParameter=Path}" />
+            <RadioButton Style="{StaticResource TabButton}" GroupName="Tabs" Content="리뷰"
+                         IsChecked="{Binding SelectedTab, Converter={StaticResource EnumMatch}, ConverterParameter=Review}" />
           </UniformGrid>
           <Border Height="1" Background="#26FFFFFF" Margin="8,0,8,0" />
 
@@ -343,6 +357,31 @@
 
               <!-- 빌드 -->
               <Border Visibility="{Binding SelectedTab, Converter={StaticResource EnumMatch}, ConverterParameter=Build}">
+              <StackPanel>
+              <!-- ==== build completion forecast (m2/forecast-review) ==== -->
+              <StackPanel DataContext="{Binding Forecast}" Visibility="{Binding HasContent, Converter={StaticResource BoolVis}}" Margin="0,0,0,8">
+                <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="Bold" Margin="0,0,0,4" />
+                <ItemsControl ItemsSource="{Binding Rows}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type vm:ForecastRowVm}">
+                      <StackPanel Margin="0,2,0,5">
+                        <DockPanel>
+                          <TextBlock DockPanel.Dock="Right" Text="{Binding EndText}" FontSize="15" FontWeight="Bold" VerticalAlignment="Center" />
+                          <Ellipse Width="9" Height="9" Fill="{Binding Color}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                          <TextBlock Text="{Binding Name}" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        </DockPanel>
+                        <Border Height="6" CornerRadius="3" Background="#30FFFFFF" Width="356" HorizontalAlignment="Left" Margin="0,3,0,2">
+                          <Border Width="{Binding BarWidth}" CornerRadius="3" Background="{Binding Color}" HorizontalAlignment="Left" />
+                        </Border>
+                        <TextBlock Text="{Binding DetailText}" Style="{StaticResource Dim}" />
+                      </StackPanel>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Text="{Binding Note}" Style="{StaticResource Dim}" Opacity="0.85" Margin="0,2,0,0" />
+                <Border Height="1" Background="#26FFFFFF" Margin="0,8,0,0" />
+              </StackPanel>
+              <!-- ==== /build completion forecast ==== -->
               <StackPanel DataContext="{Binding Build}">
                 <TextBlock Style="{StaticResource Empty}" Text="런 정보 없음 또는 이 캐릭터의 아키타입 데이터가 없습니다."
                            Visibility="{Binding HasContent, Converter={StaticResource BoolVis}, ConverterParameter=!}" />
@@ -383,6 +422,7 @@
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
                 </StackPanel>
+              </StackPanel>
               </StackPanel>
               </Border>
 
@@ -429,9 +469,52 @@
                 </StackPanel>
               </StackPanel>
               </Border>
+
+              <!-- ==== 리뷰 (m2/forecast-review) ==== -->
+              <Border Visibility="{Binding SelectedTab, Converter={StaticResource EnumMatch}, ConverterParameter=Review}">
+              <StackPanel DataContext="{Binding Review}">
+                <TextBlock Style="{StaticResource Empty}" Text="끝난 런이 없습니다.&#x0a;런이 끝나면 카드 선택을 추천과 비교한 리뷰가 표시됩니다."
+                           Visibility="{Binding HasContent, Converter={StaticResource BoolVis}, ConverterParameter=!}" />
+                <StackPanel Visibility="{Binding HasContent, Converter={StaticResource BoolVis}}">
+                  <TextBlock Text="지난 런 리뷰" Style="{StaticResource Heading}" Margin="0,0,0,2" />
+                  <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="Bold" TextWrapping="Wrap" />
+                  <TextBlock Text="{Binding AgreementText}" FontSize="12.5" TextWrapping="Wrap" Margin="0,6,0,3" />
+                  <Border Height="7" CornerRadius="3.5" Background="#30FFFFFF" Width="356" HorizontalAlignment="Left">
+                    <Border Width="{Binding AgreementBarWidth}" CornerRadius="3.5" Background="{StaticResource Gold}" HorizontalAlignment="Left" />
+                  </Border>
+                  <DockPanel Margin="0,8,0,0">
+                    <Ellipse Width="10" Height="10" Fill="{Binding BuildColor}" Margin="0,3,7,0" VerticalAlignment="Top" />
+                    <TextBlock Text="{Binding BuildText}" TextWrapping="Wrap" FontSize="12.5" />
+                  </DockPanel>
+                  <TextBlock Text="추천과 가장 크게 다른 선택" Style="{StaticResource Heading}"
+                             Visibility="{Binding HasDisagreements, Converter={StaticResource BoolVis}}" />
+                  <ItemsControl ItemsSource="{Binding Disagreements}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate DataType="{x:Type vm:ReviewDisagreementVm}">
+                        <Border Margin="0,0,0,6" Padding="9,6" CornerRadius="7" Background="{StaticResource RowBg}">
+                          <StackPanel>
+                            <DockPanel>
+                              <TextBlock DockPanel.Dock="Right" Text="{Binding GapText}" FontWeight="Bold" Foreground="#E74C3C" VerticalAlignment="Center" />
+                              <TextBlock Text="{Binding Header}" FontWeight="Bold" VerticalAlignment="Center" />
+                            </DockPanel>
+                            <TextBlock Text="{Binding OfferedText}" Style="{StaticResource Dim}" Margin="0,2,0,0" />
+                            <TextBlock Text="{Binding ChoiceText}" FontSize="12.5" TextWrapping="Wrap" Margin="0,2,0,0" />
+                          </StackPanel>
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <TextBlock Text="{Binding Note}" Style="{StaticResource Dim}" Visibility="{Binding Note, Converter={StaticResource BoolVis}}" />
+                </StackPanel>
+              </StackPanel>
+              </Border>
+              <!-- ==== /리뷰 ==== -->
             </Grid>
           </ScrollViewer>
 
+          <!-- local resources / version guard banner (Services.LocalResourceService) -->
+          <TextBlock Text="{Binding ResourceBanner}" Style="{StaticResource Dim}" Foreground="#F0B27A" TextWrapping="Wrap" Margin="12,2,12,2"
+                     Visibility="{Binding ResourceBanner, Converter={StaticResource BoolVis}}" />
           <TextBlock Text="{Binding MessageText}" Style="{StaticResource Dim}" Foreground="#F5B041" Margin="12,2,12,2"
                      Visibility="{Binding MessageText, Converter={StaticResource BoolVis}}" />
           <Border Height="1" Background="#26FFFFFF" Margin="8,4,8,0" />

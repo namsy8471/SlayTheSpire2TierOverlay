@@ -72,6 +72,17 @@ public static partial class LogLineParser
     [GeneratedRegex(@"\[TreasureRoomRelicSynchronizer\] Relic index \d+ \((?<id>RELIC\.[A-Z0-9_]+) \(\d+\)\) is being picked by local player (?<p>\d+)")]
     private static partial Regex TreasurePick();
 
+    [GeneratedRegex(@"^\[EventSynchronizer\] Option index \d+ chosen for player (?<p>\d+) in event (?<ev>EVENT\.[A-Z0-9_]+)\. Choice key: (?<key>\S+)")]
+    private static partial Regex EventOption();
+
+    [GeneratedRegex(@"^\[ActionQueueSet\] Enqueueing action PlayCardAction card: (?<card>CARD\.[A-Z0-9_]+) \(\d+\) index: (?<idx>\d+) targetid: \S* ?to player queue owned by (?<p>\d+)")]
+    private static partial Regex PlayCard();
+
+    [GeneratedRegex(@"^\[RunLocationTargetedMessageBuffer\] Handling map-targeted message RewardObtainedMessage type: (?:Card|Relic) .*? skipped: False (?:Card|Relic): (?<id>(?:CARD|RELIC)\.[A-Z0-9_]+) \(\d+\) from (?<p>\d+)")]
+    private static partial Regex RemotePurchase();
+
+    private const string HopperSteal = "Monster THIEVING_HOPPER performing move THIEVERY_MOVE";
+
     [GeneratedRegex(@"^Wrote (?<bytes>\d+) bytes to path=(?<path>.+?) save_dir=")]
     private static partial Regex Wrote();
 
@@ -171,10 +182,20 @@ public static partial class LogLineParser
             case 'S':
                 return (m = HistorySaved().Match(line)).Success ? new RunHistorySavedEvent(m.Groups["file"].Value) : null;
 
+            case 'M':
+                // Thousands of monster-move lines per run: only the deck-changing one becomes an event.
+                return line.StartsWith(HopperSteal, StringComparison.Ordinal) ? new MonsterMoveEvent("MONSTER.THIEVING_HOPPER", "THIEVERY_MOVE") : null;
+
             case 'A':
                 return line.StartsWith("Abandoning an in-progress run", StringComparison.Ordinal) ? new RunAbandonedEvent() : null;
 
             case '[':
+                if ((m = PlayCard().Match(line)).Success)
+                    return new CardPlayedEvent(ULong(m, "p"), m.Groups["card"].Value, Int(m, "idx"));
+                if ((m = EventOption().Match(line)).Success)
+                    return new EventOptionChosenEvent(ULong(m, "p"), m.Groups["ev"].Value, m.Groups["key"].Value);
+                if ((m = RemotePurchase().Match(line)).Success)
+                    return new RemoteShopPurchaseEvent(ULong(m, "p"), m.Groups["id"].Value);
                 if ((m = RestOption().Match(line)).Success)
                     return new RestSiteOptionEvent(ULong(m, "p"), m.Groups["opt"].Value, m.Groups["ok"].Value == "True");
                 if ((m = TreasurePick().Match(line)).Success) return new RelicObtainedEvent(ULong(m, "p"), m.Groups["id"].Value);

@@ -6,6 +6,11 @@
 //   dotnet run --project tools/StateProbe -- --events     live, also print every parsed log event
 //   dotnet run --project tools/StateProbe -- --once       read save + replay log once, print, exit
 //   dotnet run --project tools/StateProbe -- --save <file> [--net-id <id>]   parse one save file and print it
+//   dotnet run --project tools/StateProbe -- --eval-guest  replay every co-op run in logs/ as each player with no save
+//                                                          and compare the rebuilt deck with the .run history file
+//   dotnet run --project tools/StateProbe -- --extract-run <N.run> <outDir>   write a test fixture of one co-op run:
+//                                                          only the log lines the parser understands (IDs, no game
+//                                                          text) + the .run file, Steam IDs replaced by 7656119000000000k
 // Overrides: --root <SlayTheSpire2 dir>  --saves <dir>  --log <godot.log>  --net-id <steam id>
 
 using System.Globalization;
@@ -14,9 +19,9 @@ using Sts2Overlay.GameState.Log;
 using Sts2Overlay.GameState.Save;
 using Sts2Overlay.GameState.Tracking;
 
-string? root = null, saves = null, log = null, saveFile = null;
+string? root = null, saves = null, log = null, saveFile = null, extractRun = null, extractOut = null;
 ulong? netId = null;
-bool events = false, once = false;
+bool events = false, once = false, evalGuest = false;
 for (int i = 0; i < args.Length; i++)
 {
     string Next() => i + 1 < args.Length ? args[++i] : throw new ArgumentException($"{args[i]} needs a value");
@@ -29,6 +34,8 @@ for (int i = 0; i < args.Length; i++)
         case "--events": events = true; break;
         case "--once": once = true; break;
         case "--save": saveFile = Next(); break;
+        case "--eval-guest": evalGuest = true; break;
+        case "--extract-run": extractRun = Next(); extractOut = Next(); break;
         default: Console.Error.WriteLine($"Unknown argument: {args[i]}"); return 1;
     }
 }
@@ -42,6 +49,35 @@ if (saveFile != null)
 }
 
 GamePaths paths = GamePaths.Discover(root, saves, log);
+
+if (extractRun != null)
+{
+    string logsDir = Path.GetDirectoryName(paths.LogFile ?? "") ?? "";
+    string historyDir = Path.Combine(paths.SavesDirectory ?? "", "history");
+    return Sts2Overlay.GameState.Diagnostics.FixtureExtractor.Extract(logsDir, historyDir, extractRun, extractOut!, Console.Out) ? 0 : 1;
+}
+
+if (evalGuest)
+{
+    string logsDir = Path.GetDirectoryName(paths.LogFile ?? "") ?? "";
+    string? historyDir = paths.SavesDirectory is { } sd ? Path.Combine(sd, "history") : null;
+    if (!Directory.Exists(logsDir) || historyDir == null || !Directory.Exists(historyDir))
+    {
+        Console.Error.WriteLine("logs or history folder not found");
+        return 1;
+    }
+    var results = Sts2Overlay.GameState.Diagnostics.GuestDeckEvaluation.Run(logsDir, historyDir);
+    foreach (var group in results.GroupBy(r => r.LogFile))
+    {
+        Console.WriteLine($"== {group.Key}");
+        foreach (var r in group) Console.WriteLine("  " + r);
+    }
+    int total = results.Sum(r => r.TrueDeck.Count);
+    Console.WriteLine($"runs {results.Select(r => r.RunFile).Distinct().Count()}  player-runs {results.Count}  perfect {results.Count(r => r.Perfect)}  " +
+                      $"id {results.Sum(r => r.IdMatches)}/{total}  exact {results.Sum(r => r.ExactMatches)}/{total}  " +
+                      $"silent-errors {results.Sum(r => r.SilentErrors)}  run-end exact {results.Count(r => r.ReconciledExact)}/{results.Count}");
+    return 0;
+}
 Console.WriteLine($"saves : {paths.SavesDirectory ?? "(not found)"}");
 Console.WriteLine($"log   : {paths.LogFile}");
 Console.WriteLine($"steam : {paths.SteamId?.ToString(CultureInfo.InvariantCulture) ?? "?"}");

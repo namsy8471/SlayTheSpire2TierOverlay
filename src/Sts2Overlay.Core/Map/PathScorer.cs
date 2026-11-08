@@ -11,8 +11,8 @@ namespace Sts2Overlay.Core.Map;
 /// score = Σ room rewards − HP cost − death risk − boss risk − risk patterns
 /// </code>
 /// <list type="bullet">
-/// <item><b>HP is simulated, not counted.</b> Each fight removes an expected fraction of max HP (scaled by act and deck
-/// strength); rest sites heal or upgrade, whichever is worth more right then. That is why the same "elite" costs
+/// <item><b>HP is simulated, not counted.</b> Each fight removes an expected fraction of max HP (measured per room type
+/// and act from run history, <see cref="PathHpLoss"/>, separately for co-op, then scaled by deck strength); rest sites heal or upgrade, whichever is worth more right then. That is why the same "elite" costs
 /// little at 90% HP and a lot at 30%: the cost depends on the HP you walk in with.</item>
 /// <item><b>HP is worth more when low.</b> Losing 10% at full HP costs <c>HpValue × 0.1</c>; at 20% HP it costs up to
 /// twice that (<see cref="PathWeights.LowHpValueBoost"/>).</item>
@@ -22,7 +22,7 @@ namespace Sts2Overlay.Core.Map;
 /// <item><b>Rewards need survival.</b> The simulation carries P(still alive); every later reward is multiplied by it,
 /// so an elite you would probably not survive also wipes out the value of the rooms after it.</item>
 /// </list>
-/// All numbers come from <see cref="PathWeights"/> (mostly [추정]).
+/// All numbers come from <see cref="PathWeights"/>: room HP loss, gold and heal are measured from run history ([측정]), point values are estimates ([추정]).
 /// </summary>
 public sealed class PathScorer
 {
@@ -32,20 +32,31 @@ public sealed class PathScorer
     private readonly double _cardReward;
     private readonly double _eliteReward;
     private readonly int _targetElites;
+    private readonly double _monsterLoss;
+    private readonly double _eliteLoss;
+    private readonly double _unknownLoss;
+    private readonly double _bossLoss;
     private readonly int _removalPrice0;
     private readonly int _removalStep;
     private Sim _start; // not readonly: WithHp() changes it on a clone
 
-    public PathScorer(DataPack pack, RunState state, MapGraph map, DeckProfile profile)
+    public PathScorer(DataPack pack, RunState state, MapGraph map, DeckProfile profile, PathWeights? path = null)
     {
-        _p = pack.Weights.Path;
+        _p = path ?? pack.Weights.Path;
         _shop = pack.Weights.Shop;
         _map = map;
         var act = map.Act > 0 ? map.Act : Math.Max(1, state.Act);
 
         DeckStrength = ComputeDeckStrength(profile, _p);
         // Strong decks take less damage: ×0.5 at strength 1, ×1.5 at strength 0 (default slope).
-        DamageMultiplier = Weights.ForAct(_p.ActDamage, act, 1.0) * Math.Max(0.1, 1 + _p.StrengthDamageSlope * (0.5 - DeckStrength));
+        DamageMultiplier = StrengthDamageFactor(DeckStrength, _p);
+
+        // Act and player count pick the measured per-room loss (co-op fights are longer and hit harder).
+        var loss = _p.HpLossFor(state.IsMultiplayer);
+        _monsterLoss = loss.For(MapNodeType.Monster, act);
+        _eliteLoss = loss.For(MapNodeType.Elite, act);
+        _unknownLoss = loss.For(MapNodeType.Unknown, act);
+        _bossLoss = loss.For(MapNodeType.Boss, act);
 
         // A weak deck needs card rewards more; later acts need them less.
         _cardReward = (_p.MonsterReward + _p.WeakDeckCardBonus * (1 - DeckStrength)) * Weights.ForAct(_p.CardRewardActFactor, act, 1.0);
@@ -71,8 +82,12 @@ public sealed class PathScorer
     /// <summary>Deck strength 0..1 used to scale damage and card-reward value.</summary>
     public double DeckStrength { get; }
 
-    /// <summary>Act × deck-strength multiplier applied to every expected HP loss.</summary>
+    /// <summary>Deck-strength multiplier applied to every expected HP loss (the act is already in <see cref="PathHpLoss"/>).</summary>
     public double DamageMultiplier { get; }
+
+    /// <summary><c>1 + slope × (0.5 − strength)</c>, at least 0.1. Shared with the run-history statistics so both agree.</summary>
+    public static double StrengthDamageFactor(double strength, PathWeights p)
+        => Math.Max(0.1, 1 + p.StrengthDamageSlope * (0.5 - strength));
 
     /// <summary>
     /// PLAN §7.6: <c>(1 − mean role gap) × 0.6 + max commit × 0.4</c>, clamped to 0..1. "Role gap" is how far each
@@ -122,7 +137,7 @@ public sealed class PathScorer
     public double Total(IReadOnlyList<MapNodeType> types)
     {
         var acc = new Accumulator();
-        Run(types, acc, risks: null, out _);
+        Run(types, acc, risks: null, out _, out _);
         return acc.Sum;
     }
 
@@ -132,7 +147,7 @@ public sealed class PathScorer
         var types = TypesOf(coords);
         var acc = new Accumulator();
         var risks = new List<string>();
-        var bossHp = Run(types, acc, risks, out var end);
+        var bossHp = Run(types, acc, risks, out var end, out var bossAlive);
 
         return new PathOption
         {
@@ -141,16 +156,18 @@ public sealed class PathScorer
             Counts = types.GroupBy(t => t).ToDictionary(g => g.Key, g => g.Count()),
             Score = acc.ToBreakdown(),
             ExpectedBossHp = bossHp,
+            BossArrivalChance = bossAlive,
             ShopPurchases = end.ShopPurchases,
             Risks = risks,
         };
     }
 
     /// <summary>Walks the path; returns the HP ratio on arrival at the boss (or at the end if there is no boss).</summary>
-    private double Run(IReadOnlyList<MapNodeType> types, Accumulator acc, List<string>? risks, out Sim end)
+    private double Run(IReadOnlyList<MapNodeType> types, Accumulator acc, List<string>? risks, out Sim end, out double bossAlive)
     {
         var sim = _start;
         double? bossHp = null;
+        double? alive = null;
         for (var i = 0; i < types.Count; i++)
         {
             var t = types[i];
@@ -168,10 +185,15 @@ public sealed class PathScorer
                     AddOnce(risks, PathRisks.EliteNoRest);
                 }
             }
-            if (t == MapNodeType.Boss) bossHp = sim.Hp;
+            if (t == MapNodeType.Boss)
+            {
+                bossHp = sim.Hp;
+                alive = sim.Alive;
+            }
             Step(ref sim, t, acc);
         }
         end = sim;
+        bossAlive = alive ?? sim.Alive;
         return bossHp ?? sim.Hp;
     }
 
@@ -197,14 +219,16 @@ public sealed class PathScorer
         switch (type)
         {
             case MapNodeType.Monster:
-                Fight(ref s, _p.MonsterHpLoss, acc);
+                Fight(ref s, _monsterLoss, _p.DamageShape.Monster, acc);
+                Heal(ref s, _p.RoomHeal.Monster);
                 // Rewards are multiplied by s.Alive: you only collect them if you survived to this room.
                 acc.Add(PathComponentKeys.Monster, s.Alive * _cardReward);
                 s.Gold += _p.MonsterGold;
                 break;
 
             case MapNodeType.Elite:
-                Fight(ref s, _p.EliteHpLoss, acc);
+                Fight(ref s, _eliteLoss, _p.DamageShape.Elite, acc);
+                Heal(ref s, _p.RoomHeal.Elite);
                 // Diminishing returns past the act's target elite count.
                 var relic = _eliteReward * (s.Elites < _targetElites ? 1.0 : _p.ExtraEliteFactor);
                 acc.Add(PathComponentKeys.Elite, s.Alive * (_cardReward + relic));
@@ -215,38 +239,40 @@ public sealed class PathScorer
             case MapNodeType.Unknown:
                 // "?" is low-variance, which matters more when HP is low.
                 var lowness = 1 - s.Hp;
-                Fight(ref s, _p.UnknownHpLoss, acc);
+                Fight(ref s, _unknownLoss, _p.DamageShape.Unknown, acc);
+                Heal(ref s, _p.RoomHeal.Unknown);
                 acc.Add(PathComponentKeys.Unknown, s.Alive * (_p.UnknownReward + _p.UnknownLowHpBonus * lowness));
                 s.Gold += _p.UnknownGold;
                 break;
 
             case MapNodeType.RestSite:
-                // Pick the better of heal and upgrade *now*. Healing is worth more the lower HP is (HpWeight).
+                // Heal or upgrade. Healing is worth more the lower HP is (HpWeight). Which one the player picks:
+                // below RestHealBelowHp they heal (measured from run history); without a threshold, the better value.
                 var heal = Math.Min(_p.RestHeal, 1 - s.Hp);
                 var healValue = _p.HpValue * heal * HpWeight(s.Hp);
                 var upgradeValue = _p.UpgradeValue * Math.Min(1.0, s.Upgradable / (double)Math.Max(1, _p.UpgradeSaturation));
-                if (healValue >= upgradeValue)
-                {
-                    s.Hp += heal;
-                    acc.Add(PathComponentKeys.Rest, s.Alive * healValue);
-                }
-                else
-                {
-                    s.Upgradable = Math.Max(0, s.Upgradable - 1);
-                    acc.Add(PathComponentKeys.Rest, s.Alive * upgradeValue);
-                }
+                // pHeal = chance the player heals here; the simulation takes the expectation of both outcomes.
+                var pHeal = upgradeValue <= 0 ? 1.0
+                    : _p.RestHealBelowHp is { } below ? HealChance(s.Hp, below, _p.RestHealSoftness)
+                    : healValue >= upgradeValue ? 1.0 : 0.0;
+                s.Hp += pHeal * heal;
+                if (pHeal < 0.5) s.Upgradable = Math.Max(0, s.Upgradable - 1);
+                acc.Add(PathComponentKeys.Rest, s.Alive * (pHeal * healValue + (1 - pHeal) * upgradeValue));
                 break;
 
             case MapNodeType.Shop:
                 acc.Add(PathComponentKeys.Shop, s.Alive * ShopVisit(ref s));
+                Heal(ref s, _p.RoomHeal.Shop);
                 break;
 
             case MapNodeType.Treasure:
                 acc.Add(PathComponentKeys.Treasure, s.Alive * _p.TreasureReward);
+                s.Gold += _p.TreasureGold;
+                Heal(ref s, _p.RoomHeal.Treasure);
                 break;
 
             case MapNodeType.Boss:
-                acc.Add(PathComponentKeys.BossRisk, -_p.BossDeathCost * s.Alive * DeathChance(s.Hp, _p.BossHpLoss * DamageMultiplier));
+                acc.Add(PathComponentKeys.BossRisk, -_p.BossDeathCost * s.Alive * DeathChance(s.Hp, _bossLoss * DamageMultiplier, _p.DamageShape.Boss));
                 break;
 
             default: // Ancient (act start) or anything new: no value either way.
@@ -255,24 +281,37 @@ public sealed class PathScorer
     }
 
     /// <summary>
-    /// One fight. Damage is modelled as uniform on [0, 2 × expected loss]:
+    /// One fight with expected loss <c>loss</c>. Damage follows <see cref="PathDamageShape"/>: a gamma (Erlang)
+    /// distribution with that mean and an integer shape, or the old uniform on [0, 2 × loss] when the shape is 0.
     /// <list type="bullet">
     /// <item>P(die) = P(damage ≥ hp); the death cost is charged once, weighted by the chance we were still alive.</item>
-    /// <item>The HP we keep is the expectation <i>given that we survived</i>: hp − loss normally, but hp / 2 when the
-    /// fight could have killed us (damage given survival is uniform on [0, hp)). This keeps HP above zero without an
-    /// arbitrary floor.</item>
+    /// <item>The HP we keep is the expectation <i>given that we survived</i>: hp − E[damage | damage &lt; hp]. Near
+    /// death that is less than the mean loss, which keeps HP above zero without an arbitrary floor.</item>
     /// </list>
     /// </summary>
-    private void Fight(ref Sim s, double baseLoss, Accumulator acc)
+    private void Fight(ref Sim s, double baseLoss, int shape, Accumulator acc)
     {
         var loss = Math.Max(0, baseLoss * DamageMultiplier);
-        var die = DeathChance(s.Hp, loss);
+        var die = DeathChance(s.Hp, loss, shape);
         acc.Add(PathComponentKeys.DeathRisk, -_p.DeathCost * s.Alive * die);
         s.Alive *= 1 - die;
 
-        var lost = s.Hp < 2 * loss ? s.Hp / 2 : loss;
+        var lost = LossIfSurvived(s.Hp, loss, shape);
         acc.Add(PathComponentKeys.HpLoss, -_p.HpValue * s.Alive * lost * HpWeight(s.Hp));
         s.Hp = Math.Max(0, s.Hp - lost);
+    }
+
+    /// <summary>Chance to heal at a rest site: a logistic step around <paramref name="below"/> (hard step when softness is 0).</summary>
+    internal static double HealChance(double hp, double below, double softness)
+        => softness <= 0 ? (hp < below ? 1.0 : 0.0) : 1 / (1 + Math.Exp((hp - below) / softness));
+
+    /// <summary>
+    /// Healing outside rest sites (post-combat relics, events, potions bought…): an expected amount per room, capped at
+    /// full HP. It only moves HP; its value shows up through lower HP cost and death risk later on the path.
+    /// </summary>
+    private static void Heal(ref Sim s, double amount)
+    {
+        if (amount > 0) s.Hp = Math.Min(1, s.Hp + amount);
     }
 
     /// <summary>Removal first (if useful and affordable), then a purchase if gold is still above the threshold.</summary>
@@ -302,6 +341,45 @@ public sealed class PathScorer
     /// <summary>P(damage ≥ hp) for damage uniform on [0, 2 × expected].</summary>
     internal static double DeathChance(double hp, double expectedLoss)
         => expectedLoss <= 0 ? 0 : Math.Clamp(1 - hp / (2 * expectedLoss), 0, 1);
+
+    /// <summary>
+    /// P(damage ≥ hp) when damage has mean <paramref name="expectedLoss"/> and gamma shape <paramref name="shape"/>
+    /// (shape 0 = the uniform model above). For an integer shape k with scale θ = mean / k the tail is
+    /// <c>e^(−x) × Σ_{i&lt;k} x^i / i!</c> with x = hp / θ (the chance that fewer than k Poisson events happen).
+    /// </summary>
+    internal static double DeathChance(double hp, double expectedLoss, int shape)
+    {
+        if (shape <= 0) return DeathChance(hp, expectedLoss);
+        if (expectedLoss <= 0) return 0;
+        if (hp <= 0) return 1;
+        return ErlangTail(hp / (expectedLoss / shape), shape);
+    }
+
+    /// <summary>
+    /// E[damage | damage &lt; hp]. Uniform model: the mean loss, or hp / 2 when the fight can kill. Gamma model:
+    /// <c>mean × F_{k+1}(hp) / F_k(hp)</c>, because ∫₀ʰᵖ t·f_k(t) dt = kθ·F_{k+1}(hp) for the Erlang density f_k.
+    /// </summary>
+    internal static double LossIfSurvived(double hp, double expectedLoss, int shape)
+    {
+        if (expectedLoss <= 0) return 0;
+        if (shape <= 0) return hp < 2 * expectedLoss ? hp / 2 : expectedLoss;
+        var x = hp / (expectedLoss / shape);
+        var below = 1 - ErlangTail(x, shape);
+        if (below <= 1e-12) return hp / 2;
+        return Math.Min(hp, expectedLoss * (1 - ErlangTail(x, shape + 1)) / below);
+    }
+
+    /// <summary>P(Erlang(k, scale 1) ≥ x) = e^(−x) Σ_{i=0}^{k−1} x^i / i!.</summary>
+    private static double ErlangTail(double x, int k)
+    {
+        double term = 1, sum = 1;
+        for (var i = 1; i < k; i++)
+        {
+            term *= x / i;
+            sum += term;
+        }
+        return Math.Clamp(Math.Exp(-x) * sum, 0, 1);
+    }
 
     private static bool RestWithin(IReadOnlyList<MapNodeType> types, int from, int count)
     {

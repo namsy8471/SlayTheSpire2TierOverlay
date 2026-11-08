@@ -1,3 +1,4 @@
+using Sts2Overlay.Core.History;
 using Sts2Overlay.Core.Map;
 using Sts2Overlay.Core.Model;
 using Sts2Overlay.GameState.Log;
@@ -40,6 +41,14 @@ public sealed class GameStateTracker : IDisposable
 {
     private const double PityReset = -0.05, PityMax = 0.4;
     private const int ScarcityAscension = 7; // AscensionLevel.Scarcity
+    private const string BingBong = "RELIC.BING_BONG";
+    private const string UpgradeRollArg = "upgrade-roll";
+
+    private static bool MayRollUpgrade(string cardId) =>
+        CardRarities.Of(cardId) is not ("Rare" or null) && CardRarities.MaxUpgrade(cardId) > 0;
+    /// <summary>Card type each egg relic upgrades when a card of that type joins the deck.</summary>
+    private static readonly (string Relic, string Type)[] s_eggs =
+        [("RELIC.FROZEN_EGG", "Power"), ("RELIC.MOLTEN_EGG", "Attack"), ("RELIC.TOXIC_EGG", "Skill")];
 
     private readonly TrackerOptions _options;
     private readonly StartingLoadouts _loadouts;
@@ -66,6 +75,15 @@ public sealed class GameStateTracker : IDisposable
     private string? _lastEncounter;
     private string? _lastRestOption;
     private bool _pendingRemovalReward;
+    private bool _cardStolen;                            // Thieving Hopper took a card this room (not yet returned)
+    private int _stealAt;                                // index in _combatPlays where the steal happened
+    private (List<CombatPlay> Before, List<CombatPlay> After)? _stealPlays;
+    private DeckEffect? _pendingSelect;                  // meaning of my next "chose cards" (event option / relic)
+    private bool _shopRemovalSeen;                       // a merchant sells one removal per visit
+    private readonly List<int> _restSitePatches = [];    // provisional smith upgrades, fixed by the option line
+    private readonly HashSet<string> _relicsThisRoom = new(StringComparer.Ordinal);
+    private List<CombatPlay>? _combatPlays;              // plays of the fight in progress
+    private IReadOnlyList<DeckCard>? _historyDeck;       // my final deck from the .run file (run over)
     private double? _pityLog;
     private long _pityLogSeq = -1;
     private IReadOnlyList<RarityRoll> _lastRolls = [];
@@ -237,9 +255,15 @@ public sealed class GameStateTracker : IDisposable
                 // An event that starts a fight preloads 'Event Room' then 'Combat Room' on the same floor;
                 // only count a floor when a map move (vote / act start) happened since the last room.
                 if (_moveSinceRoom) { _logFloor++; _moveSinceRoom = false; }
+                FlushCombat();
+                SettleStolenCard();
                 _room = room.Room;
                 _lastRestOption = null;
                 _pendingRemovalReward = false;
+                _pendingSelect = null;
+                _shopRemovalSeen = false;
+                _restSitePatches.Clear();
+                _relicsThisRoom.Clear();
                 _screen = room.Room switch
                 {
                     RoomKind.Combat => ScreenHint.Combat,
@@ -256,18 +280,22 @@ public sealed class GameStateTracker : IDisposable
                 return true;
 
             case CombatStartedEvent cs when !cs.VisualOnly:
+                FlushCombat();
+                _combatPlays = [];
                 _lastEncounter = cs.EncounterId;
                 _lastKind = cs.Kind != CombatKind.Unknown ? cs.Kind : KindFromMap();
                 _screen = ScreenHint.Combat;
                 return true;
 
             case CombatWonEvent w:
+                FlushCombat();
                 _lastEncounter = w.EncounterId;
                 if (w.Kind != CombatKind.Unknown) _lastKind = w.Kind;
                 _screen = ScreenHint.RewardScreenLikely; // rewards are rolled right after this line
                 return true;
 
             case CombatLostEvent:
+                FlushCombat();
                 End(RunOutcome.Lost);
                 return true;
             case RunWonEvent:
@@ -276,8 +304,11 @@ public sealed class GameStateTracker : IDisposable
             case RunAbandonedEvent:
                 End(RunOutcome.Abandoned);
                 return true;
-            case RunHistorySavedEvent:
+            case RunHistorySavedEvent h:
+                FlushCombat();
+                SettleStolenCard();
                 End(_outcome == RunOutcome.InProgress ? RunOutcome.Ended : _outcome);
+                _historyDeck = ReadHistoryDeck(h.FileName);
                 return true;
 
             case RunSaveWrittenEvent w:
@@ -286,8 +317,20 @@ public sealed class GameStateTracker : IDisposable
                 return true;
 
             // ---- patches: only for the local player ----------------------------------------------
+            case MonsterMoveEvent { Move: "THIEVERY_MOVE" }:
+                _cardStolen = true; // every living player loses a card (which one is not logged)
+                _stealAt = _combatPlays?.Count ?? 0;
+                _stealPlays = null;
+                return false;
+            case CardObtainedEvent { Special: true } c when IsMe(c.PlayerId) && _cardStolen:
+                // Killing the hopper gives the stolen card back as a "special card reward" (SwipePower.BeforeDeath):
+                // the unlogged steal and this return cancel out, so the deck is unchanged.
+                _cardStolen = false;
+                return false;
             case CardObtainedEvent c when IsMe(c.PlayerId):
-                AddPatch(PatchKind.AddCard, c.CardId, 0);
+                // From act 2 on, a reward card may come pre-upgraded (CardFactory.RollForUpgrade: act index x 25%,
+                // never for rares). The roll isn't logged, so such a card is flagged.
+                AddPatch(PatchKind.AddCard, c.CardId, 0, !c.Special && _logAct >= 2 && MayRollUpgrade(c.CardId) ? UpgradeRollArg : null);
                 if (_screen == ScreenHint.RewardScreenLikely && !c.Special) _screen = ScreenHint.Map; // card picked
                 return true;
             case GoldObtainedEvent g when IsMe(g.PlayerId):
@@ -298,7 +341,19 @@ public sealed class GameStateTracker : IDisposable
                 return true;
             case RelicObtainedEvent r when IsMe(r.PlayerId):
                 AddPatch(PatchKind.AddRelic, r.RelicId, 0);
+                ApplyRelicEffect(r.RelicId);
                 return true;
+            case RemoteShopPurchaseEvent sp when IsMe(sp.PlayerId):
+                // Only ANOTHER player's purchases are logged; seen when we follow a remote player (evaluation, host view).
+                if (sp.ItemId.StartsWith("CARD.", StringComparison.Ordinal)) AddPatch(PatchKind.AddCard, sp.ItemId, 0);
+                else { AddPatch(PatchKind.AddRelic, sp.ItemId, 0); ApplyRelicEffect(sp.ItemId); }
+                return true;
+            case EventOptionChosenEvent eo when IsMe(eo.PlayerId):
+                ApplyChoice(eo);
+                return true;
+            case CardPlayedEvent play:
+                _combatPlays?.Add(new CombatPlay(play.OwnerId, play.CardId, play.CombatIndex));
+                return false;
             case PotionUsedEvent u when IsMe(u.PlayerId):
                 AddPatch(PatchKind.RemovePotion, u.PotionId, 0);
                 return true;
@@ -307,7 +362,7 @@ public sealed class GameStateTracker : IDisposable
                 return false;
             case RestSiteOptionEvent ro when IsMe(ro.PlayerId) && ro.Success:
                 _lastRestOption = ro.Option;
-                return false;
+                return FixRestSitePatches(ro.Option);
             case CardsChosenEvent ch when IsMe(ch.PlayerId) && ch.CardIds.Count > 0:
                 return ApplyChosen(ch);
 
@@ -318,23 +373,173 @@ public sealed class GameStateTracker : IDisposable
 
     /// <summary>
     /// "Player N chose cards [X]" is logged by every card-select screen, so its meaning comes from context:
-    /// shop → removal (and the removal price goes up), rest site → smith upgrade, a "card removal" reward → removal.
-    /// In combat (hand picks) and events (could be remove/transform/enchant...) we don't guess: the next save
-    /// will carry the truth.
+    /// a "card removal" reward → removal; an event option / relic pickup just before → what that option does
+    /// (<see cref="DeckEffects"/>); the first pick in a shop → the removal service (one per visit); a rest site →
+    /// smith upgrade (co-op logs the chosen option right AFTER the pick, see <see cref="FixRestSitePatches"/>).
+    /// Any other pick outside combat names deck cards we can't interpret: they are kept and flagged uncertain.
+    /// Picks in a combat room (hand picks during the fight) are not recorded.
     /// </summary>
     private bool ApplyChosen(CardsChosenEvent ch)
     {
-        PatchKind? kind = null;
-        if (_pendingRemovalReward) { kind = PatchKind.RemoveCard; _pendingRemovalReward = false; }
-        else if (_room == RoomKind.Merchant) kind = PatchKind.ShopRemoveCard;
-        else if (_room == RoomKind.RestSite && (_lastRestOption is null || _lastRestOption == "SMITH")) kind = PatchKind.UpgradeCard;
-        if (kind is not { } k) return false;
-        foreach (string card in ch.CardIds) AddPatch(k, card, 0);
-        return true;
+        if (_pendingRemovalReward)
+        {
+            _pendingRemovalReward = false;
+            foreach (string card in ch.CardIds) AddPatch(PatchKind.RemoveCard, card, 0);
+            return true;
+        }
+        if (_pendingSelect is { Select: not SelectMeaning.None } effect)
+        {
+            _pendingSelect = null;
+            PatchKind kind = effect.Select switch
+            {
+                SelectMeaning.Remove => PatchKind.RemoveCard,
+                SelectMeaning.Transform => PatchKind.TransformCard,
+                SelectMeaning.Upgrade => PatchKind.UpgradeCard,
+                SelectMeaning.Enchant => PatchKind.EnchantCard,
+                SelectMeaning.AddChosen => PatchKind.AddCard,
+                _ => PatchKind.DuplicateCard,
+            };
+            string? arg = effect.Select == SelectMeaning.Transform ? effect.TransformTo : effect.Enchantment;
+            foreach (string card in ch.CardIds) AddPatch(kind, card, 0, arg);
+            return true;
+        }
+        switch (_room)
+        {
+            case RoomKind.Merchant when !_shopRemovalSeen:
+                _shopRemovalSeen = true;
+                foreach (string card in ch.CardIds) AddPatch(PatchKind.ShopRemoveCard, card, 0);
+                return true;
+            case RoomKind.RestSite when _lastRestOption is null || _lastRestOption == "SMITH":
+                foreach (string card in ch.CardIds)
+                {
+                    if (_lastRestOption is null) _restSitePatches.Add(_patches.Count);
+                    AddPatch(PatchKind.UpgradeCard, card, 0);
+                }
+                return true;
+            case RoomKind.Combat:
+                return false;
+            default:
+                foreach (string card in ch.CardIds) AddPatch(PatchKind.UnknownSelect, card, 0);
+                return true;
+        }
     }
 
-    private void AddPatch(PatchKind kind, string? id, int amount) =>
-        _patches.Add(new Patch(kind, id, amount, _seq));
+    /// <summary>
+    /// Co-op logs "Rest site option ... Option: X" right after the pick. Single player never logs it, so a rest-site
+    /// pick is first recorded as a smith upgrade and corrected here: COOK removes the picked cards (CookRestSiteOption),
+    /// any other option makes them uncertain. CLONE (no pick) copies every Clone-enchanted card.
+    /// </summary>
+    private bool FixRestSitePatches(string option)
+    {
+        bool changed = false;
+        if (option != "SMITH")
+        {
+            foreach (int i in _restSitePatches)
+            {
+                if (i >= _patches.Count || _patches[i].Kind != PatchKind.UpgradeCard) continue;
+                _patches[i] = _patches[i] with { Kind = option == "COOK" ? PatchKind.RemoveCard : PatchKind.UnknownSelect };
+                changed = true;
+            }
+        }
+        _restSitePatches.Clear();
+        if (option == "CLONE") { AddPatch(PatchKind.CloneEnchanted, null, 0); changed = true; }
+        return changed;
+    }
+
+    /// <summary>
+    /// An event option. An ancient's option grants the relic whose id ends the key ("NEOW.pages.INITIAL.options.FISHING_ROD");
+    /// the game logs no "obtained" line for it (AncientEventModel → RelicCmd.Obtain), so the relic is added here.
+    /// </summary>
+    private void ApplyChoice(EventOptionChosenEvent eo)
+    {
+        int dot = eo.ChoiceKey.LastIndexOf('.');
+        string? relic = dot >= 0 ? "RELIC." + eo.ChoiceKey[(dot + 1)..] : null;
+        if (relic != null && DeckEffects.IsAncient(eo.EventId))
+        {
+            if (_relicsThisRoom.Add(relic)) AddPatch(PatchKind.AddRelic, relic, 0);
+        }
+        else if (relic != null && DeckEffects.ForRelic(relic) != null)
+            _relicsThisRoom.Add(relic);
+        ApplyEffect(DeckEffects.ForChoice(eo.EventId, eo.ChoiceKey));
+    }
+
+    /// <summary>A relic was obtained: apply its pickup effect once per room (an ancient option may have applied it already).</summary>
+    private void ApplyRelicEffect(string relicId)
+    {
+        if (!_relicsThisRoom.Add(relicId)) return;
+        ApplyEffect(DeckEffects.ForRelic(relicId));
+    }
+
+    /// <summary>Fixed and random deck effects of an event option / relic; its card-select meaning waits for "chose cards".</summary>
+    private void ApplyEffect(DeckEffect? effect)
+    {
+        _pendingSelect = effect;
+        if (effect is null) return;
+        foreach (string card in effect.Adds) AddPatch(PatchKind.AddCard, card, 0);
+        foreach (string card in effect.Removes) AddPatch(PatchKind.RemoveCard, card, 0);
+        if (effect.RandomUpgrades > 0) AddPatch(PatchKind.RandomUpgrades, null, effect.RandomUpgrades);
+        if (effect.UnknownAdds > 0) AddPatch(PatchKind.UnknownAdds, null, effect.UnknownAdds);
+        if (effect.RandomRemoves > 0) AddPatch(PatchKind.RandomRemoves, null, effect.RandomRemoves);
+        if (effect.UpgradeBasicStrikeAndDefend) AddPatch(PatchKind.UpgradeBasics, null, 0);
+        if (effect.TransformAllBasics) AddPatch(PatchKind.TransformAllBasics, null, 0);
+        if (effect.TransformOneStrikeAndDefend) AddPatch(PatchKind.TransformStrikeAndDefend, null, 0);
+        if (effect.Transcend) AddPatch(PatchKind.Transcend, null, 0);
+        if (effect.UpgradeAll) AddPatch(PatchKind.UpgradeAll, null, 0);
+    }
+
+    /// <summary>Leaving the room with the stolen card not returned (hopper escaped / reward skipped): an unknown card is gone.</summary>
+    private void SettleStolenCard()
+    {
+        if (!_cardStolen) return;
+        _cardStolen = false;
+        _patches.Add(new Patch(PatchKind.CardStolen, null, 0, _seq)
+        {
+            Before = _stealPlays?.Before ?? [],
+            Combat = new CombatObservation(_stealPlays?.After ?? []),
+        });
+        _stealPlays = null;
+    }
+
+    /// <summary>The fight is over: keep its plays as one observation (only used for a log-only rebuild).</summary>
+    private void FlushCombat()
+    {
+        if (_cardStolen && _stealPlays is null && _combatPlays is { } fight)
+            _stealPlays = (fight.Take(_stealAt).ToList(), fight.Skip(_stealAt).ToList());
+        if (_combatPlays is { } plays)
+            _patches.Add(new Patch(PatchKind.CombatSeen, null, 0, _seq)
+            {
+                Combat = new CombatObservation(plays),
+                Arg = (_lastKind ?? CombatKind.Unknown).ToString(),
+            });
+        _combatPlays = null;
+    }
+
+    /// <summary>
+    /// Run-end reconciliation: the game writes <c>history/&lt;n&gt;.run</c> with every player's final deck. A co-op guest
+    /// has no save, so this is the only exact source; read it (read-only) when the saves folder is known.
+    /// </summary>
+    private IReadOnlyList<DeckCard>? ReadHistoryDeck(string fileName)
+    {
+        if (_options.Paths?.SavesDirectory is not { } saves) return null;
+        string path = Path.Combine(saves, "history", fileName);
+        try
+        {
+            if (IO.SharedFile.ReadAllText(path) is not { } json) return null;
+            RunHistory history = RunHistoryReader.Parse(json);
+            ulong me = MyId();
+            RunPlayer? player = history.Players.FirstOrDefault(p => (ulong)p.Id == me)
+                                ?? (history.Players.Count == 1 ? history.Players[0] : null);
+            return player?.Deck;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
+        {
+            Diagnostic?.Invoke(this, $"run history read failed: {path}: {ex.Message}");
+            return null;
+        }
+    }
+
+    private void AddPatch(PatchKind kind, string? id, int amount, string? arg = null) =>
+        _patches.Add(new Patch(kind, id, amount, _seq) { Arg = arg });
 
     private void End(RunOutcome outcome)
     {
@@ -356,6 +561,14 @@ public sealed class GameStateTracker : IDisposable
         _lastEncounter = null;
         _lastRestOption = null;
         _pendingRemovalReward = false;
+        _cardStolen = false;
+        _stealPlays = null;
+        _pendingSelect = null;
+        _shopRemovalSeen = false;
+        _restSitePatches.Clear();
+        _relicsThisRoom.Clear();
+        _combatPlays = null;
+        _historyDeck = null;
         _pityLog = null;
         _pityLogSeq = -1;
         _lastRolls = [];
@@ -541,27 +754,51 @@ public sealed class GameStateTracker : IDisposable
         }
 
         // ---- apply log patches newer than the save -------------------------------------------------
-        var deck = state.Deck.ToList();
+        var deck = new DeckReplay(state.Deck);
         var relics = state.Relics.ToList();
         int gold = state.Gold, removals = state.CardRemovalsBought, applied = 0;
+        int rodFights = 0;
+        IReadOnlyList<ulong> order = PlayerOrder();
         foreach (Patch p in _patches)
         {
             if (p.Seq <= cutoff) continue;
+            // Uncertainty flags and fight observations only matter without a save (co-op guest): a save is exact.
+            if (fromSave && p.Kind is PatchKind.UnknownSelect or PatchKind.RandomUpgrades
+                    or PatchKind.UnknownAdds or PatchKind.RandomRemoves) continue;
             applied++;
             switch (p.Kind)
             {
                 case PatchKind.AddCard:
-                    deck.Add(new DeckCard(new CardRef(p.Id!), FloorAdded: state.Floor));
+                    deck.DuplicateAdds = relics.Contains(BingBong);
+                    deck.UpgradeAddedTypes = s_eggs.Where(e => relics.Contains(e.Relic)).Select(e => e.Type).ToHashSet();
+                    deck.Add(p.Id!, state.Floor, p.Arg == UpgradeRollArg && !fromSave ? UncertainReason.UpgradeRoll : null);
                     break;
-                case PatchKind.ShopRemoveCard:
-                    removals++;
-                    RemoveCard(deck, p.Id!);
+                case PatchKind.UpgradeAll: deck.UpgradeAll(); break;
+                case PatchKind.ShopRemoveCard: removals++; deck.Remove(p.Id!); break;
+                case PatchKind.RemoveCard: deck.Remove(p.Id!); break;
+                case PatchKind.UpgradeCard: deck.Upgrade(p.Id!, state.Floor); break;
+                case PatchKind.TransformCard: deck.Transform(p.Id!, p.Arg, state.Floor); break;
+                case PatchKind.EnchantCard: deck.Enchant(p.Id!, p.Arg, state.Floor); break;
+                case PatchKind.DuplicateCard: deck.Duplicate(p.Id!, state.Floor); break;
+                case PatchKind.UnknownSelect: deck.MarkUnknown(p.Id!, state.Floor); break;
+                case PatchKind.RandomUpgrades: deck.RandomUpgrades(p.Amount); break;
+                case PatchKind.UnknownAdds: deck.UnknownAdds(p.Amount); break;
+                case PatchKind.RandomRemoves: deck.RandomRemoves(p.Amount); break;
+                case PatchKind.CardStolen:
+                    deck.Stolen(p.Before!.Where(x => x.Owner == me).ToList(), p.Combat!.Plays.Where(x => x.Owner == me).ToList());
                     break;
-                case PatchKind.RemoveCard:
-                    RemoveCard(deck, p.Id!);
-                    break;
-                case PatchKind.UpgradeCard:
-                    UpgradeCard(deck, p.Id!);
+                case PatchKind.UpgradeBasics: deck.UpgradeBasics(); break;
+                case PatchKind.TransformAllBasics: deck.TransformAllBasics(); break;
+                case PatchKind.TransformStrikeAndDefend: deck.TransformStrikeAndDefend(); break;
+                case PatchKind.Transcend: deck.Transcend(); break;
+                case PatchKind.CloneEnchanted: deck.CloneEnchanted(); break;
+                case PatchKind.CombatSeen:
+                    if (!fromSave && p.Combat!.Plays.Count > 0) deck.Observe(p.Combat!, order, me, state.Floor);
+                    deck.CombatEnded();
+                    // Relics that upgrade random deck cards after fights (FishingRod: every 3rd normal fight;
+                    // WarHammer: 4 cards per elite won). Which cards is never logged: counted as unplaced upgrades.
+                    if (p.Arg == nameof(CombatKind.Normal) && relics.Contains("RELIC.FISHING_ROD") && ++rodFights % 3 == 0) deck.RandomUpgrades(1);
+                    if (p.Arg == nameof(CombatKind.Elite) && relics.Contains("RELIC.WAR_HAMMER")) deck.RandomUpgrades(4);
                     break;
                 case PatchKind.AddRelic:
                     relics.Add(p.Id!);
@@ -580,7 +817,11 @@ public sealed class GameStateTracker : IDisposable
             }
         }
 
-        state = state with { Deck = deck, Relics = relics, Gold = gold, CardRemovalsBought = removals };
+        // Run over and the game wrote the history file: that deck is exact (the only exact source for a guest).
+        bool fromHistory = !fromSave && _historyDeck != null;
+        IReadOnlyList<DeckCard> finalDeck = fromHistory ? _historyDeck! : deck.Cards;
+
+        state = state with { Deck = finalDeck, Relics = relics, Gold = gold, CardRemovalsBought = removals };
 
         // Our map vote moves "Current" before the room-entry save lands (useful for the path advisor).
         if (map != null && _voteCoord is { } vote && _voteSeq > cutoff && map.Nodes.ContainsKey(vote))
@@ -598,7 +839,12 @@ public sealed class GameStateTracker : IDisposable
             Potions = potions.OrderBy(x => x.Slot).ToList(),
             FromSave = fromSave,
             HpGoldReliable = fromSave,
-            DeckApproximate = !fromSave || applied > 0,
+            DeckApproximate = !fromHistory && (!fromSave || applied > 0),
+            UncertainCards = fromHistory ? [] : deck.Uncertain,
+            UnidentifiedCards = fromHistory ? 0 : deck.Unidentified,
+            UnknownUpgrades = fromHistory ? 0 : deck.UnknownUpgrades,
+            UnknownRemovals = fromHistory ? 0 : deck.UnknownRemovals,
+            DeckFromRunHistory = fromHistory,
             AppliedLogPatches = applied,
             LocalPlayerId = me,
             Seed = save?.Save.Seed ?? _logRun?.Seed,
@@ -640,29 +886,6 @@ public sealed class GameStateTracker : IDisposable
         };
     }
 
-    /// <summary>The log only names the card, not its upgrade/enchantment: remove the plainest copy.</summary>
-    private static void RemoveCard(List<DeckCard> deck, string id)
-    {
-        int best = -1;
-        for (int i = 0; i < deck.Count; i++)
-        {
-            if (deck[i].Id != id) continue;
-            if (best < 0 || Plainness(deck[i]) < Plainness(deck[best])) best = i;
-        }
-        if (best >= 0) deck.RemoveAt(best);
-    }
-
-    /// <summary>Smith upgrades one copy: pick the least-upgraded one.</summary>
-    private static void UpgradeCard(List<DeckCard> deck, string id)
-    {
-        int best = -1;
-        for (int i = 0; i < deck.Count; i++)
-            if (deck[i].Id == id && (best < 0 || deck[i].Upgrade < deck[best].Upgrade)) best = i;
-        if (best >= 0) deck[best] = deck[best] with { Card = deck[best].Card with { Upgrade = deck[best].Upgrade + 1 } };
-    }
-
-    private static int Plainness(DeckCard c) => c.Upgrade * 2 + (c.EnchantmentId != null ? 1 : 0);
-
     // =============================================================================================
     // Private types
     // =============================================================================================
@@ -672,8 +895,20 @@ public sealed class GameStateTracker : IDisposable
 
     private sealed record SaveMark(long Seq, string FileName, long Bytes);
 
-    private enum PatchKind { AddCard, RemoveCard, ShopRemoveCard, UpgradeCard, AddRelic, AddGold, AddPotion, RemovePotion }
+    private enum PatchKind
+    {
+        AddCard, RemoveCard, ShopRemoveCard, UpgradeCard, TransformCard, EnchantCard, DuplicateCard, UnknownSelect,
+        RandomUpgrades, UnknownAdds, RandomRemoves, UpgradeBasics, TransformAllBasics, TransformStrikeAndDefend, Transcend,
+        CloneEnchanted, CombatSeen, CardStolen, UpgradeAll, AddRelic, AddGold, AddPotion, RemovePotion,
+    }
 
     /// <param name="Seq">Log line number: patches are compared to save marks by this, not by wall-clock time.</param>
-    private sealed record Patch(PatchKind Kind, string? Id, int Amount, long Seq);
+    private sealed record Patch(PatchKind Kind, string? Id, int Amount, long Seq)
+    {
+        /// <summary>Transform target / enchantment id.</summary>
+        public string? Arg { get; init; }
+        public CombatObservation? Combat { get; init; }
+        /// <summary>CardStolen: the fight's plays before the steal (<see cref="Combat"/> holds the ones after it).</summary>
+        public IReadOnlyList<CombatPlay>? Before { get; init; }
+    }
 }

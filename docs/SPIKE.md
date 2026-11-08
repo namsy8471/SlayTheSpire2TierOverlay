@@ -64,6 +64,21 @@ PckTool extract-images "images/packed/card_portraits/**/*.png" data\local\pck\ca
 - **화면 판별 템플릿 후보**: `images/ui/reward_screen/*.png` 12개 (보상 배너, 카드 아이콘, 스킵 버튼 등. 11개 WebP 추출 가능).
   카드 테두리·희귀도 배너는 셰이더 + BC7 아틀라스라 바로 꺼내기 어렵습니다.
 
+### 2.1 게임 버전과 지문 (자동 리소스 준비) [실행 확인]
+
+> 2026-11-08 추가: 앱이 시작할 때 `src/Sts2Overlay.Resources`로 위 추출을 직접 합니다 (`--prepare`, `tools/refresh-local.ps1`).
+
+| 후보 | 값 (v0.107.1) | 판단 |
+|---|---|---|
+| **`<설치>/release_info.json`** | `{"commit":"59260271","version":"v0.107.1",...,"main_assembly_hash":-1555940892}` | **채택.** 게임이 직접 읽는 파일 (`ReleaseInfoManager.cs`). godot.log의 `release=v0.107.1`도 여기서 옴 |
+| `sts2.dll` 파일/제품 버전 | `0.1.0.0` / `0.1.0+59260271…` | 버전 정보 없음 (커밋만) |
+| pck 헤더 | Godot 엔진 버전 `4.5.1`뿐 | 게임 버전 없음 |
+| godot.log | `[Sentry.NET] Initialized: ... release=v0.107.1` | 게임을 한 번 켜야 생기고 교체됨. 위 파일의 사본 |
+
+- **검증**: `main_assembly_hash` = SHA-1(`sts2.dll`) 앞 4바이트를 little-endian int로 읽은 값 (`AssemblyHasher.cs:18`). 실제로 `-1555940892`로 일치 → `release_info.json`이 설치된 dll의 것임을 확인할 수 있습니다 (불일치면 수정된 dll이거나 업데이트가 덜 된 상태 → 로그 경고).
+- **지문** (`data/local/manifest.json`): `sts2.dll` SHA-256(9 MB, 약 25 ms) + pck 크기·수정 시각(1.9 GB라 해시는 너무 느림) + 버전·커밋. 하나라도 바뀌면 다시 추출합니다.
+- **소요 시간**: 처음 준비 약 1초(현지화 92개, 카드 그림 875개, 카드 578장) + 인식용 그림 캐시 약 1초. 지문이 같으면 약 0.2초 만에 끝납니다 (디스크 캐시가 따뜻한 상태에서 측정).
+
 ## 3. 세이브·로그로 읽을 수 있는 것 [실행 확인]
 
 사용자 데이터: `%APPDATA%\SlayTheSpire2\steam\<SteamID>\profile1\saves\`

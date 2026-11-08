@@ -72,6 +72,26 @@ public class TrackerAndDatabaseTests
     }
 
     [Fact]
+    public void Shop_price_survives_a_frame_where_the_label_is_covered_and_newer_readings_win()
+    {
+        static RecognizedCard Priced(int? price, PriceTint tint) => Card(0, "A") with
+        {
+            SlotKind = CardSlotKind.ShopCharacter,
+            Price = price,
+            PriceReading = new PriceReading(price, price?.ToString() ?? "", tint, 0.9f, 0.3f, price != null, default),
+        };
+        var tr = new RecognitionTracker();
+        tr.Update(Frame(ScreenKind.Shop, 7, Priced(75, PriceTint.Cream)), T0);
+        // the merchant's hand covers the label: no price this frame
+        RecognizedCard a = tr.Update(Frame(ScreenKind.Shop, 7, Priced(null, PriceTint.Unknown)), T0.AddSeconds(0.5)).Cards[0];
+        Assert.Equal(75, a.Price);
+        Assert.Equal(PriceTint.Cream, a.PriceReading?.Tint);
+        // the player bought something else: the label turns red
+        a = tr.Update(Frame(ScreenKind.Shop, 7, Priced(75, PriceTint.Red)), T0.AddSeconds(1)).Cards[0];
+        Assert.True(a.Unaffordable);
+    }
+
+    [Fact]
     public void TopK_keeps_one_entry_per_card_and_respects_the_filter()
     {
         // C0 has two art variants (seed 100 and a near copy); C1 is different.
