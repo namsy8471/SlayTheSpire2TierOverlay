@@ -11,6 +11,11 @@ on:
         description: 'SemVer without the leading v (e.g. 0.1.0). Tag v<version> is created on the selected commit.'
         required: true
         type: string
+      dry_run:
+        description: 'Pack only: skip the GitHub Release upload and attach the Releases folder as a workflow artifact.'
+        required: false
+        default: true
+        type: boolean
 
 permissions:
   contents: write   # Release와 태그를 만들려면 필요
@@ -26,8 +31,13 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
 
 jobs:
-  release:
+  # 1단계 (Windows): 테스트하고 앱 폴더를 publish합니다. WPF 앱이라 빌드·테스트는 Windows에서만 됩니다.
+  build:
     runs-on: windows-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+      skip: ${{ steps.version.outputs.skip }}
     defaults:
       run:
         shell: pwsh
@@ -93,38 +103,72 @@ jobs:
           dotnet publish src/Sts2Overlay.App -c Release -r win-x64 --self-contained -o publish "-p:Version=${{ steps.version.outputs.version }}"
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
-      - name: Restore vpk (local dotnet tool)
+      - name: Upload publish folder
         if: steps.version.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: publish
+          path: publish/
+          if-no-files-found: error
+          retention-days: 3
+
+  # 2단계 (Linux): 같은 폴더를 Windows용 Velopack 패키지로 묶고 올립니다 (vpk의 [win] 지시자 = cross-pack).
+  # 왜 Linux인가: 델타는 vpk에 딸린 zstd가 만드는데, Windows 러너(영어, ANSI 코드 페이지 cp1252)에서는
+  # 한글 제목에서 생긴 "STS2 티어 오버레이_ExecutionStub.exe" 경로가 "??"로 깨져 델타가 실패합니다 (v0.1.1).
+  # Linux는 파일 이름을 UTF-8 바이트로 그대로 넘기므로 깨지지 않습니다. 제목(바로가기 이름)은 그대로 둡니다.
+  pack:
+    needs: build
+    if: needs.build.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
+      PRERELEASE: ${{ needs.build.outputs.prerelease }}
+      # 수동 실행에서 dry_run을 켜면 GitHub Release에 올리지 않습니다. 태그 push에는 이 입력이 없어 항상 올립니다.
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+    steps:
+      # dotnet-tools.json(vpk 버전)과 아이콘만 쓰지만, 경로를 그대로 쓰려고 레포를 받습니다.
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: publish
+          path: publish
+
+      - name: Restore vpk (local dotnet tool)
         run: |
           dotnet tool restore
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
       # 이전 릴리스를 받아 두면 vpk pack이 델타 업데이트 패키지를 만듭니다. 첫 릴리스면 받을 게 없으니 넘어갑니다.
+      # [win]: Linux에서 돌지만 Windows 채널(releases.win.json)을 받습니다.
       - name: Download previous release (for deltas)
-        if: steps.version.outputs.skip != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $extra = @()
-          if ('${{ steps.version.outputs.prerelease }}' -eq 'true') { $extra += '--pre' }
-          dotnet vpk download github --repoUrl $env:REPO_URL --outputDir releases --token $env:GITHUB_TOKEN @extra
+          if ($env:PRERELEASE -eq 'true') { $extra += '--pre' }
+          dotnet vpk '[win]' download github --repoUrl $env:REPO_URL --outputDir releases --token $env:GITHUB_TOKEN @extra
           if ($LASTEXITCODE -ne 0) {
             Write-Host '::warning::No previous release downloaded (first release?). Packing without deltas.'
           }
           exit 0
 
-      - name: Pack (Velopack)
-        if: steps.version.outputs.skip != 'true'
+      - name: Pack (Velopack, cross-pack for Windows)
         run: |
-          $ver = '${{ steps.version.outputs.version }}'
-          $pack = @('vpk', 'pack', '--packId', 'namsy8471.Sts2Overlay', '--packVersion', $ver, '--packDir', 'publish',
+          $ver = $env:VERSION
+          $pack = @('vpk', '[win]', 'pack', '--packId', 'namsy8471.Sts2Overlay', '--packVersion', $ver, '--packDir', 'publish',
             '--mainExe', 'Sts2Overlay.exe', '--packTitle', 'STS2 티어 오버레이', '--packAuthors', 'namsy8471',
             '--icon', 'src/Sts2Overlay.App/Assets/Sts2Overlay.ico', '--runtime', 'win-x64', '--outputDir', 'releases')
           dotnet @pack
           if ($LASTEXITCODE -ne 0) {
-            # 델타는 vpk에 딸린 zstd.exe가 만드는데, 이 영어(cp1252) 러너에서는 한글이 든 파일 경로
-            # ("STS2 티어 오버레이_ExecutionStub.exe")를 열지 못해 실패합니다 (v0.1.1 첫 시도).
-            # 델타 없이 다시 묶습니다: 업데이트는 full 패키지로 받으므로 조금 더 받을 뿐 똑같이 됩니다.
+            # 안전망: 델타를 못 만들면 델타 없이 다시 묶습니다. 업데이트는 full 패키지로 받으므로 조금 더 받을 뿐 똑같이 됩니다.
             Write-Host '::warning::vpk pack failed (likely delta creation). Retrying with --delta none.'
             Get-ChildItem releases -File |
               Where-Object { $_.Name -like "*-$ver-*" -or $_.Name -like '*-Setup.exe' -or $_.Name -like '*-Portable.zip' } |
@@ -133,17 +177,28 @@ jobs:
             if ($LASTEXITCODE -ne 0) { exit 1 }
           }
           Get-ChildItem releases | Format-Table Name, Length -AutoSize
+          if (-not (Get-ChildItem releases -Filter "*-$ver-delta.nupkg")) {
+            Write-Host "::warning::No delta package for $ver (first release, or the delta step failed)."
+          }
+
+      - name: Attach packages (dry run)
+        if: env.DRY_RUN == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: releases-${{ env.VERSION }}
+          path: releases/
+          retention-days: 7
 
       # 태그가 이미 있으면(push 트리거) 그 태그에, 수동 실행이면 이 커밋에 새 태그를 붙여 Release를 공개합니다.
       - name: Upload to GitHub Releases
-        if: steps.version.outputs.skip != 'true'
+        if: env.DRY_RUN != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $ver = '${{ steps.version.outputs.version }}'
+          $ver = $env:VERSION
           $extra = @()
-          if ('${{ steps.version.outputs.prerelease }}' -eq 'true') { $extra += '--pre' }
-          dotnet vpk upload github --repoUrl $env:REPO_URL --outputDir releases --publish `
+          if ($env:PRERELEASE -eq 'true') { $extra += '--pre' }
+          dotnet vpk '[win]' upload github --repoUrl $env:REPO_URL --outputDir releases --publish `
             --tag "v$ver" --releaseName "STS2 티어 오버레이 v$ver" --targetCommitish '${{ github.sha }}' `
             --token $env:GITHUB_TOKEN @extra
           if ($LASTEXITCODE -ne 0) { exit 1 }
