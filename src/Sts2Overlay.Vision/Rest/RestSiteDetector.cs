@@ -22,13 +22,14 @@ namespace Sts2Overlay.Vision.Rest;
 /// largest such N. A grey (disabled) icon is accepted only next to at least one coloured match, so plain grey
 /// screen areas can never start a detection on their own.</item>
 /// </list>
-/// Pure function of the pixels, no state: ~0.2 ms per 4K frame in Release (RestBench), because it reads only about\n/// 11 slots x 3 scales x 12 cells of sparse pixels plus a few tiny probes.
+/// Pure function of the pixels, no state: ~0.2 ms per 4K frame in Release (RestBench), because it reads only about
+/// 11 slots x 3 scales x 12 cells of sparse pixels plus a few tiny probes.
 /// </summary>
 public static class RestSiteDetector
 {
     /// <summary>Largest accepted colour residual (RMS over the 36 cell values, 0..255 scale).</summary>
-    /// <remarks>Measured on real frames: choice-screen buttons fit within ~4; the closest non-button area
-    /// (map parchment, dark menus) stays above 12.</remarks>
+    /// <remarks>Measured on ~2700 real frames: settled choice-screen buttons fit within 3 (5.4 mid fade-in); the
+    /// closest non-button area (map parchment, dark menus) stays above 12. 8 sits in the gap.</remarks>
     public const float MaxResidual = 8f;
 
     /// <summary>Brightness range a real button can have relative to its signature.</summary>
