@@ -37,7 +37,7 @@ public sealed record CardRemovalReading(bool Available, PixelRect Bounds, float 
 /// <see cref="RefTransform"/>), so the fractions and the icon count mean the same at FHD and 4K, and the whole probe
 /// reads about 25 000 pixels (~0.1 ms).</para>
 ///
-/// <para>Measured on the 345 saved shop captures (FHD, and the same frames upscaled 2x): see
+/// <para>Measured on 381 saved shop captures (FHD, resized to 1440p and upscaled 2x = 4K; all correct): see
 /// <c>VisionBench removal</c>. Available coins have gold ≥ 0.60, red 0 and ≥ 376 icon samples; a used coin has red
 /// ≈ 0.40 or 0 icon samples; everything else has gold ≤ 0.52 or no icon. The thresholds sit in those gaps.</para>
 /// </summary>
