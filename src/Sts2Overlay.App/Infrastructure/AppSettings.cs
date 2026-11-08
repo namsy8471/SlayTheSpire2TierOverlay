@@ -22,6 +22,9 @@ public sealed class AppSettings
     /// <summary>Card catalog JSON with Korean names. Null = newest data/local/catalog.*.json.</summary>
     public string? CatalogPath { get; set; }
 
+    /// <summary>Slay the Spire 2 install folder (has SlayTheSpire2.pck). Null = find it in the Steam libraries.</summary>
+    public string? GameDir { get; set; }
+
     /// <summary>
     /// "UI 배율" override as a physical size factor relative to the 1080p look (1.5 = 150 %). Null = automatic from the
     /// game's resolution (1080p → 1.0, 1440p → 1.25, 2160p → 1.5). See <see cref="Views.UiScale"/>.

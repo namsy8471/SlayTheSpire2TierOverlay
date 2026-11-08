@@ -15,8 +15,15 @@ public sealed class VisionRecognizer : ICardRecognizer
 {
     private readonly string? _repoRoot = AppPaths.FindRepoRoot();
     private readonly RecognitionTracker _tracker = new();
-    private CardRecognizer? _recognizer;
+    private readonly Lock _loadLock = new();
+    private volatile CardRecognizer? _recognizer;
     private bool _unavailable;
+
+    /// <summary>
+    /// Builds the art database now (call on a background thread right after the resources were prepared), so the first
+    /// reward screen does not pay for it.
+    /// </summary>
+    public bool Preload() => (_recognizer ?? Load()) is not null;
 
     public RecognitionResult? Recognize(CapturedFrame frame, string? characterHint)
     {
@@ -52,22 +59,34 @@ public sealed class VisionRecognizer : ICardRecognizer
 
     private CardRecognizer? Load()
     {
+        // Preload (background) and Recognize (capture worker) may race on the very first call: build only once.
+        lock (_loadLock)
+        {
+            return _recognizer ?? LoadLocked();
+        }
+    }
+
+    private CardRecognizer? LoadLocked()
+    {
         if (_unavailable) return null;
         var root = _repoRoot ?? AppContext.BaseDirectory;
         var artRoot = Path.Combine(root, "data", "local", "pck", "card_art");
-        var catalog = Path.Combine(root, "data", "catalog", "cards.v0.107.1.json");
+        // The catalog generated from the INSTALLED game (data/local, see LocalResourceService) knows cards added by a game
+        // update; the committed names-free catalog is the fallback.
+        var catalog = new Sts2Overlay.Resources.LocalLayout(Path.Combine(root, "data", "local")).ManifestCatalog()
+            ?? Path.Combine(root, "data", "catalog", "cards.v0.107.1.json");
         var cache = Path.Combine(root, "data", "local", "vision", "card-art.bin");
         if (!Directory.Exists(artRoot))
         {
             _unavailable = true;
-            AppLog.Error($"card art not found at {artRoot}; run PckTool extract-images first (see docs/SPIKE.md §2). Recognition disabled.");
+            AppLog.Error($"card art not found at {artRoot}; it is generated on start (or run with --prepare). Recognition disabled until then.");
             return null;
         }
         try
         {
             var db = CardArtDatabase.LoadOrBuild(artRoot, File.Exists(catalog) ? catalog : null, cache, msg => AppLog.Info("[vision] " + msg));
             _recognizer = new CardRecognizer(db);
-            AppLog.Info("[vision] recognizer ready");
+            AppLog.Info($"[vision] recognizer ready (catalog {Path.GetFileName(catalog)})");
             return _recognizer;
         }
         catch (Exception ex)

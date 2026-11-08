@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace CatalogBuilder;
+namespace Sts2Overlay.Resources.Catalog;
 
 /// <summary>
 /// Optional card text from the extracted game localization: &lt;locDir&gt;/&lt;lang&gt;/cards.json,

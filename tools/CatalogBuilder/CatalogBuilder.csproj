@@ -10,8 +10,9 @@
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
 
+  <!-- The IL reader and catalog generator live in src/Sts2Overlay.Resources so the overlay can run them in-process too. -->
   <ItemGroup>
-    <PackageReference Include="Mono.Cecil" Version="0.11.6" />
+    <ProjectReference Include="..\..\src\Sts2Overlay.Resources\Sts2Overlay.Resources.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,4 +1,4 @@
-namespace PckTool;
+namespace Sts2Overlay.Resources.Pck;
 
 /// <summary>What kind of pixel data a .ctex file holds.</summary>
 public enum CtexPayload

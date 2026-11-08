@@ -28,12 +28,20 @@ public partial class App : Application
     private AppController? _controller;
     private PanelWindow? _panel;
     private PanelViewModel? _vm;
+    private LocalResourceService? _resources;
 
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
         AppLog.Init(AppPaths.LogFile);
         AppLog.Info($"---- start {string.Join(' ', e.Args)} (exe {AppContext.BaseDirectory})");
+
+        // ---- local resources: headless --prepare (no windows, no single-instance check) ----
+        if (e.Args.Any(a => a.Equals("--prepare", StringComparison.OrdinalIgnoreCase)))
+        {
+            Shutdown(PrepareCommand.Run(AppOptions.Parse(e.Args), SettingsStore.Load(AppPaths.SettingsFile)));
+            return;
+        }
 
         // One instance only: a second copy could not register the hotkeys anyway.
         _singleInstance = new Mutex(true, @"Local\Sts2Overlay.App", out var first);
@@ -78,6 +86,13 @@ public partial class App : Application
         _controller = new AppController(_settings, _tracker, _pipeline, _panel, badges, _vm, packDir, catalog);
         var (state, recognizer) = options.Demo is { } demo ? IntegrationFactory.CreateDemo(demo) : IntegrationFactory.CreateReal();
         _controller.Attach(state, recognizer, options.Demo);
+
+        // ---- local resources: first-run preparation + game-version guard (Services.LocalResourceService) ----
+        _resources = new LocalResourceService(_vm, options.GameDir ?? _settings.GameDir, new Sts2Overlay.Resources.LocalLayout(AppPaths.LocalDataDir));
+        _resources.Prepared += catalogPath => _controller.ApplyPreparedResources(catalogPath);
+        _controller.PackReloaded += () => _resources.EvaluateGuard(_controller.Pack, _controller.PackDir);
+        _resources.EvaluateGuard(_controller.Pack, _controller.PackDir);
+        _resources.Start();
 
         SetUpHotkeys();
         SetUpTray();
@@ -196,6 +211,7 @@ public partial class App : Application
             SettingsStore.Save(AppPaths.SettingsFile, _settings);
             _hotkeys?.Dispose();
             _tray?.Dispose();
+            _resources?.Dispose();
             _controller?.Dispose();
             _pipeline?.Dispose();
             _tracker?.Dispose();

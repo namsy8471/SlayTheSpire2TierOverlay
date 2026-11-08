@@ -32,6 +32,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Sts2Overlay.Core\Sts2Overlay.Core.csproj" />
     <ProjectReference Include="..\Sts2Overlay.GameState\Sts2Overlay.GameState.csproj" />
+    <ProjectReference Include="..\Sts2Overlay.Resources\Sts2Overlay.Resources.csproj" />
     <ProjectReference Include="..\Sts2Overlay.Vision\Sts2Overlay.Vision.csproj" />
   </ItemGroup>
 

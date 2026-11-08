@@ -1,7 +1,7 @@
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 
-namespace CatalogBuilder;
+namespace Sts2Overlay.Resources.Catalog;
 
 // ---------------------------------------------------------------------------------------------
 // A *tiny* symbolic IL interpreter.
