@@ -1,0 +1,317 @@
+[INFO] [SteamHost] Initializing Steam host. Our player id: 76561190000000001
+[INFO] Wrote 106069 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 106069 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 106069 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 106069 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 106069 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 106069 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 106069 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 106069 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 106069 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 106069 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 106069 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 106069 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] [StartRunLobby (76561190000000001)] Local player 76561190000000001 is ready
+[INFO] [StartRunLobby (76561190000000001)] Local player 76561190000000001 is ready
+[INFO] [StartRunLobby (76561190000000001)] Local player 76561190000000001 is ready
+[INFO] Embarking on a multiplayer run. Players: Player 76561190000000001, DEFECT,Player 76561190000000002, SILENT. Ascension: 4 Seed: ZSN877JR14
+[INFO] Preloading 'characters=DEFECT,SILENT' assets... count=34 vfx=10
+[INFO] Preloading 'Act=OVERGROWTH' assets... count=8 vfx=0
+[INFO] Preloading 'Act=OVERGROWTH' assets... count=0 vfx=0
+[INFO] Wrote 106069 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 52990 bytes to path=user://steam/76561190000000001/profile1\saves\current_run_mp.save save_dir=user://steam/76561190000000001
+[INFO] Preloading 'Event Room' assets... count=11 vfx=0
+[INFO] Player 76561190000000002 chose cards [STRIKE_SILENT,DEFEND_SILENT]
+[INFO] Player 76561190000000001 chose cards [STRIKE_DEFECT]
+[INFO] Wrote 106092 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 57491 bytes to path=user://steam/76561190000000001/profile1\saves\current_run_mp.save save_dir=user://steam/76561190000000001
+[INFO] Player vote changed for 76561190000000001: ->MapVote (gen: 1 coord: (3, 1))
+[INFO] Player vote changed for 76561190000000002: ->MapVote (gen: 1 coord: (3, 1))
+[INFO] Wrote 106092 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 59245 bytes to path=user://steam/76561190000000001/profile1\saves\current_run_mp.save save_dir=user://steam/76561190000000001
+[INFO] Preloading 'Combat Room' assets... count=9 vfx=0
+[INFO] Creating NCombatRoom with mode=ActiveCombat encounter=FUZZY_WURM_CRAWLER_WEAK.
+[INFO] Player 76561190000000002 chose cards [STRIKE_SILENT]
+[INFO] Player 76561190000000002 chose cards [STRIKE_SILENT]
+[INFO] Wrote 60835 bytes to path=user://steam/76561190000000001/profile1\saves\current_run_mp.save save_dir=user://steam/76561190000000001
+[INFO] CHARACTER.DEFECT has won against encounter ENCOUNTER.FUZZY_WURM_CRAWLER_WEAK. That's 3 wins
+[INFO] Wrote 106092 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Card rarity: Rolled 0.6362035, need < -0.020000001 for rare (offset = -0.05)
+[INFO] Card rarity: Rolled 0.70350623, need < -0.01 for rare (offset = -0.04)
+[INFO] Card rarity: Rolled 0.4104836, need < 0 for rare (offset = -0.03)
+[INFO] Card rarity: Rolled 0.7654361, need < -0.020000001 for rare (offset = -0.05)
+[INFO] Card rarity: Rolled 0.3531213, need < -0.01 for rare (offset = -0.04)
+[INFO] Card rarity: Rolled 0.4610016, need < 0 for rare (offset = -0.03)
+[DEBUG] [RewardsSetSynchronizer] Beginning rewards set Id: 0 Owner: 76561190000000001 Rewards: MegaCrit.Sts2.Core.Rewards.GoldReward,MegaCrit.Sts2.Core.Rewards.PotionReward,MegaCrit.Sts2.Core.Rewards.CardReward
+[DEBUG] [RewardsSetSynchronizer] Beginning rewards set Id: 0 Owner: 76561190000000002 Rewards: MegaCrit.Sts2.Core.Rewards.GoldReward,MegaCrit.Sts2.Core.Rewards.PotionReward,MegaCrit.Sts2.Core.Rewards.CardReward
+[INFO] Player 76561190000000002 obtained 7 gold from reward
+[INFO] Player 76561190000000001 obtained 11 gold from reward
+[INFO] Player 76561190000000002 obtained POTION.ATTACK_POTION from potion reward
+[INFO] Player 76561190000000002 selected card reward
+[INFO] Player 76561190000000001 obtained POTION.CLARITY from potion reward
+[INFO] Player 76561190000000001 selected card reward
+[INFO] Player 76561190000000002 obtained CARD.LEADING_STRIKE from card reward
+[INFO] Player vote changed for 76561190000000002: ->MapVote (gen: 1 coord: (3, 2))
+[INFO] Player 76561190000000001 obtained CARD.COOLHEADED from card reward
+[INFO] Player vote changed for 76561190000000001: ->MapVote (gen: 1 coord: (3, 2))
+[INFO] Wrote 106092 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 62822 bytes to path=user://steam/76561190000000001/profile1\saves\current_run_mp.save save_dir=user://steam/76561190000000001
+[INFO] Preloading 'Combat Room' assets... count=6 vfx=0
+[INFO] Creating NCombatRoom with mode=ActiveCombat encounter=SLIMES_WEAK.
+[INFO] Wrote 64355 bytes to path=user://steam/76561190000000001/profile1\saves\current_run_mp.save save_dir=user://steam/76561190000000001
+[INFO] CHARACTER.DEFECT fought ENCOUNTER.SLIMES_WEAK for the first time and WON >:)
+[INFO] Wrote 106204 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Card rarity: Rolled 0.96738815, need < 0.01 for rare (offset = -0.02)
+[INFO] Card rarity: Rolled 0.7153675, need < 0.02 for rare (offset = -0.01)
+[INFO] Card rarity: Rolled 0.04662794, need < 0.03 for rare (offset = 0)
+[INFO] Card rarity: Rolled 0.63922715, need < 0.01 for rare (offset = -0.02)
+[INFO] Card rarity: Rolled 0.9685233, need < 0.02 for rare (offset = -0.01)
+[INFO] Card rarity: Rolled 0.9616802, need < 0.03 for rare (offset = 0)
+[DEBUG] [RewardsSetSynchronizer] Beginning rewards set Id: 1 Owner: 76561190000000001 Rewards: MegaCrit.Sts2.Core.Rewards.GoldReward,MegaCrit.Sts2.Core.Rewards.PotionReward,MegaCrit.Sts2.Core.Rewards.CardReward
+[DEBUG] [RewardsSetSynchronizer] Beginning rewards set Id: 1 Owner: 76561190000000002 Rewards: MegaCrit.Sts2.Core.Rewards.GoldReward,MegaCrit.Sts2.Core.Rewards.CardReward
+[INFO] Player 76561190000000001 obtained 7 gold from reward
+[INFO] Player 76561190000000002 obtained 7 gold from reward
+[INFO] Player 76561190000000002 selected card reward
+[INFO] Player 76561190000000001 obtained POTION.CURE_ALL from potion reward
+[INFO] Player 76561190000000001 selected card reward
+[INFO] Player 76561190000000001 obtained CARD.DOUBLE_ENERGY from card reward
+[INFO] Player vote changed for 76561190000000001: ->MapVote (gen: 1 coord: (2, 3))
+[INFO] Player vote changed for 76561190000000002: ->MapVote (gen: 1 coord: (2, 3))
+[INFO] Wrote 106204 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 65784 bytes to path=user://steam/76561190000000001/profile1\saves\current_run_mp.save save_dir=user://steam/76561190000000001
+[INFO] Preloading 'Event Room' assets... count=2 vfx=1
+[INFO] Player vote changed for 76561190000000001: ->MapVote (gen: 1 coord: (2, 4))
+[INFO] Player vote changed for 76561190000000002: ->MapVote (gen: 1 coord: (2, 4))
+[INFO] Wrote 106204 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 68840 bytes to path=user://steam/76561190000000001/profile1\saves\current_run_mp.save save_dir=user://steam/76561190000000001
+[INFO] Preloading 'Combat Room' assets... count=10 vfx=0
+[INFO] Creating NCombatRoom with mode=ActiveCombat encounter=NIBBITS_WEAK.
+[INFO] Player 76561190000000002 chose cards [STRIKE_SILENT]
+[INFO] Player 76561190000000002 chose cards [SPOILS_MAP]
+[INFO] Wrote 70293 bytes to path=user://steam/76561190000000001/profile1\saves\current_run_mp.save save_dir=user://steam/76561190000000001
+[INFO] CHARACTER.DEFECT has won against encounter ENCOUNTER.NIBBITS_WEAK. That's 3 wins
+[INFO] Wrote 106204 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Card rarity: Rolled 0.016906727, need < 0.04 for rare (offset = 0.01)
+[INFO] Card rarity: Rolled 0.48837692, need < -0.020000001 for rare (offset = -0.05)
+[INFO] Card rarity: Rolled 0.95447737, need < -0.01 for rare (offset = -0.04)
+[INFO] Card rarity: Rolled 0.10143425, need < 0.04 for rare (offset = 0.01)
+[INFO] Card rarity: Rolled 0.6561783, need < 0.049999997 for rare (offset = 0.02)
+[INFO] Card rarity: Rolled 0.77047735, need < 0.06 for rare (offset = 0.03)
+[DEBUG] [RewardsSetSynchronizer] Beginning rewards set Id: 2 Owner: 76561190000000001 Rewards: MegaCrit.Sts2.Core.Rewards.GoldReward,MegaCrit.Sts2.Core.Rewards.CardReward
+[DEBUG] [RewardsSetSynchronizer] Beginning rewards set Id: 2 Owner: 76561190000000002 Rewards: MegaCrit.Sts2.Core.Rewards.GoldReward,MegaCrit.Sts2.Core.Rewards.PotionReward,MegaCrit.Sts2.Core.Rewards.CardReward
+[INFO] Player 76561190000000001 obtained 15 gold from reward
+[INFO] Player 76561190000000002 obtained 10 gold from reward
+[INFO] Player 76561190000000001 selected card reward
+[INFO] Player 76561190000000002 obtained POTION.POWER_POTION from potion reward
+[INFO] Player 76561190000000002 selected card reward
+[INFO] Player 76561190000000001 obtained CARD.IGNITION from card reward
+[INFO] Player vote changed for 76561190000000001: ->MapVote (gen: 1 coord: (1, 5))
+[INFO] Player vote changed for 76561190000000002: ->MapVote (gen: 1 coord: (1, 5))
+[INFO] Wrote 106204 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 71698 bytes to path=user://steam/76561190000000001/profile1\saves\current_run_mp.save save_dir=user://steam/76561190000000001
+[INFO] Preloading 'Combat Room' assets... count=4 vfx=0
+[INFO] Creating NCombatRoom with mode=ActiveCombat encounter=NIBBITS_NORMAL.
+[INFO] Player 76561190000000002 chose cards [SPOILS_MAP]
+[INFO] Player 76561190000000002 using potion ATTACK_POTION (targeting PlayerId 76561190000000002 (index 1))
+[INFO] Player 76561190000000002 chose cards [RICOCHET]
+[INFO] Player 76561190000000002 chose cards [STRIKE_SILENT]
+[INFO] Player 76561190000000001 using potion CLARITY (targeting PlayerId 76561190000000001 (index 0))
+[INFO] Player 76561190000000001 using potion CURE_ALL (targeting PlayerId 76561190000000001 (index 0))
+[INFO] Player 76561190000000002 chose cards [SPOILS_MAP]
+[INFO] Wrote 73094 bytes to path=user://steam/76561190000000001/profile1\saves\current_run_mp.save save_dir=user://steam/76561190000000001
+[INFO] CHARACTER.DEFECT fought ENCOUNTER.NIBBITS_NORMAL for the first time and WON >:)
+[INFO] Wrote 106414 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Card rarity: Rolled 0.20753172, need < 0 for rare (offset = -0.03)
+[INFO] Card rarity: Rolled 0.4396403, need < 0.01 for rare (offset = -0.02)
+[INFO] Card rarity: Rolled 0.92603105, need < 0.02 for rare (offset = -0.01)
+[INFO] Card rarity: Rolled 0.10280974, need < 0.07 for rare (offset = 0.04)
+[INFO] Card rarity: Rolled 0.9311402, need < 0.08 for rare (offset = 0.049999997)
+[INFO] Card rarity: Rolled 0.73784274, need < 0.089999996 for rare (offset = 0.059999995)
+[DEBUG] [RewardsSetSynchronizer] Beginning rewards set Id: 3 Owner: 76561190000000001 Rewards: MegaCrit.Sts2.Core.Rewards.GoldReward,MegaCrit.Sts2.Core.Rewards.PotionReward,MegaCrit.Sts2.Core.Rewards.CardReward
+[DEBUG] [RewardsSetSynchronizer] Beginning rewards set Id: 3 Owner: 76561190000000002 Rewards: MegaCrit.Sts2.Core.Rewards.GoldReward,MegaCrit.Sts2.Core.Rewards.CardReward
+[INFO] Player 76561190000000001 obtained 10 gold from reward
+[INFO] Player 76561190000000002 obtained 10 gold from reward
+[INFO] Player 76561190000000001 obtained POTION.WEAK_POTION from potion reward
+[INFO] Player 76561190000000002 selected card reward
+[INFO] Player 76561190000000001 selected card reward
+[INFO] Player 76561190000000002 obtained CARD.SLICE from card reward
+[INFO] Player 76561190000000001 obtained CARD.LOOP from card reward
+[INFO] Player vote changed for 76561190000000001: ->MapVote (gen: 1 coord: (2, 6))
+[INFO] Player vote changed for 76561190000000002: ->MapVote (gen: 1 coord: (2, 6))
+[INFO] Wrote 106414 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 74776 bytes to path=user://steam/76561190000000001/profile1\saves\current_run_mp.save save_dir=user://steam/76561190000000001
+[INFO] Preloading 'RestSite Room' assets... count=4 vfx=2
+[DEBUG] [RewardsSetSynchronizer] Beginning rewards set Id: 4 Owner: 76561190000000002 Rewards: 
+[DEBUG] [RestSiteSynchronizer] Rest site option index 0 chosen for player 76561190000000002 with success True. Option: HEAL
+[INFO] Player 76561190000000001 chose cards [IGNITION]
+[DEBUG] [RestSiteSynchronizer] Rest site option index 1 chosen for player 76561190000000001 with success True. Option: SMITH
+[INFO] Player vote changed for 76561190000000001: ->MapVote (gen: 1 coord: (1, 7))
+[INFO] Player vote changed for 76561190000000002: ->MapVote (gen: 1 coord: (1, 7))
+[INFO] Wrote 106414 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 76196 bytes to path=user://steam/76561190000000001/profile1\saves\current_run_mp.save save_dir=user://steam/76561190000000001
+[INFO] Preloading 'Event Room' assets... count=2 vfx=1
+[DEBUG] [RewardsSetSynchronizer] Beginning rewards set Id: 5 Owner: 76561190000000002 Rewards: 
+[DEBUG] [RewardsSetSynchronizer] Beginning rewards set Id: 4 Owner: 76561190000000001 Rewards: 
+[INFO] Preloading 'Combat Room' assets... count=12 vfx=0
+[INFO] Creating NCombatRoom with mode=ActiveCombat encounter=DENSE_VEGETATION_EVENT_ENCOUNTER.
+[INFO] Player 76561190000000002 chose cards [STRIKE_SILENT]
+[INFO] Player 76561190000000002 chose cards [INFECTION]
+[INFO] Wrote 78950 bytes to path=user://steam/76561190000000001/profile1\saves\current_run_mp.save save_dir=user://steam/76561190000000001
+[INFO] CHARACTER.DEFECT fought ENCOUNTER.DENSE_VEGETATION_EVENT_ENCOUNTER for the first time and WON >:)
+[INFO] Wrote 106840 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Card rarity: Rolled 0.56880015, need < 0.03 for rare (offset = 0)
+[INFO] Card rarity: Rolled 0.36653477, need < 0.04 for rare (offset = 0.01)
+[INFO] Card rarity: Rolled 0.3009687, need < 0.049999997 for rare (offset = 0.02)
+[INFO] Card rarity: Rolled 0.889078, need < 0.099999994 for rare (offset = 0.06999999)
+[INFO] Card rarity: Rolled 0.8612641, need < 0.10999999 for rare (offset = 0.07999999)
+[INFO] Card rarity: Rolled 0.90893686, need < 0.11999999 for rare (offset = 0.08999999)
+[DEBUG] [RewardsSetSynchronizer] Beginning rewards set Id: 5 Owner: 76561190000000001 Rewards: MegaCrit.Sts2.Core.Rewards.GoldReward,MegaCrit.Sts2.Core.Rewards.CardReward
+[DEBUG] [RewardsSetSynchronizer] Beginning rewards set Id: 6 Owner: 76561190000000002 Rewards: MegaCrit.Sts2.Core.Rewards.GoldReward,MegaCrit.Sts2.Core.Rewards.CardReward
+[INFO] Player 76561190000000001 obtained 7 gold from reward
+[INFO] Player 76561190000000001 selected card reward
+[INFO] Player 76561190000000002 obtained 12 gold from reward
+[INFO] Player 76561190000000002 selected card reward
+[INFO] Player 76561190000000002 obtained CARD.CLOAK_AND_DAGGER from card reward
+[INFO] Player vote changed for 76561190000000002: ->MapVote (gen: 1 coord: (1, 8))
+[INFO] Player 76561190000000001 obtained CARD.SYNTHESIS from card reward
+[INFO] Player vote changed for 76561190000000001: ->MapVote (gen: 1 coord: (1, 8))
+[INFO] Wrote 106840 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 80470 bytes to path=user://steam/76561190000000001/profile1\saves\current_run_mp.save save_dir=user://steam/76561190000000001
+[INFO] Preloading 'Treasure Room' assets... count=2 vfx=0
+[DEBUG] [RewardsSetSynchronizer] Beginning rewards set Id: 6 Owner: 76561190000000001 Rewards: 
+[DEBUG] [RewardsSetSynchronizer] Beginning rewards set Id: 7 Owner: 76561190000000002 Rewards: 
+[DEBUG] [TreasureRoomRelicSynchronizer] Relic index 0 (RELIC.WAR_PAINT (21823123)) is being picked by local player 76561190000000001
+[INFO] Player vote changed for 76561190000000001: ->MapVote (gen: 1 coord: (1, 9))
+[INFO] Player vote changed for 76561190000000002: ->MapVote (gen: 1 coord: (1, 9))
+[INFO] Wrote 106840 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 82153 bytes to path=user://steam/76561190000000001/profile1\saves\current_run_mp.save save_dir=user://steam/76561190000000001
+[INFO] Preloading 'Combat Room' assets... count=8 vfx=0
+[INFO] Creating NCombatRoom with mode=ActiveCombat encounter=INKLETS_NORMAL.
+[INFO] Player 76561190000000002 chose cards [DEFEND_SILENT]
+[INFO] Wrote 83673 bytes to path=user://steam/76561190000000001/profile1\saves\current_run_mp.save save_dir=user://steam/76561190000000001
+[INFO] CHARACTER.DEFECT fought ENCOUNTER.INKLETS_NORMAL for the first time and WON >:)
+[INFO] Wrote 107064 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Card rarity: Rolled 0.1442216, need < 0.06 for rare (offset = 0.03)
+[INFO] Card rarity: Rolled 0.8763275, need < 0.07 for rare (offset = 0.04)
+[INFO] Card rarity: Rolled 0.862794, need < 0.08 for rare (offset = 0.049999997)
+[INFO] Card rarity: Rolled 0.44170195, need < 0.12999998 for rare (offset = 0.09999999)
+[INFO] Card rarity: Rolled 0.6405392, need < 0.13999999 for rare (offset = 0.109999985)
+[INFO] Card rarity: Rolled 0.16269279, need < 0.14999998 for rare (offset = 0.11999998)
+[DEBUG] [RewardsSetSynchronizer] Beginning rewards set Id: 7 Owner: 76561190000000001 Rewards: MegaCrit.Sts2.Core.Rewards.GoldReward,MegaCrit.Sts2.Core.Rewards.PotionReward,MegaCrit.Sts2.Core.Rewards.CardReward
+[DEBUG] [RewardsSetSynchronizer] Beginning rewards set Id: 8 Owner: 76561190000000002 Rewards: MegaCrit.Sts2.Core.Rewards.GoldReward,MegaCrit.Sts2.Core.Rewards.PotionReward,MegaCrit.Sts2.Core.Rewards.CardReward
+[INFO] Player 76561190000000002 obtained 14 gold from reward
+[INFO] Player 76561190000000001 obtained 10 gold from reward
+[INFO] Player 76561190000000002 obtained POTION.SKILL_POTION from potion reward
+[INFO] Player 76561190000000002 selected card reward
+[INFO] Player 76561190000000001 obtained POTION.ENERGY_POTION from potion reward
+[INFO] Player 76561190000000001 selected card reward
+[INFO] Player vote changed for 76561190000000002: ->MapVote (gen: 1 coord: (2, 10))
+[INFO] Player 76561190000000001 obtained CARD.BOOST_AWAY from card reward
+[INFO] Player vote changed for 76561190000000001: ->MapVote (gen: 1 coord: (2, 10))
+[INFO] Wrote 107064 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 85348 bytes to path=user://steam/76561190000000001/profile1\saves\current_run_mp.save save_dir=user://steam/76561190000000001
+[INFO] Preloading 'RestSite Room' assets... count=4 vfx=2
+[DEBUG] [RewardsSetSynchronizer] Beginning rewards set Id: 8 Owner: 76561190000000001 Rewards: 
+[DEBUG] [RestSiteSynchronizer] Rest site option index 0 chosen for player 76561190000000001 with success True. Option: HEAL
+[INFO] Player 76561190000000002 chose cards [CLOAK_AND_DAGGER]
+[DEBUG] [RestSiteSynchronizer] Rest site option index 1 chosen for player 76561190000000002 with success True. Option: SMITH
+[INFO] Player vote changed for 76561190000000002: ->MapVote (gen: 1 coord: (2, 11))
+[INFO] Player vote changed for 76561190000000001: ->MapVote (gen: 1 coord: (2, 11))
+[INFO] Wrote 107064 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 86777 bytes to path=user://steam/76561190000000001/profile1\saves\current_run_mp.save save_dir=user://steam/76561190000000001
+[INFO] Preloading 'Combat Room' assets... count=12 vfx=0
+[INFO] Creating NCombatRoom with mode=ActiveCombat encounter=RUBY_RAIDERS_NORMAL.
+[INFO] Player 76561190000000002 chose cards [SPOILS_MAP]
+[INFO] Player 76561190000000002 using potion POWER_POTION (targeting PlayerId 76561190000000002 (index 1))
+[INFO] Player 76561190000000002 chose cards [SERPENT_FORM]
+[INFO] Wrote 88365 bytes to path=user://steam/76561190000000001/profile1\saves\current_run_mp.save save_dir=user://steam/76561190000000001
+[INFO] CHARACTER.DEFECT fought ENCOUNTER.RUBY_RAIDERS_NORMAL for the first time and WON >:)
+[INFO] Wrote 107908 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Card rarity: Rolled 0.14714228, need < 0.089999996 for rare (offset = 0.059999995)
+[INFO] Card rarity: Rolled 0.5893662, need < 0.099999994 for rare (offset = 0.06999999)
+[INFO] Card rarity: Rolled 0.77847964, need < 0.10999999 for rare (offset = 0.07999999)
+[INFO] Card rarity: Rolled 0.09049763, need < 0.15999998 for rare (offset = 0.12999998)
+[INFO] Card rarity: Rolled 0.62810373, need < -0.020000001 for rare (offset = -0.05)
+[INFO] Card rarity: Rolled 0.35290343, need < -0.01 for rare (offset = -0.04)
+[DEBUG] [RewardsSetSynchronizer] Beginning rewards set Id: 9 Owner: 76561190000000001 Rewards: MegaCrit.Sts2.Core.Rewards.GoldReward,MegaCrit.Sts2.Core.Rewards.CardReward
+[DEBUG] [RewardsSetSynchronizer] Beginning rewards set Id: 9 Owner: 76561190000000002 Rewards: MegaCrit.Sts2.Core.Rewards.GoldReward,MegaCrit.Sts2.Core.Rewards.CardReward
+[INFO] Player 76561190000000002 obtained 7 gold from reward
+[INFO] Player 76561190000000001 obtained 11 gold from reward
+[INFO] Player 76561190000000001 selected card reward
+[INFO] Player 76561190000000002 selected card reward
+[INFO] Player 76561190000000001 obtained CARD.MOMENTUM_STRIKE from card reward
+[INFO] Player vote changed for 76561190000000001: ->MapVote (gen: 1 coord: (2, 12))
+[INFO] Player vote changed for 76561190000000002: ->MapVote (gen: 1 coord: (2, 12))
+[INFO] Wrote 107908 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 89640 bytes to path=user://steam/76561190000000001/profile1\saves\current_run_mp.save save_dir=user://steam/76561190000000001
+[INFO] Preloading 'Combat Room' assets... count=4 vfx=0
+[INFO] Creating NCombatRoom with mode=ActiveCombat encounter=BYRDONIS_ELITE.
+[INFO] Player 76561190000000002 chose cards [STRIKE_SILENT]
+[INFO] Player 76561190000000001 using potion ENERGY_POTION (targeting PlayerId 76561190000000001 (index 0))
+[INFO] Player 76561190000000002 using potion SKILL_POTION (targeting PlayerId 76561190000000002 (index 1))
+[INFO] Player 76561190000000002 chose cards [ACROBATICS]
+[INFO] Player 76561190000000002 chose cards [STRIKE_SILENT]
+[INFO] Player 76561190000000002 chose cards [STRIKE_SILENT]
+[INFO] Wrote 91021 bytes to path=user://steam/76561190000000001/profile1\saves\current_run_mp.save save_dir=user://steam/76561190000000001
+[INFO] CHARACTER.DEFECT fought ENCOUNTER.BYRDONIS_ELITE for the first time and WON >:)
+[INFO] Wrote 108132 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Card rarity: Rolled 0.28468326, need < 0.19 for rare (offset = 0.08999999)
+[INFO] Card rarity: Rolled 0.12651634, need < 0.19999999 for rare (offset = 0.09999999)
+[INFO] Card rarity: Rolled 0.5232782, need < 0.05 for rare (offset = -0.05)
+[INFO] Card rarity: Rolled 0.9162544, need < 0.07 for rare (offset = -0.03)
+[INFO] Card rarity: Rolled 0.48419815, need < 0.08 for rare (offset = -0.02)
+[INFO] Card rarity: Rolled 0.23120433, need < 0.09 for rare (offset = -0.01)
+[DEBUG] [RewardsSetSynchronizer] Beginning rewards set Id: 10 Owner: 76561190000000001 Rewards: MegaCrit.Sts2.Core.Rewards.GoldReward,MegaCrit.Sts2.Core.Rewards.RelicReward,MegaCrit.Sts2.Core.Rewards.CardReward
+[DEBUG] [RewardsSetSynchronizer] Beginning rewards set Id: 10 Owner: 76561190000000002 Rewards: MegaCrit.Sts2.Core.Rewards.GoldReward,MegaCrit.Sts2.Core.Rewards.PotionReward,MegaCrit.Sts2.Core.Rewards.RelicReward,MegaCrit.Sts2.Core.Rewards.CardReward
+[INFO] Player 76561190000000002 obtained 26 gold from reward
+[INFO] Player 76561190000000001 obtained 31 gold from reward
+[INFO] Player 76561190000000002 obtained POTION.DEXTERITY_POTION from potion reward
+[INFO] Player 76561190000000001 obtained RELIC.POTION_BELT from relic reward
+[INFO] Player 76561190000000002 obtained RELIC.WHETSTONE from relic reward
+[INFO] Player 76561190000000001 selected card reward
+[INFO] Player 76561190000000002 selected card reward
+[INFO] Player 76561190000000002 obtained CARD.EXPERTISE from card reward
+[INFO] Player vote changed for 76561190000000002: ->MapVote (gen: 1 coord: (1, 13))
+[INFO] Player 76561190000000001 obtained CARD.HOTFIX from card reward
+[INFO] Player vote changed for 76561190000000001: ->MapVote (gen: 1 coord: (1, 13))
+[INFO] Wrote 108132 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 93322 bytes to path=user://steam/76561190000000001/profile1\saves\current_run_mp.save save_dir=user://steam/76561190000000001
+[INFO] Card rarity: Rolled 0.43286708, need < 0.050000004 for rare (offset = -0.04)
+[INFO] Card rarity: Rolled 0.40705925, need < 0.050000004 for rare (offset = -0.04)
+[INFO] Card rarity: Rolled 0.16207184, need < 0.050000004 for rare (offset = -0.04)
+[INFO] Card rarity: Rolled 0.041098032, need < 0.050000004 for rare (offset = -0.04)
+[INFO] Card rarity: Rolled 0.37920028, need < 0.050000004 for rare (offset = -0.04)
+[INFO] Card rarity: Rolled 0.023683723, need < 0.09 for rare (offset = 0)
+[INFO] Card rarity: Rolled 0.61394477, need < 0.09 for rare (offset = 0)
+[INFO] Card rarity: Rolled 0.115205236, need < 0.09 for rare (offset = 0)
+[INFO] Card rarity: Rolled 0.49140415, need < 0.09 for rare (offset = 0)
+[INFO] Card rarity: Rolled 0.4262507, need < 0.09 for rare (offset = 0)
+[INFO] Preloading 'Merchant Room' assets... count=1 vfx=0
+[INFO] Player 76561190000000002 chose cards [STRIKE_SILENT]
+[VERYDEBUG] [RunLocationTargetedMessageBuffer] Handling map-targeted message RewardObtainedMessage type: Card location: act 0 coord (1, 13) room 0 skipped: False Card: CARD.PHANTOM_BLADES (12346818) from 76561190000000002 for location act 0 coord (1, 13) room 0
+[VERYDEBUG] [RunLocationTargetedMessageBuffer] Handling map-targeted message RewardObtainedMessage type: Card location: act 0 coord (1, 13) room 0 skipped: False Card: CARD.LEADING_STRIKE (39478984) from 76561190000000002 for location act 0 coord (1, 13) room 0
+[INFO] Player 76561190000000001 chose cards [STRIKE_DEFECT]
+[INFO] Player vote changed for 76561190000000001: ->MapVote (gen: 1 coord: (2, 14))
+[INFO] Player vote changed for 76561190000000002: ->MapVote (gen: 1 coord: (2, 14))
+[INFO] Wrote 108183 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 99380 bytes to path=user://steam/76561190000000001/profile1\saves\current_run_mp.save save_dir=user://steam/76561190000000001
+[INFO] Preloading 'RestSite Room' assets... count=4 vfx=2
+[DEBUG] [RewardsSetSynchronizer] Beginning rewards set Id: 11 Owner: 76561190000000002 Rewards: 
+[DEBUG] [RestSiteSynchronizer] Rest site option index 0 chosen for player 76561190000000002 with success True. Option: HEAL
+[DEBUG] [RewardsSetSynchronizer] Beginning rewards set Id: 11 Owner: 76561190000000001 Rewards: 
+[DEBUG] [RestSiteSynchronizer] Rest site option index 0 chosen for player 76561190000000001 with success True. Option: HEAL
+[INFO] Player vote changed for 76561190000000002: ->MapVote (gen: 1 coord: (3, 15))
+[INFO] Player vote changed for 76561190000000001: ->MapVote (gen: 1 coord: (3, 15))
+[INFO] Wrote 108183 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 100679 bytes to path=user://steam/76561190000000001/profile1\saves\current_run_mp.save save_dir=user://steam/76561190000000001
+[INFO] Preloading 'Combat Room' assets... count=13 vfx=1
+[INFO] Creating NCombatRoom with mode=ActiveCombat encounter=THE_KIN_BOSS.
+[INFO] Player 76561190000000002 chose cards [STRIKE_SILENT]
+[INFO] Player 76561190000000002 using potion DEXTERITY_POTION (targeting PlayerId 76561190000000001 (index 0))
+[INFO] Player 76561190000000002 chose cards [SPOILS_MAP]
+[INFO] Player 76561190000000002 chose cards [STRIKE_SILENT]
+[INFO] Player 76561190000000002 chose cards [DEFEND_SILENT]
+[INFO] CHARACTER.DEFECT has lost to encounter ENCOUNTER.THE_KIN_BOSS. That's 1 losses
+[INFO] Wrote 108645 bytes to path=user://steam/76561190000000001/profile1\saves\progress.save save_dir=user://steam/76561190000000001
+[INFO] Wrote 49644 bytes to path=user://steam/76561190000000001/profile1\saves\history\1794060064.run save_dir=user://steam/76561190000000001
+[INFO] Saved run history: 1794060064.run

@@ -1,0 +1,76 @@
+{
+  "schema_version": 16,
+  "ascension": 4,
+  "current_act_index": 1,
+  "game_mode": "standard",
+  "save_time": 1794137138,
+  "rng": { "seed": "HANDMADE01", "counters": { "up_front": 1 } },
+  "odds": {
+    "unknown_map_point_elite_odds_value": -2,
+    "unknown_map_point_monster_odds_value": 0.2,
+    "unknown_map_point_shop_odds_value": 0.03,
+    "unknown_map_point_treasure_odds_value": 0.04
+  },
+  "acts": [
+    { "id": "ACT.OVERGROWTH", "rooms": {} },
+    {
+      "id": "ACT.HIVE",
+      "rooms": {},
+      "saved_map": {
+        "width": 7, "height": 4,
+        "start": { "coord": { "col": 3, "row": 0 }, "type": "ancient", "children": [ { "col": 2, "row": 1 }, { "col": 4, "row": 1 } ] },
+        "start_coords": [ { "col": 2, "row": 1 }, { "col": 4, "row": 1 } ],
+        "points": [
+          { "coord": { "col": 2, "row": 1 }, "type": "monster", "children": [ { "col": 2, "row": 2 } ] },
+          { "coord": { "col": 4, "row": 1 }, "type": "unknown", "children": [ { "col": 3, "row": 2 } ] },
+          { "coord": { "col": 2, "row": 2 }, "type": "elite", "children": [ { "col": 3, "row": 3 } ] },
+          { "coord": { "col": 3, "row": 2 }, "type": "shop", "children": [ { "col": 3, "row": 3 } ] },
+          { "coord": { "col": 3, "row": 3 }, "type": "rest_site", "children": [ { "col": 3, "row": 4 } ] }
+        ],
+        "boss": { "coord": { "col": 3, "row": 4 }, "type": "boss" }
+      }
+    },
+    { "id": "ACT.GLORY", "rooms": {} }
+  ],
+  "visited_map_coords": [ { "col": 3, "row": 0 }, { "col": 4, "row": 1 }, { "col": 3, "row": 2 } ],
+  "map_point_history": [
+    [ {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {} ],
+    [
+      { "map_point_type": "ancient", "rooms": [ { "room_type": "event" } ], "player_stats": [] },
+      {
+        "map_point_type": "unknown",
+        "rooms": [ { "room_type": "shop" } ],
+        "player_stats": [
+          { "player_id": 76561190000000001, "cards_removed": [ { "id": "CARD.STRIKE_DEFECT" } ] },
+          { "player_id": 76561190000000002, "cards_removed": [] }
+        ]
+      }
+    ]
+  ],
+  "players": [
+    {
+      "net_id": 76561190000000001,
+      "character_id": "CHARACTER.DEFECT",
+      "current_hp": 51, "max_hp": 75, "gold": 120, "max_potion_slot_count": 2,
+      "deck": [
+        { "id": "CARD.STRIKE_DEFECT", "floor_added_to_deck": 1 },
+        { "id": "CARD.ZAP", "floor_added_to_deck": 1, "current_upgrade_level": 1 },
+        { "id": "CARD.CREATIVE_AI", "floor_added_to_deck": 12, "enchantment": { "id": "ENCHANTMENT.SLITHER", "amount": 1 } }
+      ],
+      "relics": [ { "id": "RELIC.CRACKED_CORE", "floor_added_to_deck": 1 } ],
+      "potions": [ { "id": "POTION.CLARITY", "slot_index": 1 } ],
+      "odds": { "card_rarity_odds_value": 0.07, "potion_reward_odds_value": 0.4 },
+      "rng": { "seed": 1, "counters": { "rewards": 10 } }
+    },
+    {
+      "net_id": 76561190000000002,
+      "character_id": "CHARACTER.SILENT",
+      "current_hp": 70, "max_hp": 70, "gold": 99,
+      "deck": [ { "id": "CARD.NEUTRALIZE", "floor_added_to_deck": 1 } ],
+      "relics": [ { "id": "RELIC.RING_OF_THE_SNAKE" } ],
+      "potions": [],
+      "extra_fields": { "card_shop_removals_used": 3 },
+      "odds": { "card_rarity_odds_value": -0.05 }
+    }
+  ]
+}

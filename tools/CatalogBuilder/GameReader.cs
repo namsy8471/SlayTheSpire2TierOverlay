@@ -158,6 +158,21 @@ public sealed class GameReader : IDisposable
     public MethodDefinition? FindMethod(TypeDefinition type, string name) =>
         type.Methods.FirstOrDefault(m => m.Name == name);
 
+    /// <summary>
+    /// Evaluates a constant int getter (e.g. <c>CharacterModel.StartingHp => 80</c>) on the type or,
+    /// if the type doesn't override it, on the nearest base class that defines it. Null if not constant.
+    /// </summary>
+    public int? EvaluateIntGetter(TypeDefinition type, string getterName)
+    {
+        foreach (TypeDefinition t in new[] { type }.Concat(BaseChain(type)))
+        {
+            if (GetterOf(t, getterName) is not { } getter) continue;
+            EvalResult r = IlEvaluator.Evaluate(getter);
+            return r.Ok && r.ReturnValue is int v ? v : null;
+        }
+        return null;
+    }
+
     // ------------------------------------------------------------------------------------------
     // Card decoding
     // ------------------------------------------------------------------------------------------

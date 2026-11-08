@@ -6,6 +6,8 @@
 //
 //   --loc   folder containing <lang>/cards.json (default: data/local/pck/localization)
 //   --all   also include card classes that are in no in-game pool (mocks, tests)
+//   --starting-decks <file>  also write names-free starting loadouts (deck, relics, HP, gold) per
+//                            character, e.g. data/catalog/starting-decks.v0.107.1.json (committed)
 //
 // The output contains game text when localization is present, so it goes to data/local/ (gitignored).
 
@@ -19,6 +21,7 @@ string gameVersion = "v0.107.1";
 string dllPath = @"C:\Program Files (x86)\Steam\steamapps\common\Slay the Spire 2\data_sts2_windows_x86_64\sts2.dll";
 string? locDir = Path.Combine(repoRoot, "data", "local", "pck", "localization");
 string? outPath = null;
+string? startingDecksPath = null;
 bool includeAll = false;
 
 // --- very small argument parser ---------------------------------------------------------------
@@ -32,6 +35,7 @@ for (int i = 0; i < args.Length; i++)
         case "--out": outPath = Next(); break;
         case "--game-version": gameVersion = Next(); break;
         case "--all": includeAll = true; break;
+        case "--starting-decks": startingDecksPath = Next(); break;
         default:
             Console.Error.WriteLine($"Unknown argument: {args[i]}");
             return 1;
@@ -53,6 +57,28 @@ foreach (TypeDefinition ch in characters)
     foreach (TypeDefinition pool in game.ModelDbGenericCalls(game.FindMethod(ch, "get_CardPool"), "CardPool"))
         characterByPool[pool.FullName] = chId;
     startingDecks[chId] = game.ModelDbGenericCalls(game.FindMethod(ch, "get_StartingDeck"), "Card");
+}
+
+// --- 1b. optional: names-free starting loadouts (committed; used to rebuild a co-op guest's deck) ---
+if (startingDecksPath != null)
+{
+    var loadouts = characters.Select(ch => new StartingLoadout(
+        Character: game.ModelIdOf(ch),
+        StartingHp: game.EvaluateIntGetter(ch, "get_StartingHp"),
+        StartingGold: game.EvaluateIntGetter(ch, "get_StartingGold"),
+        MaxEnergy: game.EvaluateIntGetter(ch, "get_MaxEnergy"),
+        Deck: startingDecks[game.ModelIdOf(ch)].Select(game.ModelIdOf).ToList(),
+        Relics: game.ModelDbGenericCalls(game.FindMethod(ch, "get_StartingRelics"), "Relic").Select(game.ModelIdOf).ToList()))
+        .ToList();
+    var file = new StartingLoadoutFile(
+        gameVersion,
+        "tools/CatalogBuilder --starting-decks (static IL of sts2.dll: CharacterModel.StartingDeck/StartingRelics/StartingHp/StartingGold)",
+        "Game facts only (model ids and numbers). Ascension 5 and above also adds CARD.ASCENDERS_BANE at run start (AscensionManager.ApplyEffectsTo).",
+        loadouts);
+    var opts = new JsonSerializerOptions { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+    Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(startingDecksPath))!);
+    File.WriteAllText(startingDecksPath, JsonSerializer.Serialize(file, opts) + "\n");
+    Console.WriteLine($"Wrote {loadouts.Count} starting loadouts -> {startingDecksPath}");
 }
 
 // --- 2. card pools: character pools first, then ModelDb.AllSharedCardPools ---------------------
@@ -177,6 +203,10 @@ static string FindRepoRoot()
 // Records give us immutable data classes with a constructor in one line. System.Text.Json turns
 // property names into camelCase ("GainsBlock" -> "gainsBlock") via the naming policy above.
 record Catalog(string GameVersion, string Source, List<CardRow> Cards);
+
+record StartingLoadoutFile(string GameVersion, string Source, string Note, List<StartingLoadout> Characters);
+
+record StartingLoadout(string Character, int? StartingHp, int? StartingGold, int? MaxEnergy, List<string> Deck, List<string> Relics);
 
 record CardRow(
     string Id,

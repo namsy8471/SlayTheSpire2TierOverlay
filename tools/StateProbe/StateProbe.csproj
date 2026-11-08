@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Live console view of GameStateTracker: run next to the game to check what the overlay "sees". -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Sts2Overlay.Tools.StateProbe</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Sts2Overlay.GameState\Sts2Overlay.GameState.csproj" />
+  </ItemGroup>
+</Project>

@@ -36,4 +36,4 @@ Thumbs.db
 *.swp
 .claude/
 lib/
-data/catalog/
+# data/catalog/ holds committed, names-free catalogs; game-text catalogs live in data/local/
