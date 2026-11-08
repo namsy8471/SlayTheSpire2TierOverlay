@@ -67,7 +67,8 @@ public sealed record ActiveEvent(string EventId, IReadOnlyList<string>? OptionKe
     public IReadOnlyList<string> Alternatives { get; init; } = [];
 
     /// <summary>
-    /// <see cref="OptionKeys"/> were replayed from the run seed (Neow, <see cref="NeowOptions"/>) rather than read from the log.
+    /// <see cref="OptionKeys"/> were replayed from the run seed (Neow: <see cref="NeowOptions"/>; act-start ancients:
+    /// <see cref="AncientOptions"/>) rather than read from the log.
     /// </summary>
     public bool OptionsReplayed { get; init; }
 

@@ -9,7 +9,7 @@ namespace Sts2Overlay.GameState.Tracking;
 /// </summary>
 public static class CardRarities
 {
-    private sealed record Info(string Rarity, string Type, bool Exhaust, int MaxUpgrade, string Multiplayer, IReadOnlySet<string> Keywords);
+    private sealed record Info(string Rarity, string Type, bool Exhaust, int MaxUpgrade, string Multiplayer, IReadOnlySet<string> Keywords, IReadOnlySet<string> Tags);
 
     private static readonly Lazy<Dictionary<string, Info>> s_cards = new(() =>
     {
@@ -26,10 +26,13 @@ public static class CardRarities
             var keywords = c.TryGetProperty("keywords", out JsonElement k) && k.ValueKind == JsonValueKind.Array
                 ? k.EnumerateArray().Select(x => x.GetString()).OfType<string>().ToHashSet(StringComparer.Ordinal)
                 : new HashSet<string>(StringComparer.Ordinal);
+            var tags = c.TryGetProperty("tags", out JsonElement tg) && tg.ValueKind == JsonValueKind.Array
+                ? tg.EnumerateArray().Select(x => x.GetString()).OfType<string>().ToHashSet(StringComparer.Ordinal)
+                : new HashSet<string>(StringComparer.Ordinal);
             bool exhaust = keywords.Contains("Exhaust");
             int max = c.TryGetProperty("maxUpgrade", out JsonElement mu) && mu.TryGetInt32(out int m) ? m : 1;
             string mp = c.TryGetProperty("multiplayer", out JsonElement mpe) ? mpe.GetString() ?? "None" : "None";
-            map[i] = new Info(rarity, type, exhaust, max, mp, keywords);
+            map[i] = new Info(rarity, type, exhaust, max, mp, keywords, tags);
         }
         return map;
     });
@@ -42,6 +45,9 @@ public static class CardRarities
     /// <summary>The card's canonical keyword (CardKeyword name, e.g. <c>Eternal</c>, <c>Exhaust</c>), before upgrades and enchantments.</summary>
     public static bool HasCanonicalKeyword(string cardId, string keyword) =>
         s_cards.Value.GetValueOrDefault(cardId)?.Keywords.Contains(keyword) ?? false;
+
+    /// <summary>The card's CardTag (<c>Strike</c>, <c>Defend</c>, <c>Shiv</c> ...), from the catalog.</summary>
+    public static bool HasTag(string cardId, string tag) => s_cards.Value.GetValueOrDefault(cardId)?.Tags.Contains(tag) ?? false;
 
     /// <summary>Attack / Skill / Power / Status / Curse, or null for an unknown id.</summary>
     public static string? TypeOf(string cardId) => s_cards.Value.GetValueOrDefault(cardId)?.Type;

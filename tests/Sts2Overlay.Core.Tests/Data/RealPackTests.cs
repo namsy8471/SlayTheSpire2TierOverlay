@@ -263,4 +263,22 @@ public class RealPackTests
         var unknown = Pack.Value.RelicStats!.Relics.Keys.Where(id => !KnownRelics.Value.Contains(id)).Order(StringComparer.Ordinal);
         Assert.Equal(NewerRelics.Order(StringComparer.Ordinal), unknown);
     }
+
+    [Fact]
+    public void RelicFit_HoldsOnlyUsableEntries_ForPackBuilds_WithKnownRelics()
+    {
+        var fit = Assert.IsType<RelicFit>(Pack.Value.RelicFit);
+        var builds = Pack.Value.Archetypes.Select(a => a.Id).ToHashSet(StringComparer.Ordinal);
+        Assert.NotEmpty(fit.Archetypes);
+        foreach (var (build, relics) in fit.Archetypes)
+        {
+            Assert.Contains(build, builds);
+            foreach (var (id, stat) in relics)
+            {
+                Assert.True(stat.Use, $"{build} {id}: the pack file keeps use:true entries only");
+                Assert.True(stat.FitRatio is >= 1.5 or <= 0.67, $"{build} {id}: fitRatio {stat.FitRatio} inside the dead band");
+                Assert.True(KnownRelics.Value.Contains(id) || NewerRelics.Contains(id), $"{build} {id}: unknown relic");
+            }
+        }
+    }
 }

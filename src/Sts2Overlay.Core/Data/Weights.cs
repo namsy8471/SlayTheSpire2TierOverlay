@@ -119,6 +119,10 @@ public sealed class Weights
     [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
     public Events.EventWeights Events { get; set; } = new();
 
+    // ---- Relic fit to the current build (weights.json "relicFit") ----
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+    public RelicFitWeights RelicFit { get; set; } = new();
+
     public static Weights Default => new();
 
     /// <summary>Looks up an act-keyed value, falling back to the closest lower act, then the lowest act.</summary>
@@ -428,4 +432,31 @@ public sealed class RarePityWeights
     public double Step { get; set; } = 0.01;
     public double StepHighAscension { get; set; } = 0.005;
     public double Cap { get; set; } = 0.40;
+}
+
+/// <summary>
+/// How a relic's value moves with the build the deck leans toward (<see cref="Scoring.RelicScorer"/>). The evidence is top-player
+/// data only: <c>relic-fit.json</c> rates when the pack has them, else the archetype's <c>keyRelics</c> (themselves chosen from
+/// top players' winning decks, docs/research/build-sources).
+/// </summary>
+public sealed class RelicFitWeights
+{
+    /// <summary>A key relic with weight <c>w</c> is worth <c>1 + KeyRelicBonus × w</c> times its base value in that build. [추정 배율]</summary>
+    public double KeyRelicBonus { get; set; } = 0.5;
+
+    /// <summary>The fit multiplier never leaves this range, so one build signal cannot dominate the score.</summary>
+    public double MinMultiplier { get; set; } = 0.5;
+    public double MaxMultiplier { get; set; } = 1.5;
+
+    /// <summary>
+    /// A measured lift L counts as L^FitExponent (0.5: 2.17 → 1.47, 0.43 → 0.66). Many builds × relics were tested at an 80%
+    /// stability bar, so some entries are noise; the data's own notes advise a mild multiplier. [추정]
+    /// </summary>
+    public double FitExponent { get; set; } = 0.5;
+
+    /// <summary>A core-held / no-core split rate is used only when it rests on at least this many decisions (same bar as nIn).</summary>
+    public int MinSplitDecisions { get; set; } = 30;
+
+    /// <summary>Builds below this commit are ignored (same lean threshold as the core priority, 0.15).</summary>
+    public double MinCommit { get; set; } = 0.15;
 }

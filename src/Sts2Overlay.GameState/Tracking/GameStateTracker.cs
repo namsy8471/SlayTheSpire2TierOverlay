@@ -667,7 +667,8 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         if (!_inEventRoom) return null;
         if (_eventId != null)
         {
-            if (_eventKeys == null && NeowDraw(_eventId) is { } replayed)
+            // A log line without option keys (none logged): an ancient's options are replayed from the seed instead.
+            if (_eventKeys is not { Count: > 0 } && ReplayOptions(_eventId) is { } replayed)
                 return new ActiveEvent(_eventId, replayed.Keys, _eventChosen.ToArray(), EventSource.Log) { OptionsReplayed = true, PossibleKeys = replayed.Possible };
             return new ActiveEvent(_eventId, _eventKeys, _eventChosen.ToArray(), EventSource.Log);
         }
@@ -679,7 +680,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
             Diagnostic?.Invoke(this, $"event predicted: {guess.EventId}{(guess.Certain ? "" : $" (or {string.Join(", ", guess.Alternatives)})")}");
         }
         if (_eventGuess is not { } g) return null;
-        var draw = g.Certain ? NeowDraw(g.EventId) : null;
+        var draw = g.Certain ? ReplayOptions(g.EventId) : null;
         return new ActiveEvent(g.EventId, draw?.Keys, _eventChosen.ToArray(), EventSource.SavePrediction)
         {
             Certain = g.Certain,
@@ -689,16 +690,59 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         };
     }
 
-    private sealed record NeowReplay(IReadOnlyList<string> Keys, IReadOnlyList<string> Possible);
+    private sealed record ReplayedOptions(IReadOnlyList<string> Keys, IReadOnlyList<string> Possible);
 
-    private (string Seed, int Slot, int Players, NeowReplay? Draw)? _neowDraw; // the last answer, null ones included
+    private (string Seed, int Slot, int Players, ReplayedOptions? Draw)? _neowDraw; // the last answer, null ones included
+    private (string Key, ReplayedOptions? Draw)? _ancientDraw; // same for the act-start ancients
+
+    /// <summary>An ancient's offered options replayed from the run seed (Neow or an act-start ancient); null for other events.</summary>
+    private ReplayedOptions? ReplayOptions(string eventId) => eventId == NeowOptions.EventId ? NeowDraw(eventId) : AncientDraw(eventId);
+
+    /// <summary>
+    /// An act-start ancient's options (<see cref="AncientOptions"/>), replayed from the run seed and the save written when
+    /// the player stepped onto its node (deck, relics, character, unlocked epochs, act). Null when that save isn't at hand
+    /// (co-op guest, another node), the run has modifiers, or the unlocks can't be read and change the draw.
+    /// </summary>
+    private ReplayedOptions? AncientDraw(string eventId)
+    {
+        if (!AncientOptions.Handles(eventId)) return null;
+        if (ChooseSave()?.Save is not { ModifierCount: 0, Events: { } ev } save || RunSeed() is not { } seed) return null;
+        // The inputs are the deck and relics at the node: only the save that stands on this ancient's node has them.
+        if (ev.AncientId != eventId || save.Map is not { Current: { } cur } map
+            || !map.Nodes.TryGetValue(cur, out var node) || node.Type != MapNodeType.Ancient) return null;
+        int slot = MySlot();
+        if (slot < 0) return null;
+        string key = $"{seed}|{slot}|{eventId}|{ev.ActIndex}";
+        if (_ancientDraw is { } c && c.Key == key) return c.Draw;
+
+        var inputs = new AncientInputs
+        {
+            RunSeed = seed,
+            Slot = slot,
+            ActIndex = ev.ActIndex,
+            Character = save.State.Character,
+            Deck = save.State.Deck.Select(d => new AncientDeckCard(d.Id, d.EnchantmentId)).ToArray(),
+            Relics = save.State.Relics,
+            UnlockedEpochs = save.UnlockedEpochs,
+        };
+        IReadOnlyList<string>? keys = AncientOptions.Keys(eventId, inputs)!;
+        // No epochs in the save (an old save, or a fresh profile): usable only when the unlocks don't change the draw.
+        if (save.UnlockedEpochs.Count == 0 && !keys.SequenceEqual(AncientOptions.Keys(eventId, inputs with { UnlockedEpochs = null })!))
+            keys = null;
+        ReplayedOptions? draw = keys is null ? null : new(keys, AncientOptions.PossibleKeys(eventId, inputs)!);
+        _ancientDraw = (key, draw);
+        Diagnostic?.Invoke(this, draw is null
+            ? $"{eventId} options: unlocks unknown and they decide the draw; showing every option"
+            : $"{eventId} options (seed replay): {string.Join(", ", draw.Keys.Select(k => k[(k.LastIndexOf('.') + 1)..]))}");
+        return draw;
+    }
 
     /// <summary>
     /// Neow's three options, replayed from the run seed (<see cref="NeowOptions"/>), and the pool they came from; null for
     /// other events, runs with modifiers (or unknown modifiers: no save), or when the unlocks that decide Kaleidoscope
     /// can't be read and change the draw.
     /// </summary>
-    private NeowReplay? NeowDraw(string eventId)
+    private ReplayedOptions? NeowDraw(string eventId)
     {
         if (eventId != NeowOptions.EventId) return null;
         if (ChooseSave()?.Save is not { ModifierCount: 0 } || RunSeed() is not { } seed) return null;
@@ -708,7 +752,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         if (_neowDraw is { } c && c.Seed == seed && c.Slot == slot && c.Players == players) return c.Draw;
 
         bool? unlocked = _options.Paths?.SavesDirectory is { } dir ? ProgressSave.AllCharactersUnlockedIn(dir) : null;
-        NeowReplay? draw;
+        ReplayedOptions? draw;
         if (unlocked is { } u) draw = new(NeowOptions.Keys(seed, slot, players, u), NeowOptions.PossibleKeys(players, u));
         else
         {

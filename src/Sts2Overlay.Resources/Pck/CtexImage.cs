@@ -59,6 +59,27 @@ public sealed class CtexImage
     /// <summary>The embedded .png/.webp file (full-size level only), or null for skipped payloads.</summary>
     public byte[]? EmbeddedFile { get; }
 
+    /// <summary>Raw (data format 0) payload: all mip levels back to back, full size first. Null for embedded files.</summary>
+    public byte[]? RawData { get; }
+
+    private readonly int _imageFormat = -1;
+    private const int FormatRgba8 = 5, FormatBptcRgba = 22;
+
+    /// <summary>The image can be turned into RGBA8 pixels by <see cref="DecodeRgba"/> (RGBA8 or BC7 raw data).</summary>
+    public bool CanDecodeRgba => RawData != null && _imageFormat is FormatRgba8 or FormatBptcRgba;
+
+    /// <summary>
+    /// Full-size level as straight RGBA8 (<see cref="Width"/> x <see cref="Height"/>): RGBA8 is copied, BC7 decoded
+    /// with <see cref="Bc7Decoder"/>. Used for the relic atlas, which the game ships only as a BC7 VRAM texture.
+    /// </summary>
+    public byte[] DecodeRgba()
+    {
+        if (!CanDecodeRgba) throw new NotSupportedException($"Cannot decode {PixelFormat} ({Payload}).");
+        return _imageFormat == FormatRgba8
+            ? RawData.AsSpan(0, Width * Height * 4).ToArray()
+            : Bc7Decoder.DecodeImage(RawData, Width, Height);
+    }
+
     public string? FileExtension => Payload switch
     {
         CtexPayload.Webp => ".webp",
@@ -98,6 +119,9 @@ public sealed class CtexImage
                 break;
             case DataFormatImage:
                 Payload = imageFormat >= FirstVramFormat ? CtexPayload.VramCompressed : CtexPayload.RawUncompressed;
+                _imageFormat = imageFormat;
+                // The full-size level comes first; smaller mips follow and are not needed.
+                RawData = r.ReadBytes((int)(r.BaseStream.Length - r.BaseStream.Position));
                 break;
             case DataFormatBasis:
                 Payload = CtexPayload.BasisUniversal;

@@ -41,6 +41,9 @@ public static class ScoringLabels
     public static string CoreMissing => Loc.T("코어 없음", "No core");
 
     public static string SecuredEssential => Loc.T("빌드 필수 카드", "Build essential");
+    public static string RelicBase => Loc.T("유물 기본", "Relic base");
+    public static string RelicFit => Loc.T("빌드 적합 유물", "Build-fit relic");
+    public static string RelicMisfit => Loc.T("빌드와 안 맞는 유물", "Off-build relic");
 
     /// <summary>"코어", "필수 시너지", "서브 시너지" / "core", "key synergy", "sub synergy".</summary>
     public static string BuildRoleKind(BuildRoleKind kind) => kind switch

@@ -65,4 +65,42 @@ public static class ShopPriceRules
         }
         return false;
     }
+
+    /// <summary>
+    /// Relic base price by catalog rarity (RelicModel.MerchantCost): common 175, uncommon 225, rare 275, shop 200.
+    /// Null for rarities the merchant never sells.
+    /// </summary>
+    public static int? RelicBasePrice(string? rarity) => rarity?.ToLowerInvariant() switch
+    {
+        "common" => 175,
+        "uncommon" => 225,
+        "rare" => 275,
+        "shop" => 200,
+        _ => null,
+    };
+
+    /// <summary>
+    /// Lowest and highest price a relic with this base price can show: MerchantRelicEntry.CalcCost =
+    /// round(base × Random(0.85, 1.15)), then the relic factor (Membership Card / The Courier) truncates.
+    /// Floor/ceil keep the bounds safe whatever the float rounding did.
+    /// </summary>
+    public static (int Min, int Max) RelicRange(int basePrice, double factor = 1.0)
+    {
+        int lo = (int)Math.Floor(basePrice * 0.85), hi = (int)Math.Ceiling(basePrice * 1.15);
+        return ((int)(lo * factor), (int)(hi * factor));
+    }
+
+    /// <summary>Can a merchant relic (of this rarity, when known) cost <paramref name="price"/>?</summary>
+    public static bool IsPlausibleRelic(int price, string? rarity = null, IReadOnlyList<double>? factors = null)
+    {
+        if (price <= 0) return false;
+        IEnumerable<string> rarities = RelicBasePrice(rarity) != null ? [rarity!] : ["common", "uncommon", "rare", "shop"];
+        foreach (string r in rarities)
+            foreach (double f in factors ?? AllFactors)
+            {
+                (int lo, int hi) = RelicRange(RelicBasePrice(r)!.Value, f);
+                if (price >= lo && price <= hi) return true;
+            }
+        return false;
+    }
 }

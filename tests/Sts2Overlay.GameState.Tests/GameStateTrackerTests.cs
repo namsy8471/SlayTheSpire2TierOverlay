@@ -308,6 +308,75 @@ public class GameStateTrackerTests
         Assert.False(ev.OptionsReplayed);
     }
 
+    /// <summary>
+    /// The real act-2 Orobas visit of run H6VRKY8PFE (tests/fixtures/ancient-visits.v0.107.1.json): the save written on the
+    /// ancient's node holds the deck and relics the draw reads. The game offered Sand Castle, Driftwood, Touch of Orobas.
+    /// </summary>
+    private static GameStateTracker OrobasTracker(bool onAncientNode = true, string[]? relics = null)
+    {
+        const string seed = "H6VRKY8PFE";
+        var start = new MapCoord(3, 0);
+        SaveSnapshot s = Save(seed, 100,
+            "CARD.STRIKE_IRONCLAD", "CARD.STRIKE_IRONCLAD", "CARD.STRIKE_IRONCLAD", "CARD.DEFEND_IRONCLAD", "CARD.DEFEND_IRONCLAD",
+            "CARD.DEFEND_IRONCLAD", "CARD.DEFEND_IRONCLAD", "CARD.BASH", "CARD.FIEND_FIRE", "CARD.STRIKE_IRONCLAD", "CARD.STRIKE_IRONCLAD",
+            "CARD.COLOSSUS", "CARD.THUNDERCLAP", "CARD.TREMBLE", "CARD.CRIMSON_MANTLE", "CARD.TREMBLE", "CARD.WHIRLWIND", "CARD.ANGER",
+            "CARD.ARMAMENTS", "CARD.AGGRESSION", "CARD.MOLTEN_FIST", "CARD.BATTLE_TRANCE", "CARD.CONFLAGRATION");
+        s = s with
+        {
+            Save = s.Save with
+            {
+                ModifierCount = 0,
+                State = s.Save.State with
+                {
+                    Act = 2,
+                    Relics = relics ?? ["RELIC.BURNING_BLOOD", "RELIC.HEFTY_TABLET", "RELIC.HAPPY_FLOWER", "RELIC.FESTIVE_POPPER", "RELIC.BOOK_OF_FIVE_RINGS", "RELIC.GREMLIN_HORN"],
+                },
+                UnlockedEpochs = ["SILENT1_EPOCH", "REGENT1_EPOCH", "NECROBINDER1_EPOCH", "DEFECT1_EPOCH"],
+                Map = new MapGraph
+                {
+                    Nodes = new Dictionary<MapCoord, MapNode> { [start] = new(start, onAncientNode ? MapNodeType.Ancient : MapNodeType.Monster, []) },
+                    Start = start, Boss = start, Current = start,
+                },
+                Events = new EventRoomState { ActIndex = 1, AncientId = "EVENT.OROBAS", VisitedInAct = 1, HistoryInAct = 0 },
+            },
+        };
+        var t = new GameStateTracker(new TrackerOptions { Clock = () => T0 });
+        t.ProcessLines([$"[INFO] Embarking on a singleplayer IRONCLAD run. Ascension: 0 Seed: {seed}", Wrote(100)]);
+        t.OnSave(s);
+        t.ProcessLine("[INFO] Preloading 'Event Room' assets... count=2 vfx=0");
+        return t;
+    }
+
+    [Fact]
+    public void Act_start_ancient_options_are_replayed_from_the_seed_and_the_node_save()
+    {
+        var ev = OrobasTracker().Current!.CurrentEvent!;
+        Assert.Equal("EVENT.OROBAS", ev.EventId);
+        Assert.True(ev.OptionsReplayed);
+        Assert.Equal(
+            ["OROBAS.pages.INITIAL.options.SAND_CASTLE", "OROBAS.pages.INITIAL.options.DRIFTWOOD", "OROBAS.pages.INITIAL.options.TOUCH_OF_OROBAS"],
+            ev.OptionKeys);
+        Assert.Contains("OROBAS.pages.INITIAL.options.ARCHAIC_TOOTH", ev.PossibleKeys!); // Bash is in the deck
+        Assert.DoesNotContain("OROBAS.pages.INITIAL.options.OPTION_POOL_3_LOCKED", ev.PossibleKeys!);
+    }
+
+    [Fact]
+    public void Ancient_draw_follows_the_relics_in_the_save()
+    {
+        // Without a starter relic Touch of Orobas can't be offered: the third slot draws from Archaic Tooth alone.
+        var ev = OrobasTracker(relics: ["RELIC.HEFTY_TABLET"]).Current!.CurrentEvent!;
+        Assert.Equal("OROBAS.pages.INITIAL.options.ARCHAIC_TOOTH", ev.OptionKeys![2]);
+        Assert.DoesNotContain("OROBAS.pages.INITIAL.options.TOUCH_OF_OROBAS", ev.PossibleKeys!);
+    }
+
+    [Fact]
+    public void Ancient_is_not_replayed_from_a_save_off_its_node()
+    {
+        // The deck/relics must be the ones at the ancient's node; a save standing elsewhere doesn't predict the room either.
+        var ev = OrobasTracker(onAncientNode: false).Current!.CurrentEvent;
+        Assert.True(ev is null || !ev.OptionsReplayed);
+    }
+
     [Fact]
     public void Stale_save_with_another_seed_is_ignored()
     {

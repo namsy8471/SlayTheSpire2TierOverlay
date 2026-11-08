@@ -72,6 +72,12 @@ public static class ComponentKeys
 
     public const string RemovalValue = "removal_value";
 
+    /// <summary>A relic's value before the build fit: rarity value × measured take rate (<see cref="RelicScorer"/>).</summary>
+    public const string RelicBase = "relic_base";
+
+    /// <summary>How the leaning build moves a relic's value (top-player data), ≥ or ≤ 0.</summary>
+    public const string RelicFit = "relic_fit";
+
     /// <summary>Shop card items: minus the skip score, so the item value is <c>card − skip</c> and still sums exactly.</summary>
     public const string SkipRelative = "skip";
 }
