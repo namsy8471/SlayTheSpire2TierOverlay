@@ -110,8 +110,6 @@ public sealed class CardInfoProvider
         _ => "?",
     };
 
-    /// <summary>Old name of <see cref="RarityName"/>; kept until every caller has moved.</summary>
-    public static string RarityKorean(string? rarity) => RarityName(rarity);
 
     private static string Prettify(string id)
     {

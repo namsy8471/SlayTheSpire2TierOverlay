@@ -318,10 +318,10 @@ public class ControllerEnglishTests
     };
 
     [Fact]
-    public void Path_chips_never_show_raw_risk_keys_and_put_the_worded_risks_first()
+    public void Path_chips_never_show_raw_risk_keys()
     {
-        // PathAdvisor appends one worded chip per known risk at the end of Chips.
-        var o = PathOpt(["Elite 2", "Rest Site 1", "Shop 1", "? 2", "HP at Boss 62%", "Risk: Elites in a row"], PathRisks.EliteChain);
+        // PathAdvisor puts one worded chip per known risk at the front of Chips.
+        var o = PathOpt(["Risk: Elites in a row", "Elite 2", "Rest Site 1", "Shop 1", "? 2", "HP at Boss 62%"], PathRisks.EliteChain);
 
         var chips = AppController.PathChips(o);
 

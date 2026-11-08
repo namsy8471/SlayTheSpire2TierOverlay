@@ -121,7 +121,7 @@ public static class MapMarkLayout
             foreach (var alt in rec.Top.Skip(1)) AddPath(rec.Origin, alt.Coords, MapLineKind.Alternative, bestEdges, lines);
 
             if (rec.NextStep is { } next && At(next, out var nx, out var ny) && Visible(ny))
-                nodes.Add(new MapNodeMark(next, nx, ny, MapNodeMarkKind.Recommended, Loc.T("추천!", "Best!")));
+                nodes.Add(new MapNodeMark(next, nx, ny, MapNodeMarkKind.Recommended, Loc.T("추천!", "Pick!")));
 
             // The save's "?" odds are for the NEXT "?" room only: the immediate choices that are "?", and the first "?"
             // further along the recommended path (it is the next "?" if that path is taken).

@@ -59,7 +59,7 @@ public class PathEnglishTests
         Assert.True(korean.Count == 0, "Korean in English path texts: " + string.Join(" | ", korean.Take(10)));
         Assert.Contains(texts, t => t.StartsWith("Est. HP at Boss ", StringComparison.Ordinal));
         Assert.Contains(texts, t => t.StartsWith("Rest Sites ", StringComparison.Ordinal) || t == "No Rest Sites");
-        Assert.Contains("Best!", marks);
+        Assert.Contains("Pick!", marks);
         Assert.Contains("Ally ×2", marks);
     }
 

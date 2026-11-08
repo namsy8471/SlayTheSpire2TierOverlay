@@ -272,16 +272,10 @@ public sealed partial class AppController : IDisposable
     }
 
     /// <summary>
-    /// The path's reason chips, risks first, at most 5. <see cref="PathOption.Risks"/> holds raw keys ("elite_chain"),
-    /// so they are never shown; <see cref="PathAdvisor"/> words each known risk as one chip at the END of
-    /// <see cref="PathOption.Chips"/> (after the counts), so those last chips are moved to the front by position, not by
-    /// matching their text.
+    /// The path's reason chips, at most 5. <see cref="PathAdvisor"/> already puts the worded risks first.
+    /// <see cref="PathOption.Risks"/> holds raw keys ("elite_chain") and is never shown.
     /// </summary>
-    internal static IReadOnlyList<string> PathChips(PathOption o)
-    {
-        var risks = Math.Min(o.Chips.Count, o.Risks.Distinct().Count(r => r is PathRisks.EliteChain or PathRisks.EliteNoRest));
-        return o.Chips.TakeLast(risks).Concat(o.Chips.SkipLast(risks)).Distinct().Take(5).ToArray();
-    }
+    internal static IReadOnlyList<string> PathChips(PathOption o) => o.Chips.Distinct().Take(5).ToArray();
 
     private static string NodeName(MapNodeType t) => t switch
     {

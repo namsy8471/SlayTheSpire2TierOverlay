@@ -156,6 +156,10 @@ public sealed class PathAdvisor
     {
         var chips = new List<string>();
 
+        // Risks first: the panel shows only the first few chips, and a risk matters more than a count.
+        if (o.Risks.Contains(PathRisks.EliteChain)) chips.Add(Loc.T("위험: 엘리트 연속", "Risk: back-to-back Elites"));
+        if (o.Risks.Contains(PathRisks.EliteNoRest)) chips.Add(Loc.T("위험: 휴식 없이 엘리트", "Risk: Elite without Rest"));
+
         chips.Add(o.Elites > 0 ? Loc.T($"엘리트 {o.Elites}", $"Elites {o.Elites}") : Loc.T("엘리트 없음", "No Elites"));
 
         var restBeforeBoss = o.Types.Count >= 2 && o.Types[^1] == MapNodeType.Boss && o.Types[^2] == MapNodeType.RestSite;
@@ -190,8 +194,6 @@ public sealed class PathAdvisor
         if (isTop && stats.CapBinds) chips.Add(Loc.T("HP 고려: 엘리트 수 제한", "HP check: Elites capped"));
         if (!inCap) chips.Add(Loc.T("HP 대비 엘리트 많음", "Many Elites for your HP"));
 
-        if (o.Risks.Contains(PathRisks.EliteChain)) chips.Add(Loc.T("위험: 엘리트 연속", "Risk: back-to-back Elites"));
-        if (o.Risks.Contains(PathRisks.EliteNoRest)) chips.Add(Loc.T("위험: 휴식 없이 엘리트", "Risk: Elite without Rest"));
         return chips;
     }
 }
