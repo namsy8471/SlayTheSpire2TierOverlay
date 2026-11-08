@@ -58,6 +58,10 @@ public sealed class RecognitionTracker
                 Upgraded = upgraded,
                 UpgradeKnown = old.UpgradeKnown || c.UpgradeKnown,
                 Score = Math.Max(old.Score, c.Score),
+                // Shop price: the merchant's hand or a tooltip can hide the label for a frame, so keep the last
+                // clear reading. A newer clear reading wins (the label turns red once the player has spent gold).
+                Price = c.Price ?? old.Price,
+                PriceReading = c.Price != null ? c.PriceReading : old.PriceReading ?? c.PriceReading,
             };
         }
         _lastSeen = now;

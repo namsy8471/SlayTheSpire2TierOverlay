@@ -9,6 +9,7 @@ public enum PanelTab
     Deck,
     Build,
     Path,
+    Review,
 }
 
 /// <summary>Root view model of the panel window. Sections are replaced wholesale by <see cref="Controllers.AppController"/>.</summary>
@@ -32,6 +33,13 @@ public sealed class PanelViewModel : ObservableObject
     public PanelViewModel()
     {
         ToggleCollapseCommand = new RelayCommand(_ => IsCollapsed = !IsCollapsed);
+        // ---- forecast / run review (m2/forecast-review) ----
+        ShowReviewCommand = new RelayCommand(_ =>
+        {
+            Review = Review with { ShowBanner = false };
+            SelectedTab = PanelTab.Review;
+        });
+        DismissReviewCommand = new RelayCommand(_ => Review = Review with { ShowBanner = false });
     }
 
     public ICommand ToggleCollapseCommand { get; }
@@ -95,6 +103,20 @@ public sealed class PanelViewModel : ObservableObject
         set => Set(ref _messageText, value);
     }
 
+    // ---- local resources / version guard (Services.LocalResourceService) ----
+    private string? _resourceBanner;
+
+    /// <summary>
+    /// Persistent notice above the footer: resource preparation progress/failure and the game-vs-pack version warning.
+    /// Unlike <see cref="MessageText"/> it does not time out. Null hides it.
+    /// </summary>
+    public string? ResourceBanner
+    {
+        get => _resourceBanner;
+        set => Set(ref _resourceBanner, value);
+    }
+    // ---- end local resources ----
+
     public bool ClickThrough
     {
         get => _clickThrough;
@@ -130,4 +152,29 @@ public sealed class PanelViewModel : ObservableObject
         get => _path;
         set => Set(ref _path, value);
     }
+
+    // ---- forecast / run review (m2/forecast-review) ----------------------------------------------------
+
+    private ForecastSectionVm _forecast = ForecastSectionVm.Empty;
+    private ReviewSectionVm _review = ReviewSectionVm.Empty;
+
+    /// <summary>Monte Carlo build-completion block at the top of the 빌드 tab.</summary>
+    public ForecastSectionVm Forecast
+    {
+        get => _forecast;
+        set => Set(ref _forecast, value);
+    }
+
+    /// <summary>Last finished run's review (리뷰 tab) and its "new review" banner.</summary>
+    public ReviewSectionVm Review
+    {
+        get => _review;
+        set => Set(ref _review, value);
+    }
+
+    /// <summary>Banner "보기": open the 리뷰 tab and hide the banner.</summary>
+    public ICommand ShowReviewCommand { get; }
+
+    /// <summary>Banner "닫기": hide the banner; the review stays in the 리뷰 tab.</summary>
+    public ICommand DismissReviewCommand { get; }
 }

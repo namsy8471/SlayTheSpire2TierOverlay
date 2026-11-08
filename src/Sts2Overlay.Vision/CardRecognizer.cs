@@ -17,12 +17,27 @@ public sealed record RecognizerOptions
     /// </summary>
     public float CoveredScore { get; init; } = 0.55f;
     public float CoveredMargin { get; init; } = 0.25f;
+    /// <summary>
+    /// Tile-fit check for whole-art accepts below <see cref="UnoccludedScore"/>: the chosen card must also agree
+    /// on at least this many of the 24 blocks, with an NCC over those blocks of at least <see cref="TileFitScore"/>.
+    /// A big smooth occluder (the merchant's hand) can lift a card with a big smooth sky in the same place to a
+    /// winning whole-art score, but that card does not fit the rest of the art block by block. VisionBench stress:
+    /// wrong picks fitted at most 9 blocks / 0.789, right picks of 2,023 kept 2,001.
+    /// </summary>
+    public int TileFitMinTiles { get; init; } = 8;
+    public float TileFitScore { get; init; } = 0.82f;
     /// <summary>Coarse NCC above which a slot counts as "a card is here" while choosing the layout.</summary>
     public float SlotPresentScore { get; init; } = 0.60f;
     /// <summary>Fraction of upgrade-green title pixels that marks an upgraded card (upgraded titles: 5-10 %).</summary>
     public float UpgradeFraction { get; init; } = 0.02f;
     /// <summary>Art NCC above which the card is considered fully visible (title not hidden by a tooltip).</summary>
     public float UnoccludedScore { get; init; } = 0.85f;
+    /// <summary>
+    /// Share of the title box in the hover tooltip's slate colour above which the title counts as covered: the art
+    /// can still match cleanly while a neighbour's tooltip hides just the name (bench: clean titles ≤ 0.4 %,
+    /// covered ones ≥ 52 %).
+    /// </summary>
+    public float TitleCoveredFraction { get; init; } = 0.15f;
     /// <summary>A hinted-pool candidate wins if it is within this NCC of the overall best.</summary>
     public float HintTolerance { get; init; } = 0.03f;
     /// <summary>Local search radius around the layout position, in reference pixels.</summary>
@@ -31,6 +46,33 @@ public sealed record RecognizerOptions
     public int SearchCandidates { get; init; } = 16;
     /// <summary>Pools that can be offered (others are never considered). Null = all database entries.</summary>
     public IReadOnlySet<string>? CandidatePools { get; init; } = VisionCatalog.OfferablePools;
+    /// <summary>Card catalog (rarity): lets the shop price check use the card's own price range. Optional.</summary>
+    public VisionCatalog? Catalog { get; init; }
+    /// <summary>Shop price reading; null disables it.</summary>
+    public PriceReaderOptions? Price { get; init; } = new();
+
+    // ---- occlusion-robust second pass (see TileMatcher); runs only on rejected slots of a confirmed screen ----
+
+    /// <summary>Try the tile-based partial match on slots the whole-art NCC rejected.</summary>
+    public bool PartialMatching { get; init; } = true;
+    /// <summary>
+    /// Stage 1, 6x4 blocks: covers of any shape. At least 5 textured blocks (a fifth of the art) must agree; the
+    /// winner must also be in the whole-art top 8 unless its margin is 0.40 or more. VisionBench stress (9,800
+    /// covered thumbnails): 0 wrong accepts, 0 impostor accepts, highest impostor margin 0.13.
+    /// </summary>
+    public PartialStage BlockStage { get; init; } = new(Agree: 0.7f, FlatEnergy: 0.1f, MinTiles: 5, AcceptScore: 0.85f, AcceptMargin: 0.30f, WholeTopK: 8, FreeMargin: 0.40f);
+    /// <summary>
+    /// Stage 2, 36 one-cell rows: stacked hover tooltips can leave only a thin strip of a card visible. A strip
+    /// carries less evidence than a third of the art, so the bar is higher and does not depend on the whole-art
+    /// ranking (which a 90 % covered card cannot win).
+    /// </summary>
+    public PartialStage RowStage { get; init; } = new(Agree: 0.85f, FlatEnergy: 0.1f, MinTiles: 2, AcceptScore: 0.90f, AcceptMargin: 0.30f, WholeTopK: 0);
+    /// <summary>Reward slots whose best coarse NCC stays below this after the local search get a taller search.</summary>
+    public float WideSearchBelow { get; init; } = 0.70f;
+    /// <summary>How far above the layout position the taller search looks, in reference pixels.</summary>
+    public float WideSearchUp { get; init; } = 44f;
+    /// <summary>Half-size of the wider search square for a shop slot that fits nothing near its layout position.</summary>
+    public float WideSearchShop { get; init; } = 24f;
 }
 
 /// <summary>
@@ -48,6 +90,9 @@ public sealed class CardRecognizer
 {
     private readonly CardArtDatabase _db;
     private readonly bool[] _offerable;
+    private readonly Lazy<TileMatcher> _blocks;
+    private readonly Lazy<TileMatcher> _rows;
+    private readonly ShopPriceReader? _priceReader;
 
     public RecognizerOptions Options { get; }
     public CardArtDatabase Database => _db;
@@ -57,6 +102,9 @@ public sealed class CardRecognizer
         _db = db;
         Options = options ?? new RecognizerOptions();
         _offerable = db.Entries.Select(e => Options.CandidatePools?.Contains(e.Pool) ?? true).ToArray();
+        _blocks = new Lazy<TileMatcher>(() => new TileMatcher(db, TileGrid.Blocks));
+        _rows = new Lazy<TileMatcher>(() => new TileMatcher(db, TileGrid.Rows));
+        _priceReader = Options.Price is { } po ? new ShopPriceReader(options: po) : null;
     }
 
     public ScreenRecognition Recognize(in ScreenFrame frame, RecognitionHints? hints = null)
@@ -74,8 +122,9 @@ public sealed class CardRecognizer
         {
             (List<RecognizedCard> slots, string detail) = RecognizeReward(frame, t, step, hints);
             List<RecognizedCard> accepted = slots.Where(s => s.Accepted).ToList();
-            // Two accepted cards are required: one lucky match on a banner screen (loot list) is not enough.
-            if (accepted.Count >= 2)
+            // Two whole-art matches are required (checked before any partial rescue, see RescueCovered): one lucky
+            // match on a banner screen (loot list) is not enough.
+            if (accepted.Count(c => c.Partial == null) >= 2)
                 return new ScreenRecognition(ScreenKind.RewardCardSelect, accepted, slots, gate, sw.Elapsed.TotalMilliseconds, detail);
             notes.Add($"reward banner but {accepted.Count} card(s): {detail}");
             examined = slots;
@@ -85,7 +134,7 @@ public sealed class CardRecognizer
         {
             List<RecognizedCard> slots = RecognizeShop(frame, t, step, hints);
             List<RecognizedCard> accepted = slots.Where(s => s.Accepted).ToList();
-            if (accepted.Count >= 1)
+            if (accepted.Count(c => c.Partial == null) >= 1)
                 return new ScreenRecognition(ScreenKind.Shop, accepted, slots, gate, sw.Elapsed.TotalMilliseconds, "shop");
             notes.Add("shop rug but no cards");
             examined = slots;
@@ -135,8 +184,12 @@ public sealed class CardRecognizer
 
         if (chosen == null) return ([], "no card row found");
         var cards = new RecognizedCard[chosen.Length];
+        var boxes = new SlotBox[chosen.Length];
         // Slots are independent and only READ the shared table, so they can be matched on several cores.
-        Parallel.For(0, chosen.Length, i => cards[i] = MatchSlot(img, t, chosen[i], 0.76f, 1.04f, hints));
+        Parallel.For(0, chosen.Length, i => cards[i] = MatchSlot(img, t, chosen[i], 0.76f, 1.04f, hints, out boxes[i]));
+        // Covered cards get a second chance only on a screen already confirmed by two whole-art matches.
+        if (cards.Count(c => c.Accepted) >= 2)
+            Parallel.For(0, chosen.Length, i => cards[i] = RescueCovered(img, t, chosen[i], 0.76f, 1.04f, cards[i], boxes[i], hints));
         return ([.. cards], detail);
     }
 
@@ -149,12 +202,13 @@ public sealed class CardRecognizer
         using IntegralImage bottom = IntegralImage.Build(frame, t.ToPixelRect(new RectF(375, 563, 535, 235)), step);
         SlotLayout[] slots = ScreenLayouts.Shop();
         var cards = new RecognizedCard[slots.Length];
+        var boxes = new SlotBox[slots.Length];
+        IntegralImage ImageOf(int i) => slots[i].Kind == CardSlotKind.ShopColorless ? bottom : top;
+        ScreenFrame f = frame; // an `in` parameter cannot be captured by the lambda; the struct copy is cheap
         // 7 independent slots reading two immutable tables: one task per slot (~2-3 ms each at 4K).
-        Parallel.For(0, slots.Length, i =>
-        {
-            IntegralImage img = slots[i].Kind == CardSlotKind.ShopColorless ? bottom : top;
-            cards[i] = MatchSlot(img, t, slots[i], 0.61f, 0.84f, hints);
-        });
+        Parallel.For(0, slots.Length, i => cards[i] = MatchSlot(ImageOf(i), t, slots[i], 0.61f, 0.84f, hints, out boxes[i], f));
+        if (cards.Any(c => c.Accepted))
+            Parallel.For(0, slots.Length, i => cards[i] = RescueCovered(ImageOf(i), t, slots[i], 0.61f, 0.84f, cards[i], boxes[i], hints, f));
         return [.. cards];
     }
 
@@ -187,6 +241,28 @@ public sealed class CardRecognizer
 
     private bool Allowed(ArtEntry e) => _offerable[e.Index];
 
+    /// <summary>
+    /// Diagnostics (VisionBench probe): the best whole-art NCC of one card over a grid of boxes around (cx, cy, scale),
+    /// in reference units. Shows whether a miss is a box-search problem or the card really is not visible.
+    /// </summary>
+    internal (float Score, float X, float Y, float Scale) Probe(in ScreenFrame frame, string cardId, float cx, float cy, float scale, float radius)
+    {
+        RefTransform t = RefTransform.For(frame.Width, frame.Height);
+        using IntegralImage img = IntegralImage.Build(frame, new PixelRect(0, 0, frame.Width, frame.Height), 1);
+        int e = _db.Entries.First(x => x.CardId == cardId).Index;
+        float[] buf = new float[Ncc.FullLength];
+        (float Score, float X, float Y, float Scale) best = (float.NegativeInfinity, cx, cy, scale);
+        for (float s = scale - 0.06f; s <= scale + 0.06f + 1e-4f; s += 0.01f)
+            for (float dy = -radius; dy <= radius; dy += 1)
+                for (float dx = -radius; dx <= radius; dx += 1)
+                    if (ExtractAt(img, t, cx + dx, cy + dy, s, buf))
+                    {
+                        float v = Ncc.Dot(buf, _db.FullVector(e));
+                        if (v > best.Score) best = (v, cx + dx, cy + dy, s);
+                    }
+        return best;
+    }
+
     private static bool ExtractAt(IntegralImage img, RefTransform t, float cx, float cy, float scale, Span<float> dst)
     {
         RectF art = t.ToPixels(CardGeometry.Place(CardGeometry.Art, cx, cy, scale));
@@ -202,8 +278,10 @@ public sealed class CardRecognizer
     /// (4) 1-px refinement. Steps 2-4 only score the kept candidates, so each probe costs ~16 short dot
     /// products instead of a full scan. (5) One full-resolution scan at the best box decides the card.
     /// </summary>
-    private RecognizedCard MatchSlot(IntegralImage img, RefTransform t, SlotLayout slot, float minScale, float maxScale, RecognitionHints? hints)
+    private RecognizedCard MatchSlot(IntegralImage img, RefTransform t, SlotLayout slot, float minScale, float maxScale, RecognitionHints? hints,
+        out SlotBox box, ScreenFrame? priceFrame = null)
     {
+        box = default;
         Span<float> coarse = stackalloc float[Ncc.CoarseLength];
 
         // (1) candidates
@@ -238,6 +316,38 @@ public sealed class CardRecognizer
         for (float dy = -r; dy <= r + 1e-3f; dy += 4)
             for (float dx = -r; dx <= r + 1e-3f; dx += 4)
                 Try(cx0 + dx, cy0 + dy, s0, coarse);
+        // (3b) Nothing fits well near the layout position: a reward card can sit higher than the layout says
+        // (hover lift / click animation, seen 26 px up at scale 1.0). Search a taller window, only then.
+        if (slot.Kind == CardSlotKind.Reward && bestScore < Options.WideSearchBelow)
+        {
+            // The candidates came from the layout position; a lifted card may not be among them. Add the best
+            // matches seen from a few lifted positions first.
+            foreach (float s in (float[])[slot.SmallScale, slot.HoverScale])
+                for (float dy = -Options.WideSearchUp * 0.75f; dy < -1; dy += Options.WideSearchUp / 4)
+                    if (ExtractAt(img, t, slot.CenterX, slot.CenterY + dy, s, coarse))
+                        foreach (ArtMatch m in _db.TopK(coarse, Options.SearchCandidates / 2, Allowed)) candidates.Add(m.EntryIndex);
+            cand = candidates.ToArray();
+            foreach (float s in (float[])[slot.SmallScale, slot.HoverScale])
+                for (float dy = -Options.WideSearchUp; dy <= r + 1e-3f; dy += 4)
+                    for (float dx = -r; dx <= r + 1e-3f; dx += 4)
+                        Try(slot.CenterX + dx, slot.CenterY + dy, s, coarse);
+        }
+        // (3c) Same for a shop card: the hovered card (scale 0.8, the merchant's hand pointing at it) was seen
+        // 15 px right of the layout position. Search a wider square, only when nothing fits near the layout.
+        else if (slot.Kind != CardSlotKind.Reward && bestScore < Options.WideSearchBelow)
+        {
+            float w = Options.WideSearchShop;
+            foreach (float s in (float[])[slot.SmallScale, slot.HoverScale])
+                for (float dy = -w / 2; dy <= w / 2 + 1e-3f; dy += w / 2)
+                    for (float dx = -w / 2; dx <= w / 2 + 1e-3f; dx += w / 2)
+                        if ((dx != 0 || dy != 0) && ExtractAt(img, t, slot.CenterX + dx, slot.CenterY + dy, s, coarse))
+                            foreach (ArtMatch m in _db.TopK(coarse, Options.SearchCandidates / 2, Allowed)) candidates.Add(m.EntryIndex);
+            cand = candidates.ToArray();
+            foreach (float s in (float[])[slot.SmallScale, slot.HoverScale])
+                for (float dy = -w; dy <= w + 1e-3f; dy += 4)
+                    for (float dx = -w; dx <= w + 1e-3f; dx += 4)
+                        Try(slot.CenterX + dx, slot.CenterY + dy, s, coarse);
+        }
         // (4) fine offsets, then a final scale nudge
         cx0 = bx;
         cy0 = by;
@@ -250,6 +360,7 @@ public sealed class CardRecognizer
         // (5) full-resolution identification over the whole (allowed) database
         float[] full = new float[Ncc.FullLength];
         if (!ExtractAt(img, t, bx, by, bs, full)) return Empty(t, slot);
+        box = new SlotBox(full, bx, by, bs);
         ArtMatch[] top = _db.TopK(full, 8, Allowed);
         if (top.Length == 0) return Empty(t, slot);
 
@@ -259,24 +370,54 @@ public sealed class CardRecognizer
         float margin = pick.Score - runnerUp;
         bool accepted = (pick.Score >= Options.AcceptScore && margin >= Options.AcceptMargin)
                         || (pick.Score >= Options.CoveredScore && margin >= Options.CoveredMargin);
+        if (accepted && Options.PartialMatching)
+        {
+            // Confirm it tile by tile (a rejected slot still gets the partial-match rescue). One per-tile pass
+            // over a single entry: ~2k multiply-adds, negligible next to the search.
+            (int fitTiles, float fitScore) = _blocks.Value.Fit(full, pick.EntryIndex, Options.BlockStage);
+            accepted = fitTiles >= Options.TileFitMinTiles && fitScore >= Options.TileFitScore;
+        }
 
-        float green = UpgradeDetector.GreenFraction(img, t, bx, by, bs);
+        (float green, float covered) = UpgradeDetector.TitleEvidence(img, t, bx, by, bs);
         bool upgraded = green >= Options.UpgradeFraction;
-        // A clean art match means nothing covers the card, so a title without green really is not upgraded.
-        bool upgradeKnown = upgraded || pick.Score >= Options.UnoccludedScore;
+        // A clean art match and no tooltip panel over the title: a title without green really is not upgraded.
+        bool upgradeKnown = upgraded || (pick.Score >= Options.UnoccludedScore && covered < Options.TitleCoveredFraction);
         PixelRect? price = slot.Kind == CardSlotKind.Reward ? null : t.ToPixelRect(ScreenLayouts.ShopPrice(bx, by, bs));
+        PriceReading? reading = ReadPrice(priceFrame, slot, pick.CardId, bx, by, bs);
         return new RecognizedCard(slot.Index, slot.Kind, pick.CardId, upgraded, pick.Score, margin, accepted,
             ambiguous, green, upgradeKnown, bs,
             t.ToPixelRect(CardGeometry.Place(CardGeometry.Art, bx, by, bs)),
             t.ToPixelRect(CardGeometry.Place(CardGeometry.Card, bx, by, bs)),
-            price, null, top.Take(3).ToArray());
+            price, reading?.Value, top.Take(3).ToArray())
+        {
+            PriceReading = reading,
+        };
+    }
+
+    /// <summary>
+    /// Shop: read the price label under the card box (it moves and scales with the card). A card mostly under the
+    /// merchant's hand gets an unreliable box, but its label usually still sits at the slot's resting place: retry
+    /// there (resting, then hovered size).
+    /// </summary>
+    private PriceReading? ReadPrice(ScreenFrame? priceFrame, SlotLayout slot, string cardId, float bx, float by, float bs)
+    {
+        if (priceFrame is not { } pf || _priceReader == null || slot.Kind == CardSlotKind.Reward) return null;
+        string? rarity = Options.Catalog?.Find(cardId)?.Rarity;
+        PriceReading? reading = _priceReader.Read(pf, bx, by, bs, slot.Kind, rarity);
+        foreach (float s in (float[])[slot.SmallScale, slot.HoverScale])
+        {
+            if (reading?.Value != null) break;
+            PriceReading? retry = _priceReader.Read(pf, slot.CenterX, slot.CenterY, s, slot.Kind, rarity);
+            if (retry?.Value != null || reading == null) reading = retry;
+        }
+        return reading;
     }
 
     /// <summary>
     /// Picks the card from the ranked candidates: a candidate from the hinted character's pool (or colourless)
     /// wins near-ties, and identical-art twins are resolved by pool when possible.
     /// </summary>
-    private (ArtMatch Pick, string? Ambiguous) Decide(ArtMatch[] top, RecognitionHints? hints)
+    internal (ArtMatch Pick, string? Ambiguous) Decide(ArtMatch[] top, RecognitionHints? hints)
     {
         string? charPool = hints?.CharacterId is { } ch ? VisionCatalog.PoolOfCharacter(ch) : null;
         bool Preferred(ArtMatch m) => charPool != null &&
@@ -312,6 +453,168 @@ public sealed class CardRecognizer
         return (pick, ambiguous);
     }
 
+    /// <summary>
+    /// Second chance for a slot the whole-art NCC rejected (partly covered, cross-fading): the tile-based
+    /// partial match (<see cref="TileMatcher"/>), first on 6x4 blocks, then on single rows. The box found by the
+    /// whole-art search may be off when a big part of the card is covered, so it is first refined on the visible
+    /// tiles of the likely candidates. Accepted slots and slots without a usable thumbnail are returned unchanged;
+    /// a rejected partial match is still attached for the bench and the debug view.
+    /// </summary>
+    private RecognizedCard RescueCovered(IntegralImage img, RefTransform t, SlotLayout slot, float minScale, float maxScale,
+        RecognizedCard c, SlotBox box, RecognitionHints? hints, ScreenFrame? priceFrame = null)
+    {
+        if (!Options.PartialMatching || c.Accepted || box.Full == null) return c;
+
+        // Candidates for the refinement: what the whole-art scan and both partial scans at the first box suggest.
+        string[] firstTop = c.Candidates.Select(m => m.CardId).ToArray();
+        PartialMatch? firstBlocks = EvaluatePartial(box.Full, firstTop, _blocks.Value, Options.BlockStage, Allowed, hints, out ArtMatch[] r1, out _);
+        PartialMatch? firstRows = EvaluatePartial(box.Full, firstTop, _rows.Value, Options.RowStage, Allowed, hints, out ArtMatch[] r2, out _);
+        PartialMatch? firstBest = firstBlocks ?? firstRows;
+        int[] cand = c.Candidates.Take(3).Concat(r1.Take(3)).Concat(r2.Take(3)).Select(m => m.EntryIndex).Distinct().ToArray();
+        if (cand.Length == 0) return firstBest == null ? c : c with { Partial = firstBest };
+
+        float[] buf = new float[Ncc.FullLength];
+        float bestObj = float.NegativeInfinity, bx = box.X, by = box.Y, bs = box.Scale;
+        void Try(float x, float y, float s)
+        {
+            if (s < minScale - 1e-4f || s > maxScale + 1e-4f || !ExtractAt(img, t, x, y, s, buf)) return;
+            // Sum of agreeing tile NCCs on both grids: more visible area and better fit both count.
+            float obj = _blocks.Value.Agreement(buf, cand, Options.BlockStage) + _rows.Value.Agreement(buf, cand, Options.RowStage);
+            if (obj > bestObj)
+            {
+                bestObj = obj;
+                bx = x;
+                by = y;
+                bs = s;
+            }
+        }
+        Try(box.X, box.Y, box.Scale);
+        for (float s = minScale; s <= maxScale + 1e-4f; s += 0.02f) Try(box.X, box.Y, s);
+        float cx0 = bx, cy0 = by;
+        for (float dy = -6; dy <= 6; dy += 2)
+            for (float dx = -6; dx <= 6; dx += 2)
+                Try(cx0 + dx, cy0 + dy, bs);
+        cx0 = bx;
+        cy0 = by;
+        for (float dy = -1; dy <= 1; dy++)
+            for (float dx = -1; dx <= 1; dx++)
+                Try(cx0 + dx, cy0 + dy, bs);
+        Try(bx, by, bs - 0.01f);
+        Try(bx, by, bs + 0.01f);
+
+        // Boxes to decide at: the refined box, then the resting layout box (a card covered by its neighbour's
+        // tooltip is itself not hovered, so it sits exactly where the layout says), with +-1 px vertical nudges
+        // there because a thin visible strip is only a few thumbnail rows tall and must not straddle them.
+        var boxes = new List<(float X, float Y, float S)> { (bx, by, bs) };
+        foreach (float dy in (float[])[0, -1, 1])
+            if (MathF.Abs(slot.CenterX - bx) > 0.5f || MathF.Abs(slot.CenterY + dy - by) > 0.5f || MathF.Abs(slot.SmallScale - bs) > 0.005f)
+                boxes.Add((slot.CenterX, slot.CenterY + dy, slot.SmallScale));
+
+        float[] full = new float[Ncc.FullLength];
+        PartialMatch? partial = null;
+        ArtMatch[] ranking = [];
+        string? ambiguous = null;
+        foreach ((float x, float y, float sc) in boxes)
+        {
+            if (!ExtractAt(img, t, x, y, sc, full)) continue;
+            (PartialMatch? p, ArtMatch[] rk, string? amb) = DecideCovered(full, hints);
+            if (p == null) continue;
+            if (partial == null || p.Accepted || (!partial.Accepted && p.Margin > partial.Margin))
+            {
+                partial = p;
+                ranking = rk;
+                ambiguous = amb;
+                (bx, by, bs) = (x, y, sc);
+            }
+            if (p.Accepted) break;
+        }
+        if (partial == null) return firstBest == null ? c : c with { Partial = firstBest };
+        if (!partial.Accepted) return c with { Partial = partial };
+        ExtractAt(img, t, bx, by, bs, full);
+
+        ArtMatch pick = ranking.First(m => m.CardId == partial.CardId);
+        // Whole-art NCC of the chosen card: what it scores with the covered part included. It stays low, so
+        // UpgradeKnown stays false unless green was actually seen (the title may be the covered part).
+        float whole = Ncc.Dot(full, _db.FullVector(pick.EntryIndex));
+        (float green, float covered) = UpgradeDetector.TitleEvidence(img, t, bx, by, bs);
+        bool upgraded = green >= Options.UpgradeFraction;
+        // The price was read for the whole-art pick at the first box; read it again for this card at its box.
+        PriceReading? reading = ReadPrice(priceFrame, slot, partial.CardId, bx, by, bs);
+        return c with
+        {
+            CardId = partial.CardId,
+            Upgraded = upgraded,
+            Score = whole,
+            Margin = partial.Margin,
+            Accepted = true,
+            AmbiguousWith = ambiguous,
+            UpgradeEvidence = green,
+            UpgradeKnown = upgraded || (whole >= Options.UnoccludedScore && covered < Options.TitleCoveredFraction),
+            NodeScale = bs,
+            ArtBounds = t.ToPixelRect(CardGeometry.Place(CardGeometry.Art, bx, by, bs)),
+            CardBounds = t.ToPixelRect(CardGeometry.Place(CardGeometry.Card, bx, by, bs)),
+            PriceBounds = slot.Kind == CardSlotKind.Reward ? null : t.ToPixelRect(ScreenLayouts.ShopPrice(bx, by, bs)),
+            Candidates = ranking.Take(3).ToArray(),
+            Partial = partial,
+            Price = reading?.Value,
+            PriceReading = reading,
+        };
+    }
+
+    /// <summary>Candidate filter of a partial stage: offerable cards, narrowed to the hinted character's pool + colourless.</summary>
+    private Func<ArtEntry, bool> StageFilter(PartialStage stage, RecognitionHints? hints)
+    {
+        string? pool = stage.HintedPoolOnly && hints?.CharacterId is { } ch ? VisionCatalog.PoolOfCharacter(ch) : null;
+        if (pool == null) return Allowed;
+        return e => _offerable[e.Index] && (e.Pool == pool || e.Pool == VisionCatalog.ColorlessPool);
+    }
+
+    /// <summary>Blocks first, then rows; returns the accepted match, or the rejected one that came closest.</summary>
+    private (PartialMatch?, ArtMatch[], string?) DecideCovered(float[] full, RecognitionHints? hints)
+    {
+        // The whole-art ranking at this box (for the agreement condition of the block stage).
+        string[] wholeTop = _db.TopK(full, 8, Allowed).Select(m => m.CardId).ToArray();
+        PartialMatch? blocks = EvaluatePartial(full, wholeTop, _blocks.Value, Options.BlockStage, StageFilter(Options.BlockStage, hints), hints,
+            out ArtMatch[] ranking, out string? ambiguous);
+        if (blocks?.Accepted == true) return (blocks, ranking, ambiguous);
+        PartialMatch? rows = EvaluatePartial(full, wholeTop, _rows.Value, Options.RowStage, StageFilter(Options.RowStage, hints), hints,
+            out ArtMatch[] rowRanking, out string? rowAmbiguous);
+        return rows != null && (rows.Accepted || blocks == null || rows.Margin > blocks.Margin)
+            ? (rows, rowRanking, rowAmbiguous)
+            : (blocks, ranking, ambiguous);
+    }
+
+    /// <summary>
+    /// The partial-match decision for one thumbnail on one grid (also used by VisionBench's stress test).
+    /// Choosing "the tiles where a card fits" flatters every card, so acceptance needs all of:
+    /// <list type="number">
+    /// <item>its NCC over its agreeing tiles is high (<see cref="PartialStage.AcceptScore"/>);</item>
+    /// <item>it beats every other card scored on exactly the same tiles by <see cref="PartialStage.AcceptMargin"/>;</item>
+    /// <item>for stages with <see cref="PartialStage.WholeTopK"/> &gt; 0: the whole-art ranking
+    /// (<paramref name="wholeTop"/>, best first) also has it among its first k - two views of the evidence agree.</item>
+    /// </list>
+    /// Returns null when no card fits on enough tiles.
+    /// </summary>
+    internal PartialMatch? EvaluatePartial(ReadOnlySpan<float> full, IReadOnlyList<string> wholeTop, TileMatcher matcher, PartialStage stage,
+        Func<ArtEntry, bool> allowed, RecognitionHints? hints, out ArtMatch[] ranking, out string? ambiguous)
+    {
+        ambiguous = null;
+        if (matcher.Best(full, allowed, stage, out ranking) is not { } best || ranking.Length == 0) return null;
+        (ArtMatch pick, ambiguous) = Decide(ranking, hints);
+        string pickId = pick.CardId;
+        IReadOnlySet<string> twins = _db.TwinsOf(pickId);
+        float runnerUp = ranking.Where(m => m.CardId != pickId && !twins.Contains(m.CardId))
+            .Select(m => m.Score).DefaultIfEmpty(-1).Max();
+        float margin = pick.Score - runnerUp;
+        bool agrees = stage.WholeTopK <= 0 || margin >= stage.FreeMargin || wholeTop.Take(stage.WholeTopK).Any(id => id == pickId || twins.Contains(id));
+        bool accepted = agrees && pick.Score >= stage.AcceptScore && margin >= stage.AcceptMargin;
+        return new PartialMatch(pickId, pick.Score, margin, best.Visible, matcher.Grid.Count, accepted, matcher.Grid == TileGrid.Rows ? "rows" : "blocks");
+    }
+
+    /// <summary>The two partial-match grids (VisionBench stress test).</summary>
+    internal TileMatcher BlockMatcher => _blocks.Value;
+    internal TileMatcher RowMatcher => _rows.Value;
+
     private static RecognizedCard Empty(RefTransform t, SlotLayout slot) =>
         new(slot.Index, slot.Kind, null, false, 0, 0, false, null, 0, false, slot.SmallScale,
             t.ToPixelRect(CardGeometry.Place(CardGeometry.Art, slot.CenterX, slot.CenterY, slot.SmallScale)),
@@ -331,7 +634,18 @@ public static class UpgradeDetector
     public static bool IsUpgradeGreen(float r, float g, float b) =>
         g >= 50 && r <= 0.62f * g && b <= 0.35f * g;
 
-    internal static float GreenFraction(IntegralImage img, RefTransform t, float cx, float cy, float scale)
+    /// <summary>The dark slate body of a hover tooltip panel (about RGB 35, 45, 52): bluish, unlike a card fading in from black.</summary>
+    public static bool IsTooltipSlate(float r, float g, float b) =>
+        r is >= 18 and <= 56 && g - r is >= 3 and <= 20 && b - r is >= 8 and <= 28;
+
+    internal static float GreenFraction(IntegralImage img, RefTransform t, float cx, float cy, float scale) =>
+        TitleEvidence(img, t, cx, cy, scale).Green;
+
+    /// <summary>
+    /// Share of the title box in upgrade green, and share in tooltip slate (a neighbour's hover tooltip lying over
+    /// the name, so "no green" proves nothing).
+    /// </summary>
+    internal static (float Green, float Covered) TitleEvidence(IntegralImage img, RefTransform t, float cx, float cy, float scale)
     {
         RectF title = t.ToPixels(CardGeometry.Place(CardGeometry.Title, cx, cy, scale));
         // About one sample per table cell: thin glyph strokes must not be averaged away.
@@ -339,9 +653,15 @@ public static class UpgradeDetector
         int gh = Math.Clamp((int)(title.Height / img.Step), 4, 120);
         float[] rgb = new float[gw * gh * 3];
         img.SampleGrid(title, gw, gh, rgb);
-        int green = 0;
+        int green = 0, slate = 0;
         for (int i = 0; i < rgb.Length; i += 3)
+        {
             if (IsUpgradeGreen(rgb[i], rgb[i + 1], rgb[i + 2])) green++;
-        return green / (float)(gw * gh);
+            else if (IsTooltipSlate(rgb[i], rgb[i + 1], rgb[i + 2])) slate++;
+        }
+        return (green / (float)(gw * gh), slate / (float)(gw * gh));
     }
 }
+
+/// <summary>Where the whole-art search put a slot's card (reference units) and the thumbnail it extracted there.</summary>
+internal readonly record struct SlotBox(float[]? Full, float X, float Y, float Scale);

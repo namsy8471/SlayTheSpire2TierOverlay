@@ -57,7 +57,8 @@ public sealed record OfferSectionVm
     public string? Footer { get; init; }
 }
 
-public sealed record DeckCardVm(string TierText, string Name, string CountText, string? UpgradeText);
+/// <param name="Doubt">Why the log-only rebuild is unsure of this card (shown as a "?" with this tooltip); null = certain.</param>
+public sealed record DeckCardVm(string TierText, string Name, string CountText, string? UpgradeText, string? Doubt = null);
 
 public sealed record DeckGroupVm(string Title, IReadOnlyList<DeckCardVm> Cards);
 

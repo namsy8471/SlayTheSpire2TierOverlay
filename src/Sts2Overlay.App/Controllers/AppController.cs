@@ -29,7 +29,7 @@ namespace Sts2Overlay.App.Controllers;
 /// Events from other threads are marshalled with <see cref="Dispatcher.BeginInvoke(Delegate, object[])"/> because WPF
 /// objects may only be touched by the thread that created them.
 /// </summary>
-public sealed class AppController : IDisposable
+public sealed partial class AppController : IDisposable
 {
     /// <summary>Stand-in when a card offer is recognised before the save tracker has produced a run.</summary>
     private static readonly RunState UnknownRun = new() { Character = "CHARACTER.UNKNOWN" };
@@ -79,6 +79,7 @@ public sealed class AppController : IDisposable
         _packDir = packDir;
         CatalogPath = catalogPath;
         (_engine, _cards) = LoadPack(packDir, catalogPath, vm);
+        InitForecastReview(packDir, catalogPath); // forecast + run review (AppController.ForecastReview.cs)
 
         _tracker.Changed += (_, _) => OnTrackerChanged();
         // The panel moved to a monitor with another DPI: the DPI part of the scale changed, ours must follow.
@@ -104,7 +105,7 @@ public sealed class AppController : IDisposable
 
     public DemoScreen? Demo { get; private set; }
     public bool UserHidden => _userHidden;
-    public string? CatalogPath { get; }
+    public string? CatalogPath { get; private set; }
 
     public string StatusLine => $"{_vm.StatusText} · {_vm.PackText}";
 
@@ -175,6 +176,7 @@ public sealed class AppController : IDisposable
         _snapshot = snap;
         _pipeline.CharacterHint = snap.Run?.Character;
         RefreshRunViews(snap.Run);
+        UpdateForecastReview(snap); // AppController.ForecastReview.cs
         if (Demo is null) RefreshPath(snap);
 
         var likely = IsOfferHint(snap.Hint);
@@ -287,8 +289,10 @@ public sealed class AppController : IDisposable
             return;
         }
         _lastResult = r;
+        // The tracker links the next "obtained CARD.X from card reward" to this screen (upgrade read from the title colour).
+        if (r.ScreenKind == ScreenKind.Reward && _source is Sts2Overlay.GameState.Tracking.ICardOfferSink sink) sink.OnCardOfferSeen(r.Cards.Select(c => c.Card).ToList());
 
-        var offerKey = r.ScreenKind + ":" + string.Join(",", r.Cards.Select(c => $"{c.Card}${c.Price}"));
+        var offerKey = r.ScreenKind + ":" + string.Join(",", r.Cards.Select(c => $"{c.Card}${c.Price}{(c.Unaffordable == true ? "r" : "")}{(c.OnSale ? "s" : "")}"));
         var evalKey = $"{offerKey}@{_snapshot.UpdatedAt.Ticks}#{_engineVersion}";
         if (evalKey != _lastEvalKey)
         {
@@ -320,10 +324,10 @@ public sealed class AppController : IDisposable
         for (var i = 0; i < specs.Length; i++)
         {
             specs[i] = i < _lastBadges.Count
-                ? _lastBadges[i] with { CardBounds = r.Cards[i].ScreenBounds }
-                : new BadgeSpec(r.Cards[i].ScreenBounds, "?", "", false, true, r.Cards[i].Card.IsUpgraded);
+                ? _lastBadges[i] with { CardBounds = r.Cards[i].ScreenBounds, PriceBounds = r.Cards[i].PriceBounds }
+                : new BadgeSpec(r.Cards[i].ScreenBounds, "?", "", false, true, r.Cards[i].Card.IsUpgraded, r.Cards[i].PriceBounds);
         }
-        _badges.ShowBadges(specs, _lastSkip, showBounds: Demo is not null);
+        _badges.ShowBadges(specs, _lastSkip, showBounds: Demo is not null || DebugOutlines);
         UpdateCadence();
     }
 
@@ -390,7 +394,8 @@ public sealed class AppController : IDisposable
     private (OfferSectionVm, IReadOnlyList<BadgeSpec>, string?) EvaluateShop(RecognitionResult r)
     {
         var run = _snapshot.Run ?? UnknownRun;
-        var offer = new ShopOffer(r.Cards.Select(c => new ShopCardOffer(c.Card, c.Price ?? 0)).ToArray());
+        // --- shop prices (m2/shop-price): unread prices are estimated by the scorer; label colours bound the gold ---
+        var offer = new ShopOffer(r.Cards.Select(c => new ShopCardOffer(c.Card, c.Price ?? 0, c.Price is not null, c.Unaffordable is bool u ? !u : null, c.OnSale)).ToArray());
         var eval = _engine.EvaluateShop(run, offer);
         var recommended = eval.RecommendedPurchase.ToHashSet(ReferenceEqualityComparer.Instance);
 
@@ -411,7 +416,7 @@ public sealed class AppController : IDisposable
                 IsEstimate = e?.IsEstimate ?? false,
                 IsUpgraded = item.Card?.IsUpgraded ?? false,
                 Unaffordable = !item.Affordable,
-                PriceText = $"{item.Price}골드",
+                PriceText = ShopPriceText(item),
                 SubText = sub,
                 Chips = (e?.Chips.Select(c => Chip(c.Label, c.Value)) ?? item.Value.TopReasons(3).Select(c => Chip(c.Label, c.Value))).ToArray(),
             };
@@ -422,7 +427,7 @@ public sealed class AppController : IDisposable
             .ToArray();
         var section = new OfferSectionVm
         {
-            Title = $"상점 · 보유 {run.Gold}골드",
+            Title = eval.GoldCorrectedByScreen ? $"상점 · 보유 ~{eval.Gold}골드 (가격 색으로 보정)" : $"상점 · 보유 {eval.Gold}골드",
             ConfidenceText = "",
             Rows = rows,
             Footer = names.Length > 0 ? $"추천 구매: {string.Join(" + ", names)} · 남는 골드 {eval.GoldLeft}" : "추천 구매 없음 (골드 아끼기)",
@@ -441,6 +446,11 @@ public sealed class AppController : IDisposable
         }).ToArray();
         return (section, badges, null);
     }
+
+    /// <summary>"75골드", "~150골드 (추정)" for an unread label, "37골드 세일" for the half-price card.</summary>
+    private static string ShopPriceText(ShopItemEvaluation item)
+        => (item.PriceEstimated ? $"~{item.Price}골드 (추정)" : $"{item.Price}골드") + (item.OnSale ? " 세일" : "");
+    // --- end shop prices ---
 
     private void ClearBadges()
     {
@@ -508,7 +518,8 @@ public sealed class AppController : IDisposable
                         var count = byId.Count();
                         var upgraded = byId.Count(c => c.Upgrade > 0);
                         var upText = upgraded == 0 ? null : count == 1 ? "강화" : $"강화 {upgraded}";
-                        return (Tier: tier, Vm: new DeckCardVm(tier?.ToString() ?? "?", _cards.Name(byId.Key), $"×{count}", upText));
+                        string? doubt = _snapshot.Doubts?.CardReasons.GetValueOrDefault(byId.Key);
+                        return (Tier: tier, Vm: new DeckCardVm(tier?.ToString() ?? "?", _cards.Name(byId.Key), $"×{count}", upText, doubt));
                     })
                     .OrderBy(x => x.Tier is null ? 99 : (int)x.Tier)
                     .ThenBy(x => x.Vm.Name, StringComparer.CurrentCulture)
@@ -533,6 +544,16 @@ public sealed class AppController : IDisposable
         var upgradedTotal = run.Deck.Count(c => c.Upgrade > 0);
         var summary = $"덱 {run.Deck.Count}장 · 강화 {upgradedTotal}장 · 파워 {profile.PowerCount}장";
         if (profile.Curses > 0) summary += $" · 저주 {profile.Curses}장";
+        if (_snapshot.Doubts is { } d)
+        {
+            // Log-only rebuild (co-op guest): say what it can't know yet. Exact again at run end (.run file).
+            var parts = new List<string>();
+            if (d.Unidentified > 0) parts.Add($"미확인 카드 {d.Unidentified}장");
+            if (d.UnknownUpgrades > 0) parts.Add($"위치 모를 강화 {d.UnknownUpgrades}회");
+            if (d.UnknownRemovals > 0) parts.Add($"모를 제거 {d.UnknownRemovals}장");
+            if (d.CardReasons.Count > 0) parts.Add($"? 표시 {d.CardReasons.Count}종");
+            summary += " · 추정: " + string.Join(" · ", parts);
+        }
         return new DeckSectionVm { Summary = summary, Groups = groups, Roles = roles };
     }
 
@@ -559,9 +580,9 @@ public sealed class AppController : IDisposable
         var items = report.Statuses.Take(5).Select(st =>
         {
             var a = st.Archetype;
-            var prob = report.CoreOfferProbability.TryGetValue(a.Id, out var p)
-                ? $"이번 막 남은 보상 {report.RemainingRewards}번 안에 핵심 카드가 나올 확률 {p:P0} [추정]"
-                : null;
+            // m2/forecast-calib: the old "핵심 카드가 나올 확률" line is replaced by the calibrated forecast line,
+            // filled in by ForecastReviewPresenter.WithForecast (AppController.ForecastReview.cs).
+            string? prob = null;
             var missing = st.MissingCards.Count == 0
                 ? null
                 : "필요: " + string.Join(", ", st.MissingCards.Take(5).Select(m =>
@@ -710,6 +731,20 @@ public sealed class AppController : IDisposable
         ShowMessage(_clickThrough ? "클릭 통과 켜짐: 마우스가 게임으로 갑니다" : "클릭 통과 꺼짐: 패널을 클릭할 수 있습니다");
     }
 
+    // ---- debug outline mode (tray / Ctrl+F11): draw the recognised card and price boxes on the badge layer ----
+
+    /// <summary>Outlines of what the recogniser found (cards blue, price labels orange). Session only, not saved.</summary>
+    public bool DebugOutlines { get; private set; }
+
+    public void ToggleDebugOutlines()
+    {
+        DebugOutlines = !DebugOutlines;
+        AppLog.Info($"debug outlines = {DebugOutlines}");
+        ShowMessage(DebugOutlines ? "인식 영역 표시 켜짐: 카드(파랑)·가격(주황) 상자" : "인식 영역 표시 꺼짐");
+        _pipeline.RequestRecognize(); // redraw with the next result
+        StateChanged?.Invoke();
+    }
+
     public void RecognizeNow()
     {
         ShowMessage("지금 인식하는 중…");
@@ -723,9 +758,39 @@ public sealed class AppController : IDisposable
         (_engine, _cards) = LoadPack(_packDir, CatalogPath, _vm);
         _engineVersion++;
         RefreshRunViews(_snapshot.Run);
+        ReloadForecastReview(); // AppController.ForecastReview.cs
         if (_lastResult is not null) ApplyRecognition(_lastResult);
         ShowMessage("데이터 팩을 다시 읽었습니다");
+        PackReloaded?.Invoke();
     }
+
+    // ---- local resources (Services.LocalResourceService) -------------------------------------------------
+
+    /// <summary>The loaded data pack and its folder, for the game-version guard.</summary>
+    public DataPack Pack => _engine.Pack;
+
+    public string PackDir => _packDir;
+
+    /// <summary>Raised (UI thread) after <see cref="ReloadPack"/>.</summary>
+    public event Action? PackReloaded;
+
+    /// <summary>
+    /// data/local was (re)generated: use the new catalog for names, and a fresh recogniser that reads the new art and
+    /// catalog (its art cache is warmed on a worker thread). Demo mode keeps its fake recogniser.
+    /// </summary>
+    public void ApplyPreparedResources(string? catalogPath)
+    {
+        CatalogPath = catalogPath ?? CatalogPath;
+        if (Demo is null)
+        {
+            var recognizer = IntegrationFactory.CreateRealRecognizer();
+            _pipeline.Recognizer = recognizer;
+            _ = Task.Run(recognizer.Preload);
+        }
+        ReloadPack();
+        ShowMessage("게임 리소스를 준비했습니다 (카드 그림·이름)");
+    }
+    // ---- end local resources ----
 
     public void ShowMessage(string text)
     {
@@ -808,5 +873,6 @@ public sealed class AppController : IDisposable
         _messageTimer.Stop();
         _source.Changed -= OnSourceChanged;
         _source.Dispose();
+        DisposeForecastReview(); // AppController.ForecastReview.cs
     }
 }

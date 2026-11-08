@@ -29,6 +29,12 @@ public sealed record ShopItemEvaluation
     public string? RemovalTarget { get; init; }
 
     public bool Affordable { get; init; }
+
+    /// <summary>The price was not read from the screen; <see cref="Price"/> is the rarity-based estimate.</summary>
+    public bool PriceEstimated { get; init; }
+
+    /// <summary>The merchant's half-price card.</summary>
+    public bool OnSale { get; init; }
 }
 
 public sealed record ShopEvaluation
@@ -38,6 +44,12 @@ public sealed record ShopEvaluation
 
     /// <summary>Best affordable combination of positive-value items.</summary>
     public required IReadOnlyList<ShopItemEvaluation> RecommendedPurchase { get; init; }
+
+    /// <summary>The gold planned with: the tracked gold, clamped to what the price colours on screen prove.</summary>
+    public int Gold { get; init; }
+
+    /// <summary>True when the price colours contradicted the tracked gold and <see cref="Gold"/> was corrected.</summary>
+    public bool GoldCorrectedByScreen { get; init; }
 
     public int GoldLeft { get; init; }
 

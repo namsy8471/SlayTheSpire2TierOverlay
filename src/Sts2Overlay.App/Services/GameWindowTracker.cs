@@ -121,21 +121,27 @@ public sealed class GameWindowTracker : IDisposable
             if (!FindGameWindow()) return null;
         }
 
+        return Describe(_hwnd, _pid, _ownPid);
+    }
+
+    /// <summary>Position and foreground state of a top-level window (also used by the capture benchmark).</summary>
+    internal static GameWindowInfo Describe(IntPtr hwnd, int pid, int ownPid)
+    {
         var fg = GetForegroundWindow();
         GetWindowThreadProcessId(fg, out var fgPid);
-        var minimized = IsIconic(_hwnd) || !IsWindowVisible(_hwnd);
-        GetWindowRect(_hwnd, out var wr);
+        var minimized = IsIconic(hwnd) || !IsWindowVisible(hwnd);
+        GetWindowRect(hwnd, out var wr);
         var windowRect = PixelRect.FromLtrb(wr.Left, wr.Top, wr.Right, wr.Bottom);
 
         // Client area in screen coordinates. For Godot's borderless fullscreen this equals the window rect.
-        GetClientRect(_hwnd, out var cr);
+        GetClientRect(hwnd, out var cr);
         var origin = new POINT { X = 0, Y = 0 };
-        ClientToScreen(_hwnd, ref origin);
+        ClientToScreen(hwnd, ref origin);
         var client = new PixelRect(origin.X, origin.Y, cr.Right - cr.Left, cr.Bottom - cr.Top);
 
         // Clip to the monitor: the extra 2 px of Godot's fullscreen window are off-screen and can't be drawn on or captured.
-        var capture = client.Intersect(Dpi.MonitorRectForWindow(_hwnd));
-        return new GameWindowInfo(_hwnd, _pid, windowRect, capture, minimized, fgPid == (uint)_pid, fgPid == _ownPid, false);
+        var capture = client.Intersect(Dpi.MonitorRectForWindow(hwnd));
+        return new GameWindowInfo(hwnd, pid, windowRect, capture, minimized, fgPid == (uint)pid, fgPid == ownPid, false);
     }
 
     private bool IsGameWindowStillValid()

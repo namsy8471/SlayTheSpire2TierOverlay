@@ -1,7 +1,7 @@
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace PckTool;
+namespace Sts2Overlay.Resources.Pck;
 
 /// <summary>
 /// Tiny glob matcher for pack paths (always '/'-separated, case-insensitive).
