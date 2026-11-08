@@ -1,7 +1,7 @@
-using System.Runtime.InteropServices;
 using System.Windows;
 using Sts2Overlay.App.Integration;
 using Sts2Overlay.App.Interop;
+using Sts2Overlay.App.Services;
 using Sts2Overlay.App.ViewModels;
 using static Sts2Overlay.App.Interop.NativeMethods;
 
@@ -54,8 +54,7 @@ public static class EventMarkerLayout
 
 /// <summary>
 /// The event marker layer: transparent, click-through, topmost, over the game's client area (like
-/// <see cref="BadgeWindow"/>, and kept out of screen captures the same way so it never shows up in the frames the
-/// detector reads).
+/// <see cref="BadgeWindow"/>; its capture visibility is managed by <see cref="OverlayCaptureVisibility"/> the same way).
 /// </summary>
 public partial class EventMarkerWindow : Window
 {
@@ -63,7 +62,7 @@ public partial class EventMarkerWindow : Window
     private PixelRect _layer;
     private IReadOnlyList<EventMarkerSpec> _specs = [];
 
-    public EventMarkerWindow(bool excludeFromCapture)
+    public EventMarkerWindow(OverlayCaptureVisibility captureVisibility)
     {
         InitializeComponent();
         DataContext = Model;
@@ -71,7 +70,8 @@ public partial class EventMarkerWindow : Window
         {
             _hwnd = OverlayWindowHelper.Handle(this);
             OverlayWindowHelper.SetExStyle(_hwnd, WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW, true);
-            if (excludeFromCapture) OverlayWindowHelper.SetExcludeFromCapture(_hwnd, true);
+            captureVisibility.Register(_hwnd);
+            Closed += (_, _) => captureVisibility.Unregister(_hwnd);
         };
         DpiChanged += (_, _) => Relayout();
     }
@@ -84,10 +84,6 @@ public partial class EventMarkerWindow : Window
 
     /// <summary>User UI scale relative to auto, as for the card badges.</summary>
     public double ScaleMultiplier { get; set; } = 1.0;
-
-    /// <summary>True when <paramref name="hwnd"/> (the badge layer) is excluded from captures: the markers follow it.</summary>
-    public static bool IsExcludedFromCapture(IntPtr hwnd)
-        => hwnd != IntPtr.Zero && GetWindowDisplayAffinity(hwnd, out var a) && a == WDA_EXCLUDEFROMCAPTURE;
 
     public void SetLayerRect(PixelRect gameRect)
     {
@@ -123,7 +119,4 @@ public partial class EventMarkerWindow : Window
             return new EventMarkerVm(left, top, scale, s.IsBest, $"{s.Rank}위", s.ScoreText, s.Warning);
         }).ToArray();
     }
-
-    [DllImport("user32.dll")]
-    private static extern bool GetWindowDisplayAffinity(IntPtr hWnd, out uint affinity);
 }

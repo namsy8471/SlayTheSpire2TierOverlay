@@ -13,7 +13,7 @@ namespace Sts2Overlay.App.Infrastructure;
 /// <c>--prepare</c> only generates data/local (card art, localization, catalog) from the installed game and exits;
 /// <c>--force</c> rebuilds even when manifest.json says it is up to date.
 /// <c>--demo</c> uses fake game-state/recognition so the UI can be seen without the game.
-/// <c>--show-in-capture</c> keeps our windows visible to screenshots (for checking the layout).
+/// <c>--show-in-capture</c> shows our windows in screenshots for this run even if the setting is off (for checking the layout).
 /// <c>--bench-capture</c> times GDI and Windows.Graphics.Capture on the game window, writes a report and two PNGs, and exits
 /// (see <see cref="Services.CaptureBench"/>). <c>--verify-capture</c> checks that both backends give identical pixels and
 /// recognition results (see <see cref="Services.CaptureVerify"/>); exit code 0 = pass.

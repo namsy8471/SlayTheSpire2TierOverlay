@@ -17,7 +17,7 @@ public sealed class TrayIcon : IDisposable
     private readonly NotifyIcon _icon;
     private readonly IntPtr _hIcon;
     private readonly Icon _drawnIcon;
-    private readonly ToolStripMenuItem _demoReward, _demoShop, _demoOther, _demoOff, _toggle, _scaleAuto, _outlines, _onTop, _mapOverlay;
+    private readonly ToolStripMenuItem _demoReward, _demoShop, _demoOther, _demoOff, _toggle, _scaleAuto, _outlines, _onTop, _mapOverlay, _inCapture;
     private readonly ToolStripMenuItem _applyUpdate;
     private readonly List<ToolStripMenuItem> _scaleItems = [];
 
@@ -49,6 +49,7 @@ public sealed class TrayIcon : IDisposable
         _outlines = new ToolStripMenuItem("인식 영역 표시 (Ctrl+F11)", null, (_, _) => DebugOutlinesRequested?.Invoke());
         _onTop = new ToolStripMenuItem("항상 맨 앞에 표시 (Ctrl+F6)", null, (_, _) => AlwaysOnTopRequested?.Invoke());
         _mapOverlay = new ToolStripMenuItem("맵·휴식처 위 추천 표시 (Ctrl+F5)", null, (_, _) => MapOverlayRequested?.Invoke());
+        _inCapture = new ToolStripMenuItem(InCaptureText, null, (_, _) => ShowInCaptureRequested?.Invoke());
 
         _applyUpdate = new ToolStripMenuItem("업데이트 적용 (재시작)", null, (_, _) => ApplyUpdateRequested?.Invoke()) { Visible = false };
 
@@ -58,6 +59,7 @@ public sealed class TrayIcon : IDisposable
             _toggle,
             _onTop,
             _mapOverlay,
+            _inCapture,
             scaleMenu,
             new ToolStripMenuItem("지금 인식 (Ctrl+F10)", null, (_, _) => RecognizeRequested?.Invoke()),
             new ToolStripMenuItem("캡처 저장 (Ctrl+F9)", null, (_, _) => SaveCaptureRequested?.Invoke()),
@@ -112,6 +114,19 @@ public sealed class TrayIcon : IDisposable
     public event Action? MapOverlayRequested;
 
     public void SetMapOverlay(bool on) => _mapOverlay.Checked = on;
+
+    private const string InCaptureText = "방송·캡처에 오버레이 표시";
+
+    /// <summary>"방송·캡처에 오버레이 표시": the overlay in OBS / Discord / screenshots.</summary>
+    public event Action? ShowInCaptureRequested;
+
+    /// <param name="on">The user's choice.</param>
+    /// <param name="forcedHidden">Recognition is on the GDI fallback, so the overlay is hidden from capture for now.</param>
+    public void SetShowInCapture(bool on, bool forcedHidden)
+    {
+        _inCapture.Checked = on;
+        _inCapture.Text = on && forcedHidden ? InCaptureText + " (지금은 숨김: 호환 캡처 사용 중)" : InCaptureText;
+    }
 
     /// <summary>"업데이트 확인": check for a new version now.</summary>
     public event Action? CheckUpdateRequested;

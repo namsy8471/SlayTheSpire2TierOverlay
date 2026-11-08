@@ -33,7 +33,7 @@ public sealed partial class AppController
 
     private void InitMapOverlay()
     {
-        _mapLayer = new MapOverlayWindow(_settings.HideOverlayFromCapture);
+        _mapLayer = new MapOverlayWindow(_pipeline.CaptureVisibility);
         _pipeline.MapWatcher = _mapWatcher;
         _pipeline.MapSighted += s => _ui.BeginInvoke(() => OnMapSighted(s));
     }

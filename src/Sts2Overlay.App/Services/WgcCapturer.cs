@@ -88,6 +88,12 @@ internal sealed class WgcCapturer : IFrameCapturer
         }
     }
 
+    /// <summary>
+    /// Window capture gets the game window's own surface: windows drawn over it (our overlay) are never in it. Only
+    /// monitor capture (no game window, demo mode) reads the composed desktop.
+    /// </summary>
+    public bool ReadsDesktop(GameWindowInfo target) => target.Hwnd == IntPtr.Zero;
+
     public CapturedFrame Capture(GameWindowInfo target)
     {
         var rect = target.CaptureRect;

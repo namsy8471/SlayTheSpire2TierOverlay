@@ -44,10 +44,13 @@ public sealed class AppSettings
     public string CaptureBackend { get; set; } = "auto";
 
     /// <summary>
-    /// Excludes our own windows from screen capture (SetWindowDisplayAffinity WDA_EXCLUDEFROMCAPTURE), so the badges never
-    /// end up in the frames we recognise. Side effect: they are also invisible to screenshots and streaming software.
+    /// "방송·캡처에 오버레이 표시": the overlay shows up in OBS, Discord screen share and screenshots. Off = our windows are
+    /// hidden from every screen capture (SetWindowDisplayAffinity WDA_EXCLUDEFROMCAPTURE). Recognition is not affected
+    /// either way: it captures the game window alone, and on the GDI fallback the overlay is hidden automatically
+    /// (<see cref="Services.OverlayCaptureVisibility"/>). Replaces the old <c>hideOverlayFromCapture</c> (always true,
+    /// which hid the overlay from OBS too); that key is ignored now.
     /// </summary>
-    public bool HideOverlayFromCapture { get; set; } = true;
+    public bool ShowOverlayInCapture { get; set; } = true;
 
     /// <summary>"항상 맨 앞에 표시": the panel stays above other windows (and is shown only while the game is in front).
     /// Off: a normal window that stays open while the game runs and can be covered. Badges are always on top.</summary>

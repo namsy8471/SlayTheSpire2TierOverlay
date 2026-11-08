@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Windows;
 using Sts2Overlay.App.Integration;
 using Sts2Overlay.App.Interop;
+using Sts2Overlay.App.Services;
 using Sts2Overlay.App.ViewModels;
 using static Sts2Overlay.App.Interop.NativeMethods;
 
@@ -19,7 +20,7 @@ namespace Sts2Overlay.App.Views;
 /// </summary>
 public partial class BadgeWindow : Window
 {
-    private readonly bool _excludeFromCapture;
+    private readonly OverlayCaptureVisibility _captureVisibility;
     private IntPtr _hwnd;
     private PixelRect _layer;
     private IReadOnlyList<BadgeSpec> _specs = [];
@@ -27,16 +28,17 @@ public partial class BadgeWindow : Window
     private RemovalSpec? _removal;
     private bool _showBounds;
 
-    public BadgeWindow(bool excludeFromCapture)
+    public BadgeWindow(OverlayCaptureVisibility captureVisibility)
     {
-        _excludeFromCapture = excludeFromCapture;
+        _captureVisibility = captureVisibility;
         InitializeComponent();
         DataContext = Model;
         SourceInitialized += (_, _) =>
         {
             _hwnd = OverlayWindowHelper.Handle(this);
             OverlayWindowHelper.SetExStyle(_hwnd, WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW, true);
-            if (_excludeFromCapture) OverlayWindowHelper.SetExcludeFromCapture(_hwnd, true);
+            _captureVisibility.Register(_hwnd);
+            Closed += (_, _) => _captureVisibility.Unregister(_hwnd);
         };
         // Moving to a monitor with another DPI changes the physical→DIP factor: lay out again.
         DpiChanged += (_, _) => Relayout();
