@@ -118,7 +118,7 @@ public sealed class UpdateService : IDisposable
         }
         if (ReadyVersion is not null)
         {
-            Message?.Invoke(ReadyText(ReadyVersion));
+            Message?.Invoke(ReadyText(ReadyVersion, ReadySummary));
             return Task.CompletedTask;
         }
         if (IsChecking)
@@ -129,8 +129,14 @@ public sealed class UpdateService : IDisposable
         return CheckAsync(manual: true);
     }
 
-    internal static string ReadyText(string version)
-        => $"새 버전 v{version} 다운로드 완료 — 재시작하면 적용됩니다 (트레이: 업데이트 적용). 그냥 종료해도 적용됩니다.";
+    /// <summary>A one-line summary of the downloaded version's release notes (null when it has none).</summary>
+    public string? ReadySummary { get; private set; }
+
+    internal static string ReadyText(string version, string? summary = null)
+    {
+        var text = $"새 버전 v{version} 다운로드 완료 — 재시작하면 적용됩니다 (트레이: 업데이트 적용). 그냥 종료해도 적용됩니다.";
+        return summary is null ? text : $"{text}\n바뀐 점: {summary}";
+    }
 
     private async Task CheckAsync(bool manual)
     {
@@ -161,10 +167,11 @@ public sealed class UpdateService : IDisposable
             if (manual) Message?.Invoke($"새 버전 v{target} 다운로드 중…");
             downloading = true;
             await Task.Run(_client.DownloadAsync);
+            ReadySummary = ReleaseNotesSummary.FromMarkdown(_client.ReleaseNotes);
             ReadyVersion = target;
             AppLog.Info($"update: v{target} downloaded; applied on exit or from the tray");
             // Announced for automatic checks too: otherwise the only sign is a tray menu item nobody opens.
-            Message?.Invoke(ReadyText(target));
+            Message?.Invoke(ReadyText(target, ReadySummary));
         }
         catch (Exception ex)
         {
@@ -263,6 +270,9 @@ internal interface IUpdateClient
     /// <summary>Downloads the version the last <see cref="CheckAsync"/> found.</summary>
     Task DownloadAsync();
 
+    /// <summary>The Markdown release notes of the version the last <see cref="CheckAsync"/> found, if the package has any.</summary>
+    string? ReleaseNotes { get; }
+
     /// <summary>Hands the downloaded version to Velopack's updater, which waits for this process to exit.</summary>
     void ApplyOnExit(bool restart);
 }
@@ -296,6 +306,8 @@ internal sealed class VelopackUpdateClient : IUpdateClient
 
     public Task DownloadAsync()
         => _found is null ? Task.CompletedTask : _manager.DownloadUpdatesAsync(_found);
+
+    public string? ReleaseNotes => _found?.TargetFullRelease.NotesMarkdown;
 
     public void ApplyOnExit(bool restart)
     {

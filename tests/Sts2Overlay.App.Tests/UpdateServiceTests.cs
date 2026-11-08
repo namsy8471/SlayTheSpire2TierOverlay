@@ -32,6 +32,8 @@ public class UpdateServiceTests
 
         public Task DownloadAsync() => DownloadError is null ? Task.CompletedTask : Task.FromException(DownloadError);
 
+        public string? ReleaseNotes { get; set; }
+
         public void ApplyOnExit(bool restart) => AppliedWithRestart = restart;
     }
 
@@ -90,6 +92,65 @@ public class UpdateServiceTests
         Assert.Single(messages);
         Assert.StartsWith("새 버전 v0.1.1 다운로드 완료", messages[0]);
         Assert.Equal(1, client.Checks);
+    }
+
+    private const string Notes = """
+        ## 새 기능
+        - 빌드 탭 카드 툴팁에 **효과 문장** 표시 (#17)
+        - 업데이트 확인 결과를 트레이 알림으로 (#13, #14)
+        - 세 번째 줄은 안 나옴
+
+        ---
+        - English summary is never shown
+        """;
+
+    [Fact]
+    public async Task Download_complete_message_carries_the_first_lines_of_the_release_notes()
+    {
+        var client = new FakeClient { Available = "0.1.2", ReleaseNotes = Notes };
+        var (service, messages) = Create(client);
+
+        await service.CheckNowAsync();
+
+        Assert.Equal("빌드 탭 카드 툴팁에 효과 문장 표시 · 업데이트 확인 결과를 트레이 알림으로", service.ReadySummary);
+        Assert.EndsWith("\n바뀐 점: 빌드 탭 카드 툴팁에 효과 문장 표시 · 업데이트 확인 결과를 트레이 알림으로", messages[^1]);
+
+        // Clicking again repeats it.
+        messages.Clear();
+        _now = _now.AddHours(1);
+        await service.CheckNowAsync();
+        Assert.Contains("바뀐 점:", messages.Single());
+    }
+
+    [Fact]
+    public async Task Download_complete_message_without_notes_has_no_summary_line()
+    {
+        var (service, messages) = Create(new FakeClient { Available = "0.1.2" });
+
+        await service.CheckNowAsync();
+
+        Assert.Null(service.ReadySummary);
+        Assert.DoesNotContain('\n', messages[^1]);
+    }
+
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData("   ", null)]
+    [InlineData("첫 공개 버전입니다.\n\n## 설치\n그냥 문단", null)]
+    [InlineData("* [링크](https://example.com) 글자\n* `코드` _강조_", "링크 글자 · 코드 강조")]
+    [InlineData("- 하나 (#9)\n- 둘", "하나 · 둘")]
+    public void Summary_takes_list_items_only(string? markdown, string? expected)
+        => Assert.Equal(expected, ReleaseNotesSummary.FromMarkdown(markdown));
+
+    [Fact]
+    public void Summary_is_cut_to_fit_a_balloon()
+    {
+        var summary = ReleaseNotesSummary.FromMarkdown("- " + new string('가', 300));
+        Assert.NotNull(summary);
+        Assert.Equal(ReleaseNotesSummary.DefaultMaxLength, summary.Length);
+        Assert.EndsWith("…", summary);
+        // The whole balloon stays under Windows' 255-character limit.
+        Assert.True(UpdateService.ReadyText("10.20.30-beta.1", summary).Length <= 255);
     }
 
     [Fact]
