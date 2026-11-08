@@ -255,7 +255,10 @@ public sealed class MapScrollEstimator
     /// <summary>Weakest darkest-cell ink that can start an icon blob (a fading-in icon, not the paper texture).</summary>
     private const int MinSeedInk = 20;
 
-    internal (float X, float Y)? IconBoxCentre(float x, float y)
+    internal (float X, float Y)? IconBoxCentre(float x, float y) => IconBox(x, y) is { } b ? (b.X, b.Y) : null;
+
+    /// <summary>Centre and size (design px) of the icon blob near (<paramref name="x"/>, <paramref name="y"/>), or null.</summary>
+    internal (float X, float Y, float W, float H)? IconBox(float x, float y)
     {
         const int R = 24; // window half-size in cells (48 design px)
         int cx = (int)(x / Cell), cy = (int)(y / Cell);
@@ -291,7 +294,7 @@ public sealed class MapScrollEstimator
         }
         // Too small = a path dash; touching the window edge = merged with something bigger (circle, marker, drawing).
         if (count < 60 || bx0 == x0 || bx1 == x1 || by0 == y0 || by1 == y1) return null;
-        return ((bx0 + bx1 + 1) * Cell / 2f, (by0 + by1 + 1) * Cell / 2f);
+        return ((bx0 + bx1 + 1) * Cell / 2f, (by0 + by1 + 1) * Cell / 2f, (bx1 - bx0 + 1) * Cell, (by1 - by0 + 1) * Cell);
 
         void Visit(int nx, int ny)
         {
@@ -301,7 +304,11 @@ public sealed class MapScrollEstimator
         }
     }
 
-    internal static bool IsMasked(float x, float y)
+    /// <summary>
+    /// True when design point (<paramref name="x"/>, <paramref name="y"/>) is under the game's own UI on the map screen
+    /// (top bar, relic row, legend, back button, drawing tools), so neither the fit nor the overlay should use it.
+    /// </summary>
+    public static bool IsMasked(float x, float y)
     {
         foreach (RectF r in UiMasks)
             if (x >= r.X - SpotHalf && x <= r.Right + SpotHalf && y >= r.Y - SpotHalf && y <= r.Bottom + SpotHalf) return true;

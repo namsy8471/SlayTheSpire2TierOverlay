@@ -1,7 +1,9 @@
 using System.Diagnostics;
 using System.Globalization;
 using SkiaSharp;
+using Sts2Overlay.Core.Data;
 using Sts2Overlay.Core.Map;
+using Sts2Overlay.Tools.MapBench;
 using Sts2Overlay.GameState.Save;
 using Sts2Overlay.GameState.Tracking;
 using Sts2Overlay.Vision;
@@ -21,7 +23,7 @@ if (args.Length == 0 || args[0] != "fit")
 }
 
 var inputs = new List<string>();
-string? savesDir = null, renderDir = null, truthFile = null;
+string? savesDir = null, renderDir = null, truthFile = null, previewDir = null, packDir = null;
 for (int i = 1; i < args.Length; i++)
 {
     switch (args[i])
@@ -29,16 +31,21 @@ for (int i = 1; i < args.Length; i++)
         case "--saves": savesDir = args[++i]; break;
         case "--render": renderDir = args[++i]; break;
         case "--truth": truthFile = args[++i]; break;
+        case "--preview": previewDir = args[++i]; break;
+        case "--pack": packDir = args[++i]; break;
         default: inputs.Add(args[i]); break;
     }
 }
 
 var layouts = new List<(string Name, MapScreenLayout Layout, MapGraph Map)>();
+// Every save snapshot with its time (from the file name), for --preview's run state at the frame's time.
+var saves = new List<(DateTime At, ParsedSave Save)>();
 if (savesDir != null)
 {
     foreach (string f in Directory.GetFiles(savesDir, "*.save").Order(StringComparer.Ordinal))
     {
         ParsedSave? s = RunSaveParser.ParseFile(f, null);
+        if (s != null && MarkPreview.TimeOf(Path.GetFileName(f)) is { } savedAt) saves.Add((savedAt, s));
         if (s?.Map is not { } map || MapScreenGeometry.Compute(map, s.Seed) is not { } layout) continue;
         if (layouts.Any(l => l.Layout.Seed == layout.Seed && l.Layout.ActIndex == layout.ActIndex)) continue;
         layouts.Add(($"{s.Seed}/act{layout.ActIndex + 1}", layout, map));
@@ -59,9 +66,22 @@ Dictionary<string, string>? truth = truthFile is null ? null : File.ReadAllLines
     .Select(l => l.Split(' ', StringSplitOptions.RemoveEmptyEntries))
     .ToDictionary(p => p[0], p => p[1]);
 const float MaxNodeError = 6f;
-int nodesTotal = 0, nodesGood = 0;
+int nodesTotal = 0, nodesGood = 0, nodesSkewed = 0;
+
+// Width/height of each icon's ink box (median over 1,720 measured icons). A box whose shape differs from this by more
+// than 5 % is not the icon alone: a path dash, the "visited" brush circle or its drawing streaks touch it and stretch
+// the box on one side, which moves its centre by half the stretch. Those boxes can't measure the node centre and are
+// counted apart (a hovered icon grows evenly and keeps its shape, so it stays in).
+var iconAspect = new Dictionary<MapNodeType, float>
+{
+    [MapNodeType.Monster] = 1.0f, [MapNodeType.Unknown] = 1.0f, [MapNodeType.Shop] = 1.0f,
+    [MapNodeType.RestSite] = 0.75f, [MapNodeType.Elite] = 1.304f, [MapNodeType.Treasure] = 1.36f,
+};
+const float MaxAspectDeviation = 0.05f;
 
 var est = new MapScrollEstimator();
+DataPack? pack = previewDir is null ? null : DataPackLoader.LoadDirectory(packDir ?? Path.Combine("data", "packs", "v0.107.1"));
+int previews = 0;
 int maps = 0, checkedN = 0, pass = 0;
 var times = new List<double>();
 foreach (string file in files)
@@ -96,7 +116,14 @@ foreach (string file in files)
             if (coord == rl.Map.Start || coord == rl.Map.Boss || coord == rl.Map.SecondBoss) continue;
             float y = p.Y + best.Scroll;
             if (y < 50 || y > 1030 || MapScrollEstimator.IsMasked(p.X, y)) continue;
-            if (est.IconBoxCentre(p.X, y) is not { } b) continue;
+            if (est.IconBox(p.X, y) is not { } b) continue;
+            if (Environment.GetEnvironmentVariable("MAPBENCH_SIZES") is { } sizesFile)
+                File.AppendAllText(sizesFile, $"{name} {coord} {rl.Map.Nodes[coord].Type} {b.W:F0} {b.H:F0} {b.X - p.X:F1} {b.Y - y:F1}\n");
+            if (iconAspect.TryGetValue(rl.Map.Nodes[coord].Type, out float a0) && Math.Abs(b.W / b.H / a0 - 1) > MaxAspectDeviation)
+            {
+                nodesSkewed++;
+                continue;
+            }
             nodesHere++;
             float ex = b.X - p.X, ey = b.Y - y;
             if (Math.Abs(ex) <= MaxNodeError && Math.Abs(ey) <= MaxNodeError) nodesOk++;
@@ -117,10 +144,21 @@ foreach (string file in files)
     }
     if (best.IsMap || (truth != null && truth.ContainsKey(name)) || (Environment.GetEnvironmentVariable("MAPBENCH_ALL") == "1" && best.Paper > 0))
         Console.WriteLine($"{name}: {(best.IsMap ? bestL?.Name : "-")} {best} nodes {nodesOk}/{nodesHere}{verdict}" + (bad.Count > 0 ? " BAD " + string.Join("; ", bad) : ""));
+    if (previewDir != null && pack != null && best.IsMap && bestL is { } pl && MarkPreview.TimeOf(name) is { } frameAt
+        && MarkPreview.SaveAt(saves, frameAt, pl.Layout.Seed, pl.Map.Act) is { Map: { } runMap } runSave)
+    {
+        var rec = new PathAdvisor(pack).Recommend(runSave.State, runMap);
+        var plan = MapMarkLayout.Build(runMap, pl.Layout, best.Scroll, rec, [], UnknownRoomOdds.From(runSave.UnknownMapPointOdds));
+        string what = rec.NextStep is { } ns ? $"next {ns} {runMap.Nodes[ns].Type}" : "no path";
+        MarkPreview.Render(file, frame, plan, $"at {runMap.Current?.ToString() ?? "start"} -> {what}  ({plan.Lines.Count} lines, {plan.Nodes.Count} marks)",
+            Path.Combine(previewDir, Path.ChangeExtension(name, ".jpg")));
+        previews++;
+    }
     if (renderDir != null && (best.IsMap || force) && bestL is { } bl) Render(file, frame, bl.Layout, best, Path.Combine(renderDir, Path.ChangeExtension(name, ".png")));
 }
-Console.WriteLine($"frames {files.Count}, detected as map {maps}, nodes within {MaxNodeError} px {nodesGood}/{nodesTotal}" + (truth != null ? $", truth checks {pass}/{checkedN}" : "")
-    + (times.Count > 0 ? $", fit median {times.Order().ElementAt(times.Count / 2):F1} ms" : ""));
+Console.WriteLine($"frames {files.Count}, detected as map {maps}, nodes within {MaxNodeError} px {nodesGood}/{nodesTotal} ({nodesSkewed} stretched icon boxes not measured)" + (truth != null ? $", truth checks {pass}/{checkedN}" : "")
+    + (times.Count > 0 ? $", fit median {times.Order().ElementAt(times.Count / 2):F1} ms" : "")
+    + (previewDir != null ? $", {previews} preview(s)" : ""));
 return (truth != null && pass != checkedN) || nodesGood != nodesTotal ? 1 : 0;
 
 static List<MapMark> Marks(MapScreenLayout layout, MapGraph map) => layout.Centers

@@ -16,7 +16,7 @@ public sealed class TrayIcon : IDisposable
     private readonly NotifyIcon _icon;
     private readonly IntPtr _hIcon;
     private readonly Icon _drawnIcon;
-    private readonly ToolStripMenuItem _demoReward, _demoShop, _demoOther, _demoOff, _toggle, _scaleAuto, _outlines, _onTop;
+    private readonly ToolStripMenuItem _demoReward, _demoShop, _demoOther, _demoOff, _toggle, _scaleAuto, _outlines, _onTop, _mapOverlay;
     private readonly List<ToolStripMenuItem> _scaleItems = [];
 
     public TrayIcon()
@@ -45,12 +45,14 @@ public sealed class TrayIcon : IDisposable
 
         _outlines = new ToolStripMenuItem("인식 영역 표시 (Ctrl+F11)", null, (_, _) => DebugOutlinesRequested?.Invoke());
         _onTop = new ToolStripMenuItem("항상 맨 앞에 표시 (Ctrl+F6)", null, (_, _) => AlwaysOnTopRequested?.Invoke());
+        _mapOverlay = new ToolStripMenuItem("맵 위 추천 표시 (Ctrl+F5)", null, (_, _) => MapOverlayRequested?.Invoke());
 
         var menu = new ContextMenuStrip();
         menu.Items.AddRange(
         [
             _toggle,
             _onTop,
+            _mapOverlay,
             scaleMenu,
             new ToolStripMenuItem("지금 인식 (Ctrl+F10)", null, (_, _) => RecognizeRequested?.Invoke()),
             new ToolStripMenuItem("캡처 저장 (Ctrl+F9)", null, (_, _) => SaveCaptureRequested?.Invoke()),
@@ -96,6 +98,11 @@ public sealed class TrayIcon : IDisposable
     public event Action? AlwaysOnTopRequested;
 
     public void SetAlwaysOnTop(bool on) => _onTop.Checked = on;
+
+    /// <summary>"맵 위 추천 표시": the recommended node and path drawn on the game's map screen.</summary>
+    public event Action? MapOverlayRequested;
+
+    public void SetMapOverlay(bool on) => _mapOverlay.Checked = on;
 
     public void SetState(bool userHidden, DemoScreen? demo, double uiScale, bool uiScaleAuto, string tooltip)
     {

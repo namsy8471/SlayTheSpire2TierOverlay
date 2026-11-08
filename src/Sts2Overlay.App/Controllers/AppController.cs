@@ -84,6 +84,7 @@ public sealed partial class AppController : IDisposable
         CatalogPath = catalogPath;
         (_engine, _cards) = LoadPack(packDir, catalogPath, vm);
         InitForecastReview(packDir, catalogPath); // forecast + run review (AppController.ForecastReview.cs)
+        InitMapOverlay(); // marks on the game's map (AppController.MapOverlay.cs)
 
         _tracker.Changed += (_, _) => OnTrackerChanged();
         // The panel moved to a monitor with another DPI: the DPI part of the scale changed, ours must follow.
@@ -183,6 +184,7 @@ public sealed partial class AppController : IDisposable
         RefreshRunViews(snap.Run);
         UpdateForecastReview(snap); // AppController.ForecastReview.cs
         if (Demo is null) RefreshPath(snap);
+        UpdateMapTarget(snap); // AppController.MapOverlay.cs
 
         var likely = IsOfferHint(snap.Hint);
         if (likely && prevHint != snap.Hint)
@@ -215,6 +217,7 @@ public sealed partial class AppController : IDisposable
         {
             _pathKey = null;
             UpdatePath(null);
+            SetMapRecommendation(null);
             return;
         }
         var key = $"{map.ActId}|{map.Current}|{run.Hp}/{run.MaxHp}|{run.Gold}|{run.Deck.Count}|{run.Deck.Count(c => c.Upgrade > 0)}#{_engineVersion}";
@@ -224,6 +227,7 @@ public sealed partial class AppController : IDisposable
         {
             var rec = new PathAdvisor(_engine.Pack).Recommend(run, map);
             UpdatePath(ToPathView(rec, map));
+            SetMapRecommendation(rec);
         }
         catch (Exception ex)
         {
@@ -283,6 +287,7 @@ public sealed partial class AppController : IDisposable
     {
         var offer = IsOfferHint(_snapshot.Hint) || (_snapshot.Hint == ScreenHint.None && _badges.HasBadges);
         var hz = offer ? Math.Clamp(_settings.RecognizeHz, 0.5, 10) : Math.Clamp(_settings.IdleRecognizeHz, 0, 10);
+        hz = Math.Max(hz, MapCadenceHz()); // faster while the map is open, so its marks follow the scroll
         _pipeline.SetInterval(hz > 0 ? TimeSpan.FromSeconds(1 / hz) : null);
     }
 
@@ -705,6 +710,7 @@ public sealed partial class AppController : IDisposable
         _vm.UiScale = UiScale.LayoutFactor(effective, dpi);
         _vm.UiScaleText = $"UI {effective * 100:0}%{(isAuto ? " (자동)" : "")}";
         _badges.ScaleMultiplier = effective / auto;
+        SetMapScale(effective / auto);
     }
 
     /// <summary>
@@ -726,6 +732,7 @@ public sealed partial class AppController : IDisposable
         {
             _badges.Hide();
         }
+        UpdateMapLayerVisibility(show, info);
         if (showPanel)
         {
             if (!_panel.IsVisible) _panel.Show();
@@ -743,6 +750,7 @@ public sealed partial class AppController : IDisposable
         if (!_panel.IsVisible && !_badges.IsVisible) return;
         // Badges first, then the panel, so the panel ends up above the badge layer.
         OverlayWindowHelper.AssertTopmost(_badges.Hwnd);
+        ReassertMapTopmost();
         if (_settings.AlwaysOnTop) OverlayWindowHelper.AssertTopmost(_panel.Hwnd);
     }
 
@@ -923,5 +931,6 @@ public sealed partial class AppController : IDisposable
         _source.Changed -= OnSourceChanged;
         _source.Dispose();
         DisposeForecastReview(); // AppController.ForecastReview.cs
+        DisposeMapOverlay();
     }
 }

@@ -53,6 +53,12 @@ public sealed class AppSettings
     /// Off: a normal window that stays open while the game runs and can be covered. Badges are always on top.</summary>
     public bool AlwaysOnTop { get; set; } = true;
 
+    /// <summary>"맵 위 추천": draws the recommended next node and path on top of the game's own map screen (tray / Ctrl+F5).</summary>
+    public bool MapOverlay { get; set; } = true;
+
+    /// <summary>Capture rate while the map screen is open, so the marks follow when the map is scrolled.</summary>
+    public double MapHz { get; set; } = 6;
+
     /// <summary>Panel background opacity 0..1.</summary>
     public double PanelOpacity { get; set; } = 0.86;
 }
