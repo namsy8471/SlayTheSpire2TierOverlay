@@ -313,7 +313,8 @@ public sealed partial class AppController : IDisposable
         // (remove / upgrade / transform screens, deck view), which needs no badges.
         if (r.ScreenKind == ScreenKind.Grid && !CardGridFilter.IsOffer(r.Cards.Select(c => c.Card).ToList(), _snapshot.Run?.Deck.Select(d => d.Card)))
             r = RecognitionResult.Other;
-        if (r.ScreenKind == ScreenKind.Other || r.Cards.Count == 0)
+        // A shop counts with relics alone (every card covered, or all bought).
+        if (r.ScreenKind == ScreenKind.Other || (r.Cards.Count == 0 && (r.ScreenKind != ScreenKind.Shop || r.Relics.Count == 0)))
         {
             ClearBadges();
             UpdateCadence();
@@ -323,7 +324,8 @@ public sealed partial class AppController : IDisposable
         // The tracker links the next "obtained CARD.X from card reward" to this screen (upgrade read from the title colour).
         if (r.ScreenKind == ScreenKind.Reward && _source is Sts2Overlay.GameState.Tracking.ICardOfferSink sink) sink.OnCardOfferSeen(r.Cards.Select(c => c.Card).ToList());
 
-        var offerKey = r.ScreenKind + ":" + string.Join(",", r.Cards.Select(c => $"{c.Card}${c.Price}{(c.Unaffordable == true ? "r" : "")}{(c.OnSale ? "s" : "")}"));
+        var offerKey = r.ScreenKind + ":" + string.Join(",", r.Cards.Select(c => $"{c.Card}${c.Price}{(c.Unaffordable == true ? "r" : "")}{(c.OnSale ? "s" : "")}"))
+                       + (r.Relics.Count > 0 ? "|" + string.Join(",", r.Relics.Select(x => $"{x.RelicId}${x.Price}{(x.Unaffordable == true ? "r" : "")}")) : "");
         var evalKey = $"{offerKey}@{_snapshot.UpdatedAt.Ticks}#{_engineVersion}";
         if (evalKey != _lastEvalKey)
         {
@@ -438,7 +440,10 @@ public sealed partial class AppController : IDisposable
     {
         var run = _snapshot.Run ?? UnknownRun;
         // --- shop prices (m2/shop-price): unread prices are estimated by the scorer; label colours bound the gold ---
-        var offer = new ShopOffer(r.Cards.Select(c => new ShopCardOffer(c.Card, c.Price ?? 0, c.Price is not null, c.Unaffordable is bool u ? !u : null, c.OnSale)).ToArray());
+        var offer = new ShopOffer(r.Cards.Select(c => new ShopCardOffer(c.Card, c.Price ?? 0, c.Price is not null, c.Unaffordable is bool u ? !u : null, c.OnSale)).ToArray())
+        {
+            Relics = r.Relics.Select(x => new ShopRelicOffer(x.RelicId, x.Rarity, x.Price ?? 0, x.Price is not null, x.Unaffordable is bool u ? !u : null)).ToArray(),
+        };
         var eval = _engine.EvaluateShop(run, offer);
         var recommended = eval.RecommendedPurchase.ToHashSet(ReferenceEqualityComparer.Instance);
 
@@ -446,13 +451,18 @@ public sealed partial class AppController : IDisposable
         {
             var e = item.CardEvaluation;
             var isCard = item.Kind == ShopItemKind.Card && item.Card is not null;
+            var isRelic = item.Kind == ShopItemKind.Relic && item.RelicId is not null;
             var score = e?.Total ?? item.Value.Total;
             var sub = $"구매 가치 {Fmt(item.Value.Total)} · 골드당 {item.ValuePerGold.ToString("0.00", CultureInfo.InvariantCulture)}";
             if (!item.Affordable) sub += " · 골드 부족";
             if (e is not null && ScoringLabels.BuildRoleText(e.BuildRoles) is { } buildRole) sub = buildRole + "\n" + sub;
+            if (item.RelicEvaluation is { FitArchetype: { } fit } re && re.FitMultiplier != 1.0)
+                sub = $"{fit.DisplayName} 빌드 적합 ×{re.FitMultiplier.ToString("0.00", CultureInfo.InvariantCulture)}\n" + sub;
             return new OfferRowVm
             {
-                Name = isCard ? _cards.Name(item.Card!.Value) : $"카드 제거 ({(item.RemovalTarget is { } t ? _cards.Name(t) : "?")})",
+                Name = isCard ? _cards.Name(item.Card!.Value)
+                    : isRelic ? $"{RelicName(item.RelicId!)} (유물)"
+                    : $"카드 제거 ({(item.RemovalTarget is { } t ? _cards.Name(t) : "?")})",
                 TierText = e?.DisplayTier.ToString() ?? "—",
                 ScoreText = Fmt(score),
                 BarWidth = Bar(score),
@@ -468,7 +478,9 @@ public sealed partial class AppController : IDisposable
         }).ToArray();
 
         var names = eval.RecommendedPurchase
-            .Select(i => i.Kind == ShopItemKind.Card && i.Card is { } c ? _cards.Name(c) : "카드 제거")
+            .Select(i => i.Kind == ShopItemKind.Card && i.Card is { } c ? _cards.Name(c)
+                : i.Kind == ShopItemKind.Relic && i.RelicId is { } id ? RelicName(id)
+                : "카드 제거")
             .ToArray();
         var section = new OfferSectionVm
         {
@@ -492,6 +504,9 @@ public sealed partial class AppController : IDisposable
         }).ToArray();
         return (section, badges, null, OfferMarkers.RemovalText(eval, _cards.Name));
     }
+
+    /// <summary>Korean relic title from the local game text (data/local, never committed); the id when it is missing.</summary>
+    private string RelicName(string relicId) => _eventText.RelicTitle(relicId) ?? relicId.Replace("RELIC.", "", StringComparison.Ordinal);
 
     /// <summary>"75골드", "~150골드 (추정)" for an unread label, "37골드 세일" for the half-price card.</summary>
     private static string ShopPriceText(ShopItemEvaluation item)

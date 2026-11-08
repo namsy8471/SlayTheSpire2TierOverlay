@@ -9,10 +9,10 @@ public class ShopPriceTests
     // Slot 0 of the shop layout, resting scale.
     private const float Cx = 437f, Cy = 383f, Scale = 0.65f;
 
-    private static readonly (byte R, byte G, byte B) CreamText = (255, 246, 226), RedText = (255, 85, 85), GreenText = (127, 255, 0);
+    internal static readonly (byte R, byte G, byte B) CreamText = (255, 246, 226), RedText = (255, 85, 85), GreenText = (127, 255, 0);
 
     /// <summary>Draws the price label of the card at (cx, cy, scale) like merchant_card.tscn does.</summary>
-    private static void DrawPrice(Canvas canvas, string digits, (byte R, byte G, byte B) color, float cx = Cx, float cy = Cy, float scale = Scale)
+    internal static void DrawPrice(Canvas canvas, string digits, (byte R, byte G, byte B) color, float cx = Cx, float cy = Cy, float scale = Scale)
     {
         RefTransform t = canvas.T;
         float h = ShopPriceReader.DigitHeight * scale * t.Scale;       // digit height in pixels
@@ -263,5 +263,29 @@ public class ShopPriceRulesTests
         // Membership Card: a colourless rare (172) costs 81..90
         Assert.True(ShopPriceRules.IsPlausible(86, CardSlotKind.ShopColorless, "Rare"));
         Assert.False(ShopPriceRules.IsPlausible(86, CardSlotKind.ShopColorless, "Rare", [1.0]));
+    }
+
+    [Theory]
+    [InlineData("Common", 148, 202)]   // 175 × 0.85..1.15 (floor / ceil)
+    [InlineData("Uncommon", 191, 259)] // 225
+    [InlineData("Rare", 233, 317)]     // 275
+    [InlineData("Shop", 170, 230)]     // 200
+    public void Relic_ranges_by_rarity(string rarity, int lo, int hi)
+    {
+        Assert.Equal((lo, hi), ShopPriceRules.RelicRange(ShopPriceRules.RelicBasePrice(rarity)!.Value));
+        Assert.True(ShopPriceRules.IsPlausibleRelic(lo, rarity, [1.0]));
+        Assert.True(ShopPriceRules.IsPlausibleRelic(hi, rarity, [1.0]));
+        Assert.False(ShopPriceRules.IsPlausibleRelic(lo - 1, rarity, [1.0]));
+        Assert.False(ShopPriceRules.IsPlausibleRelic(hi + 1, rarity, [1.0]));
+    }
+
+    [Fact]
+    public void Relic_prices_allow_the_discount_relics_and_unknown_rarity()
+    {
+        Assert.True(ShopPriceRules.IsPlausibleRelic(80, "Shop"));          // Membership Card + The Courier: 200 × 0.4
+        Assert.False(ShopPriceRules.IsPlausibleRelic(80, "Shop", [1.0]));
+        Assert.True(ShopPriceRules.IsPlausibleRelic(300));                  // a rare, rarity unknown
+        Assert.False(ShopPriceRules.IsPlausibleRelic(400));
+        Assert.Null(ShopPriceRules.RelicBasePrice("Ancient"));              // never sold by the merchant
     }
 }

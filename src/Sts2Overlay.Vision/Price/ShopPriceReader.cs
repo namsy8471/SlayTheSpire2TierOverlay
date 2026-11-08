@@ -105,6 +105,31 @@ public sealed class ShopPriceReader
     /// </summary>
     public PriceReading? Read(in ScreenFrame frame, float cx, float cy, float scale, CardSlotKind kind, string? rarity = null)
     {
+        IReadOnlyList<double>? factors = Options.PriceFactors;
+        return ReadAt(frame, cx, cy, scale, v => ShopPriceRules.IsPlausible(v, kind, rarity, factors));
+    }
+
+    /// <summary>
+    /// Card-unit y of the relic label's centre relative to a card-sized frame: merchant_relic.tscn "Cost" spans
+    /// y 52..106 below the relic node's origin (centre 79), a card's label 220..278 below the card centre (249).
+    /// The label itself (font, coin, HBox centring, colours) is the same scene, so the same reader works once the
+    /// box is moved up by 249 − 79 = 170 node units.
+    /// </summary>
+    public const float RelicLabelShift = 249f - 79f;
+
+    /// <summary>
+    /// Reads the price under a merchant relic whose node origin is (<paramref name="ox"/>, <paramref name="oy"/>)
+    /// (reference units) at node <paramref name="scale"/>. <paramref name="rarity"/> (catalog: Common, Uncommon, Rare,
+    /// Shop), when known, tightens the plausibility check (<see cref="ShopPriceRules.IsPlausibleRelic"/>).
+    /// </summary>
+    public PriceReading? ReadRelic(in ScreenFrame frame, float ox, float oy, float scale, string? rarity = null)
+    {
+        IReadOnlyList<double>? factors = Options.PriceFactors;
+        return ReadAt(frame, ox, oy - RelicLabelShift * scale, scale, v => ShopPriceRules.IsPlausibleRelic(v, rarity, factors));
+    }
+
+    private PriceReading? ReadAt(in ScreenFrame frame, float cx, float cy, float scale, Func<int, bool> isPlausible)
+    {
         DigitRow? row = Segment(frame, cx, cy, scale);
         if (row == null) return null;
         var text = new char[row.Glyphs.Count];
@@ -122,7 +147,7 @@ public sealed class ShopPriceReader
         }
         string digits = new(text);
         int value = int.Parse(digits, System.Globalization.CultureInfo.InvariantCulture);
-        bool plausible = digits[0] != '0' && ShopPriceRules.IsPlausible(value, kind, rarity, Options.PriceFactors);
+        bool plausible = digits[0] != '0' && isPlausible(value);
         // Is this the WHOLE number? A digit hidden under the merchant's hand would leave a shorter, still
         // plausible number ("146" -> "14"). Two independent checks: the coin is right before the first digit,
         // and the block is centred where complete numbers are (a missing digit shifts it by half a digit).

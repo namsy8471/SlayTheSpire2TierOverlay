@@ -2,6 +2,7 @@ using System.IO;
 using Sts2Overlay.App.Infrastructure;
 using Sts2Overlay.Core.Model;
 using Sts2Overlay.Vision;
+using Sts2Overlay.Vision.Relics;
 using Sts2Overlay.Vision.Rest;
 using VisionKind = Sts2Overlay.Vision.ScreenKind;
 
@@ -65,8 +66,16 @@ public sealed class VisionRecognizer : ICardRecognizer
             .ToArray();
         // Shop: is the card-removal service still for sale? A fixed-place colour probe (CardRemovalProbe), ~0.1 ms.
         var removal = kind == ScreenKind.Shop ? CardRemovalProbe.Read(vf) : null;
+        var relics = kind == ScreenKind.Shop
+            ? shown.Relics.Where(x => x.Accepted && x.RelicId is not null)
+                .Select(x => new RecognizedShopRelic(x.RelicId!, x.Rarity,
+                    new PixelRect(x.IconBounds.X, x.IconBounds.Y, x.IconBounds.Width, x.IconBounds.Height).Offset(frame.ScreenRect.X, frame.ScreenRect.Y),
+                    x.Score, x.Price, x.Unaffordable))
+                .ToArray()
+            : [];
         return new RecognitionResult(kind, cards)
         {
+            Relics = relics,
             RemovalService = removal is { Available: true, Bounds: var b }
                 ? new PixelRect(b.X, b.Y, b.Width, b.Height).Offset(frame.ScreenRect.X, frame.ScreenRect.Y)
                 : null,
@@ -82,6 +91,35 @@ public sealed class VisionRecognizer : ICardRecognizer
             return _recognizer ?? LoadLocked();
         }
     }
+
+    /// <summary>
+    /// The merchant relic reader: icons cut from the game's relic atlas (data/local/pck/relic_icons, prepared on start)
+    /// and the committed relic catalog (ids and rarities only). Optional: without icons the shop shows cards only.
+    /// </summary>
+    private static RelicRecognizer? LoadRelics(string local)
+    {
+        var iconDir = new Sts2Overlay.Resources.LocalLayout(local).RelicIconDir;
+        var catalog = Path.Combine(Path.GetDirectoryName(AppPaths.CommittedCatalogFile)!, RelicCatalogFile);
+        if (!Directory.Exists(iconDir) || !File.Exists(catalog))
+        {
+            AppLog.Info($"[vision] shop relics off (icons {(Directory.Exists(iconDir) ? "ok" : "missing")}, catalog {(File.Exists(catalog) ? "ok" : "missing")})");
+            return null;
+        }
+        try
+        {
+            var db = RelicIconDatabase.Build(iconDir, RelicCatalog.Load(catalog));
+            AppLog.Info($"[vision] shop relic reader ready ({db.Count} relics)");
+            return new RelicRecognizer(db);
+        }
+        catch (Exception ex)
+        {
+            AppLog.Error("relic icons failed to load; shop relics off", ex);
+            return null;
+        }
+    }
+
+    /// <summary>The committed relic catalog next to the card catalog (data/catalog).</summary>
+    private const string RelicCatalogFile = "relics.v0.107.1.json";
 
     private CardRecognizer? LoadLocked()
     {
@@ -103,7 +141,10 @@ public sealed class VisionRecognizer : ICardRecognizer
         {
             var db = CardArtDatabase.LoadOrBuild(artRoot, File.Exists(catalog) ? catalog : null, cache, msg => AppLog.Info("[vision] " + msg));
             // The catalog gives the price reader each card's rarity, which tightens its plausibility check.
-            _recognizer = new CardRecognizer(db, new RecognizerOptions { Catalog = File.Exists(catalog) ? VisionCatalog.Load(catalog) : null });
+            _recognizer = new CardRecognizer(db, new RecognizerOptions { Catalog = File.Exists(catalog) ? VisionCatalog.Load(catalog) : null })
+            {
+                Relics = LoadRelics(local),
+            };
             AppLog.Info($"[vision] recognizer ready (catalog {Path.GetFileName(catalog)})");
             return _recognizer;
         }

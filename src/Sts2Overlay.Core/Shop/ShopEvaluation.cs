@@ -7,6 +7,7 @@ public enum ShopItemKind
 {
     Card,
     CardRemoval,
+    Relic,
 }
 
 /// <summary>One purchasable thing at the merchant, valued relative to skipping.</summary>
@@ -16,7 +17,7 @@ public sealed record ShopItemEvaluation
     public CardRef? Card { get; init; }
     public required int Price { get; init; }
 
-    /// <summary>Net value of buying (card score − skip, or removal value). Components sum to the total.</summary>
+    /// <summary>Net value of buying (card score − skip, removal value, or the relic's base + build fit). Components sum to the total.</summary>
     public required ScoreBreakdown Value { get; init; }
 
     /// <summary><c>Value.Total / Price</c>.</summary>
@@ -24,6 +25,12 @@ public sealed record ShopItemEvaluation
 
     /// <summary>Card evaluation for card items.</summary>
     public CardEvaluation? CardEvaluation { get; init; }
+
+    /// <summary>For relic items: <c>RELIC.X</c>.</summary>
+    public string? RelicId { get; init; }
+
+    /// <summary>For relic items: the deck-aware relic valuation (<see cref="ShopScorer.ScoreRelic"/>); <see cref="Value"/> is its breakdown.</summary>
+    public RelicEvaluation? RelicEvaluation { get; init; }
 
     /// <summary>For removal: the card id that should be removed.</summary>
     public string? RemovalTarget { get; init; }

@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using SkiaSharp;
 using Sts2Overlay.Vision;
+using Sts2Overlay.Vision.Relics;
 using VisionBench;
 
 // VisionBench: art database build, diagnostics and the regression bench for Sts2Overlay.Vision.
@@ -90,8 +91,67 @@ switch (args.FirstOrDefault())
         Environment.ExitCode = errors == 0 ? 0 : 1;
         break;
     }
+    case "relics":
+    {
+        // relics --saves <saves dir> [--captures dir] [--upscale 2] [--player <id>] [--limit n]: shop relic bench
+        string capturesDir = opts.GetValueOrDefault("captures") ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Sts2Overlay", "captures");
+        string savesDir = opts["saves"];
+        // The local player in co-op history files: the Steam id folder above profileN\saves, unless given.
+        string steamFolder = Regex.Match(Path.GetFullPath(savesDir), @"[\\/](\d{15,})[\\/]profile").Groups[1].Value;
+        string? player = opts.GetValueOrDefault("player") ?? (steamFolder.Length > 0 ? steamFolder : null);
+        int up = opts.TryGetValue("upscale", out string? ups) ? int.Parse(ups) : 1;
+        var relicRec = NewRelicRecognizer();
+        int bad = RelicBench.Run(capturesDir, savesDir, player, NewRecognizer(LoadDb()), relicRec, up > 1 ? f => f.Width <= 1920 ? Upscale(f, up) : f : null,
+            Path.Combine(repo, "data", "local", "bench", up > 1 ? $"relics-x{up}.md" : "relics.md"), Console.WriteLine,
+            opts.TryGetValue("limit", out string? lim) ? int.Parse(lim) : int.MaxValue);
+        Environment.ExitCode = bad == 0 ? 0 : 1;
+        break;
+    }
+    case "relic-one":
+    {
+        // relic-one <png>: every slot with its candidates
+        var relicRec = NewRelicRecognizer();
+        ScreenFrame f = ImageLoader.Load(positional[0]);
+        if (opts.TryGetValue("upscale", out string? ups)) f = Upscale(f, int.Parse(ups));
+        relicRec.Recognize(f);
+        foreach (var r in relicRec.Recognize(f, out double ms))
+        {
+            Console.WriteLine($"{r} icon={r.IconBounds} ({ms:F1} ms)");
+            foreach (var c in r.Candidates) Console.WriteLine($"    {c.Score:F3} {c.Id}");
+        }
+        break;
+    }
+    case "relic-probe":
+    {
+        // relic-probe <png> <slot> <RELIC.ID>: dense search for one relic in one slot (template debugging)
+        var relicRec = NewRelicRecognizer();
+        ScreenFrame f = ImageLoader.Load(positional[0]);
+        int slot = int.Parse(positional[1]);
+        int k = relicRec.Database.Entries.First(e => e.RelicId == positional[2]).Index;
+        RefTransform t = RefTransform.For(f.Width, f.Height);
+        (float ox0, float oy0) = RelicRecognizer.Origin(slot);
+        using IntegralImage img = IntegralImage.Build(f, t.ToPixelRect(new RectF(ox0 - 90, oy0 - 90, 180, 180)), 1);
+        var fine = relicRec.Database.Fine;
+        float[] q = new float[fine.Length], q2 = new float[fine.Length];
+        (float s, float sh, float x, float y, float sc) best = (-1, 0, 0, 0, 0), bestShape = (-1, 0, 0, 0, 0);
+        for (float sc = 0.58f; sc <= 0.84f; sc += 0.005f)
+            for (float dy = -8; dy <= 8; dy += 0.5f)
+                for (float dx = -8; dx <= 8; dx += 0.5f)
+                {
+                    img.SampleGrid(t.ToPixels(RelicRecognizer.IconAt(ox0 + dx, oy0 + dy, sc)), fine.Grid, fine.Grid, q);
+                    for (int i = 0; i < q.Length; i++) q2[i] = q[i] * q[i];
+                    float v = fine.Score(k, q, q2);
+                    float[] n = (float[])q.Clone();
+                    float shp = Ncc.Normalise(n) ? fine.ScoreFull(k, n) : 0;
+                    if (v > best.s) best = (v, shp, dx, dy, sc);
+                    if (shp > bestShape.sh) bestShape = (v, shp, dx, dy, sc);
+                }
+        Console.WriteLine($"best masked: s={best.s:F3} shape={best.sh:F3} at dx={best.x} dy={best.y} scale={best.sc:F3}");
+        Console.WriteLine($"best shape : s={bestShape.s:F3} shape={bestShape.sh:F3} at dx={bestShape.x} dy={bestShape.y} scale={bestShape.sc:F3}");
+        break;
+    }
     default:
-        Console.WriteLine("commands: build-db | selftest | recognize <png> | annotate <png> [out] | bench | stress | probe | price-glyphs | price-occlude | price-debug | preview | removal");
+        Console.WriteLine("commands: relics | relic-one | relic-probe | build-db | selftest | recognize <png> | annotate <png> [out] | bench | stress | probe | price-glyphs | price-occlude | price-debug | preview | removal");
         break;
 }
 
@@ -283,6 +343,16 @@ static List<string> PickPreviewCaptures(CardRecognizer rec, string dir)
             }
     }
     return picked;
+}
+
+RelicRecognizer NewRelicRecognizer()
+{
+    string iconDir = opts.GetValueOrDefault("relic-icons") ?? Path.Combine(repo, "data", "local", "pck", "relic_icons");
+    string relicCatalog = Path.Combine(repo, "data", "catalog", "relics.v0.107.1.json");
+    var sw = Stopwatch.StartNew();
+    var db = RelicIconDatabase.Build(iconDir, RelicCatalog.Load(relicCatalog), Console.WriteLine);
+    Console.WriteLine($"relic icons: {db.Count} shop-sellable relics loaded in {sw.ElapsedMilliseconds} ms");
+    return new RelicRecognizer(db);
 }
 
 CardRecognizer NewRecognizer(CardArtDatabase db) =>
