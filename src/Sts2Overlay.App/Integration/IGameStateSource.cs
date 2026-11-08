@@ -22,12 +22,14 @@ public enum ScreenHint
 /// <param name="Hint">Best guess of the current screen.</param>
 /// <param name="RewardContext">Kind of the last combat (CardReward / EliteReward / BossReward), used for reward offers.</param>
 /// <param name="UpdatedAt">When this snapshot was produced (local time).</param>
+/// <param name="Doubts">What a log-only deck rebuild (co-op guest) can't pin down; null when the deck is exact.</param>
 public sealed record GameStateSnapshot(
     RunState? Run,
     MapGraph? Map,
     ScreenHint Hint,
     OfferContext RewardContext,
-    DateTime UpdatedAt)
+    DateTime UpdatedAt,
+    DeckDoubts? Doubts = null)
 {
     public static GameStateSnapshot Empty { get; } = new(null, null, ScreenHint.None, OfferContext.CardReward, DateTime.MinValue);
 }
@@ -46,4 +48,13 @@ public interface IGameStateSource : IDisposable
 
     /// <summary>Begins watching (file watchers, log tail). Called once by the App after subscribing to <see cref="Changed"/>.</summary>
     void Start();
+}
+
+/// <summary>
+/// Doubts about the deck shown in the 덱 tab: per card id, why its copy (or upgrade) is uncertain; plus cards / upgrades /
+/// removals the log proves happened but can't place.
+/// </summary>
+public sealed record DeckDoubts(IReadOnlyDictionary<string, string> CardReasons, int Unidentified, int UnknownUpgrades, int UnknownRemovals)
+{
+    public bool Any => CardReasons.Count > 0 || Unidentified > 0 || UnknownUpgrades > 0 || UnknownRemovals > 0;
 }

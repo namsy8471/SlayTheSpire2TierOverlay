@@ -5,8 +5,11 @@ namespace Sts2Overlay.GameState.Tracking;
 /// <summary>One play seen in a combat: who played it, which card, and its combat id.</summary>
 internal readonly record struct CombatPlay(ulong Owner, string CardId, int Index);
 
-/// <summary>Every card play logged during one fight (see <see cref="Log.CardPlayedEvent"/>).</summary>
-internal sealed record CombatObservation(IReadOnlyList<CombatPlay> Plays);
+/// <summary>
+/// Every card play logged during one fight (see <see cref="Log.CardPlayedEvent"/>), and whether I had visited a merchant
+/// before it (my own purchases are never logged, so an unexplained card may be one).
+/// </summary>
+internal sealed record CombatObservation(IReadOnlyList<CombatPlay> Plays, bool AfterMerchant = false);
 
 /// <summary>
 /// A deck being rebuilt step by step from log patches. Besides the cards it keeps, per card, whether the log is
@@ -27,6 +30,11 @@ internal sealed class DeckReplay
         public bool FromObservation;
         /// <summary>Fights survived in the deck (Guilty leaves after 5).</summary>
         public int Combats;
+        /// <summary>
+        /// Made from one of several identical copies (enchant): the log doesn't say which copy, so this card
+        /// may sit where any of these peers sits. Only deck ORDER is in doubt, which matters to NextItem-in-deck-order picks.
+        /// </summary>
+        public List<Slot>? Peers;
     }
 
     private const string Guilty = "CARD.GUILTY";
@@ -53,14 +61,23 @@ internal sealed class DeckReplay
         _slots.Select((s, i) => (s, i)).Where(x => x.s.Reason is not null)
               .Select(x => new UncertainCard(x.i, x.s.Card.Id, x.s.Reason!.Value)).ToList();
 
-    public void Add(string id, int floor, UncertainReason? reason = null)
+    /// <param name="upgrade">Upgrade level the card arrives with (a reward card's replayed upgrade roll).</param>
+    public void Add(string id, int floor, UncertainReason? reason = null, int upgrade = 0)
     {
-        int upgrade = CardRarities.TypeOf(id) is { } type && UpgradeAddedTypes.Contains(type) && CardRarities.MaxUpgrade(id) > 0 ? 1 : 0;
+        int max = CardRarities.MaxUpgrade(id);
+        // An egg upgrades a card of its type as it joins the deck, if it can still be upgraded.
+        if (CardRarities.TypeOf(id) is { } type && UpgradeAddedTypes.Contains(type) && upgrade < max) upgrade++;
         var card = new DeckCard(new CardRef(id, upgrade), FloorAdded: floor);
-        if (upgrade > 0 && reason == UncertainReason.UpgradeRoll) reason = null; // already at its upgraded form
+        if (upgrade >= max && reason == UncertainReason.UpgradeRoll) reason = null; // already at its upgraded form
         _slots.Add(new Slot(card, reason));
         if (DuplicateAdds) _slots.Add(new Slot(card, reason));
     }
+
+    /// <summary>
+    /// True when nothing about the deck is in doubt: every card known, no unplaced upgrade/removal, no flag. Only then can
+    /// a replayed game RNG pick the same cards the game picked (the candidate list must match the game's exactly).
+    /// </summary>
+    public bool IsExact => Unidentified == 0 && UnknownUpgrades == 0 && UnknownRemovals == 0 && _slots.All(s => s.Reason is null);
 
     /// <summary>Every card that can still be upgraded gets +1; afterwards no earlier random upgrade is left unplaced.</summary>
     public void UpgradeAll()
@@ -96,7 +113,9 @@ internal sealed class DeckReplay
     public void Enchant(string id, string? enchantment, int floor)
     {
         int i = Require(id, floor, plainest: true, unenchanted: true);
+        List<Slot> peers = PeersOf(_slots[i]);
         if (enchantment != null) _slots[i].Card = _slots[i].Card with { EnchantmentId = enchantment, EnchantmentAmount = 1 };
+        if (peers.Count > 0) _slots[i].Peers = [.. _slots[i].Peers ?? [], .. peers];
     }
 
     public void Duplicate(string id, int floor)
@@ -105,7 +124,11 @@ internal sealed class DeckReplay
         _slots.Add(new Slot(_slots[i].Card, _slots[i].Reason));
     }
 
-    /// <summary>Transform: the chosen card leaves; a fixed target joins (keeping nothing), or an unidentified card.</summary>
+    /// <summary>
+    /// Transform: the chosen card leaves; a fixed target joins (keeping nothing), or an unidentified card. In the deck
+    /// the new card goes to the END (CardCmd.Transform: <c>pile.AddInternal(replacement)</c> without the old index —
+    /// only combat piles keep the position).
+    /// </summary>
     public void Transform(string id, string? target, int floor)
     {
         Remove(id);
@@ -120,7 +143,101 @@ internal sealed class DeckReplay
         _slots[i].Reason ??= UncertainReason.UnknownCardSelect;
     }
 
-    public void RandomUpgrades(int n) => UnknownUpgrades += n;
+    /// <summary>
+    /// <paramref name="n"/> random upgradable cards (of <paramref name="type"/>, or any) get +1, chosen by an RNG we
+    /// can't replay. Still exact when the choice doesn't matter: n or fewer candidates (all of them are upgraded), or
+    /// every candidate is the same card. Otherwise counted as unplaced upgrades.
+    /// </summary>
+    public void RandomUpgrades(int n, string? type = null)
+    {
+        if (IsExact)
+        {
+            List<Slot> c = Candidates(type);
+            if (c.Count <= n) { foreach (Slot s in c) UpgradeSlot(s); return; }
+            if (c.Select(s => (s.Card.Id, s.Card.Upgrade, s.Card.EnchantmentId)).Distinct().Count() == 1)
+            {
+                foreach (Slot s in c.Take(n)) UpgradeSlot(s);
+                return;
+            }
+        }
+        UnknownUpgrades += n;
+    }
+
+    /// <summary>
+    /// <c>cards.Where(IsUpgradable).ToList().StableShuffle(rng).Take(n)</c> replayed: sort by (id, upgrade) — the
+    /// card comparer — then Fisher-Yates with the given stream. Needs an exact deck; otherwise counted as unplaced.
+    /// </summary>
+    public void ShuffleUpgrades(GameRng rng, int n, string? type = null)
+    {
+        List<Slot> c = Candidates(type);
+        // Equal cards (same id + upgrade) are interchangeable, unless they differ by enchantment: then which one gets
+        // the upgrade depends on sort details we don't model.
+        bool mixedTies = c.GroupBy(s => (s.Card.Id, s.Card.Upgrade)).Any(g => g.Select(s => s.Card.EnchantmentId).Distinct().Count() > 1);
+        if (!IsExact || mixedTies) { RandomUpgrades(n, type); return; }
+        List<Slot> sorted = c.OrderBy(s => s.Card.Id, StringComparer.Ordinal).ThenBy(s => s.Card.Upgrade).ToList();
+        rng.Shuffle(sorted);
+        foreach (Slot s in sorted.Take(n)) UpgradeSlot(s);
+    }
+
+    /// <summary>
+    /// <c>rng.NextItem(upgradable cards in deck order)</c> gets +1 (Tablet of Truth). Needs an exact deck in game order.
+    /// Where a card's position is in doubt (<see cref="Slot.Peers"/>), every possible order must land on the same card.
+    /// </summary>
+    public void PickUpgrade(GameRng rng)
+    {
+        if (!IsExact || _slots.Any(s => s.FromObservation)) { RandomUpgrades(1); return; }
+        int n = Candidates(null).Count;
+        if (n == 0) return;
+        int k = rng.NextInt(n);
+        Slot? pick = null;
+        foreach (List<Slot>? order in Orders())
+        {
+            if (order is null) { RandomUpgrades(1); return; } // too many possible orders to check
+            Slot s = order.Where(Upgradable).ElementAt(k);
+            if (pick is null) pick = s;
+            else if (Identity(s) != Identity(pick)) { RandomUpgrades(1); return; } // the order decides: unknown
+        }
+        UpgradeSlot(pick!);
+    }
+
+    private const int MaxOrders = 4096;
+
+    /// <summary>
+    /// The deck orders the log allows: ours first, then each card of doubtful position swapped with each of its peers
+    /// (all combinations). Yields a single null if there are more than <see cref="MaxOrders"/>.
+    /// </summary>
+    private IEnumerable<List<Slot>?> Orders()
+    {
+        var orders = new List<List<Slot>> { _slots };
+        foreach (Slot f in _slots.Where(s => s.Peers is { Count: > 0 }).ToList())
+        {
+            var next = new List<List<Slot>>();
+            foreach (List<Slot> o in orders)
+            {
+                next.Add(o);
+                foreach (Slot p in f.Peers!.Where(o.Contains))
+                {
+                    var swapped = new List<Slot>(o);
+                    int a = swapped.IndexOf(f), b = swapped.IndexOf(p);
+                    (swapped[a], swapped[b]) = (swapped[b], swapped[a]);
+                    next.Add(swapped);
+                }
+            }
+            if (next.Count > MaxOrders) return [null];
+            orders = next;
+        }
+        return orders;
+    }
+
+    private static bool Upgradable(Slot s) => s.Card.Upgrade < CardRarities.MaxUpgrade(s.Card.Id);
+    private static (string, int, string?) Identity(Slot s) => (s.Card.Id, s.Card.Upgrade, s.Card.EnchantmentId);
+    private List<Slot> PeersOf(Slot s) => _slots.Where(o => o != s && Identity(o) == Identity(s)).ToList();
+
+    private List<Slot> Candidates(string? type) =>
+        _slots.Where(s => Upgradable(s) && (type is null || CardRarities.TypeOf(s.Card.Id) == type)).ToList();
+
+    private static void UpgradeSlot(Slot s) =>
+        s.Card = s.Card with { Card = s.Card.Card with { Upgrade = s.Card.Upgrade + 1 } };
     public void UnknownAdds(int n) => Unidentified += n;
     public void RandomRemoves(int n) => UnknownRemovals += n;
 
@@ -245,10 +362,15 @@ internal sealed class DeckReplay
                 if (counted) missing--;
                 bool identifies = !counted && Unidentified > 0;
                 if (!counted) Identify();
-                _slots.Add(new Slot(new DeckCard(new CardRef(g.Key), FloorAdded: floor), UncertainReason.Inferred)
-                {
-                    FromObservation = !counted && !identifies,
-                });
+                // Every unlogged way a card joins the deck that we know of — my own shop purchase (the merchant's upgrade
+                // roll has a -999999999 base: never), a random transform's result — makes a plain card, which only an
+                // egg upgrades (Hook.ModifyCardBeingAddedToDeck). So once I've been to a merchant, a card a merchant
+                // sells is taken as plain; anything else keeps its upgrade in doubt.
+                UncertainReason? reason = obs.AfterMerchant && CardRarities.Of(g.Key) is "Common" or "Uncommon" or "Rare"
+                    ? null : UncertainReason.Inferred;
+                Add(g.Key, floor, reason);
+                if (DuplicateAdds) _slots.RemoveAt(_slots.Count - 1); // a copy Bing Bong made would show up on its own
+                _slots[^1].FromObservation = !counted && !identifies;
             }
         }
         if (missing > 0) Unidentified += missing; // cards that exist but never showed themselves

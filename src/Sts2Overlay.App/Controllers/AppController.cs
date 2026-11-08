@@ -289,6 +289,8 @@ public sealed partial class AppController : IDisposable
             return;
         }
         _lastResult = r;
+        // The tracker links the next "obtained CARD.X from card reward" to this screen (upgrade read from the title colour).
+        if (r.ScreenKind == ScreenKind.Reward && _source is Sts2Overlay.GameState.Tracking.ICardOfferSink sink) sink.OnCardOfferSeen(r.Cards.Select(c => c.Card).ToList());
 
         var offerKey = r.ScreenKind + ":" + string.Join(",", r.Cards.Select(c => $"{c.Card}${c.Price}{(c.Unaffordable == true ? "r" : "")}{(c.OnSale ? "s" : "")}"));
         var evalKey = $"{offerKey}@{_snapshot.UpdatedAt.Ticks}#{_engineVersion}";
@@ -516,7 +518,8 @@ public sealed partial class AppController : IDisposable
                         var count = byId.Count();
                         var upgraded = byId.Count(c => c.Upgrade > 0);
                         var upText = upgraded == 0 ? null : count == 1 ? "강화" : $"강화 {upgraded}";
-                        return (Tier: tier, Vm: new DeckCardVm(tier?.ToString() ?? "?", _cards.Name(byId.Key), $"×{count}", upText));
+                        string? doubt = _snapshot.Doubts?.CardReasons.GetValueOrDefault(byId.Key);
+                        return (Tier: tier, Vm: new DeckCardVm(tier?.ToString() ?? "?", _cards.Name(byId.Key), $"×{count}", upText, doubt));
                     })
                     .OrderBy(x => x.Tier is null ? 99 : (int)x.Tier)
                     .ThenBy(x => x.Vm.Name, StringComparer.CurrentCulture)
@@ -541,6 +544,16 @@ public sealed partial class AppController : IDisposable
         var upgradedTotal = run.Deck.Count(c => c.Upgrade > 0);
         var summary = $"덱 {run.Deck.Count}장 · 강화 {upgradedTotal}장 · 파워 {profile.PowerCount}장";
         if (profile.Curses > 0) summary += $" · 저주 {profile.Curses}장";
+        if (_snapshot.Doubts is { } d)
+        {
+            // Log-only rebuild (co-op guest): say what it can't know yet. Exact again at run end (.run file).
+            var parts = new List<string>();
+            if (d.Unidentified > 0) parts.Add($"미확인 카드 {d.Unidentified}장");
+            if (d.UnknownUpgrades > 0) parts.Add($"위치 모를 강화 {d.UnknownUpgrades}회");
+            if (d.UnknownRemovals > 0) parts.Add($"모를 제거 {d.UnknownRemovals}장");
+            if (d.CardReasons.Count > 0) parts.Add($"? 표시 {d.CardReasons.Count}종");
+            summary += " · 추정: " + string.Join(" · ", parts);
+        }
         return new DeckSectionVm { Summary = summary, Groups = groups, Roles = roles };
     }
 

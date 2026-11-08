@@ -37,7 +37,7 @@ public sealed record TrackerOptions
 /// Everything is recomputed from scratch on each change, so the order in which the watcher and the
 /// tailer deliver (they are on different threads/timers) never leaves a permanent error.
 /// </summary>
-public sealed class GameStateTracker : IDisposable
+public sealed class GameStateTracker : IDisposable, ICardOfferSink
 {
     private const double PityReset = -0.05, PityMax = 0.4;
     private const int ScarcityAscension = 7; // AscensionLevel.Scarcity
@@ -79,6 +79,8 @@ public sealed class GameStateTracker : IDisposable
     private int _stealAt;                                // index in _combatPlays where the steal happened
     private (List<CombatPlay> Before, List<CombatPlay> After)? _stealPlays;
     private DeckEffect? _pendingSelect;                  // meaning of my next "chose cards" (event option / relic)
+    private bool _merchantVisited;                       // I entered a merchant this run (my purchases aren't logged)
+    private string? _pendingEventId;                     // the event that set _pendingSelect (its RNG stream is replayable)
     private bool _shopRemovalSeen;                       // a merchant sells one removal per visit
     private readonly List<int> _restSitePatches = [];    // provisional smith upgrades, fixed by the option line
     private readonly HashSet<string> _relicsThisRoom = new(StringComparer.Ordinal);
@@ -87,6 +89,11 @@ public sealed class GameStateTracker : IDisposable
     private double? _pityLog;
     private long _pityLogSeq = -1;
     private IReadOnlyList<RarityRoll> _lastRolls = [];
+    private RewardRollReplay? _rewardRng;                // my Rewards stream, replayed from the run seed
+    private readonly List<List<OfferSlot>> _offers = []; // my located reward-card offers in this room (slots per screen)
+    private RewardCardPool? _pool;                       // my character's reward pool, to replay which card each slot shows
+    private ulong _liveEpochs = ulong.MaxValue;          // epoch-lock hypotheses (bit h) the picks so far allow
+    private IReadOnlyList<CardRef>? _seenOffer;          // what the screen recognizer saw on the reward screen (this room)
     private MapCoord? _voteCoord;
     private long _voteSeq = -1;
     private RunOutcome _outcome;
@@ -258,12 +265,15 @@ public sealed class GameStateTracker : IDisposable
                 FlushCombat();
                 SettleStolenCard();
                 _room = room.Room;
+                if (room.Room == RoomKind.Merchant) _merchantVisited = true;
                 _lastRestOption = null;
                 _pendingRemovalReward = false;
                 _pendingSelect = null;
                 _shopRemovalSeen = false;
                 _restSitePatches.Clear();
                 _relicsThisRoom.Clear();
+                _offers.Clear();
+                _seenOffer = null;
                 _screen = room.Room switch
                 {
                     RoomKind.Combat => ScreenHint.Combat,
@@ -328,11 +338,15 @@ public sealed class GameStateTracker : IDisposable
                 _cardStolen = false;
                 return false;
             case CardObtainedEvent c when IsMe(c.PlayerId):
+            {
                 // From act 2 on, a reward card may come pre-upgraded (CardFactory.RollForUpgrade: act index x 25%,
-                // never for rares). The roll isn't logged, so such a card is flagged.
-                AddPatch(PatchKind.AddCard, c.CardId, 0, !c.Special && _logAct >= 2 && MayRollUpgrade(c.CardId) ? UpgradeRollArg : null);
+                // never for rares). The roll isn't logged, but it is replayed from the run seed (RewardUpgrade); only
+                // when that fails is the card flagged.
+                int? upgrade = c.Special ? 0 : RewardUpgrade(c.CardId);
+                AddPatch(PatchKind.AddCard, c.CardId, upgrade ?? 0, upgrade is null ? UpgradeRollArg : null);
                 if (_screen == ScreenHint.RewardScreenLikely && !c.Special) _screen = ScreenHint.Map; // card picked
                 return true;
+            }
             case GoldObtainedEvent g when IsMe(g.PlayerId):
                 AddPatch(PatchKind.AddGold, null, g.Amount);
                 return true;
@@ -400,6 +414,14 @@ public sealed class GameStateTracker : IDisposable
                 _ => PatchKind.DuplicateCard,
             };
             string? arg = effect.Select == SelectMeaning.Transform ? effect.TransformTo : effect.Enchantment;
+            // A random transform with the event's stream is replayed (one card: with several, which card took which
+            // draw depends on the selection order, which the log doesn't keep).
+            if (kind == PatchKind.TransformCard && arg == null && effect.TransformRngCall is { } call && ch.CardIds.Count == 1
+                && _pendingEventId != null && EventRngSeed(_pendingEventId) is { } seed)
+            {
+                _patches.Add(new Patch(kind, ch.CardIds[0], call, _seq) { RngSeed = seed });
+                return true;
+            }
             foreach (string card in ch.CardIds) AddPatch(kind, card, 0, arg);
             return true;
         }
@@ -460,7 +482,7 @@ public sealed class GameStateTracker : IDisposable
         }
         else if (relic != null && DeckEffects.ForRelic(relic) != null)
             _relicsThisRoom.Add(relic);
-        ApplyEffect(DeckEffects.ForChoice(eo.EventId, eo.ChoiceKey));
+        ApplyEffect(DeckEffects.ForChoice(eo.EventId, eo.ChoiceKey), eo.EventId);
     }
 
     /// <summary>A relic was obtained: apply its pickup effect once per room (an ancient option may have applied it already).</summary>
@@ -471,13 +493,28 @@ public sealed class GameStateTracker : IDisposable
     }
 
     /// <summary>Fixed and random deck effects of an event option / relic; its card-select meaning waits for "chose cards".</summary>
-    private void ApplyEffect(DeckEffect? effect)
+    private void ApplyEffect(DeckEffect? effect, string? eventId = null)
     {
         _pendingSelect = effect;
+        _pendingEventId = eventId;
         if (effect is null) return;
         foreach (string card in effect.Adds) AddPatch(PatchKind.AddCard, card, 0);
         foreach (string card in effect.Removes) AddPatch(PatchKind.RemoveCard, card, 0);
-        if (effect.RandomUpgrades > 0) AddPatch(PatchKind.RandomUpgrades, null, effect.RandomUpgrades);
+        if (effect.RandomUpgrades > 0)
+        {
+            // Event streams are replayable (seeded by run seed + slot + event id); the Niche stream (relics) is not.
+            if (effect.Pick != UpgradePick.Unknown && eventId != null && EventRngSeed(eventId) is { } seed)
+            {
+                bool shuffle = effect.Pick == UpgradePick.EventShuffle;
+                _patches.Add(new Patch(shuffle ? PatchKind.ShuffleUpgrades : PatchKind.PickUpgrade, null,
+                                       shuffle ? effect.RandomUpgrades : effect.EventRngCall, _seq)
+                {
+                    Arg = effect.RandomUpgradeType,
+                    RngSeed = seed,
+                });
+            }
+            else AddPatch(PatchKind.RandomUpgrades, null, effect.RandomUpgrades, effect.RandomUpgradeType);
+        }
         if (effect.UnknownAdds > 0) AddPatch(PatchKind.UnknownAdds, null, effect.UnknownAdds);
         if (effect.RandomRemoves > 0) AddPatch(PatchKind.RandomRemoves, null, effect.RandomRemoves);
         if (effect.UpgradeBasicStrikeAndDefend) AddPatch(PatchKind.UpgradeBasics, null, 0);
@@ -508,7 +545,7 @@ public sealed class GameStateTracker : IDisposable
         if (_combatPlays is { } plays)
             _patches.Add(new Patch(PatchKind.CombatSeen, null, 0, _seq)
             {
-                Combat = new CombatObservation(plays),
+                Combat = new CombatObservation(plays, _merchantVisited),
                 Arg = (_lastKind ?? CombatKind.Unknown).ToString(),
             });
         _combatPlays = null;
@@ -572,6 +609,12 @@ public sealed class GameStateTracker : IDisposable
         _pityLog = null;
         _pityLogSeq = -1;
         _lastRolls = [];
+        _rewardRng = null;
+        _offers.Clear();
+        _seenOffer = null;
+        _pool = null;
+        _liveEpochs = ulong.MaxValue;
+        _merchantVisited = false;
         _voteCoord = null;
         _voteSeq = -1;
         _outcome = RunOutcome.InProgress;
@@ -622,6 +665,7 @@ public sealed class GameStateTracker : IDisposable
 
         List<CardRarityRolledEvent> mine = SelectMine(rolls);
         _lastRolls = mine.Select(r => new RarityRoll(r.Roll, r.Need, r.Offset, r.IsRare, r.Source)).ToList();
+        LocateOffer(rolls); // the replay itself tells mine apart: only my rolls are in my stream
         _pityLog = After(mine[^1]);
         _pityLogSeq = _seq;
     }
@@ -635,6 +679,142 @@ public sealed class GameStateTracker : IDisposable
     }
 
     private int Ascension() => ChooseSave()?.Save.State.Ascension ?? _logRun?.Ascension ?? 0;
+
+    // =============================================================================================
+    // Replayed game RNG (run seed → reward upgrade rolls, event card picks)
+    // =============================================================================================
+
+    private string? RunSeed() => _logRun?.Seed ?? ChooseSave()?.Save.Seed;
+
+    /// <summary>My player slot (RunState.GetPlayerSlotIndex): lobby order in co-op, 0 in single player; -1 = unknown.</summary>
+    private int MySlot() => IsMultiplayer() ? PlayerOrder().ToList().IndexOf(MyId()) : 0;
+
+    private int CurrentAct() => _logAct > 0 ? _logAct : ChooseSave()?.Save.State.Act ?? 1;
+
+    private RewardRollReplay? RewardRng()
+    {
+        int slot = MySlot();
+        if (slot < 0 || RunSeed() is not { } seed) return null;
+        if (_rewardRng?.Slot != slot) _rewardRng = new RewardRollReplay(seed, slot);
+        return _rewardRng;
+    }
+
+    /// <summary>EventModel.BeginEvent: <c>new Rng((uint)((int)runSeed + slot) + hash(event id entry))</c> (events aren't shared).</summary>
+    private uint? EventRngSeed(string eventId)
+    {
+        int slot = MySlot();
+        if (slot < 0 || RunSeed() is not { } seed) return null;
+        string entry = eventId.StartsWith("EVENT.", StringComparison.Ordinal) ? eventId["EVENT.".Length..] : eventId;
+        uint runSeed = (uint)GameRng.DeterministicHash(seed);
+        return unchecked((uint)((int)runSeed + slot) + (uint)GameRng.DeterministicHash(entry));
+    }
+
+    /// <summary>
+    /// Finds this burst's rolls in my replayed Rewards stream (other players' rolls aren't in it) and keeps them as
+    /// offers: one reward screen's cards sit 3 values apart (rarity, pick, upgrade per card).
+    /// </summary>
+    private void LocateOffer(List<CardRarityRolledEvent> rolls)
+    {
+        if (RewardRng() is not { } rng) return;
+        var groups = new List<List<OfferSlot>>();
+        foreach (OfferSlot s in rng.Locate(rolls).OfType<OfferSlot>())
+        {
+            if (groups.Count > 0 && groups[^1][^1].Counter + 3 == s.Counter) groups[^1].Add(s);
+            else groups.Add([s]);
+        }
+        foreach (List<OfferSlot> g in groups)
+        {
+            // Two card rewards on one screen (e.g. an elite with Prayer Wheel) follow each other directly.
+            if (g.Count > 3 && g.Count % 3 == 0) _offers.AddRange(g.Chunk(3).Select(c => c.ToList()));
+            else _offers.Add(g);
+        }
+    }
+
+    private string? MyCharacter() =>
+        _logRun?.Players.FirstOrDefault(p => p.NetId == MyId())?.Character
+        ?? _logRun?.Character
+        ?? ChooseSave()?.Save.State.Character;
+
+    private RewardCardPool? Pool()
+    {
+        if (_pool == null)
+        {
+            _pool = RewardCardPool.For(MyCharacter(), IsMultiplayer());
+            _liveEpochs = ulong.MaxValue;
+        }
+        return _pool;
+    }
+
+    /// <summary>
+    /// The offered slots that showed <paramref name="cardId"/>, replayed under every epoch hypothesis still alive.
+    /// The pick also rules out the hypotheses that couldn't have shown it. Null = the replay doesn't explain the pick
+    /// (another card pool, e.g. colourless; an unlocated roll) — then nothing is ruled out.
+    /// </summary>
+    private List<OfferSlot>? PickedSlots(string cardId)
+    {
+        if (_offers.Count == 0 || Pool() is not { } pool) return null;
+        ulong live = 0;
+        var slots = new List<OfferSlot>();
+        for (int h = 0; h < pool.Hypotheses && h < 64; h++)
+        {
+            if ((_liveEpochs >> h & 1) == 0) continue;
+            foreach (List<OfferSlot> offer in _offers)
+            {
+                if (pool.Predict(offer, h) is not { } shown) continue;
+                for (int i = 0; i < shown.Length; i++)
+                {
+                    if (shown[i] != cardId) continue;
+                    live |= 1UL << h;
+                    if (!slots.Contains(offer[i])) slots.Add(offer[i]);
+                }
+            }
+        }
+        if (live == 0) return null;
+        _liveEpochs = live;
+        return slots;
+    }
+
+    /// <summary>
+    /// Upgrade level of a card picked from a card reward: 0 when it can't roll one (act 1, rares, unupgradable), else
+    /// the replayed upgrade roll of the slot that showed it (card pool replay). Failing that: the roll of the offered
+    /// slots of its rarity if they all agree, else what the screen showed. Null = unknown (the card is flagged
+    /// <see cref="UncertainReason.UpgradeRoll"/>).
+    /// </summary>
+    private int? RewardUpgrade(string cardId)
+    {
+        List<OfferSlot>? picked = PickedSlots(cardId); // also narrows the epoch hypotheses, so run it for every pick
+        int actIndex = CurrentAct() - 1;
+        if (!MayRollUpgrade(cardId) || actIndex <= 0) return 0;
+        string rarity = CardRarities.Of(cardId)!;
+        int ascension = Ascension();
+        List<bool> Outcomes(IEnumerable<OfferSlot> slots) =>
+            slots.Select(s => RewardRollReplay.Upgrades(s.UpgradeRoll, rarity, actIndex, ascension)).Distinct().ToList();
+
+        List<bool> outcomes = picked is { Count: > 0 } ? Outcomes(picked) : [];
+        if (outcomes.Count != 1) outcomes = Outcomes(_offers.SelectMany(o => o).Where(s => s.Rarity == rarity));
+        if (outcomes.Count == 1) return outcomes[0] ? 1 : 0;
+        var seen = _seenOffer?.Where(c => c.Id == cardId).Select(c => c.Upgrade > 0).Distinct().ToList();
+        if (seen is { Count: 1 } && (outcomes.Count == 0 || outcomes.Contains(seen[0]))) return seen[0] ? 1 : 0;
+        return null;
+    }
+
+    /// <summary>
+    /// The card an event's random transform made (CardFactory.CreateRandomCardForTransform with the event stream), if
+    /// every epoch hypothesis still alive gives the same one; null = unknown (left unidentified).
+    /// </summary>
+    private string? ReplayTransform(Patch p)
+    {
+        if (p.RngSeed is not { } seed || Pool() is not { } pool) return null;
+        var rng = new GameRng(seed);
+        for (int i = 0; i < p.Amount; i++) rng.NextULong();
+        return pool.TransformTarget(p.Id!, rng.NextULong(), _liveEpochs);
+    }
+
+    /// <inheritdoc/>
+    public void OnCardOfferSeen(IReadOnlyList<CardRef> offered)
+    {
+        lock (_gate) _seenOffer = offered.ToList();
+    }
 
     /// <summary>
     /// Single player: all rolls are mine. Co-op: every client logs every player's reward rolls back to back,
@@ -763,6 +943,7 @@ public sealed class GameStateTracker : IDisposable
         {
             if (p.Seq <= cutoff) continue;
             // Uncertainty flags and fight observations only matter without a save (co-op guest): a save is exact.
+            // (Replayed event-RNG upgrades are exact, so they apply on top of a save too.)
             if (fromSave && p.Kind is PatchKind.UnknownSelect or PatchKind.RandomUpgrades
                     or PatchKind.UnknownAdds or PatchKind.RandomRemoves) continue;
             applied++;
@@ -771,17 +952,25 @@ public sealed class GameStateTracker : IDisposable
                 case PatchKind.AddCard:
                     deck.DuplicateAdds = relics.Contains(BingBong);
                     deck.UpgradeAddedTypes = s_eggs.Where(e => relics.Contains(e.Relic)).Select(e => e.Type).ToHashSet();
-                    deck.Add(p.Id!, state.Floor, p.Arg == UpgradeRollArg && !fromSave ? UncertainReason.UpgradeRoll : null);
+                    deck.Add(p.Id!, state.Floor, p.Arg == UpgradeRollArg && !fromSave ? UncertainReason.UpgradeRoll : null, upgrade: p.Amount);
                     break;
+                case PatchKind.ShuffleUpgrades: deck.ShuffleUpgrades(new GameRng(p.RngSeed!.Value), p.Amount, p.Arg); break;
+                case PatchKind.PickUpgrade:
+                {
+                    var rng = new GameRng(p.RngSeed!.Value);
+                    for (int k = 0; k < p.Amount; k++) rng.NextULong(); // earlier deciphers used the first calls
+                    deck.PickUpgrade(rng);
+                    break;
+                }
                 case PatchKind.UpgradeAll: deck.UpgradeAll(); break;
                 case PatchKind.ShopRemoveCard: removals++; deck.Remove(p.Id!); break;
                 case PatchKind.RemoveCard: deck.Remove(p.Id!); break;
                 case PatchKind.UpgradeCard: deck.Upgrade(p.Id!, state.Floor); break;
-                case PatchKind.TransformCard: deck.Transform(p.Id!, p.Arg, state.Floor); break;
+                case PatchKind.TransformCard: deck.Transform(p.Id!, p.Arg ?? ReplayTransform(p), state.Floor); break;
                 case PatchKind.EnchantCard: deck.Enchant(p.Id!, p.Arg, state.Floor); break;
                 case PatchKind.DuplicateCard: deck.Duplicate(p.Id!, state.Floor); break;
                 case PatchKind.UnknownSelect: deck.MarkUnknown(p.Id!, state.Floor); break;
-                case PatchKind.RandomUpgrades: deck.RandomUpgrades(p.Amount); break;
+                case PatchKind.RandomUpgrades: deck.RandomUpgrades(p.Amount, p.Arg); break;
                 case PatchKind.UnknownAdds: deck.UnknownAdds(p.Amount); break;
                 case PatchKind.RandomRemoves: deck.RandomRemoves(p.Amount); break;
                 case PatchKind.CardStolen:
@@ -900,6 +1089,7 @@ public sealed class GameStateTracker : IDisposable
         AddCard, RemoveCard, ShopRemoveCard, UpgradeCard, TransformCard, EnchantCard, DuplicateCard, UnknownSelect,
         RandomUpgrades, UnknownAdds, RandomRemoves, UpgradeBasics, TransformAllBasics, TransformStrikeAndDefend, Transcend,
         CloneEnchanted, CombatSeen, CardStolen, UpgradeAll, AddRelic, AddGold, AddPotion, RemovePotion,
+        ShuffleUpgrades, PickUpgrade,
     }
 
     /// <param name="Seq">Log line number: patches are compared to save marks by this, not by wall-clock time.</param>
@@ -910,5 +1100,7 @@ public sealed class GameStateTracker : IDisposable
         public CombatObservation? Combat { get; init; }
         /// <summary>CardStolen: the fight's plays before the steal (<see cref="Combat"/> holds the ones after it).</summary>
         public IReadOnlyList<CombatPlay>? Before { get; init; }
+        /// <summary>ShuffleUpgrades / PickUpgrade: seed of the event's RNG stream (a fresh stream is made on each compose).</summary>
+        public uint? RngSeed { get; init; }
     }
 }

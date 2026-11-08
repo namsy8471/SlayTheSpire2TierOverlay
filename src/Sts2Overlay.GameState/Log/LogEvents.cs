@@ -93,6 +93,10 @@ public sealed record CardRarityRolledEvent(double Roll, double Need, double Offs
     public bool IsRare => Roll < Need;
     public double BaseRareOdds => Need - Offset;
 
+    /// <summary>The roll as the float the game printed (parsed as float, not via double, so it compares bit-exactly
+    /// with a replayed <c>Rng.NextFloat()</c>).</summary>
+    public float RollFloat { get; init; }
+
     public RaritySource Source => BaseRareOdds switch
     {
         > 0.5 => RaritySource.Boss,

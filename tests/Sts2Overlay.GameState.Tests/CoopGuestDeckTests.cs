@@ -1,3 +1,4 @@
+using Sts2Overlay.Core.Model;
 using System.IO.Compression;
 using Sts2Overlay.Core.History;
 using Sts2Overlay.GameState.Diagnostics;
@@ -75,8 +76,10 @@ public class CoopGuestDeckTests
         Assert.Equal(1, pandora.Run!.UnidentifiedCards);
         Assert.Equal(pandora.TrueDeck.Count, pandora.RebuiltDeck.Count + pandora.Run.UnidentifiedCards);
 
-        // Upgrades: random ones (Whetstone, War Paint, Tablet of Truth, Fragrant Mushroom, reward rolls) are not logged.
-        Assert.True(results.Sum(r => r.ExactMatches) >= 352, $"exact {results.Sum(r => r.ExactMatches)}/392");
+        // Upgrades: reward-card upgrade rolls, Tablet of Truth and Doors of Light are replayed from the run seed; what
+        // is left are relics that draw from the run's Niche stream (Whetstone, War Paint, Fragrant Mushroom, Fishing Rod),
+        // whose position the log can't tell: 18 upgrades, +1 for the Pandora card above.
+        Assert.True(results.Sum(r => r.ExactMatches) >= 373, $"exact {results.Sum(r => r.ExactMatches)}/392");
     }
 
     [Fact]
@@ -178,7 +181,6 @@ public class CoopGuestDeckTests
         // Combat ids: seat 0's deck gets 0..9, seat 1's 10..21, cards made in the fight come after both decks.
         // The friend (seat 1) plays BACKFLIP with id 21, a card we never saw (e.g. a local shop purchase).
         TrackedRun run = Replay(Friend,
-            Room("Merchant Room"),
             Room("Combat Room"), Fight("SLIMES_WEAK"),
             Play(Me, "DUALCAST", 9),            // seat 0's last deck card: the friend's deck starts at 10
             Play(Friend, "STRIKE_SILENT", 10),
@@ -189,7 +191,25 @@ public class CoopGuestDeckTests
         Assert.Equal(1, Count(run, "CARD.BACKFLIP"));
         Assert.Equal(0, Count(run, "CARD.SHIV"));
         Assert.Equal(0, Count(run, "CARD.BLADE_DANCE"));
+        // No merchant visited: where it came from (and so its upgrade) is unknown.
         Assert.Contains(run.UncertainCards, u => u.CardId == "CARD.BACKFLIP" && u.Reason == UncertainReason.Inferred);
+    }
+
+    [Fact]
+    public void A_card_first_seen_after_a_merchant_visit_is_a_plain_purchase()
+    {
+        // My own shop purchases are never logged. Merchant cards never come upgraded (CardFactory.CreateForMerchant:
+        // upgrade roll base -999999999), so after a merchant visit an unexplained common/uncommon/rare is taken as plain.
+        TrackedRun run = Replay(Friend,
+            Room("Merchant Room"),
+            Room("Combat Room"), Fight("SLIMES_WEAK"),
+            Play(Me, "DUALCAST", 9),
+            Play(Friend, "STRIKE_SILENT", 10),
+            Play(Friend, "BACKFLIP", 21),
+            Won("SLIMES_WEAK"));
+        DeckCard backflip = Assert.Single(run.State.Deck, c => c.Id == "CARD.BACKFLIP");
+        Assert.Equal(0, backflip.Upgrade);
+        Assert.DoesNotContain(run.UncertainCards, u => u.CardId == "CARD.BACKFLIP");
     }
 
     [Fact]
@@ -273,14 +293,59 @@ public class CoopGuestDeckTests
     }
 
     [Fact]
-    public void Random_upgrades_are_counted_not_placed()
+    public void Random_upgrades_from_the_niche_stream_are_counted_not_placed()
     {
+        // Whetstone picks 2 attacks with the run's Niche stream, which every monster spawn also draws from: not replayable.
+        TrackedRun run = Replay(Friend,
+            Room("Treasure Room"),
+            Obtained(Friend, "RELIC.WHETSTONE", "relic reward"));
+        Assert.All(run.State.Deck, c => Assert.Equal(0, c.Upgrade));
+        Assert.Equal(2, run.UnknownUpgrades);
+        Assert.True(run.DeckApproximate);
+    }
+
+    [Fact]
+    public void Tablet_of_truth_decipher_is_replayed_from_the_event_stream()
+    {
+        // Event stream = (uint)((int)hash("TESTSEED01") + slot 1) + hash("TABLET_OF_TRUTH"); its first NextInt(12) is 7
+        // (worked out independently with a Python port): the 8th upgradable card in deck order, the 3rd Defend.
         TrackedRun run = Replay(Friend,
             Room("Event Room"),
             Option(Friend, "TABLET_OF_TRUTH", "TABLET_OF_TRUTH.pages.INITIAL.options.DECIPHER_1"));
-        Assert.All(run.State.Deck, c => Assert.Equal(0, c.Upgrade));
-        Assert.Equal(1, run.UnknownUpgrades);
-        Assert.True(run.DeckApproximate);
+        Assert.Equal(0, run.UnknownUpgrades);
+        DeckCard upgraded = Assert.Single(run.State.Deck, c => c.Upgrade > 0);
+        Assert.Equal("CARD.DEFEND_SILENT", upgraded.Id);
+    }
+
+    [Fact]
+    public void Reward_card_upgrade_roll_is_replayed_from_the_run_seed()
+    {
+        // My (seat 0, DEFECT) Rewards stream for TESTSEED01 holds these three rarity rolls at counters 54, 57, 60. The
+        // cards they show are FERAL, GO_FOR_THE_EYES, UPROAR under every epoch-lock hypothesis, and UPROAR's upgrade
+        // roll (counter 62) is 0.188 <= act index 1 x 25%: it comes upgraded. Nothing in the log says so.
+        TrackedRun run = Replay(Me,
+            "[INFO] Preloading 'Act=HIVE' assets... count=8 vfx=0",
+            Room("Combat Room"), Fight("SLIMES_WEAK"), Won("SLIMES_WEAK"),
+            "[INFO] Card rarity: Rolled 0.1554522, need < -0.02 for rare (offset = -0.05)",
+            "[INFO] Card rarity: Rolled 0.8230557, need < -0.01 for rare (offset = -0.04)",
+            "[INFO] Card rarity: Rolled 0.69397694, need < 0 for rare (offset = -0.03)",
+            Obtained(Me, "CARD.UPROAR"));
+        DeckCard uproar = Assert.Single(run.State.Deck, c => c.Id == "CARD.UPROAR");
+        Assert.Equal(1, uproar.Upgrade);
+        Assert.DoesNotContain(run.UncertainCards, u => u.CardId == "CARD.UPROAR");
+    }
+
+    [Fact]
+    public void Reward_card_upgrade_falls_back_to_the_screen_when_replay_has_nothing()
+    {
+        // No rarity roll found (e.g. a continued run: no seed in the log): the recognizer's reading decides.
+        var t = new GameStateTracker(new TrackerOptions { LocalNetIdOverride = Me });
+        t.ProcessLines([.. Header, "[INFO] Preloading 'Act=HIVE' assets... count=8 vfx=0", Room("Combat Room"), Won("SLIMES_WEAK")]);
+        t.OnCardOfferSeen([new("CARD.HOTFIX", 1), new("CARD.UPROAR", 0)]);
+        t.ProcessLines([Obtained(Me, "CARD.HOTFIX")]);
+        DeckCard hotfix = Assert.Single(t.Current!.State.Deck, c => c.Id == "CARD.HOTFIX");
+        Assert.Equal(1, hotfix.Upgrade);
+        Assert.DoesNotContain(t.Current!.UncertainCards, u => u.CardId == "CARD.HOTFIX");
     }
 
     [Fact]
