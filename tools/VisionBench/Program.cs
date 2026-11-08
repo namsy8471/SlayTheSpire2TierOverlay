@@ -17,6 +17,7 @@ using VisionBench;
 //   VisionBench price-occlude [--prices file] [--upscale 2] [--dark x] [--no-rarity x]   paints a "hand" (or a dark
 //                         panel) over parts of each price: unknown is fine, wrong is not
 //   VisionBench price-glyphs [--prices file] [--upscale 2]     derive the price digit templates from labelled shops
+//   (bench, price-occlude: --price-glyphs a.txt[,b.txt] reads prices with only these template files)
 //   VisionBench preview   [png ...] [--captures dir] [--out dir] [--skip on]   badges + recommendation marks drawn where the overlay would put them
 //                         (4K/150 % and FHD/100 %), with the debug card/price outlines
 //   VisionBench removal   --labels file [--captures dir]   card-removal probe vs hand labels at FHD, 1440p and 2x (4K)
@@ -112,7 +113,17 @@ RecognizerOptions RecognizerOptionsFromArgs()
         float[] v = arg.Split(',').Select(x => float.Parse(x, CultureInfo.InvariantCulture)).ToArray();
         return d with { Agree = v[0], MinTiles = (int)v[1], AcceptScore = v[2], AcceptMargin = v[3], WholeTopK = v.Length > 4 ? (int)v[4] : d.WholeTopK };
     }
-    return o with { BlockStage = Parse(o.BlockStage, opts.GetValueOrDefault("blocks")), RowStage = Parse(o.RowStage, opts.GetValueOrDefault("rows")) };
+    o = o with { BlockStage = Parse(o.BlockStage, opts.GetValueOrDefault("blocks")), RowStage = Parse(o.RowStage, opts.GetValueOrDefault("rows")) };
+    // --price-glyphs a.txt[,b.txt]: read prices with these template files only (e.g. TitleBench digits output).
+    if (opts.GetValueOrDefault("price-glyphs") is { } glyphFiles)
+        o = o with
+        {
+            Price = new PriceReaderOptions
+            {
+                Glyphs = glyphFiles.Split(',').Select(f => PriceGlyphs.Parse(File.ReadAllLines(f).Select(l => l.Trim().Trim(',').Trim('"')).Where(l => l.Length > 0).ToList(), name: Path.GetFileNameWithoutExtension(f))).ToList(),
+            },
+        };
+    return o;
 }
 
 CardArtDatabase LoadDb()
