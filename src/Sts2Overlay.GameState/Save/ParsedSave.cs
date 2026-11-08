@@ -54,4 +54,48 @@ public sealed record ParsedSave
     public string? ActId { get; init; }
 
     public string? GameMode { get; init; }
+
+    /// <summary>The current act's event bookkeeping, for <see cref="Tracking.EventPrediction"/>. Null when the save lacks it.</summary>
+    public EventRoomState? Events { get; init; }
+}
+
+/// <summary>
+/// What the game pulls the next event from (<c>acts[i].rooms</c>, <c>events_seen</c>, the "?" room odds stream) plus the
+/// facts that tell a room-entry save apart from later saves of the same room.
+/// </summary>
+public sealed record EventRoomState
+{
+    public int ActIndex { get; init; }
+
+    /// <summary><c>acts[cur].rooms.event_ids</c>: the act's events, shuffled once at run start.</summary>
+    public IReadOnlyList<string> EventIds { get; init; } = [];
+
+    /// <summary><c>acts[cur].rooms.events_visited</c>: index the next pull starts from (the act's ancient counts as one).</summary>
+    public int EventsVisited { get; init; }
+
+    public string? AncientId { get; init; }
+
+    /// <summary>Run-wide <c>events_seen</c>: a seen event is skipped by later pulls.</summary>
+    public IReadOnlyList<string> EventsSeen { get; init; } = [];
+
+    /// <summary><c>visited_map_coords</c> count (this act) and <c>map_point_history[cur]</c> count. The room-entry save has one more visited coord.</summary>
+    public int VisitedInAct { get; init; }
+    public int HistoryInAct { get; init; }
+
+    /// <summary>All map-history entries of the run (= RunState.TotalFloor at pull time on the entry save).</summary>
+    public int TotalHistory { get; init; }
+
+    /// <summary><c>pre_finished_room</c> is set (a reload into a room whose combat already ended).</summary>
+    public bool PreFinishedRoom { get; init; }
+
+    /// <summary><c>rng.counters.unknown_map_point</c>: calls already drawn from the "?" room stream.</summary>
+    public int UnknownMapPointCounter { get; init; }
+
+    /// <summary>The previous map point had a shop room (a "?" can't roll a shop right after one).</summary>
+    public bool PreviousWasShop { get; init; }
+
+    /// <summary><c>players[].unlock_state.number_of_runs</c> (the very first run forces its first "?" rooms).</summary>
+    public int NumberOfRuns { get; init; } = -1;
+
+    public bool IsRoomEntrySave => !PreFinishedRoom && VisitedInAct == HistoryInAct + 1;
 }

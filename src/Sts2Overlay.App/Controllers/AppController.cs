@@ -83,6 +83,7 @@ public sealed partial class AppController : IDisposable
         CatalogPath = catalogPath;
         (_engine, _cards) = LoadPack(packDir, catalogPath, vm);
         InitForecastReview(packDir, catalogPath); // forecast + run review (AppController.ForecastReview.cs)
+        InitEvents(packDir); // event option advice (AppController.Events.cs)
 
         _tracker.Changed += (_, _) => OnTrackerChanged();
         // The panel moved to a monitor with another DPI: the DPI part of the scale changed, ours must follow.
@@ -181,6 +182,7 @@ public sealed partial class AppController : IDisposable
         _pipeline.CharacterHint = snap.Run?.Character;
         RefreshRunViews(snap.Run);
         UpdateForecastReview(snap); // AppController.ForecastReview.cs
+        UpdateEvent(snap); // AppController.Events.cs
         if (Demo is null) RefreshPath(snap);
 
         var likely = IsOfferHint(snap.Hint);
@@ -809,6 +811,7 @@ public sealed partial class AppController : IDisposable
         _engineVersion++;
         RefreshRunViews(_snapshot.Run);
         ReloadForecastReview(); // AppController.ForecastReview.cs
+        ReloadEvents(); // AppController.Events.cs
         if (_lastResult is not null) ApplyRecognition(_lastResult);
         ShowMessage("데이터 팩을 다시 읽었습니다");
         PackReloaded?.Invoke();

@@ -149,6 +149,13 @@ public sealed record PotionUsedEvent(ulong PlayerId, string PotionId, bool Disca
 public sealed record RestSiteOptionEvent(ulong PlayerId, string Option, bool Success) : LogEvent;
 
 /// <summary>
+/// Co-op VeryDebug: <c>[EventSynchronizer] Event EVENT.NEOW began for player X with options: EventOption title: … textKey: NEOW.pages.INITIAL.options.NEW_LEAF,EventOption …</c>.
+/// The exact options offered to that player, in button order (the titles are localized and contain commas, so only the keys are kept).
+/// </summary>
+public sealed record EventStartedEvent(ulong PlayerId, string EventId, IReadOnlyList<string> OptionKeys) : LogEvent;
+
+
+/// <summary>
 /// Co-op Debug: <c>[EventSynchronizer] Option index 2 chosen for player X in event EVENT.NEOW. Choice key: NEOW.pages.INITIAL.options.PRECARIOUS_SHEARS</c>.
 /// Logged for every player (local and remote). Tells what a following <c>chose cards</c> line means (remove /
 /// transform / upgrade ...) and which fixed cards the option adds (see <c>Tracking/DeckEffects</c>).
