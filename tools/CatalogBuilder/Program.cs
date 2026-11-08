@@ -14,9 +14,13 @@
 //                            character, e.g. data/catalog/starting-decks.v0.107.1.json (committed)
 //   --relics <file>  also write the names-free relic table (rarity + IsTradable inputs),
 //                    e.g. data/catalog/relics.v0.107.1.json (committed)
+//   --card-vars <file>  also write the names-free card description variables (base values, upgrade deltas,
+//                       cost/keyword changes), e.g. data/catalog/card-vars.v0.107.1.json (committed), and check
+//                       them against the kor/eng description templates found under --loc (exit code 2 if any is missing)
 //
 // The output contains game text when localization is present, so it goes to data/local/ (gitignored).
 
+using CatalogBuilder.CardVars;
 using Sts2Overlay.Resources;
 using Sts2Overlay.Resources.Catalog;
 
@@ -28,6 +32,7 @@ string? locDir = Path.Combine(repoRoot, "data", "local", "pck", "localization");
 string? outPath = null;
 string? startingDecksPath = null;
 string? relicsPath = null;
+string? cardVarsPath = null;
 bool includeAll = false;
 
 // --- very small argument parser ---------------------------------------------------------------
@@ -43,6 +48,7 @@ for (int i = 0; i < args.Length; i++)
         case "--all": includeAll = true; break;
         case "--starting-decks": startingDecksPath = Next(); break;
         case "--relics": relicsPath = Next(); break;
+        case "--card-vars": cardVarsPath = Next(); break;
         default:
             Console.Error.WriteLine($"Unknown argument: {args[i]}");
             return 1;
@@ -73,6 +79,13 @@ if (relicsPath != null && result.Relics is { } relicFile)
 }
 
 var rows = result.Catalog.Cards;
+int exitCode = 0;
+if (cardVarsPath != null)
+{
+    exitCode = CardVarsCommand.Run(dllPath, gameVersion, rows, cardVarsPath);
+    Console.WriteLine();
+}
+
 CatalogGenerator.Write(result.Catalog, outPath);
 Console.WriteLine($"Wrote {rows.Count} cards -> {outPath}");
 
@@ -106,7 +119,7 @@ Console.WriteLine("\nStarting decks:");
 foreach (var (chId, deck) in result.StartingDeckClasses)
     Console.WriteLine($"  {chId,-24} {string.Join(", ", deck.GroupBy(t => t).Select(g => $"{g.Key} x{g.Count()}"))}");
 
-return 0;
+return exitCode;
 
 // Walks up from the current directory (and the exe directory) to the folder with Directory.Build.props.
 static string FindRepoRoot()
