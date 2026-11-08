@@ -77,10 +77,55 @@ public sealed class PathWeights
     public double StrengthDamageSlope { get; set; } = 0.0;
 
     /// <summary>
-    /// Rest site heal, fraction of max HP. [측정] Median of uncapped HEAL choices 0.298 (n = 105; integer rounding),
-    /// i.e. 30% as in STS1. The mean (0.323) is higher because a few relics add to it.
+    /// Expected rest-site heal, fraction of max HP. [측정] Mean of uncapped HEAL choices 0.323 (n = 105) → 0.321.
+    /// The plain heal is 30% (median 0.298, integer rounding); the mean includes relics that heal extra, and the
+    /// simulation wants the expected amount (leave-one-run-out: boss-arrival MAE about 0.2 points lower than with the median).
     /// </summary>
-    public double RestHeal { get; set; } = 0.30;
+    public double RestHeal { get; set; } = 0.321;
+
+    /// <summary>
+    /// Rest-site choice the simulation assumes: heal below this HP ratio, otherwise upgrade (always heal when nothing
+    /// is left to upgrade). Null = pick whichever is worth more in points (the old rule).
+    /// [측정] 0.466 with <see cref="RestHealSoftness"/> 0.112: logistic regression of the 256 recorded HEAL/SMITH choices
+    /// on HP. Players heal 84% of the time below 40% HP, 31% at 40–70%, 6% above 70%. The old value rule healed at any
+    /// HP up to ~80% and matched the recorded choice only 60% of the time, which made the simulated HP at the boss
+    /// 10 points too optimistic.
+    /// </summary>
+    public double? RestHealBelowHp { get; set; } = 0.466;
+
+    /// <summary>
+    /// How soft the <see cref="RestHealBelowHp"/> boundary is: the chance to heal is
+    /// <c>1 / (1 + exp((hp - RestHealBelowHp) / RestHealSoftness))</c>, so 50% at the threshold and about 73% / 27% one
+    /// softness below / above it. 0 = hard threshold. The simulation carries the expected HP, not every possible HP,
+    /// so a soft rule (an expected heal) fits it better than an all-or-nothing switch. [측정]
+    /// </summary>
+    public double RestHealSoftness { get; set; } = 0.112;
+
+    /// <summary>
+    /// Shape of the damage distribution per room type (gamma with integer shape; 0 = the old uniform on [0, 2 × mean]).
+    /// Used for the death chance and for the HP kept after surviving.
+    /// [측정] shape = 1 / variance of damage ÷ its act mean, rounded: monster 1 (n 457), elite 2 (n 126), "?" 1 (n 330,
+    /// really a mix of mostly 0 and an occasional fight), boss 3 (n 94). Elite p90 is ≈ 2 × mean and the worst elite took
+    /// 3 × mean, which the uniform model (at most 2 × mean) could not produce: it predicted 3.8 of 15 elite deaths.
+    /// </summary>
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+    public PathDamageShape DamageShape { get; set; } = new() { Monster = 1, Elite = 2, Unknown = 1, Boss = 3 };
+
+    /// <summary>
+    /// Expected healing per room outside rest sites (fraction of max HP), applied after the room. [측정] mean
+    /// <c>hp_healed ÷ max HP</c>: monster 0.018 (n 457), elite 0.043 → 0.041 (n 126), "?" 0.025 (n 330), shop 0.021 →
+    /// 0.020 (n 153), treasure 0.006 → 0.005 (n 108); prior 0 (not modelled before). About a quarter of max HP per act
+    /// comes back this way, as much as two thirds of what rest sites give.
+    /// </summary>
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+    public PathRoomHeal RoomHeal { get; set; } = new()
+    {
+        Monster = 0.018,
+        Elite = 0.041,
+        Unknown = 0.025,
+        Shop = 0.020,
+        Treasure = 0.005,
+    };
 
     // ---- What HP is worth ----
 
@@ -235,4 +280,40 @@ public sealed class PathHpLoss
         [2] = Math.Round(act1 * 1.25, 4),
         [3] = Math.Round(act1 * 1.45, 4),
     };
+}
+
+/// <summary>
+/// Expected HP healed in one room outside rest sites, as a fraction of max HP: post-combat relics (e.g. Burning Blood),
+/// healing events, potions and relics bought. All zero = not modelled (the old behaviour).
+/// </summary>
+public sealed class PathRoomHeal
+{
+    public double Monster { get; set; }
+    public double Elite { get; set; }
+    public double Unknown { get; set; }
+    public double Shop { get; set; }
+    public double Treasure { get; set; }
+
+    public double For(MapNodeType type) => type switch
+    {
+        MapNodeType.Monster => Monster,
+        MapNodeType.Elite => Elite,
+        MapNodeType.Unknown => Unknown,
+        MapNodeType.Shop => Shop,
+        MapNodeType.Treasure => Treasure,
+        _ => 0,
+    };
+}
+
+/// <summary>
+/// Integer gamma shape k of the damage of one room (mean from <see cref="PathHpLoss"/>): k = 1 is exponential (many
+/// small hits, a long tail), larger k is more predictable (standard deviation = mean / √k). 0 = uniform on
+/// [0, 2 × mean], which can never deal more than twice the mean and so cannot kill above that HP.
+/// </summary>
+public sealed class PathDamageShape
+{
+    public int Monster { get; set; }
+    public int Elite { get; set; }
+    public int Unknown { get; set; }
+    public int Boss { get; set; }
 }

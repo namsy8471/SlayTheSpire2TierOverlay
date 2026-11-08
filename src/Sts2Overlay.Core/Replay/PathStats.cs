@@ -2,6 +2,22 @@ using Sts2Overlay.Core.Map;
 
 namespace Sts2Overlay.Core.Replay;
 
+/// <summary>How <see cref="PathStats.Compute"/> fits the rest-site choice.</summary>
+public enum RestRuleFit
+{
+    /// <summary>Leave the prior's rule as it is.</summary>
+    Keep,
+
+    /// <summary>Fit <see cref="PathWeights.RestHealBelowHp"/> (heal below an HP ratio).</summary>
+    Threshold,
+
+    /// <summary>Value rule with <see cref="PathWeights.UpgradeValue"/> fitted to the recorded choices.</summary>
+    UpgradeValue,
+
+    /// <summary>Soft threshold: logistic regression of HEAL on HP (<see cref="PathWeights.RestHealSoftness"/>).</summary>
+    Logistic,
+}
+
 /// <summary>Per-room numbers of one group (segment × act × room type). All HP values are fractions of max HP.</summary>
 public sealed record RoomStat
 {
@@ -79,8 +95,21 @@ public sealed record RestStat
 
     public double MatchingAgreement { get; init; } = double.NaN;
 
-    /// <summary>Agreement of the current <see cref="PathWeights.UpgradeValue"/> with the recorded choices.</summary>
+    /// <summary>Agreement of the current rule (threshold if set, else value rule) with the recorded choices.</summary>
     public double CurrentAgreement { get; init; } = double.NaN;
+
+    /// <summary>Visits with exactly one of HEAL / SMITH (what the rules are fitted on).</summary>
+    public int DecidedN { get; init; }
+
+    /// <summary>The HP ratio below which "heal" agrees most with the recorded choices (<see cref="PathWeights.RestHealBelowHp"/>).</summary>
+    public double HealBelowHpMatchingChoices { get; init; } = double.NaN;
+
+    public double ThresholdAgreement { get; init; } = double.NaN;
+
+    /// <summary>Logistic fit P(heal) = 1 / (1 + exp((hp - center) / softness)); NaN when it did not converge.</summary>
+    public double LogisticCenter { get; init; } = double.NaN;
+
+    public double LogisticSoftness { get; init; } = double.NaN;
 }
 
 public sealed record RestBucket(string Bucket, int Visits, int Heals);
@@ -193,8 +222,13 @@ public static class PathStats
     /// (<see cref="StrengthFit"/>) combined with the prior's <see cref="PathWeights.StrengthDamageSlope"/> (standard
     /// deviation <see cref="SlopePriorSd"/>) by precision weighting, clamped to 0..2.
     /// </param>
+    /// <param name="restRule">Whether and how to fit the rest-site choice.</param>
+    /// <param name="fitRoomHeal">Fit <see cref="PathWeights.RoomHeal"/> from the mean healing per room.</param>
+    /// <param name="restHealMean">Fit <see cref="PathWeights.RestHeal"/> from the mean uncapped heal (relic bonuses included) instead of the median.</param>
+    /// <param name="fitDamageShape">Fit <see cref="PathWeights.DamageShape"/> from the spread of damage per room.</param>
     public static PathStatsReport Compute(IReadOnlyList<PathFloor> floors, PathWeights prior, PathHpLoss? legacyLoss = null, double k = 8,
-        double? strengthSlope = null)
+        double? strengthSlope = null, RestRuleFit restRule = RestRuleFit.Keep, bool fitRoomHeal = false, bool fitDamageShape = false,
+        bool restHealMean = false)
     {
         ArgumentNullException.ThrowIfNull(floors);
         ArgumentNullException.ThrowIfNull(prior);
@@ -252,9 +286,45 @@ public static class PathStats
                 .GroupBy(d => d.Room).OrderByDescending(g => g.Count()).ToDictionary(g => g.Key, g => g.Count()),
             PriorStrength = k,
         };
-        var fitted = Fit(report, prior, legacyLoss, k);
+        var fitted = Fit(report, prior, legacyLoss, k, restRule, fitRoomHeal, restHealMean);
+        if (fitDamageShape)
+        {
+            var w = fitted.Fitted!;
+            var shapeFits = new List<WeightFit>();
+            int Shape(string room, int pri)
+            {
+                var (shape, n) = MomentShape(floors, room, prior);
+                var value = n >= 10 ? shape : pri;
+                shapeFits.Add(new WeightFit($"DamageShape.{Capitalize(room)}", pri, shape, n, value));
+                return value;
+            }
+            w.DamageShape = new PathDamageShape
+            {
+                Monster = Shape("monster", prior.DamageShape.Monster),
+                Elite = Shape("elite", prior.DamageShape.Elite),
+                Unknown = Shape("unknown", prior.DamageShape.Unknown),
+                Boss = Shape("boss", prior.DamageShape.Boss),
+            };
+            fitted = fitted with { Fits = [.. fitted.Fits, .. shapeFits] };
+        }
         var slopeFit = new WeightFit(nameof(PathWeights.StrengthDamageSlope), priorSlope, strengthFit?.Slope ?? double.NaN, strengthFit?.N ?? 0, slope);
         return fitted with { Fits = [slopeFit, .. fitted.Fits] };
+    }
+
+    /// <summary>
+    /// Method of moments for a gamma distribution: shape = mean² / variance. Each row is divided by its act's mean
+    /// first (so acts can be pooled and the mean is 1), then shape = 1 / variance, rounded to an integer in 1..6.
+    /// Damage of a death is censored at the HP on entry, which shrinks the variance a little (shape slightly high).
+    /// </summary>
+    public static (int Shape, int N) MomentShape(IReadOnlyList<PathFloor> floors, string room, PathWeights p)
+    {
+        var rows = floors.Where(f => RoomName(f.Type) == room && f.Act is >= 1 and <= 3).ToArray();
+        if (rows.Length < 2) return (0, rows.Length);
+        var actMean = rows.GroupBy(f => f.Act).ToDictionary(g => g.Key, g => g.Average(f => Normalized(f, p)));
+        var rel = rows.Where(f => actMean[f.Act] > 0).Select(f => Normalized(f, p) / actMean[f.Act]).ToArray();
+        var sd = Sd(rel);
+        if (!(sd > 0)) return (6, rows.Length);
+        return ((int)Math.Clamp(Math.Round(1 / (sd * sd)), 1, 6), rows.Length);
     }
 
     /// <summary>How sure the old guess of <see cref="PathWeights.StrengthDamageSlope"/> was (one standard deviation).</summary>
@@ -370,7 +440,7 @@ public static class PathStats
             .Select(f => f.HealFraction).ToArray();
         // Heal-or-smith rule of the scorer vs the recorded choice (visits with exactly one of HEAL / SMITH).
         var decided = rows.Where(f => f.RestChoices.Contains("HEAL") != f.RestChoices.Contains("SMITH"))
-            .Select(f => (Heal: f.RestChoices.Contains("HEAL"),
+            .Select(f => (Heal: f.RestChoices.Contains("HEAL"), Hp: f.HpRatioBefore,
                 Value: p.HpValue * Math.Min(p.RestHeal, 1 - f.HpRatioBefore) * (1 + p.LowHpValueBoost * (1 - f.HpRatioBefore))))
             .ToArray();
         double Agreement(double u) => decided.Length == 0 ? double.NaN : decided.Count(d => (d.Value >= u) == d.Heal) / (double)decided.Length;
@@ -385,6 +455,18 @@ public static class PathStats
                 bestU = u;
             }
         }
+        // Threshold rule: heal iff HP < t. Among the best t on a 1% grid take the median (stable between folds).
+        double ThresholdAgreementAt(double t) => decided.Length == 0 ? double.NaN : decided.Count(d => (d.Hp < t) == d.Heal) / (double)decided.Length;
+        var grid = Enumerable.Range(0, 101).Select(i => i / 100.0).Select(t => (T: t, A: ThresholdAgreementAt(t))).ToArray();
+        var bestT = double.NaN;
+        var bestTAgreement = double.NaN;
+        if (decided.Length > 0)
+        {
+            bestTAgreement = grid.Max(g => g.A);
+            var best = grid.Where(g => g.A >= bestTAgreement - 1e-12).Select(g => g.T).ToArray();
+            bestT = best[best.Length / 2];
+        }
+        var (center, softness) = FitLogistic(decided.Select(d => (d.Hp, d.Heal)).ToArray());
         RestBucket Bucket(string name, double lo, double hi)
         {
             var b = rows.Where(f => f.HpRatioBefore >= lo && f.HpRatioBefore < hi).ToArray();
@@ -403,8 +485,48 @@ public static class PathStats
             ByHp = [Bucket("<40%", 0, 0.4), Bucket("40-70%", 0.4, 0.7), Bucket(">=70%", 0.7, 1.01)],
             UpgradeValueMatchingChoices = decided.Length == 0 ? double.NaN : bestU,
             MatchingAgreement = decided.Length == 0 ? double.NaN : bestAgreement,
-            CurrentAgreement = Agreement(p.UpgradeValue),
+            CurrentAgreement = p.RestHealBelowHp is { } below ? ThresholdAgreementAt(below) : Agreement(p.UpgradeValue),
+            DecidedN = decided.Length,
+            HealBelowHpMatchingChoices = bestT,
+            ThresholdAgreement = bestTAgreement,
+            LogisticCenter = center,
+            LogisticSoftness = softness,
         };
+    }
+
+    /// <summary>
+    /// Logistic regression <c>logit P(heal) = a + b * hp</c> by Newton's method (2 parameters, so the 2x2 Hessian is
+    /// inverted by hand). Returned as center = -a / b (the 50% point) and softness = -1 / b. NaN when HP does not lower
+    /// the heal chance (b &gt;= 0) or the fit does not converge.
+    /// </summary>
+    public static (double Center, double Softness) FitLogistic(IReadOnlyList<(double Hp, bool Heal)> data)
+    {
+        if (data.Count < 10 || data.All(d => d.Heal) || data.All(d => !d.Heal)) return (double.NaN, double.NaN);
+        double a = 0, b = 0;
+        for (var iter = 0; iter < 50; iter++)
+        {
+            double ga = 0, gb = 0, haa = 0, hab = 0, hbb = 0;
+            foreach (var (x, heal) in data)
+            {
+                var p = 1 / (1 + Math.Exp(-(a + b * x)));
+                var r = (heal ? 1 : 0) - p;
+                var w = p * (1 - p);
+                ga += r;
+                gb += r * x;
+                haa += w;
+                hab += w * x;
+                hbb += w * x * x;
+            }
+            var det = haa * hbb - hab * hab;
+            if (det <= 1e-12) return (double.NaN, double.NaN);
+            var da = (hbb * ga - hab * gb) / det;
+            var db = (haa * gb - hab * ga) / det;
+            a += da;
+            b += db;
+            if (Math.Abs(da) + Math.Abs(db) < 1e-9) break;
+        }
+        if (!(b < 0) || !double.IsFinite(a)) return (double.NaN, double.NaN);
+        return (-a / b, -1 / b);
     }
 
     private static IReadOnlyList<EventStat> Events(IReadOnlyList<PathFloor> floors)
@@ -464,7 +586,8 @@ public static class PathStats
     /// The HP tables use the strength-normalised mean, because the scorer multiplies them by the strength factor again.
     /// Co-op gets its own table only when at least one fight room differs materially (<see cref="CompareCoop"/>).
     /// </summary>
-    private static PathStatsReport Fit(PathStatsReport report, PathWeights prior, PathHpLoss legacyLoss, double k)
+    private static PathStatsReport Fit(PathStatsReport report, PathWeights prior, PathHpLoss legacyLoss, double k,
+        RestRuleFit restRule, bool fitRoomHeal, bool restHealMean)
     {
         var fits = new List<WeightFit>();
         var coopSeparate = report.Coop.Any(c => c.Material);
@@ -496,8 +619,9 @@ public static class PathStats
 
         var rest = report.Rest.First(r => r.Segment == All);
         // Median, not mean: a few relics heal extra (up to 60%), the median is the plain rest-site heal.
-        fitted.RestHeal = Math.Round(Shrink(prior.RestHeal, rest.HealUncappedMedian, rest.HealUncappedN, k), 2);
-        fits.Add(new WeightFit(nameof(PathWeights.RestHeal), prior.RestHeal, rest.HealUncappedMedian, rest.HealUncappedN, fitted.RestHeal));
+        var healMeasured = restHealMean ? rest.HealUncappedMean : rest.HealUncappedMedian;
+        fitted.RestHeal = Math.Round(Shrink(prior.RestHeal, healMeasured, rest.HealUncappedN, k), restHealMean ? 3 : 2);
+        fits.Add(new WeightFit(nameof(PathWeights.RestHeal), prior.RestHeal, healMeasured, rest.HealUncappedN, fitted.RestHeal));
 
         int Gold(string name, string room, int pri)
         {
@@ -510,6 +634,46 @@ public static class PathStats
         fitted.EliteGold = Gold(nameof(PathWeights.EliteGold), "elite", prior.EliteGold);
         fitted.UnknownGold = Gold(nameof(PathWeights.UnknownGold), "unknown", prior.UnknownGold);
         fitted.TreasureGold = Gold(nameof(PathWeights.TreasureGold), "treasure", prior.TreasureGold);
+
+        // Rest-site rule: what the players did (enough decided visits needed), not shrunk: it is a decision boundary.
+        if (rest.DecidedN >= 20 && restRule == RestRuleFit.Threshold)
+        {
+            fitted.RestHealBelowHp = rest.HealBelowHpMatchingChoices;
+            fitted.RestHealSoftness = 0;
+            fits.Add(new WeightFit(nameof(PathWeights.RestHealBelowHp), prior.RestHealBelowHp ?? double.NaN, rest.HealBelowHpMatchingChoices, rest.DecidedN, rest.HealBelowHpMatchingChoices));
+        }
+        else if (rest.DecidedN >= 20 && restRule == RestRuleFit.Logistic && double.IsFinite(rest.LogisticCenter))
+        {
+            fitted.RestHealBelowHp = Math.Round(rest.LogisticCenter, 3);
+            fitted.RestHealSoftness = Math.Round(rest.LogisticSoftness, 3);
+            fits.Add(new WeightFit(nameof(PathWeights.RestHealBelowHp), prior.RestHealBelowHp ?? double.NaN, rest.LogisticCenter, rest.DecidedN, fitted.RestHealBelowHp.Value));
+            fits.Add(new WeightFit(nameof(PathWeights.RestHealSoftness), prior.RestHealSoftness, rest.LogisticSoftness, rest.DecidedN, fitted.RestHealSoftness));
+        }
+        else if (rest.DecidedN >= 20 && restRule == RestRuleFit.UpgradeValue)
+        {
+            fitted.RestHealBelowHp = null;
+            fitted.UpgradeValue = rest.UpgradeValueMatchingChoices;
+            fits.Add(new WeightFit(nameof(PathWeights.UpgradeValue), prior.UpgradeValue, rest.UpgradeValueMatchingChoices, rest.DecidedN, rest.UpgradeValueMatchingChoices));
+        }
+
+        if (fitRoomHeal)
+        {
+            double Heal(string name, string room, double pri)
+            {
+                var stat = report.Find(All, 0, room);
+                var value = Math.Round(Shrink(pri, stat?.HealMean ?? double.NaN, stat?.N ?? 0, k), 3);
+                fits.Add(new WeightFit(name, pri, stat?.HealMean ?? double.NaN, stat?.N ?? 0, value));
+                return value;
+            }
+            fitted.RoomHeal = new PathRoomHeal
+            {
+                Monster = Heal("RoomHeal.Monster", "monster", prior.RoomHeal.Monster),
+                Elite = Heal("RoomHeal.Elite", "elite", prior.RoomHeal.Elite),
+                Unknown = Heal("RoomHeal.Unknown", "unknown", prior.RoomHeal.Unknown),
+                Shop = Heal("RoomHeal.Shop", "shop", prior.RoomHeal.Shop),
+                Treasure = Heal("RoomHeal.Treasure", "treasure", prior.RoomHeal.Treasure),
+            };
+        }
 
         return report with { CoopSeparate = coopSeparate, Fits = fits, Fitted = fitted };
     }
@@ -524,6 +688,8 @@ public static class PathStats
         // Populate-handled dictionaries merge into the defaults; overwrite them so removed keys do not linger.
         copy.HpLoss = Copy(p.HpLoss);
         copy.CoopHpLoss = p.CoopHpLoss is null ? null : Copy(p.CoopHpLoss);
+        copy.RoomHeal = new PathRoomHeal { Monster = p.RoomHeal.Monster, Elite = p.RoomHeal.Elite, Unknown = p.RoomHeal.Unknown, Shop = p.RoomHeal.Shop, Treasure = p.RoomHeal.Treasure };
+        copy.DamageShape = new PathDamageShape { Monster = p.DamageShape.Monster, Elite = p.DamageShape.Elite, Unknown = p.DamageShape.Unknown, Boss = p.DamageShape.Boss };
         return copy;
 
         static PathHpLoss Copy(PathHpLoss t) => new()
