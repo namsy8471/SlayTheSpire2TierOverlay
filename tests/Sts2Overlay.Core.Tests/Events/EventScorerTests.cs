@@ -223,4 +223,162 @@ public class EventScorerTests
         Assert.Equal("INITIAL", EventScorer.PageOfKey("NEOW.pages.INITIAL.options.NEW_LEAF"));
         Assert.Null(EventScorer.PageOfKey("NEOW"));
     }
+
+    // ---- Measured top-player choice rates (events.stats.json) ----
+
+    // TEST_BATHS INITIAL is a k=2 page: IMMERSE chosen 90% overall, 10% in act 2. ABSTAIN has no entry.
+    // TEST_SHRINE has stats for PURGE and LEAVE. TEST_ANCIENT: E is taken 90% of the time it is offered, C never.
+    private static readonly EventStats Stats = DataPackLoader.LoadEventStats("""
+    {
+      "version": 1, "source": "test",
+      "events": {
+        "TEST_BATHS":  { "INITIAL": { "k": 2, "options": { "IMMERSE": { "choiceRate": 0.9, "byAct": { "2": 0.1 } } } } },
+        "TEST_SHRINE": { "INITIAL": { "k": 4, "options": { "PURGE": { "choiceRate": 0.6 }, "LEAVE": { "choiceRate": 0.05 } } } }
+      },
+      "ancients": { "TEST_ANCIENT": { "E": { "pickRate": 0.9 }, "C": { "pickRate": 0.0 } } }
+    }
+    """);
+
+    private static EventScorer MeasuredScorer(EventCatalog catalog, double? blend = null)
+    {
+        var pack = new DataPack { EventStats = Stats };
+        if (blend is double b) pack.Weights.Events.MeasuredBlend = b;
+        return new EventScorer(pack, catalog);
+    }
+
+    private static void AssertSameScores(EventEvaluation expected, EventEvaluation actual)
+    {
+        Assert.Equal(expected.Options.Select(o => o.Option.Key), actual.Options.Select(o => o.Option.Key));
+        foreach (var (e, a) in expected.Options.Zip(actual.Options))
+        {
+            Assert.Equal(e.Total, a.Total); // bit-for-bit, no tolerance
+            Assert.Equal(e.Score.Components.Select(c => (c.Key, c.Label, c.Value)), a.Score.Components.Select(c => (c.Key, c.Label, c.Value)));
+            Assert.Equal(e.EffectTexts, a.EffectTexts);
+            Assert.Equal((e.Rank, e.IsBest), (a.Rank, a.IsBest));
+        }
+        Assert.Equal(expected.Confidence, actual.Confidence);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void Measured_BlendZero_ReproducesTheFormulaScoresExactly(int act)
+    {
+        var withStats = MeasuredScorer(Catalog, blend: 0);
+        foreach (var id in new[] { "EVENT.TEST_BATHS", "EVENT.TEST_SHRINE" })
+        {
+            AssertSameScores(Scorer.Evaluate(State(60) with { Act = act }, id)!, withStats.Evaluate(State(60) with { Act = act }, id)!);
+        }
+        var keys = new[] { "TEST_ANCIENT.pages.INITIAL.options.D", "TEST_ANCIENT.pages.INITIAL.options.B", "TEST_ANCIENT.pages.INITIAL.options.E" };
+        var plain = new EventScorer(new DataPack(), AncientCatalog).Evaluate(State(80), "EVENT.TEST_ANCIENT", keys)!;
+        var zero = MeasuredScorer(AncientCatalog, blend: 0).Evaluate(State(80), "EVENT.TEST_ANCIENT", keys)!;
+        AssertSameScores(plain, zero);
+        Assert.Equal(plain.NotOffered.Select(o => o.Total), zero.NotOffered.Select(o => o.Total));
+    }
+
+    [Fact]
+    public void Measured_NoStatsInPack_IsTheFormula()
+    {
+        // The default blend (0.5) does nothing without events.stats.json.
+        Assert.Equal(0.5, new DataPack().Weights.Events.MeasuredBlend);
+        AssertSameScores(Scorer.Evaluate(State(60), "EVENT.TEST_BATHS")!, new EventScorer(new DataPack(), Catalog).Evaluate(State(60), "EVENT.TEST_BATHS")!);
+    }
+
+    [Fact]
+    public void Measured_NinetyPercentOnATwoOptionPage_AddsFourPoints()
+    {
+        var plain = Scorer.Evaluate(State(80), "EVENT.TEST_BATHS")!.Options.Single(o => o.Option.ShortName == "IMMERSE");
+        var measured = MeasuredScorer(Catalog).Evaluate(State(80), "EVENT.TEST_BATHS")!.Options.Single(o => o.Option.ShortName == "IMMERSE");
+
+        // 0.5 × 20 × (0.9 − 1/2) = 4
+        Assert.Equal(4, measured.Score.ValueOf(EventComponentKeys.Measured), 9);
+        Assert.Equal(plain.Total + 4, measured.Total, 9);
+        Assert.Equal(measured.Score.Components.Sum(c => c.Value), measured.Total, 9);
+        Assert.Contains("상위 플레이어 90% 선택", measured.EffectTexts);
+        Assert.Contains(measured.Score.Components, c => c.Key == EventComponentKeys.Measured && c.Label == "상위 플레이어 90% 선택");
+    }
+
+    [Fact]
+    public void Measured_ByAct_OverridesOnlyInItsAct()
+    {
+        var scorer = MeasuredScorer(Catalog);
+        double Measured(int act) => scorer.Evaluate(State(80) with { Act = act }, "EVENT.TEST_BATHS")!
+            .Options.Single(o => o.Option.ShortName == "IMMERSE").Score.ValueOf(EventComponentKeys.Measured);
+
+        Assert.Equal(4, Measured(1), 9);    // overall 0.9
+        Assert.Equal(-4, Measured(2), 9);   // act 2: 0.5 × 20 × (0.1 − 0.5)
+        Assert.Equal(4, Measured(3), 9);    // back to the overall rate
+        var act2 = scorer.Evaluate(State(80) with { Act = 2 }, "EVENT.TEST_BATHS")!.Options.Single(o => o.Option.ShortName == "IMMERSE");
+        Assert.Contains("상위 플레이어 10% 선택 (2막)", act2.EffectTexts);
+    }
+
+    [Fact]
+    public void Measured_OptionWithoutStats_KeepsTheFormulaValue()
+    {
+        var plain = Scorer.Evaluate(State(50), "EVENT.TEST_BATHS")!.Options.Single(o => o.Option.ShortName == "ABSTAIN");
+        var measured = MeasuredScorer(Catalog).Evaluate(State(50), "EVENT.TEST_BATHS")!.Options.Single(o => o.Option.ShortName == "ABSTAIN");
+        Assert.Equal(plain.Total, measured.Total);
+        Assert.DoesNotContain(measured.Score.Components, c => c.Key == EventComponentKeys.Measured);
+
+        // k = 4: PURGE 0.5 × 20 × (0.6 − 0.25) = +3.5, LEAVE 0.5 × 20 × (0.05 − 0.25) = −2; PAY and BLEED unchanged.
+        var shrine = MeasuredScorer(Catalog).Evaluate(State(80, gold: 150), "EVENT.TEST_SHRINE")!;
+        var shrinePlain = Scorer.Evaluate(State(80, gold: 150), "EVENT.TEST_SHRINE")!;
+        double Delta(string name) => shrine.Options.Single(o => o.Option.ShortName == name).Total - shrinePlain.Options.Single(o => o.Option.ShortName == name).Total;
+        Assert.Equal(3.5, Delta("PURGE"), 9);
+        Assert.Equal(-2, Delta("LEAVE"), 9);
+        Assert.Equal(0, Delta("PAY"));
+        Assert.Equal(0, Delta("BLEED"));
+    }
+
+    [Fact]
+    public void Measured_Ancient_UsesPickRateAgainstOneOverOffered()
+    {
+        var keys = new[] { "TEST_ANCIENT.pages.INITIAL.options.D", "TEST_ANCIENT.pages.INITIAL.options.B", "TEST_ANCIENT.pages.INITIAL.options.E" };
+        var plain = new EventScorer(new DataPack(), AncientCatalog).Evaluate(State(80), "EVENT.TEST_ANCIENT", keys)!;
+        var eval = MeasuredScorer(AncientCatalog).Evaluate(State(80), "EVENT.TEST_ANCIENT", keys)!;
+
+        // Three offered: E gets 0.5 × 20 × (0.9 − 1/3) = 5.67 on top of its 50 gold (7.5 points), D and B nothing.
+        var e = eval.Options.Single(o => o.Option.ShortName == "E");
+        Assert.Equal(0.5 * 20 * (0.9 - 1.0 / 3), e.Score.ValueOf(EventComponentKeys.Measured), 9);
+        Assert.Equal(plain.Options.Single(o => o.Option.ShortName == "D").Total, eval.Options.Single(o => o.Option.ShortName == "D").Total);
+        Assert.Equal(plain.Options.Single(o => o.Option.ShortName == "B").Total, eval.Options.Single(o => o.Option.ShortName == "B").Total);
+
+        // The pool's other options are measured against the same 1/3: C (never taken) drops by 3.33.
+        var c = eval.NotOffered.Single(o => o.Option.ShortName == "C");
+        Assert.Equal(0.5 * 20 * (0.0 - 1.0 / 3), c.Score.ValueOf(EventComponentKeys.Measured), 9);
+
+        // Two offered: neutral 1/2.
+        var two = MeasuredScorer(AncientCatalog).Evaluate(State(80), "EVENT.TEST_ANCIENT",
+            ["TEST_ANCIENT.pages.INITIAL.options.E", "TEST_ANCIENT.pages.INITIAL.options.A"])!;
+        Assert.Equal(4, two.Options.Single(o => o.Option.ShortName == "E").Score.ValueOf(EventComponentKeys.Measured), 9);
+
+        // Offered set unknown: the usual three.
+        var pool = MeasuredScorer(AncientCatalog).Evaluate(State(80), "EVENT.TEST_ANCIENT")!;
+        Assert.Equal(0.5 * 20 * (0.9 - 1.0 / EventStats.DefaultAncientOffered), pool.Options.Single(o => o.Option.ShortName == "E").Score.ValueOf(EventComponentKeys.Measured), 9);
+    }
+
+    [Fact]
+    public void RelicEffect_IsScaledByTheMeasuredRelicRate()
+    {
+        var catalog = EventCatalog.Parse("""
+        { "events": [ { "id": "EVENT.TEST_IDOLS", "kind": "ancient", "pages": [ { "page": "INITIAL", "options": [
+          { "key": "TEST_IDOLS.pages.INITIAL.options.LOVED",  "effects": [ { "type": "relic", "relic": "RELIC.TEST_LOVED",  "tier": "ancient" } ] },
+          { "key": "TEST_IDOLS.pages.INITIAL.options.MEH",    "effects": [ { "type": "relic", "relic": "RELIC.TEST_MEH",    "tier": "ancient" } ] },
+          { "key": "TEST_IDOLS.pages.INITIAL.options.UNSURE", "effects": [ { "type": "relic", "relic": "RELIC.TEST_UNSURE", "tier": "ancient" } ] }
+        ]}]}]}
+        """);
+        var relics = DataPackLoader.LoadRelicStats("""
+        { "shopMedianPickRate": 0.327, "ancientNeutralPickRate": 0.333, "relics": {
+          "RELIC.TEST_LOVED":  { "signal": "ancient:TEST_IDOLS", "use": true,  "pickRate": 0.6 },
+          "RELIC.TEST_MEH":    { "signal": "ancient:TEST_IDOLS", "use": true,  "pickRate": 0.25 },
+          "RELIC.TEST_UNSURE": { "signal": "ancient:TEST_IDOLS", "use": false, "pickRate": 0.9 } } }
+        """);
+        var eval = new EventScorer(new DataPack { RelicStats = relics }, catalog).Evaluate(State(80), "EVENT.TEST_IDOLS")!;
+        double Relic(string name) => eval.Options.Single(o => o.Option.ShortName == name).Score.ValueOf(EventComponentKeys.Relic);
+
+        var ancient = new EventWeights().RelicTier["ancient"];
+        Assert.Equal(ancient * 1.5, Relic("LOVED"), 9);              // 0.6 / 0.333 = 1.8 → clamped to 1.5
+        Assert.Equal(ancient * (0.25 / 0.333), Relic("MEH"), 9);     // 0.75
+        Assert.Equal(ancient, Relic("UNSURE"));                      // use: false → rarity value
+    }
 }

@@ -144,4 +144,36 @@ public class ShopScorerTests
         Assert.Equal(direct.Items.Select(i => i.Value.Total), viaEngine.Items.Select(i => i.Value.Total));
         Assert.Equal(direct.GoldLeft, viaEngine.GoldLeft);
     }
+
+    // ---- Relic value with measured buy rates (relics.json) ----
+
+    private static readonly RelicStats ShopRelics = DataPackLoader.LoadRelicStats("""
+    { "shopMedianPickRate": 0.327, "ancientNeutralPickRate": 0.333, "relics": {
+      "RELIC.TEST_TENT":  { "signal": "shop", "use": true,  "pickRate": 0.65 },
+      "RELIC.TEST_RUG":   { "signal": "shop", "use": true,  "pickRate": 0.12 },
+      "RELIC.TEST_BREAD": { "signal": "shop", "use": true,  "pickRate": 0.24 },
+      "RELIC.TEST_FAN":   { "signal": "shop", "use": false, "pickRate": 0.65 } } }
+    """);
+
+    private static ShopScorer RelicScorer(RelicStats? stats) => new(new DataPack { RelicStats = stats });
+
+    [Fact]
+    public void RelicValue_UseTrue_ScalesTheRarityValueByTheRateOverTheShopMedian()
+    {
+        var shop = new Weights().Events.RelicTier["shop"];
+        var scorer = RelicScorer(ShopRelics);
+        Assert.Equal(shop * 1.5, scorer.RelicValue("RELIC.TEST_TENT", "shop"), 9);              // 0.65 / 0.327 = 1.99 → clamped to 1.5
+        Assert.Equal(shop * 0.5, scorer.RelicValue("RELIC.TEST_RUG", "shop"), 9);               // 0.12 / 0.327 = 0.37 → clamped to 0.5
+        Assert.Equal(shop * (0.24 / 0.327), scorer.RelicValue("RELIC.TEST_BREAD", "shop"), 9);  // inside the clamp
+    }
+
+    [Fact]
+    public void RelicValue_UseFalseOrNoEntryOrNoFile_IsTheRarityValue()
+    {
+        var w = new Weights().Events;
+        Assert.Equal(w.RelicTier["shop"], RelicScorer(ShopRelics).RelicValue("RELIC.TEST_FAN", "shop"));
+        Assert.Equal(w.RelicTier["rare"], RelicScorer(ShopRelics).RelicValue("RELIC.NOT_LISTED", "rare"));
+        Assert.Equal(w.RelicTier["uncommon"], RelicScorer(null).RelicValue("RELIC.TEST_TENT", "uncommon"));
+        Assert.Equal(w.RelicDefault, RelicScorer(null).RelicValue("RELIC.TEST_TENT", null));
+    }
 }

@@ -19,6 +19,12 @@ public sealed class DataPack
     public IReadOnlyList<Combo> Combos { get; init; } = [];
     public CardCatalog? Catalog { get; init; }
 
+    /// <summary>Measured event/ancient choice rates (<c>events.stats.json</c>); null when the pack has none.</summary>
+    public EventStats? EventStats { get; init; }
+
+    /// <summary>Measured relic pick rates (<c>relics.json</c>); null when the pack has none.</summary>
+    public RelicStats? RelicStats { get; init; }
+
     /// <summary>Old id → current id (e.g. ids renamed by the game's RunHistoryV8ToV9 migration).</summary>
     public IReadOnlyDictionary<string, string> IdAliases { get; init; } = new Dictionary<string, string>(StringComparer.Ordinal);
 

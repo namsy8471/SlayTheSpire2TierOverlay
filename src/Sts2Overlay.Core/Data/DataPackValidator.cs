@@ -210,6 +210,10 @@ public static partial class DataPackValidator
             if (catalogIds is not null && IsCardId(to) && !catalogIds.Contains(to)) Warn(where, $"'{to}' is not in the catalog.");
         }
 
+        // ---- Measured rates (optional files) ----
+        if (pack.EventStats is { } eventStats) ValidateEventStats(eventStats, Error);
+        if (pack.RelicStats is { } relicStats) ValidateRelicStats(relicStats, Error);
+
         return issues;
     }
 
@@ -289,6 +293,63 @@ public static partial class DataPackValidator
         foreach (var (rarity, size) in w.Completion.PoolSize)
         {
             if (size <= 0) error($"weights.completion.poolSize.{rarity}", $"Pool size {size} must be > 0.");
+        }
+        if (!InRange(w.Events.MeasuredBlend, 0, 1)) error("weights.events.measuredBlend", "Must be within 0..1.");
+        if (!double.IsFinite(w.Events.MeasuredScale) || w.Events.MeasuredScale < 0) error("weights.events.measuredScale", "Must be ≥ 0.");
+    }
+
+    /// <summary>
+    /// <c>events.stats.json</c>: every rate within 0..1, every page <c>k ≥ 1</c>, act keys ≥ 1.
+    /// Whether the option keys exist in <c>events.json</c> is checked by the real-pack tests (the validator has no event catalog).
+    /// </summary>
+    private static void ValidateEventStats(EventStats s, Action<string, string> error)
+    {
+        foreach (var (eventId, pages) in s.Events)
+        {
+            foreach (var (page, p) in pages)
+            {
+                var where = $"events.stats.events[{eventId}].{page}";
+                if (p.K < 1) error($"{where}.k", $"k {p.K} must be ≥ 1.");
+                foreach (var (option, o) in p.Options)
+                {
+                    var w = $"{where}.options[{option}]";
+                    if (!InRange(o.ChoiceRate, 0, 1)) error($"{w}.choiceRate", $"Rate {o.ChoiceRate} is outside 0..1.");
+                    foreach (var (act, rate) in o.ByAct ?? new Dictionary<int, double>())
+                    {
+                        if (act < 1) error($"{w}.byAct", $"Act {act} must be 1 or higher.");
+                        if (!InRange(rate, 0, 1)) error($"{w}.byAct.{act}", $"Rate {rate} is outside 0..1.");
+                    }
+                }
+            }
+        }
+        foreach (var (ancient, options) in s.Ancients)
+        {
+            foreach (var (option, a) in options)
+            {
+                if (!InRange(a.PickRate, 0, 1)) error($"events.stats.ancients[{ancient}].{option}.pickRate", $"Rate {a.PickRate} is outside 0..1.");
+            }
+        }
+    }
+
+    /// <summary>The tier letters a <c>relics.json</c> entry may show (or none).</summary>
+    private static readonly HashSet<string> RelicTierLetters = new(StringComparer.Ordinal) { "S", "A", "B", "C", "D" };
+
+    /// <summary><c>relics.json</c>: ids <c>RELIC.X</c>, rates within 0..1, neutral rates above 0, <c>use</c> present, tier S..D or null.</summary>
+    private static void ValidateRelicStats(RelicStats s, Action<string, string> error)
+    {
+        if (!(s.ShopMedianPickRate > 0 && s.ShopMedianPickRate <= 1)) error("relics.shopMedianPickRate", $"Rate {s.ShopMedianPickRate} must be within (0, 1].");
+        if (!(s.AncientNeutralPickRate > 0 && s.AncientNeutralPickRate <= 1)) error("relics.ancientNeutralPickRate", $"Rate {s.AncientNeutralPickRate} must be within (0, 1].");
+        foreach (var (id, r) in s.Relics)
+        {
+            var where = $"relics[{id}]";
+            if (!IsRelicId(id)) error(where, $"Malformed relic id '{id}' (expected RELIC.X).");
+            if (r.Use is null) error($"{where}.use", "\"use\" must be true or false.");
+            if (!InRange(r.PickRate, 0, 1)) error($"{where}.pickRate", $"Rate {r.PickRate} is outside 0..1.");
+            if (r.Tier is not null && !RelicTierLetters.Contains(r.Tier)) error($"{where}.tier", $"Tier '{r.Tier}' must be S, A, B, C, D or null.");
+            if (r.Signal is null || !(r.Signal == RelicStats.ShopSignal || r.Signal.StartsWith(RelicStats.AncientSignalPrefix, StringComparison.Ordinal)))
+            {
+                error($"{where}.signal", $"Signal '{r.Signal}' must be \"shop\" or \"ancient:<ID>\".");
+            }
         }
     }
 
