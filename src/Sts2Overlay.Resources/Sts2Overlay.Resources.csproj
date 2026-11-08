@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Local resource preparation (no game mod): reads the installed game's files READ-ONLY and generates the
+    user-PC-only data the overlay needs, into data/local/ (gitignored, never committed):
+      - Pck/      Godot pack reader: card portraits (.ctex → .webp) and localization JSON from SlayTheSpire2.pck
+      - Catalog/  static IL reader (Mono.Cecil) of sts2.dll → card catalog JSON (ids, rarity, cost, names)
+      - root      game version detection (release_info.json), install fingerprint, manifest, version guard,
+                  and ResourcePreparer which runs all of it in-process (App first run, App prepare mode, tools).
+    Platform-neutral: no WPF / Win32, so it is unit-testable anywhere.
+  -->
+  <PropertyGroup>
+    <RootNamespace>Sts2Overlay.Resources</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Mono.Cecil" Version="0.11.6" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Sts2Overlay.Resources.Tests" />
+  </ItemGroup>
+</Project>

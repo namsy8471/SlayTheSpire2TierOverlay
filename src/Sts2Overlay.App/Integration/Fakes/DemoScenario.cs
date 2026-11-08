@@ -57,11 +57,16 @@ public static class DemoScenario
     {
         double sx = frame.Width / 1920.0, sy = frame.Height / 1080.0;
         PixelRect Card(double cx) => new(frame.X + (int)((cx - 98) * sx), frame.Y + (int)(190 * sy), (int)(195 * sx), (int)(274 * sy));
+        // The gold label under the card (debug outline mode draws it in orange).
+        PixelRect Price(double cx) => new(frame.X + (int)((cx - 60) * sx), frame.Y + (int)(472 * sy), (int)(120 * sx), (int)(30 * sy));
         return
         [
-            new RecognizedCard(new CardRef("CARD.COOLHEADED"), Card(560), 0.95, 50),
-            new RecognizedCard(new CardRef("CARD.GLACIER"), Card(780), 0.93, 78),
-            new RecognizedCard(new CardRef("CARD.DEFRAGMENT"), Card(1000), 0.94, 152),
+            new RecognizedCard(new CardRef("CARD.COOLHEADED"), Card(560), 0.95, 50, Unaffordable: false, PriceBounds: Price(560)),
+            new RecognizedCard(new CardRef("CARD.GLACIER"), Card(780), 0.93, 39, Unaffordable: false, OnSale: true, PriceBounds: Price(780)),
+            // red label although the save says 160 gold: the panel plans with ≤151
+            new RecognizedCard(new CardRef("CARD.DEFRAGMENT"), Card(1000), 0.94, 152, Unaffordable: true, PriceBounds: Price(1000)),
+            // label covered: price estimated from rarity
+            new RecognizedCard(new CardRef("CARD.HOLOGRAM"), Card(1220), 0.92),
         ];
     }
 

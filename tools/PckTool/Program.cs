@@ -1,16 +1,18 @@
 using PckTool;
+using Sts2Overlay.Resources;
+using Sts2Overlay.Resources.Pck;
 
 // Usage:
 //   PckTool list [filter]                     print matching paths and a count
 //   PckTool extract <glob> <outDir>           copy matching files out of the pack as-is
 //   PckTool extract-images <glob> <outDir>    convert Godot textures (.ctex) to .png/.webp
 // Options:
-//   --pck <path>   pack to read (default: the Steam install path below)
+//   --pck <path>   pack to read (default: the Steam install found by GameInstall.Locate, else the path below)
 
 const string DefaultPck = @"C:\Program Files (x86)\Steam\steamapps\common\Slay the Spire 2\SlayTheSpire2.pck";
 
 var argList = args.ToList();
-string pckPath = DefaultPck;
+string pckPath = GameInstall.Locate()?.PckPath ?? DefaultPck;
 int pckIndex = argList.IndexOf("--pck");
 if (pckIndex >= 0 && pckIndex + 1 < argList.Count)
 {

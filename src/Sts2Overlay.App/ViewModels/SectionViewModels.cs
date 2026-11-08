@@ -1,4 +1,5 @@
 using System.Windows.Media;
+using Sts2Overlay.App.Services;
 
 namespace Sts2Overlay.App.ViewModels;
 
@@ -32,6 +33,9 @@ public sealed record OfferRowVm
 
     public string? PriceText { get; init; }
     public string? Tip { get; init; }
+
+    /// <summary>Card portrait (thumbnail + hover image); null for Skip/removal or when the art isn't extracted.</summary>
+    public CardArtVm? Art { get; init; }
     public IReadOnlyList<ChipVm> Chips { get; init; } = [];
 }
 
@@ -57,7 +61,9 @@ public sealed record OfferSectionVm
     public string? Footer { get; init; }
 }
 
-public sealed record DeckCardVm(string TierText, string Name, string CountText, string? UpgradeText);
+/// <param name="Doubt">Why the log-only rebuild is unsure of this card (shown as a "?" with this tooltip); null = certain.</param>
+/// <param name="Art">Card portrait (thumbnail + hover image); null when the art isn't extracted.</param>
+public sealed record DeckCardVm(string TierText, string Name, string CountText, string? UpgradeText, string? Doubt = null, CardArtVm? Art = null);
 
 public sealed record DeckGroupVm(string Title, IReadOnlyList<DeckCardVm> Cards);
 

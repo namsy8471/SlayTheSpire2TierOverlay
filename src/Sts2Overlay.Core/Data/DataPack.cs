@@ -64,6 +64,26 @@ public sealed class DataPack
     public string? CardRarity(string character, string cardId)
         => (FindCatalog(cardId)?.Rarity ?? FindTier(character, cardId)?.Rarity)?.ToLowerInvariant();
 
+    /// <summary>
+    /// Whose pool a card belongs to (<c>CHARACTER.X</c> or <see cref="Colorless"/>, see <see cref="CatalogCard.PoolOwner"/>);
+    /// without a catalog entry, <see cref="Colorless"/> when only the colorless tier pack rates it. Null when unknown or shared (event, curse, ...).
+    /// </summary>
+    public string? PoolOwner(string cardId)
+    {
+        var known = FindCatalog(cardId);
+        if (known is not null) return known.PoolOwner;
+        var id = Canonical(cardId);
+        if (Tiers.TryGetValue(Colorless, out var cl) && cl.Cards.ContainsKey(id)
+            && !Tiers.Any(kv => kv.Key != Colorless && kv.Value.Cards.ContainsKey(id)))
+        {
+            return Colorless;
+        }
+        return null;
+    }
+
+    /// <summary>True when <see cref="PoolOwner"/> is <see cref="Colorless"/>.</summary>
+    public bool IsColorless(string cardId) => PoolOwner(cardId) == Colorless;
+
     public IEnumerable<Archetype> ArchetypesFor(string character)
         => Archetypes.Where(a => string.Equals(a.Character, character, StringComparison.Ordinal));
 

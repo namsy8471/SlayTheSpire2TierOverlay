@@ -25,10 +25,14 @@ namespace Sts2Overlay.Core.Map;
 public sealed class PathAdvisor
 {
     private readonly DataPack _pack;
+    private readonly PathWeights? _path;
 
-    public PathAdvisor(DataPack pack)
+    /// <param name="pack">Data pack (tiers, archetypes, weights).</param>
+    /// <param name="path">Path weights to use instead of <c>pack.Weights.Path</c> (backtests compare weight sets this way).</param>
+    public PathAdvisor(DataPack pack, PathWeights? path = null)
     {
         _pack = pack;
+        _path = path;
     }
 
     /// <summary>
@@ -41,8 +45,8 @@ public sealed class PathAdvisor
         var children = MapPaths.ValidChildren(map, origin);
         if (children.Count == 0) return new PathRecommendation { Origin = origin, Exhaustive = true };
 
-        var p = _pack.Weights.Path;
-        var baseScorer = new PathScorer(_pack, state, map, DeckAnalyzer.Analyze(state, _pack));
+        var p = _path ?? _pack.Weights.Path;
+        var baseScorer = new PathScorer(_pack, state, map, DeckAnalyzer.Analyze(state, _pack), _path);
         var hpPercent = (int)Math.Floor(baseScorer.StartHp * 100 + 1e-9);
         var scorer = baseScorer.WithHp(hpPercent / 100.0);
 
@@ -104,7 +108,7 @@ public sealed class PathAdvisor
 
     /// <summary>Scores one given path (origin excluded), e.g. the path the user is hovering in the UI.</summary>
     public PathOption ScorePath(RunState state, MapGraph map, IReadOnlyList<MapCoord> coords)
-        => new PathScorer(_pack, state, map, DeckAnalyzer.Analyze(state, _pack)).Score(coords);
+        => new PathScorer(_pack, state, map, DeckAnalyzer.Analyze(state, _pack), _path).Score(coords);
 
     private sealed record Candidate(MapCoord[] Coords, MapNodeType[] Types, int Elites);
 

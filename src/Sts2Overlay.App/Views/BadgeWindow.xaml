@@ -12,7 +12,7 @@
     (IsHitTestVisible only affects WPF's own hit testing, not where Windows sends the mouse).
   -->
   <Grid>
-    <!-- Demo only: dashed outline of each recognised card, to check that badges sit outside the card. -->
+    <!-- Demo and debug outline mode (Ctrl+F11): dashed outline of each recognised card (blue) and price label (orange). -->
     <ItemsControl ItemsSource="{Binding Bounds}">
       <ItemsControl.ItemsPanel>
         <ItemsPanelTemplate>
@@ -27,8 +27,16 @@
       </ItemsControl.ItemContainerStyle>
       <ItemsControl.ItemTemplate>
         <DataTemplate>
-          <Rectangle Width="{Binding Width}" Height="{Binding Height}" Stroke="#AA5DADE2" StrokeThickness="2"
+          <Rectangle x:Name="Box" Width="{Binding Width}" Height="{Binding Height}" Stroke="#AA5DADE2" StrokeThickness="2"
                      StrokeDashArray="4 3" Fill="#145DADE2" RadiusX="8" RadiusY="8" />
+          <DataTemplate.Triggers>
+            <DataTrigger Binding="{Binding IsPrice}" Value="True">
+              <Setter TargetName="Box" Property="Stroke" Value="#CCF39C12" />
+              <Setter TargetName="Box" Property="Fill" Value="#18F39C12" />
+              <Setter TargetName="Box" Property="RadiusX" Value="3" />
+              <Setter TargetName="Box" Property="RadiusY" Value="3" />
+            </DataTrigger>
+          </DataTemplate.Triggers>
         </DataTemplate>
       </ItemsControl.ItemTemplate>
     </ItemsControl>

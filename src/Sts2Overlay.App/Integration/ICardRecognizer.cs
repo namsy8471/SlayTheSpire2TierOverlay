@@ -8,16 +8,24 @@ public enum ScreenKind
     Reward,
     Shop,
     Other,
+    /// <summary>"Pick 1 of N" row opened by a relic, potion or card (same banner as the reward screen).</summary>
+    Choice,
+    /// <summary>A card grid: an event offer or the player's own cards (see <see cref="CardGridFilter"/>).</summary>
+    Grid,
 }
 
 /// <summary>One card found on screen.</summary>
 /// <param name="Card">Card id and upgrade level (upgrade from the green title colour).</param>
 /// <param name="ScreenBounds">The FULL card (frame, not just the art), in physical SCREEN pixels (frame offset already added).</param>
 /// <param name="Confidence">0..1 match confidence (e.g. NCC score).</param>
-/// <param name="Price">Gold price under the card on the shop screen; null on the reward screen.</param>
-public sealed record RecognizedCard(CardRef Card, PixelRect ScreenBounds, double Confidence, int? Price = null);
+/// <param name="Price">Gold price under the card on the shop screen; null on the reward screen or when the label was unreadable.</param>
+/// <param name="Unaffordable">Shop: true when the price is drawn red (the game says not enough gold), false for cream/green, null when unknown.</param>
+/// <param name="OnSale">Shop: the green half-price label.</param>
+/// <param name="PriceBounds">Shop: where the price label is, physical SCREEN pixels (debug outline view).</param>
+public sealed record RecognizedCard(CardRef Card, PixelRect ScreenBounds, double Confidence, int? Price = null, bool? Unaffordable = null, bool OnSale = false,
+    PixelRect? PriceBounds = null);
 
-/// <param name="ScreenKind">Reward / Shop / Other. Other clears the badges.</param>
+/// <param name="ScreenKind">Reward / Shop / Choice / Grid / Other. Other clears the badges.</param>
 /// <param name="Cards">Cards left to right (shop: row by row). Empty for Other.</param>
 public sealed record RecognitionResult(ScreenKind ScreenKind, IReadOnlyList<RecognizedCard> Cards)
 {

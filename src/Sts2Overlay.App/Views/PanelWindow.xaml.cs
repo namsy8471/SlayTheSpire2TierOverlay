@@ -69,14 +69,14 @@ public partial class PanelWindow : Window
         if (_positioned || _hwnd == IntPtr.Zero) return;
         if (_settings.PanelX is int x && _settings.PanelY is int y && Dpi.IsOnAnyMonitor(x + 20, y + 20))
         {
-            OverlayWindowHelper.SetPhysicalPosition(_hwnd, x, y);
+            OverlayWindowHelper.SetPhysicalPosition(_hwnd, x, y, KeepOnTop);
         }
         else
         {
             var work = Dpi.WorkAreaForPoint(0, 0);
             var scale = GetDpiForWindow(_hwnd) / 96.0;
             var widthPx = (int)(ActualWidth * scale);
-            OverlayWindowHelper.SetPhysicalPosition(_hwnd, work.Right - widthPx - (int)(24 * scale), work.Y + (int)(140 * scale));
+            OverlayWindowHelper.SetPhysicalPosition(_hwnd, work.Right - widthPx - (int)(24 * scale), work.Y + (int)(140 * scale), KeepOnTop);
         }
         _positioned = true;
         Dispatcher.BeginInvoke(EnsureOnScreen, DispatcherPriority.Background);
@@ -92,13 +92,36 @@ public partial class PanelWindow : Window
         if (work.IsEmpty) return;
         var x = Math.Max(work.X, Math.Min(r.X, work.Right - r.Width));
         var y = Math.Max(work.Y, Math.Min(r.Y, work.Bottom - r.Height));
-        if (x != r.X || y != r.Y) OverlayWindowHelper.SetPhysicalPosition(_hwnd, x, y);
+        if (x != r.X || y != r.Y) OverlayWindowHelper.SetPhysicalPosition(_hwnd, x, y, KeepOnTop);
     }
 
     /// <summary>Ctrl+F7: let mouse input fall through to the game.</summary>
     public void SetClickThrough(bool on)
     {
         if (_hwnd != IntPtr.Zero) OverlayWindowHelper.SetExStyle(_hwnd, WS_EX_TRANSPARENT, on);
+    }
+
+    /// <summary>
+    /// "항상 맨 앞" (tray / Ctrl+F6). Off: the panel is a normal window that other windows (and the game) can cover;
+    /// clicking it raises it once. The badge layer stays on top either way (it only appears over the game's cards).
+    /// </summary>
+    public bool KeepOnTop
+    {
+        get => _keepOnTop;
+        set
+        {
+            _keepOnTop = value;
+            Topmost = value;
+            if (!value) OverlayWindowHelper.ClearTopmost(_hwnd);
+        }
+    }
+
+    private bool _keepOnTop = true;
+
+    protected override void OnPreviewMouseDown(MouseButtonEventArgs e)
+    {
+        if (!_keepOnTop) OverlayWindowHelper.BringToTop(_hwnd);
+        base.OnPreviewMouseDown(e);
     }
 
     private void Header_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)

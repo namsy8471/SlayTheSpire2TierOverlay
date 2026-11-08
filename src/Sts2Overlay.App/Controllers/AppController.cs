@@ -29,7 +29,7 @@ namespace Sts2Overlay.App.Controllers;
 /// Events from other threads are marshalled with <see cref="Dispatcher.BeginInvoke(Delegate, object[])"/> because WPF
 /// objects may only be touched by the thread that created them.
 /// </summary>
-public sealed class AppController : IDisposable
+public sealed partial class AppController : IDisposable
 {
     /// <summary>Stand-in when a card offer is recognised before the save tracker has produced a run.</summary>
     private static readonly RunState UnknownRun = new() { Character = "CHARACTER.UNKNOWN" };
@@ -46,6 +46,9 @@ public sealed class AppController : IDisposable
 
     private RecommendationEngine _engine;
     private CardInfoProvider _cards;
+
+    /// <summary>Card portraits for the panel rows (thumbnail + hover); rebuilt when data/local is regenerated.</summary>
+    private CardArtProvider _art = CardArtProvider.ForLocalData();
     private string _packDir;
     private int _engineVersion;
 
@@ -79,6 +82,7 @@ public sealed class AppController : IDisposable
         _packDir = packDir;
         CatalogPath = catalogPath;
         (_engine, _cards) = LoadPack(packDir, catalogPath, vm);
+        InitForecastReview(packDir, catalogPath); // forecast + run review (AppController.ForecastReview.cs)
 
         _tracker.Changed += (_, _) => OnTrackerChanged();
         // The panel moved to a monitor with another DPI: the DPI part of the scale changed, ours must follow.
@@ -87,6 +91,7 @@ public sealed class AppController : IDisposable
         _pipeline.Recognized += r => _ui.BeginInvoke(() => ApplyRecognition(r));
         _pipeline.Status += s => _ui.BeginInvoke(() => ShowMessage(s));
 
+        _panel.KeepOnTop = settings.AlwaysOnTop;
         _topmostTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _topmostTimer.Tick += (_, _) => ReassertTopmost();
         _topmostTimer.Start();
@@ -104,7 +109,7 @@ public sealed class AppController : IDisposable
 
     public DemoScreen? Demo { get; private set; }
     public bool UserHidden => _userHidden;
-    public string? CatalogPath { get; }
+    public string? CatalogPath { get; private set; }
 
     public string StatusLine => $"{_vm.StatusText} · {_vm.PackText}";
 
@@ -175,6 +180,7 @@ public sealed class AppController : IDisposable
         _snapshot = snap;
         _pipeline.CharacterHint = snap.Run?.Character;
         RefreshRunViews(snap.Run);
+        UpdateForecastReview(snap); // AppController.ForecastReview.cs
         if (Demo is null) RefreshPath(snap);
 
         var likely = IsOfferHint(snap.Hint);
@@ -266,20 +272,36 @@ public sealed class AppController : IDisposable
     private static bool IsOfferHint(ScreenHint h) => h is ScreenHint.RewardLikely or ScreenHint.ShopLikely;
 
     /// <summary>
-    /// Periodic capture runs while a reward/shop screen is likely. With no hint at all (tracker not wired / unsure)
-    /// it also runs while badges are shown, so they disappear once the recogniser reports another screen.
+    /// Periodic capture: fast (<see cref="AppSettings.RecognizeHz"/>) while a reward/shop screen is likely, and a slower
+    /// background watch (<see cref="AppSettings.IdleRecognizeHz"/>) otherwise, so a reward screen is found even when the
+    /// log hint comes late or never (the hint only speeds things up; nothing needs a key press). The pipeline only
+    /// captures while the game is the foreground window and skips recognition of visually unchanged frames, so the idle
+    /// watch costs about 5 ms of capture per tick at 4K.
     /// </summary>
     private void UpdateCadence()
     {
-        var on = IsOfferHint(_snapshot.Hint) || (_snapshot.Hint == ScreenHint.None && _badges.HasBadges);
-        var hz = Math.Clamp(_settings.RecognizeHz, 0.5, 10);
-        _pipeline.SetInterval(on ? TimeSpan.FromSeconds(1 / hz) : null);
+        var offer = IsOfferHint(_snapshot.Hint) || (_snapshot.Hint == ScreenHint.None && _badges.HasBadges);
+        var hz = offer ? Math.Clamp(_settings.RecognizeHz, 0.5, 10) : Math.Clamp(_settings.IdleRecognizeHz, 0, 10);
+        _pipeline.SetInterval(hz > 0 ? TimeSpan.FromSeconds(1 / hz) : null);
     }
 
     // ---- recognition → engine → UI ------------------------------------------------------------------
 
+    private ScreenKind? _loggedKind;
+
     private void ApplyRecognition(RecognitionResult r)
     {
+        // Periodic captures are only logged when they are slow; log every change of screen so a missed reward screen
+        // can be told apart from "the watch was not running" in app.log.
+        if (r.ScreenKind != _loggedKind)
+        {
+            AppLog.Info($"screen: {_loggedKind?.ToString() ?? "-"} -> {r.ScreenKind} ({r.Cards.Count} cards, hint {_snapshot.Hint})");
+            _loggedKind = r.ScreenKind;
+        }
+        // A card grid is an offer only when it shows cards the deck does not hold; otherwise it is the deck itself
+        // (remove / upgrade / transform screens, deck view), which needs no badges.
+        if (r.ScreenKind == ScreenKind.Grid && !CardGridFilter.IsOffer(r.Cards.Select(c => c.Card).ToList(), _snapshot.Run?.Deck.Select(d => d.Card)))
+            r = RecognitionResult.Other;
         if (r.ScreenKind == ScreenKind.Other || r.Cards.Count == 0)
         {
             ClearBadges();
@@ -287,14 +309,16 @@ public sealed class AppController : IDisposable
             return;
         }
         _lastResult = r;
+        // The tracker links the next "obtained CARD.X from card reward" to this screen (upgrade read from the title colour).
+        if (r.ScreenKind == ScreenKind.Reward && _source is Sts2Overlay.GameState.Tracking.ICardOfferSink sink) sink.OnCardOfferSeen(r.Cards.Select(c => c.Card).ToList());
 
-        var offerKey = r.ScreenKind + ":" + string.Join(",", r.Cards.Select(c => $"{c.Card}${c.Price}"));
+        var offerKey = r.ScreenKind + ":" + string.Join(",", r.Cards.Select(c => $"{c.Card}${c.Price}{(c.Unaffordable == true ? "r" : "")}{(c.OnSale ? "s" : "")}"));
         var evalKey = $"{offerKey}@{_snapshot.UpdatedAt.Ticks}#{_engineVersion}";
         if (evalKey != _lastEvalKey)
         {
             try
             {
-                var (offer, badges, skip) = r.ScreenKind == ScreenKind.Reward ? EvaluateReward(r) : EvaluateShop(r);
+                var (offer, badges, skip) = r.ScreenKind == ScreenKind.Shop ? EvaluateShop(r) : EvaluateReward(r);
                 _vm.Offer = offer;
                 _lastBadges = badges;
                 _lastSkip = skip;
@@ -320,10 +344,10 @@ public sealed class AppController : IDisposable
         for (var i = 0; i < specs.Length; i++)
         {
             specs[i] = i < _lastBadges.Count
-                ? _lastBadges[i] with { CardBounds = r.Cards[i].ScreenBounds }
-                : new BadgeSpec(r.Cards[i].ScreenBounds, "?", "", false, true, r.Cards[i].Card.IsUpgraded);
+                ? _lastBadges[i] with { CardBounds = r.Cards[i].ScreenBounds, PriceBounds = r.Cards[i].PriceBounds }
+                : new BadgeSpec(r.Cards[i].ScreenBounds, "?", "", false, true, r.Cards[i].Card.IsUpgraded, r.Cards[i].PriceBounds);
         }
-        _badges.ShowBadges(specs, _lastSkip, showBounds: Demo is not null);
+        _badges.ShowBadges(specs, _lastSkip, showBounds: Demo is not null || DebugOutlines);
         UpdateCadence();
     }
 
@@ -331,7 +355,8 @@ public sealed class AppController : IDisposable
     {
         var run = _snapshot.Run ?? UnknownRun;
         var cards = r.Cards.Select(c => c.Card).ToArray();
-        var context = _snapshot.RewardContext;
+        // Event grids and "pick 1 of N" rows are not combat rewards: score them as event offers.
+        var context = r.ScreenKind == ScreenKind.Reward ? _snapshot.RewardContext : OfferContext.Event;
         var eval = _engine.EvaluateOffer(run, cards, context);
 
         var rows = new List<OfferRowVm>();
@@ -351,6 +376,7 @@ public sealed class AppController : IDisposable
                 IsUpgraded = e.Card.IsUpgraded,
                 SubText = sub,
                 Tip = _engine.Pack.FindTier(run.Character, e.Card.Id)?.Tip,
+                Art = ArtOf(e.Card.Id),
                 Chips = e.Chips.Select(c => Chip(c.Label, c.Value)).ToArray(),
             });
         }
@@ -367,7 +393,12 @@ public sealed class AppController : IDisposable
 
         var offer = new OfferSectionVm
         {
-            Title = ContextTitle(context),
+            Title = r.ScreenKind switch
+            {
+                ScreenKind.Choice => "카드 선택",
+                ScreenKind.Grid => "카드 선택 · 이벤트",
+                _ => ContextTitle(context),
+            },
             ConfidenceText = eval.Confidence switch
             {
                 RecommendationConfidence.Sure => "확신",
@@ -390,7 +421,8 @@ public sealed class AppController : IDisposable
     private (OfferSectionVm, IReadOnlyList<BadgeSpec>, string?) EvaluateShop(RecognitionResult r)
     {
         var run = _snapshot.Run ?? UnknownRun;
-        var offer = new ShopOffer(r.Cards.Select(c => new ShopCardOffer(c.Card, c.Price ?? 0)).ToArray());
+        // --- shop prices (m2/shop-price): unread prices are estimated by the scorer; label colours bound the gold ---
+        var offer = new ShopOffer(r.Cards.Select(c => new ShopCardOffer(c.Card, c.Price ?? 0, c.Price is not null, c.Unaffordable is bool u ? !u : null, c.OnSale)).ToArray());
         var eval = _engine.EvaluateShop(run, offer);
         var recommended = eval.RecommendedPurchase.ToHashSet(ReferenceEqualityComparer.Instance);
 
@@ -411,7 +443,8 @@ public sealed class AppController : IDisposable
                 IsEstimate = e?.IsEstimate ?? false,
                 IsUpgraded = item.Card?.IsUpgraded ?? false,
                 Unaffordable = !item.Affordable,
-                PriceText = $"{item.Price}골드",
+                PriceText = ShopPriceText(item),
+                Art = isCard ? ArtOf(item.Card!.Value.Id) : null,
                 SubText = sub,
                 Chips = (e?.Chips.Select(c => Chip(c.Label, c.Value)) ?? item.Value.TopReasons(3).Select(c => Chip(c.Label, c.Value))).ToArray(),
             };
@@ -422,7 +455,7 @@ public sealed class AppController : IDisposable
             .ToArray();
         var section = new OfferSectionVm
         {
-            Title = $"상점 · 보유 {run.Gold}골드",
+            Title = eval.GoldCorrectedByScreen ? $"상점 · 보유 ~{eval.Gold}골드 (가격 색으로 보정)" : $"상점 · 보유 {eval.Gold}골드",
             ConfidenceText = "",
             Rows = rows,
             Footer = names.Length > 0 ? $"추천 구매: {string.Join(" + ", names)} · 남는 골드 {eval.GoldLeft}" : "추천 구매 없음 (골드 아끼기)",
@@ -441,6 +474,11 @@ public sealed class AppController : IDisposable
         }).ToArray();
         return (section, badges, null);
     }
+
+    /// <summary>"75골드", "~150골드 (추정)" for an unread label, "37골드 세일" for the half-price card.</summary>
+    private static string ShopPriceText(ShopItemEvaluation item)
+        => (item.PriceEstimated ? $"~{item.Price}골드 (추정)" : $"{item.Price}골드") + (item.OnSale ? " 세일" : "");
+    // --- end shop prices ---
 
     private void ClearBadges()
     {
@@ -508,7 +546,8 @@ public sealed class AppController : IDisposable
                         var count = byId.Count();
                         var upgraded = byId.Count(c => c.Upgrade > 0);
                         var upText = upgraded == 0 ? null : count == 1 ? "강화" : $"강화 {upgraded}";
-                        return (Tier: tier, Vm: new DeckCardVm(tier?.ToString() ?? "?", _cards.Name(byId.Key), $"×{count}", upText));
+                        string? doubt = _snapshot.Doubts?.CardReasons.GetValueOrDefault(byId.Key);
+                        return (Tier: tier, Vm: new DeckCardVm(tier?.ToString() ?? "?", _cards.Name(byId.Key), $"×{count}", upText, doubt, ArtOf(byId.Key)));
                     })
                     .OrderBy(x => x.Tier is null ? 99 : (int)x.Tier)
                     .ThenBy(x => x.Vm.Name, StringComparer.CurrentCulture)
@@ -533,6 +572,16 @@ public sealed class AppController : IDisposable
         var upgradedTotal = run.Deck.Count(c => c.Upgrade > 0);
         var summary = $"덱 {run.Deck.Count}장 · 강화 {upgradedTotal}장 · 파워 {profile.PowerCount}장";
         if (profile.Curses > 0) summary += $" · 저주 {profile.Curses}장";
+        if (_snapshot.Doubts is { } d)
+        {
+            // Log-only rebuild (co-op guest): say what it can't know yet. Exact again at run end (.run file).
+            var parts = new List<string>();
+            if (d.Unidentified > 0) parts.Add($"미확인 카드 {d.Unidentified}장");
+            if (d.UnknownUpgrades > 0) parts.Add($"위치 모를 강화 {d.UnknownUpgrades}회");
+            if (d.UnknownRemovals > 0) parts.Add($"모를 제거 {d.UnknownRemovals}장");
+            if (d.CardReasons.Count > 0) parts.Add($"? 표시 {d.CardReasons.Count}종");
+            summary += " · 추정: " + string.Join(" · ", parts);
+        }
         return new DeckSectionVm { Summary = summary, Groups = groups, Roles = roles };
     }
 
@@ -559,9 +608,9 @@ public sealed class AppController : IDisposable
         var items = report.Statuses.Take(5).Select(st =>
         {
             var a = st.Archetype;
-            var prob = report.CoreOfferProbability.TryGetValue(a.Id, out var p)
-                ? $"이번 막 남은 보상 {report.RemainingRewards}번 안에 핵심 카드가 나올 확률 {p:P0} [추정]"
-                : null;
+            // m2/forecast-calib: the old "핵심 카드가 나올 확률" line is replaced by the calibrated forecast line,
+            // filled in by ForecastReviewPresenter.WithForecast (AppController.ForecastReview.cs).
+            string? prob = null;
             var missing = st.MissingCards.Count == 0
                 ? null
                 : "필요: " + string.Join(", ", st.MissingCards.Take(5).Select(m =>
@@ -670,17 +719,25 @@ public sealed class AppController : IDisposable
     {
         var info = _tracker.Current;
         var show = !_userHidden && info is { CanShowOverlay: true };
+        // "항상 맨 앞" off: the panel is a normal window, so it may stay open while the game runs in the background.
+        var showPanel = show || (!_userHidden && !_settings.AlwaysOnTop && info is { IsMinimized: false });
         if (show)
         {
             if (!_badges.IsVisible) _badges.Show();
             _badges.SetLayerRect(info!.CaptureRect);
+        }
+        else if (_badges.IsVisible)
+        {
+            _badges.Hide();
+        }
+        if (showPanel)
+        {
             if (!_panel.IsVisible) _panel.Show();
             ReassertTopmost();
         }
-        else
+        else if (_panel.IsVisible)
         {
-            if (_panel.IsVisible) _panel.Hide();
-            if (_badges.IsVisible) _badges.Hide();
+            _panel.Hide();
         }
         StateChanged?.Invoke();
     }
@@ -690,7 +747,21 @@ public sealed class AppController : IDisposable
         if (!_panel.IsVisible && !_badges.IsVisible) return;
         // Badges first, then the panel, so the panel ends up above the badge layer.
         OverlayWindowHelper.AssertTopmost(_badges.Hwnd);
-        OverlayWindowHelper.AssertTopmost(_panel.Hwnd);
+        if (_settings.AlwaysOnTop) OverlayWindowHelper.AssertTopmost(_panel.Hwnd);
+    }
+
+    // ---- "항상 맨 앞에 표시" (tray / Ctrl+F6), persisted in settings.json ----
+
+    public bool AlwaysOnTop => _settings.AlwaysOnTop;
+
+    public void ToggleAlwaysOnTop()
+    {
+        _settings.AlwaysOnTop = !_settings.AlwaysOnTop;
+        SettingsStore.Save(AppPaths.SettingsFile, _settings);
+        _panel.KeepOnTop = _settings.AlwaysOnTop;
+        AppLog.Info($"always on top = {_settings.AlwaysOnTop}");
+        ShowMessage(_settings.AlwaysOnTop ? "항상 맨 앞에 표시 켜짐" : "항상 맨 앞에 표시 꺼짐: 패널이 일반 창처럼 다른 창 뒤로 갈 수 있습니다");
+        UpdateVisibility();
     }
 
     // ---- commands (hotkeys / tray) ------------------------------------------------------------------------
@@ -710,6 +781,20 @@ public sealed class AppController : IDisposable
         ShowMessage(_clickThrough ? "클릭 통과 켜짐: 마우스가 게임으로 갑니다" : "클릭 통과 꺼짐: 패널을 클릭할 수 있습니다");
     }
 
+    // ---- debug outline mode (tray / Ctrl+F11): draw the recognised card and price boxes on the badge layer ----
+
+    /// <summary>Outlines of what the recogniser found (cards blue, price labels orange). Session only, not saved.</summary>
+    public bool DebugOutlines { get; private set; }
+
+    public void ToggleDebugOutlines()
+    {
+        DebugOutlines = !DebugOutlines;
+        AppLog.Info($"debug outlines = {DebugOutlines}");
+        ShowMessage(DebugOutlines ? "인식 영역 표시 켜짐: 카드(파랑)·가격(주황) 상자" : "인식 영역 표시 꺼짐");
+        _pipeline.RequestRecognize(); // redraw with the next result
+        StateChanged?.Invoke();
+    }
+
     public void RecognizeNow()
     {
         ShowMessage("지금 인식하는 중…");
@@ -723,9 +808,42 @@ public sealed class AppController : IDisposable
         (_engine, _cards) = LoadPack(_packDir, CatalogPath, _vm);
         _engineVersion++;
         RefreshRunViews(_snapshot.Run);
+        ReloadForecastReview(); // AppController.ForecastReview.cs
         if (_lastResult is not null) ApplyRecognition(_lastResult);
         ShowMessage("데이터 팩을 다시 읽었습니다");
+        PackReloaded?.Invoke();
     }
+
+    // ---- local resources (Services.LocalResourceService) -------------------------------------------------
+
+    /// <summary>The loaded data pack and its folder, for the game-version guard.</summary>
+    public DataPack Pack => _engine.Pack;
+
+    public string PackDir => _packDir;
+
+    /// <summary>Raised (UI thread) after <see cref="ReloadPack"/>.</summary>
+    public event Action? PackReloaded;
+
+    /// <summary>
+    /// data/local was (re)generated: use the new catalog for names, and a fresh recogniser that reads the new art and
+    /// catalog (its art cache is warmed on a worker thread). Demo mode keeps its fake recogniser.
+    /// </summary>
+    public void ApplyPreparedResources(string? catalogPath)
+    {
+        CatalogPath = catalogPath ?? CatalogPath;
+        _art = CardArtProvider.ForLocalData(); // new art + catalog for the panel thumbnails
+        if (Demo is null)
+        {
+            var recognizer = IntegrationFactory.CreateRealRecognizer();
+            _pipeline.Recognizer = recognizer;
+            _ = Task.Run(recognizer.Preload);
+        }
+        ReloadPack();
+        ShowMessage("게임 리소스를 준비했습니다 (카드 그림·이름)");
+    }
+    // ---- end local resources ----
+
+    private CardArtVm? ArtOf(string cardId) => _art.For(_engine.Pack.Canonical(cardId));
 
     public void ShowMessage(string text)
     {
@@ -808,5 +926,6 @@ public sealed class AppController : IDisposable
         _messageTimer.Stop();
         _source.Changed -= OnSourceChanged;
         _source.Dispose();
+        DisposeForecastReview(); // AppController.ForecastReview.cs
     }
 }

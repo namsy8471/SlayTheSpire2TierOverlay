@@ -35,6 +35,20 @@ internal static class OverlayWindowHelper
         SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
     }
 
+    /// <summary>"항상 맨 앞" off: drop the window out of the TOPMOST band (it then stacks like a normal window).</summary>
+    public static void ClearTopmost(IntPtr hwnd)
+    {
+        if (hwnd == IntPtr.Zero) return;
+        SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+    }
+
+    /// <summary>Raises a non-topmost window above normal windows once (on click), without activating it.</summary>
+    public static void BringToTop(IntPtr hwnd)
+    {
+        if (hwnd == IntPtr.Zero) return;
+        SetWindowPos(hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+    }
+
     /// <summary>
     /// Moves/resizes in PHYSICAL pixels. We bypass WPF's Left/Top/Width/Height (which are DIPs relative to the
     /// window's current monitor DPI) because the game rect we track is in physical pixels.
@@ -44,9 +58,11 @@ internal static class OverlayWindowHelper
         SetWindowPos(hwnd, HWND_TOPMOST, r.X, r.Y, r.Width, r.Height, SWP_NOACTIVATE | SWP_NOOWNERZORDER);
     }
 
-    public static void SetPhysicalPosition(IntPtr hwnd, int x, int y)
+    /// <param name="topmost">false = keep the current z-order (the panel with "항상 맨 앞" off).</param>
+    public static void SetPhysicalPosition(IntPtr hwnd, int x, int y, bool topmost = true)
     {
-        SetWindowPos(hwnd, HWND_TOPMOST, x, y, 0, 0, SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+        var flags = SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER | (topmost ? 0 : SWP_NOZORDER);
+        SetWindowPos(hwnd, HWND_TOPMOST, x, y, 0, 0, flags);
     }
 
     public static PixelRect GetPhysicalBounds(IntPtr hwnd)

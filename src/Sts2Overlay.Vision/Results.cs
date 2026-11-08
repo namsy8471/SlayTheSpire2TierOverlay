@@ -8,6 +8,17 @@ public enum ScreenKind
     RewardCardSelect,
     /// <summary>The merchant's inventory (rug with 5 character + 2 colourless cards).</summary>
     Shop,
+    /// <summary>
+    /// NChooseACardSelectionScreen: "pick 1 of N" opened by relics, potions and cards (Hefty Tablet, Toolbox, Attack
+    /// Potion, Discovery...). Same banner as the reward screen, but its own row geometry.
+    /// </summary>
+    CardChoice,
+    /// <summary>
+    /// A card grid (NCardGrid): NSimpleCardSelectScreen offers from events ("pick 1 of 5" Brain Leech, "pick 2 of 8"
+    /// Room Full of Cheese, Sea Glass) but also the deck/pile selection screens, which share the exact geometry. Only
+    /// the caller knows the deck, so it decides whether the cards are an offer or the player's own cards.
+    /// </summary>
+    CardGrid,
 }
 
 public enum CardSlotKind
@@ -15,6 +26,16 @@ public enum CardSlotKind
     Reward,
     ShopCharacter,
     ShopColorless,
+    /// <summary>A card of the choose-a-card row.</summary>
+    Choice,
+    /// <summary>A card of a card grid.</summary>
+    Grid,
+}
+
+public static class CardSlotKinds
+{
+    /// <summary>Shop slots have a price label and the merchant's hand; every other slot is a bare card.</summary>
+    public static bool IsShop(this CardSlotKind kind) => kind is CardSlotKind.ShopCharacter or CardSlotKind.ShopColorless;
 }
 
 /// <summary>Context that improves accuracy; everything is optional.</summary>
@@ -38,7 +59,7 @@ public sealed record RecognitionHints(string? CharacterId = null);
 /// <param name="ArtBounds">Portrait rectangle in frame pixels.</param>
 /// <param name="CardBounds">Whole card in frame pixels (draw tier badges relative to this).</param>
 /// <param name="PriceBounds">Shop only: where the price label is.</param>
-/// <param name="Price">Shop only: price in gold when it could be read (not implemented yet: always null).</param>
+/// <param name="Price">Shop only: price in gold when it was read clearly and fits the game's price rules, else null.</param>
 /// <param name="Candidates">Top candidates (debugging, bench report).</param>
 public sealed record RecognizedCard(
     int Slot,
@@ -58,8 +79,21 @@ public sealed record RecognizedCard(
     int? Price,
     IReadOnlyList<ArtMatch> Candidates)
 {
+    /// <summary>
+    /// Occlusion-robust second opinion, present when the whole-art match was rejected on a confirmed screen.
+    /// When it is accepted, <see cref="CardId"/>/<see cref="Margin"/>/<see cref="Accepted"/> come from it,
+    /// while <see cref="Score"/> stays the whole-art NCC (low: part of the card is covered).
+    /// </summary>
+    public PartialMatch? Partial { get; init; }
+
+    /// <summary>Shop only: the raw price reading (digits, label colour, scores), also when <see cref="Price"/> is null.</summary>
+    public PriceReading? PriceReading { get; init; }
+
+    /// <summary>Shop only: the game drew the price in red, i.e. the player cannot afford this card right now.</summary>
+    public bool? Unaffordable => PriceReading is { Tint: not PriceTint.Unknown } r ? r.Unaffordable : null;
+
     public override string ToString() =>
-        $"#{Slot} {CardId ?? "-"}{(Upgraded ? "+" : UpgradeKnown ? "" : "?")} s={Score:F3} m={Margin:F3}{(Accepted ? "" : " (rejected)")}{(AmbiguousWith != null ? $" ~{AmbiguousWith}" : "")}";
+        $"#{Slot} {CardId ?? "-"}{(Upgraded ? "+" : UpgradeKnown ? "" : "?")} s={Score:F3} m={Margin:F3}{(Accepted ? "" : " (rejected)")}{(AmbiguousWith != null ? $" ~{AmbiguousWith}" : "")}{(Partial != null ? $" [partial {Partial}]" : "")}{(PriceReading != null ? $" ${PriceReading}" : "")}";
 }
 
 /// <summary>Result of the cheap colour-probe test that runs before any card matching.</summary>

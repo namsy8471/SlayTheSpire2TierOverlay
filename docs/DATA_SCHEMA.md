@@ -6,7 +6,9 @@
 - 검증기: `Sts2Overlay.Core.Data.DataPackValidator`
 - 형식 샘플: [`data/packs/sample/`](../data/packs/sample/) (값은 모두 자리표시자)
 
-> 카드 이름과 설명은 Mega Crit 저작물이므로 **레포의 데이터에는 ID만** 적습니다. 이름은 사용자 PC에서 생성하는 카탈로그(`catalog.json`)에서만 가져옵니다.
+> 카드 이름과 설명은 Mega Crit 저작물이므로 **레포의 데이터에는 ID만** 적습니다. 커밋된 카탈로그(`data/catalog/cards.v0.107.1.json`)도 ID와 수치만 담고, 이름은 사용자 PC에서 따로 생성합니다(`data/local/`, 커밋 안 함).
+
+> **[코드 확인]** 표시는 게임 코드(v0.107.1)로 확인한 수치입니다. 출처: M0 스파이크 결과 문서 `SPIKE.md` §5 (`m0-spike` 브랜치의 `docs/SPIKE.md`; 게임 코드 `Odds/CardRarityOdds.cs` 등). **[추정]** 표시는 아직 확인하지 못한 근사입니다.
 
 ## 1. 폴더 구조
 
@@ -17,12 +19,14 @@ data/packs/<팩 이름 또는 게임 버전>/
 ├─ archetypes/*.json     아키타입 목록
 ├─ combos/*.json         콤보 목록
 ├─ aliases.json          (선택) 옛 ID → 현재 ID
-└─ catalog.json          (선택) 카드 카탈로그. 보통 로컬에서 생성하며 커밋하지 않음
+└─ catalog.json          (선택) 카드 카탈로그. 보통 넘겨받음 (아래 참고)
+
+data/catalog/cards.v0.107.1.json   커밋된 이름 없는 카드 카탈로그 (§8)
 ```
 
 - 모든 부분이 선택입니다. 없는 파일은 기본값(`weights.json`) 또는 빈 목록이 됩니다.
 - 하위 폴더에서는 `*.json` 파일만 읽고, 파일 이름의 사전순으로 읽습니다. 파일 이름 자체에는 의미가 없습니다(캐릭터는 파일 내용으로 정합니다).
-- `LoadDirectory(dir, catalog)`에 카탈로그를 직접 넘기면 폴더의 `catalog.json`보다 우선합니다.
+- 카탈로그 우선순위: `LoadDirectory(dir, catalog)`로 넘긴 객체 → `LoadDirectory(dir, catalogPath: "data/catalog/cards.v0.107.1.json")`로 넘긴 파일 → 폴더의 `catalog.json`. 파일 하나만 읽을 때는 `DataPackLoader.LoadCatalogFile(path)`를 씁니다(레포 기준 경로는 `DataPackLoader.DefaultCatalogRelativePath`).
 - 계획만 있고 아직 로더가 읽지 않는 파일: `manifest.json`(PLAN §6.6), `relics.json`(v2), `user_overrides.json`, `data/schema/*.schema.json`.
 
 ## 2. 공통 규칙
@@ -66,8 +70,8 @@ ID는 게임 모델 ID 그대로입니다. 게임이 ID를 바꾼 경우(예: `R
 | JSON 값 종류 | 동작 | 예 |
 |---|---|---|
 | 숫자·문자열 | 적은 값으로 교체 | `"wArch": 30` |
-| 중첩 객체 (`skip`, `shop`, `completion` 등) | **병합**: 적은 속성만 바뀌고 나머지는 기본값 유지 | `"skip": { "margin": 1 }` → `t0`, `lambdaSize` 유지 |
-| 사전 (`tierValue`, `targets`, `urgency`, `idealDeckSize`, `skip.t0`, `completion.rarityOdds`, `completion.poolSize`) | **키 단위 병합**: 적은 키의 값만 교체(값이 사전이면 그 값 전체를 교체), 나머지 키 유지 | `"tierValue": { "S": 90 }` → A~D 유지 |
+| 중첩 객체 (`skip`, `shop`, `completion`, `cardOdds`, `cardOdds.eliteReward`, `cardOdds.pity` 등) | **병합**: 적은 속성만 바뀌고 나머지는 기본값 유지 | `"skip": { "margin": 1 }` → `t0`, `lambdaSize` 유지 |
+| 사전 (`tierValue`, `targets`, `urgency`, `idealDeckSize`, `skip.t0`, `completion.poolSize`, `shop.cardPrice`, `shop.characterCardSlots`, `shop.colorlessCardSlots`) | **키 단위 병합**: 적은 키의 값만 교체(값이 사전이면 그 값 전체를 교체), 나머지 키 유지 | `"tierValue": { "S": 90 }` → A~D 유지 |
 | 배열 (`weakRoles`) | 통째로 교체 | `"weakRoles": ["block"]` |
 
 예: `"targets": { "CHARACTER.DEFECT": { "1": { ... } } }`는 `"default"`를 그대로 두고 디펙트 목표치를 추가합니다. 반대로 `"urgency": { "2": { "block": 2 } }`는 2막의 역할별 사전 전체를 `{ "block": 2 }`로 바꿉니다(1·3막은 유지).
@@ -113,20 +117,47 @@ ID는 게임 모델 ID 그대로입니다. 게임이 ID를 바꾼 경우(예: `R
 | `skip.lowConfidence` | 0..1 | 0.5 | 이 미만 신뢰도의 카드는 스킵을 이기지 못함 | §7.2 |
 | `confidenceSureGap` | 숫자 | 10 | 1·2위 차이가 이 이상이면 "확신" | §7.4 |
 | `confidenceCloseGap` | 숫자 | 5 | 1·2위 차이가 이 미만이면 "박빙" | §7.4 |
-| `shop.removalBase` | 정수 | 75 | 카드 제거 첫 가격 | §7.3 |
-| `shop.removalStep` | 정수 | 25 | 제거할 때마다 오르는 가격 | §7.3 |
-| `shop.removalBaseHighAscension` | 정수 | 100 | 고승천 첫 제거 가격 | §7.3 |
-| `shop.removalStepHighAscension` | 정수 | 50 | 고승천 가격 증가분 | §7.3 |
-| `shop.highAscension` | 정수 | 6 | 고승천 기준 승천 단계 | §7.3 |
+| `shop.removalBase` | 정수 | 75 | 카드 제거 첫 가격 [코드 확인] | §7.3 |
+| `shop.removalStep` | 정수 | 25 | 제거할 때마다 오르는 가격 [코드 확인] | §7.3 |
+| `shop.removalBaseHighAscension` | 정수 | 100 | 고승천 첫 제거 가격 [코드 확인] | §7.3 |
+| `shop.removalStepHighAscension` | 정수 | 50 | 고승천 가격 증가분 [코드 확인] | §7.3 |
+| `shop.highAscension` | 정수 | 6 | 제거 가격의 고승천 기준(승천 6 이상) [코드 확인] | §7.3 |
 | `shop.curseRemovalValue` | 숫자 | 30 | 저주 제거의 점수 환산 가치 | §7.3 |
 | `shop.basicRemovalValue` | 숫자 | 14 | 기본 타격/수비 제거의 점수 환산 가치 | §7.3 |
+| `shop.cardPrice` | `{희귀도: 정수}` | common50 uncommon75 rare150 | 상점 카드 기본 가격 [코드 확인] | §7.3 |
+| `shop.colorlessPriceMultiplier` | 숫자 | 1.15 | 무색 카드 가격 배수 [코드 확인] | §7.3 |
+| `shop.priceJitterMin` / `priceJitterMax` | 숫자 | 0.95 / 1.05 | 가격 무작위 배수 범위 [코드 확인] | §7.3 |
+| `shop.saleMultiplier` | 0..1 | 0.5 | 세일 카드(1장) 가격 배수 [코드 확인] | §7.3 |
+| `shop.characterCardSlots` | `{타입: 정수}` | attack2 skill2 power1 | 상점 캐릭터 카드 구성 [코드 확인] | §7.3 |
+| `shop.colorlessCardSlots` | `{희귀도: 정수}` | uncommon1 rare1 | 상점 무색 카드 구성 [코드 확인] | §7.3 |
+| `cardOdds.highAscension` | 정수 | 7 | 희귀 확률 절반·보정 증가분·강화 확률이 바뀌는 승천 단계 [코드 확인] | §7.5 |
+| `cardOdds.rareMultiplierHighAscension` | 0..1 | 0.5 | 출처에 `rareHighAscension`이 없을 때 고승천 희귀 확률 배수 | §7.5 |
+| `cardOdds.cardReward` | `{rare, uncommon, rareHighAscension}` | 0.03 / 0.37 / 0.0149 | 일반 전투 보상 (이벤트 카드 제시에도 사용). 일반 = 나머지 [코드 확인] | §7.5 |
+| `cardOdds.eliteReward` | 〃 | 0.10 / 0.40 / 0.05 | 엘리트 보상 [코드 확인] | §7.5 |
+| `cardOdds.bossReward` | 〃 | 1.0 / 0 / 1.0 | 보스 보상 (항상 희귀) [코드 확인] | §7.5 |
+| `cardOdds.shop` | 〃 | 0.09 / 0.37 / 0.045 | 상점 캐릭터 카드 [코드 확인] | §7.5 |
+| `cardOdds.pity.start` | 숫자 | -0.05 | 희귀 보정치 시작값(희귀가 나오면 이 값으로 초기화) [코드 확인] | §7.5 |
+| `cardOdds.pity.step` / `stepHighAscension` | 숫자 | 0.01 / 0.005 | 희귀가 아닌 카드 1장마다 오르는 보정치 [코드 확인] | §7.5 |
+| `cardOdds.pity.cap` | 숫자 | 0.40 | 보정치 상한 [코드 확인] | §7.5 |
+| `cardOdds.upgradeChancePerAct` / `upgradeChancePerActHighAscension` | 숫자 | 0.25 / 0.125 | 희귀가 아닌 보상 카드의 강화 확률 = 막 × 값 (상점 카드는 강화 없음) [코드 확인] | §7.5 |
 | `completion.coreWeight` | 숫자 | 100 | 완성도 %에서 core·payoff 카드 가중치(참고 사이트 `must`) | §7.5 |
 | `completion.supportWeight` | 숫자 | 56 | 완성도 %에서 enabler·support 카드 가중치(참고 사이트 `rec`) | §7.5 |
-| `completion.rarityOdds` | `{희귀도: 0..1}` | common0.60 uncommon0.37 rare0.03 | 보상 슬롯 하나의 희귀도 확률 [추정] | §7.5 |
-| `completion.poolSize` | `{희귀도: 정수}` | common20 uncommon36 rare16 | 카탈로그가 없을 때 캐릭터 풀 크기 | §7.5 |
+| `completion.poolSize` | `{희귀도: 정수}` | common20 uncommon35 rare25 | 카탈로그가 없을 때 캐릭터 풀 크기 (v0.107.1 카탈로그의 캐릭터별 싱글플레이 수) | §7.5 |
 | `completion.cardsPerReward` | 정수 | 3 | 카드 보상 한 번의 카드 수 | §7.5 |
 
 역할 이름(`Roles`): `frontload`, `aoe`, `block`, `scaling`, `draw`, `energy`, `exhaust_fodder`.
+
+예전의 `completion.rarityOdds`(출처 구분 없는 [추정] 확률)는 `cardOdds`로 대체되었습니다. 남아 있어도 무시합니다.
+
+### 3.2 카드 확률 계산 (`CardOdds`)
+
+- **희귀도** (`CardOdds.Rarity(w, 출처, 승천, 보정치)`): 게임은 `r ∈ [0,1)`을 굴려 `r < 희귀 + 보정치`면 희귀로 정합니다(로그 `Card rarity: Rolled 0.455, need < -0.02 for rare` = 0.03 − 0.05). [코드 확인]
+  - 희귀 = `clamp(희귀 + 보정치, 0, 1)`. 보정치는 `pity.cap`에서 자릅니다. 기본 희귀 확률이 1 이상인 출처(보스)는 보정치와 상관없이 항상 희귀.
+  - **고급·일반 배분 [추정]**: 슬레이 더 스파이어 1의 `roll + cardBlizzRandomizer`처럼 보정치가 굴림 전체를 옮긴다고 가정합니다. 고급 = `clamp(희귀 + 보정치 + 고급) − 희귀`, 일반 = 나머지. 그래서 시작 보정치(−5%)에서 일반 전투 카드는 희귀 0%, 고급 35%, 일반 65%이고, 보정치가 오르면 일반 몫이 줄어듭니다.
+  - 보정치를 0으로 주면 표의 확률 그대로입니다.
+- **보정치 갱신** (`CardOdds.NextPityOffset`): 희귀가 나오면 `pity.start`, 아니면 `+ step`(고승천 `stepHighAscension`), 상한 `pity.cap`. 로그의 `offset = ...` 값으로 현재 보정치를 읽을 수 있습니다. [코드 확인]
+- **강화 확률** (`CardOdds.UpgradeChance`): 희귀가 아닌 보상 카드에 `막 × 0.25` (고승천 `× 0.125`), 0..1로 제한. 희귀·상점 카드는 0. [코드 확인]
+- **상점 가격** (`ShopPrices.Estimated`/`Range`, `ShopScorer.EstimatedPrice`): `기본가 × (무색이면 1.15) × (0.95~1.05)`, 세일 카드는 × 0.5. 화면에서 가격을 못 읽었을 때 쓰는 추정값이며, 게임의 반올림 방식은 확인하지 않았습니다(추정값은 배수 1.0 기준 반올림). 카드 제거 가격은 `ShopScorer.RemovalPrice`: `75 + 25 × 제거 횟수`, 승천 6 이상 `100 + 50 × 제거 횟수`. [코드 확인]
 
 ## 4. `tiers/*.json` (티어 팩)
 
@@ -220,10 +251,14 @@ ID는 게임 모델 ID 그대로입니다. 게임이 ID를 바꾼 경우(예: `R
 - **충족 안 된 요구**: `role` 요구는 `역할 공급[role] < min`, `tag` 요구는 `provides 개수[tag] < min`이면 미충족. 해당 입력이 없으면(null) 그 검사는 건너뜁니다.
 - **정렬**: commit 내림차순 → 완성도 내림차순 → id 사전순.
 - **하이브리드**: 상위 두 아키타입이 모두 commit > 0이고 차이 ≤ `hybridMargin`.
-- **core 등장 확률 [추정]** (v1 근사): 보상 슬롯 하나에 특정 카드 c가 나올 확률 `p(c) = rarityOdds[희귀도(c)] / 풀 크기(희귀도)`.
-  - 풀 크기: 카탈로그가 있으면 `pool == 런 캐릭터`이고 그 희귀도인 카드 수(싱글플레이면 `multiplayerOnly` 제외). 없으면 `completion.poolSize`.
-  - 희귀도를 모르면 `uncommon`으로 보고, `rarityOdds`에 없는 희귀도(basic, ancient 등)는 보상에 나오지 않는 것으로 봅니다.
-  - `P(N번 안에 1장 이상) = 1 − (1 − Σ p(c))^(cardsPerReward × N)` (슬롯은 독립으로 근사).
+- **core 등장 확률** (`CoreOfferProbability`): 남은 보상 N번 안에 빠진 core/payoff 카드가 1장 이상 나올 확률.
+  - 기본 시그니처 `(status, state, pack, N)`: 일반 전투 보상(`cardOdds.cardReward`)과 런의 승천으로 표 확률을 쓰고, 보정치는 쓰지 않습니다. 오버로드 `(…, N, OfferContext, pityOffset)`로 출처와 현재 보정치를 줄 수 있습니다.
+  - 카드 한 장마다 희귀도 확률은 §3.2. 그 희귀도의 특정 카드가 나올 확률은 `1 / 풀 크기(희귀도)`.
+  - 풀 크기: 카탈로그가 있으면 `CardCatalog.PoolSizes(캐릭터, 멀티 여부)` — 풀 주인이 런 캐릭터이고, 싱글이면 `MultiplayerOnly` 제외, 멀티면 `SingleplayerOnly` 제외, `showInLibrary == false` 제외. 없으면 `completion.poolSize`. (`showInLibrary == false`인 카드는 v0.107.1에서 폐기 카드와 이벤트 카드 1장뿐이라 캐릭터 풀 크기에는 영향이 없지만, 게임이 숨긴 카드는 생성되지 않는다고 보고 뺍니다.)
+  - 카탈로그가 캐릭터 풀 밖(무색, 이벤트 등)이거나 이번 모드에서 나오지 않는다고 하는 빠진 카드는 0으로 셉니다. 희귀도를 모르면 `uncommon`, 출처가 굴리지 않는 희귀도(basic, ancient 등)는 0.
+  - 보정치 없음: `P = 1 − (1 − Σ p(c))^(cardsPerReward × N)` (카드는 독립으로 근사).
+  - 보정치 있음: 카드 한 장마다 보정치 분포를 갱신합니다(희귀면 초기화, 아니면 +step, 상한). 그래서 시작 보정치(−5%)에서 짧은 기간은 표 확률보다 낮고, 긴 기간은 보정치가 쌓여 높아집니다.
+  - 한 보상 안의 중복 방지, 리롤, 상점의 타입 고정 슬롯은 무시합니다. [추정: 근사]
   - 빠진 core/payoff가 없으면(이미 완성) **1.0**, 남은 보상이 0이면 0.
 
 ## 6. `combos/*.json` (콤보)
@@ -247,28 +282,50 @@ ID는 게임 모델 ID 그대로입니다. 게임이 ID를 바꾼 경우(예: `R
 - 키와 값은 카드 또는 유물 ID입니다.
 - 별칭은 한 단계만 풉니다. 값이 다시 별칭이면(연쇄) 검증 경고가 납니다.
 
-## 8. `catalog.json` (카드 카탈로그)
+## 8. 카드 카탈로그 (`data/catalog/cards.v0.107.1.json`)
 
-브리지 모드의 `CatalogDumper`가 사용자 설치본에서 생성합니다(PLAN §6.1). 게임 텍스트가 들어가므로 **커밋하지 않습니다**(`.gitignore`의 `data/catalog/`). 형식 예시는 `data/packs/sample/catalog.example.json`에 있습니다(로더는 이 예시 파일을 읽지 않음).
+`tools/CatalogBuilder`가 `sts2.dll`의 IL을 정적으로 분석해 만든 **이름 없는** 카탈로그입니다(ID와 수치만, 578장). 게임 텍스트(이름·설명)는 들어 있지 않으므로 레포에 포함합니다. 이름은 `data/local/`에 따로 생성하며 커밋하지 않습니다. 로더는 파일을 **있는 그대로** 읽습니다(`DataPackLoader.LoadCatalog` / `LoadCatalogFile`). 형식 예시: `data/packs/sample/catalog.example.json`(로더는 읽지 않음).
+
+최상위:
+
+| 필드 | 타입 | 의미 |
+|---|---|---|
+| `gameVersion` | 문자열 | 게임 버전 (`v0.107.1`) |
+| `source` | 문자열 | 만든 도구 |
+| `note` | 문자열 | 메모 |
+| `cardCount` | 정수 | 카드 수 (참고용, `cards`가 기준) |
+| `commit` | 문자열 | (예전 덤프) 게임 빌드 커밋 |
+| `cards` | 배열 | 카드 목록 |
+
+카드(`CatalogCard`):
 
 | 필드 | 타입 | 기본값 | 의미 |
 |---|---|---|---|
-| `gameVersion` | 문자열 | null | 덤프한 게임 버전 |
-| `commit` | 문자열 | null | 게임 빌드 커밋 |
-| `cards[].id` | 카드 ID | `""` | 카드 ID |
-| `cards[].pool` | 캐릭터 ID | null | 카드 풀 (`CHARACTER.X` 또는 `COLORLESS`) |
-| `cards[].names` | `{언어: 이름}` | `{}` | 표시 이름 (로컬 전용) |
-| `cards[].type` | 문자열 | null | `attack` / `skill` / `power` / `status` / `curse` / `quest` |
-| `cards[].rarity` | 문자열 | null | `basic` / `common` / `uncommon` / `rare` / `ancient` / `special` / `curse` |
-| `cards[].cost` | 정수 | null | 비용 |
-| `cards[].costX` | bool | false | X 비용 여부 |
-| `cards[].keywords` | 문자열 배열 | `[]` | 키워드 |
-| `cards[].tags` | 문자열 배열 | `[]` | 게임 태그 |
-| `cards[].target` | 문자열 | null | 대상 (`AnyEnemy`, `AllEnemies` 등) |
-| `cards[].gainsBlock` | bool | false | 방어도를 얻는지 |
-| `cards[].multiplayerOnly` | bool | false | 멀티플레이 전용 카드인지 |
+| `id` | 카드 ID | `""` | 카드 ID |
+| `pool` | 문자열 | null | 게임의 카드 풀: `CARD_POOL.DEFECT_CARD_POOL`, `CARD_POOL.COLORLESS_CARD_POOL`, `CARD_POOL.EVENT_CARD_POOL`/`CURSE`/`TOKEN`/`STATUS`/`QUEST`/`DEPRECATED`. (예전 형식 `CHARACTER.X`/`COLORLESS`도 읽음) |
+| `character` | 캐릭터 ID | null | 캐릭터 카드면 `CHARACTER.X`. `null`이나 문자열 `"None"`은 null로 읽음 |
+| `type` | 문자열 | null | `Attack` / `Skill` / `Power` / `Curse` / `Status` / `Quest` |
+| `rarity` | 문자열 | null | `Basic` / `Common` / `Uncommon` / `Rare` / `Ancient` / `Event` / `Curse` / `Status` / `Token` / `Quest` |
+| `cost` | 정수 | null | 비용 |
+| `costX` | bool | false | X 비용 여부 |
+| `starCost` | 정수 | -1 | 별 비용(리젠트). -1이면 없음 |
+| `target` | 문자열 | null | `Self` / `AnyEnemy` / `AllEnemies` / `None` / `RandomEnemy` / `AnyAlly` / `AllAllies` |
+| `gainsBlock` | bool | false | 방어도를 얻는지. 추출기가 판단하지 못하면 `null`(v0.107.1에서 2장) → false로 읽음 |
+| `maxUpgrade` | 정수 | null | 최대 강화 단계 |
+| `multiplayer` | 문자열 | null | `None` / `MultiplayerOnly` / `SingleplayerOnly` |
+| `keywords`, `tags` | 문자열 배열 | `[]` | 키워드, 게임 태그 |
+| `showInLibrary` | bool | true | 카드 도감에 보이는지 (폐기 카드 등은 false) |
+| `multiplayerOnly` / `singleplayerOnly` | bool | false | (예전 형식) `multiplayer` 대신 쓰던 bool. 둘 중 하나라도 해당하면 참 |
+| `names` | `{언어: 이름}` | `{}` | 로컬 전용. 레포의 카탈로그에는 없음 |
 
-알 수 없는 필드(예: `upgrade`)는 무시합니다.
+정규화 규칙:
+
+- **타입·희귀도**는 적힌 그대로 저장하고, 엔진은 항상 대소문자를 가리지 않고 비교합니다. `DataPack.CardType`/`CardRarity`는 소문자(`attack`, `rare`)를 돌려줍니다.
+- **풀 주인** (`CatalogCard.PoolOwner`): `character`가 있으면 그 값, 없으면 `CARD_POOL.X_CARD_POOL` → `CHARACTER.X`, 무색 풀 → `COLORLESS`, 공용 풀(이벤트·저주·토큰·상태이상·퀘스트·폐기) → null. `DataPack.PoolOwner(id)`/`IsColorless(id)`는 카탈로그가 없으면 무색 티어 팩으로 대신 판단합니다.
+- **모드 제한** (`CatalogCard.IsAvailable(멀티 여부)`): 싱글에서는 `MultiplayerOnly` 제외, 멀티에서는 `SingleplayerOnly` 제외, `showInLibrary == false`는 항상 제외.
+- 알 수 없는 필드는 무시합니다.
+
+v0.107.1 캐릭터 풀 크기 (싱글플레이): 모든 캐릭터가 일반 20 / 고급 35 / 희귀 25 / 고대 2, 기본은 아이언클래드 3·나머지 4. 멀티플레이는 고급 36 / 희귀 26 (사일런트는 싱글 전용 고급 1장이 빠지고 멀티 전용 1장이 들어와 고급 35). 무색: 싱글 고급 32 / 희귀 21, 멀티 39 / 25. 디펙트 카드는 모두 88장.
 
 ## 9. 검증 규칙 (`DataPackValidator`)
 
@@ -282,7 +339,7 @@ ID는 게임 모델 ID 그대로입니다. 게임이 ID를 바꾼 경우(예: `R
 | 티어 항목 | `roles` 값이 0..1 밖, `confidence`가 0..1 밖, `dupFactor`가 0..3 밖, `cycle`이 0..1 밖, `upgradedDelta`가 유한수가 아님, `actTier` 막 < 1, `cost` < 0 |
 | 아키타입 | id 없음, **id 중복**, 카드 0장, `fullWeight` ≤ 0, `commitThreshold`가 (0, 1] 밖, `roleWeight` 음수, 유물 `w` 음수, `needs`에 `tag`와 `role`이 모두 없음, `min` 음수 |
 | 콤보 | 서로 다른 카드가 2장 미만 |
-| 가중치 | `unknownConfidence`·`commitThreshold`·`hybridMargin`·`weakThreshold`·`skip.lowConfidence`가 0..1 밖, `completion.cardsPerReward` < 1, `rarityOdds` 값이 0..1 밖, `poolSize` 값 ≤ 0 |
+| 가중치 | `unknownConfidence`·`commitThreshold`·`hybridMargin`·`weakThreshold`·`skip.lowConfidence`가 0..1 밖, `completion.cardsPerReward` < 1, `poolSize` 값 ≤ 0, `cardOdds.*`의 `rare`/`uncommon`/`rareHighAscension`이 0..1 밖, `rareMultiplierHighAscension`이 0..1 밖, `pity`의 `start`/`cap`이 -1..1 밖이거나 `start > cap`, `pity` step이나 강화 확률이 0..1 밖, `shop.cardPrice` 값 ≤ 0, `priceJitterMin`이 0 이하이거나 `priceJitterMax`보다 큼, `colorlessPriceMultiplier` ≤ 0, `saleMultiplier`가 0..1 밖 |
 
 **경고(Warning)**: 데이터가 덜 채워졌을 가능성이 큽니다.
 
@@ -293,4 +350,4 @@ ID는 게임 모델 ID 그대로입니다. 게임이 ID를 바꾼 경우(예: `R
 | 콤보 | 카드에 티어 항목이 없음, 캐릭터의 티어 팩이 없음, `w` ≤ 0 (효과 없음) |
 | 별칭 | 데이터가 현재 ID 대신 옛 ID(별칭 키)를 씀, 별칭 연쇄 |
 | 카탈로그 | (카탈로그가 있을 때) 티어·아키타입·콤보·별칭 대상 카드 ID가 카탈로그에 없음 |
-| 가중치 | `tierValue`에 빠진 티어, `rarityOdds` 합이 1 초과 |
+| 가중치 | `tierValue`에 빠진 티어, 출처별 `rare + uncommon`이 1 초과 |

@@ -42,6 +42,12 @@ public static class AppPaths
     }
 
     /// <summary>
+    /// <c>data/local</c> next to the data packs (gitignored): extracted card art, localization, catalog, manifest.json.
+    /// Generated automatically on first start by <see cref="Services.LocalResourceService"/>.
+    /// </summary>
+    public static string LocalDataDir => Path.Combine(FindRepoRoot() ?? AppContext.BaseDirectory, "data", "local");
+
+    /// <summary>
     /// Locally generated card catalog with Korean names (<c>data/local/catalog.&lt;version&gt;.json</c>, gitignored),
     /// used only for display names. Returns null when none exists; the UI then shows prettified ids.
     /// </summary>
@@ -52,9 +58,9 @@ public static class AppPaths
             var full = Path.IsPathRooted(configured) ? configured : Path.Combine(FindRepoRoot() ?? AppContext.BaseDirectory, configured);
             return File.Exists(full) ? Path.GetFullPath(full) : null;
         }
-        var root = FindRepoRoot();
-        if (root is null) return null;
-        var local = Path.Combine(root, "data", "local");
+        // The catalog the last automatic preparation wrote (matches the installed game), else the newest by name.
+        var local = LocalDataDir;
+        if (new Sts2Overlay.Resources.LocalLayout(local).ManifestCatalog() is { } prepared) return prepared;
         if (!Directory.Exists(local)) return null;
         return Directory.GetFiles(local, "catalog.*.json").OrderDescending(StringComparer.Ordinal).FirstOrDefault();
     }
