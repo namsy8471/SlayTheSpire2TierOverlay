@@ -12,6 +12,8 @@ public sealed record LocalLayout(string LocalDir)
     public string PckDir => Path.Combine(LocalDir, "pck");
     public string CardArtDir => Path.Combine(PckDir, "card_art");
     public string LocalizationDir => Path.Combine(PckDir, "localization");
+    /// <summary>Small relic icons cut out of the relic atlas (<see cref="Pck.RelicIconExtractor"/>): <c>&lt;name&gt;.png</c>.</summary>
+    public string RelicIconDir => Path.Combine(PckDir, "relic_icons");
     public string CatalogPath(string versionLabel) => Path.Combine(LocalDir, $"catalog.{versionLabel}.json");
     internal string StagingDir => Path.Combine(LocalDir, ".prepare-staging");
     internal string LockPath => Path.Combine(LocalDir, ".prepare.lock");
@@ -51,6 +53,9 @@ public sealed class ResourceManifest
     public int CatalogCards { get; set; }
     public int CardArtFiles { get; set; }
     public int LocalizationFiles { get; set; }
+
+    /// <summary>Relic icons written (0 when the pack has no relic atlas, e.g. a test pack).</summary>
+    public int RelicIconFiles { get; set; }
 
     private static readonly JsonSerializerOptions Json = new()
     {

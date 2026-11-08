@@ -35,7 +35,8 @@ public sealed record PrepareProgress(double Fraction, string Text);
 public sealed class ResourcePreparer(LocalLayout layout, Func<CatalogOptions, CatalogFile>? buildCatalog = null)
 {
     /// <summary>Bump when the generated layout/content changes, so existing installs rebuild once.</summary>
-    public const int FormatVersion = 1;
+    /// <remarks>2: relic icons (pck/relic_icons) added for the shop relic reader.</remarks>
+    public const int FormatVersion = 2;
 
     public const string CardArtGlob = "images/packed/card_portraits/**/*.png";
     public static readonly string[] LocalizationLanguages = ["kor", "eng"];
@@ -59,6 +60,8 @@ public sealed class ResourcePreparer(LocalLayout layout, Func<CatalogOptions, Ca
             return new PrepareCheck(PrepareNeed.Missing, "card art missing", manifest);
         if (!Directory.Exists(Layout.LocalizationDir))
             return new PrepareCheck(PrepareNeed.Missing, "localization missing", manifest);
+        if (manifest.RelicIconFiles > 0 && !Directory.Exists(Layout.RelicIconDir))
+            return new PrepareCheck(PrepareNeed.Missing, "relic icons missing", manifest);
         return new PrepareCheck(PrepareNeed.UpToDate, "up to date", manifest);
     }
 
@@ -84,7 +87,8 @@ public sealed class ResourcePreparer(LocalLayout layout, Func<CatalogOptions, Ca
             // Step weights for the overall bar: textures dominate (≈900 files), the catalog is one ~1-2 s step.
             const double LocEnd = 0.05, ArtEnd = 0.75, CatalogEnd = 0.97;
 
-            int locFiles = 0, artFiles;
+            string stRelics = Path.Combine(staging, "relic_icons");
+            int locFiles = 0, artFiles, relicFiles = 0;
             progress?.Report(new PrepareProgress(0, "리소스 준비: 게임 파일 여는 중"));
             using (var pck = new PckReader(game.Install.PckPath))
             {
@@ -99,6 +103,11 @@ public sealed class ResourcePreparer(LocalLayout layout, Func<CatalogOptions, Ca
                 var art = PckExtractor.ExtractImages(pck, CardArtGlob, stArt, artProgress, ct);
                 artFiles = art.Written;
                 if (artFiles == 0) throw new InvalidDataException($"no card portraits found in {game.Install.PckPath} ({CardArtGlob})");
+
+                // Relic icons for the shop relic reader: one BC7 atlas (~0.3 s to decode). Optional: a pack without the
+                // atlas (older game, test pack) still prepares; the shop then simply reads no relics.
+                if (pck.Entries.Any(e => e.Path == RelicIconExtractor.AtlasImport))
+                    relicFiles = RelicIconExtractor.Extract(pck, stRelics, ct);
             }
 
             ct.ThrowIfCancellationRequested();
@@ -112,6 +121,7 @@ public sealed class ResourcePreparer(LocalLayout layout, Func<CatalogOptions, Ca
             Directory.CreateDirectory(Layout.PckDir);
             ReplaceDirectory(stLoc, Layout.LocalizationDir);
             ReplaceDirectory(stArt, Layout.CardArtDir);
+            if (relicFiles > 0) ReplaceDirectory(stRelics, Layout.RelicIconDir);
             File.Move(stCatalog, Path.Combine(Layout.LocalDir, catalogName), overwrite: true);
 
             var manifest = new ResourceManifest
@@ -127,6 +137,7 @@ public sealed class ResourcePreparer(LocalLayout layout, Func<CatalogOptions, Ca
                 CatalogCards = catalog.Cards.Count,
                 CardArtFiles = artFiles,
                 LocalizationFiles = locFiles,
+                RelicIconFiles = relicFiles,
             };
             manifest.Save(Layout.ManifestPath);
             progress?.Report(new PrepareProgress(1, $"리소스 준비 완료 ({manifest.DurationSeconds:0.0}초)"));

@@ -39,4 +39,11 @@ public static class Commands
         }
         return result.Matched > 0 ? 0 : 2;
     }
+
+    public static int RelicIcons(PckReader pck, string outDir)
+    {
+        int n = RelicIconExtractor.Extract(pck, outDir);
+        Console.WriteLine($"Wrote {n} relic icon(s) to {Path.GetFullPath(outDir)}");
+        return n > 0 ? 0 : 2;
+    }
 }
