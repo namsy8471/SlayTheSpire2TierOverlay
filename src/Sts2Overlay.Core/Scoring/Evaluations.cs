@@ -6,6 +6,23 @@ namespace Sts2Overlay.Core.Scoring;
 /// <summary>A short Korean reason shown under a card, e.g. <c>광역 부족 +24</c>.</summary>
 public sealed record ReasonChip(string Key, string Label, double Value);
 
+/// <summary>
+/// What one archetype membership adds to a card's build synergy, before the build cap: <paramref name="Value"/> after the core gate
+/// and staged-synergy factor, <paramref name="Ungated"/> without the core gate. Both 0 behind the <c>requires</c> gate.
+/// </summary>
+public sealed record ArchetypeSynergy(string ArchetypeId, string Role, double Value, double Ungated);
+
+/// <summary>What a card is for a build, from the archetype JSON roles: core, essential synergy (payoff + enabler), sub synergy (support).</summary>
+public enum BuildRoleKind
+{
+    Core,
+    Essential,
+    Sub,
+}
+
+/// <summary>One build a card belongs to, shown before picking ("번개 필수 시너지").</summary>
+public sealed record BuildRole(string ArchetypeId, string ArchetypeName, BuildRoleKind Kind);
+
 /// <summary>The score of one offered card.</summary>
 public sealed record CardEvaluation
 {
@@ -26,6 +43,15 @@ public sealed record CardEvaluation
 
     /// <summary>Top reasons (max 3), signed.</summary>
     public IReadOnlyList<ReasonChip> Chips { get; init; } = [];
+
+    /// <summary>Per-archetype synergy of this card (only archetypes that list it), for explanations and tests.</summary>
+    public IReadOnlyList<ArchetypeSynergy> Synergy { get; init; } = [];
+
+    /// <summary>
+    /// Builds this card is core / essential / sub synergy for, highest current commit first, at most
+    /// <see cref="CardScorer.MaxBuildRoles"/>; empty for a card in no build. Text: <see cref="ScoringLabels.BuildRoleText"/>.
+    /// </summary>
+    public IReadOnlyList<BuildRole> BuildRoles { get; init; } = [];
 
     /// <summary>1-based rank among the offered cards (ties broken by offer order).</summary>
     public int Rank { get; init; }

@@ -146,6 +146,18 @@ public static partial class DataPackValidator
             }
             if (!double.IsFinite(a.FullWeight) || a.FullWeight <= 0) Error($"{where}.fullWeight", $"fullWeight {a.FullWeight} must be > 0.");
             if (!(a.CommitThreshold > 0 && a.CommitThreshold <= 1)) Error($"{where}.commitThreshold", $"commitThreshold {a.CommitThreshold} must be in (0, 1].");
+            if (a.CoreTarget < 1) Error($"{where}.coreTarget", $"coreTarget {a.CoreTarget} must be ≥ 1.");
+            var coreCount = a.Cards.Core.Select(pack.Canonical).Distinct(StringComparer.Ordinal).Count();
+            if (coreCount == 0) Warn($"{where}.cards.core", "Archetype has no core card; the core-first rule never applies to it.");
+            else if (a.CoreTarget > coreCount) Warn($"{where}.coreTarget", $"coreTarget {a.CoreTarget} is more than the {coreCount} core card(s); it is clamped to {coreCount}.");
+            if (a.EssentialTarget is < 0) Error($"{where}.essentialTarget", $"essentialTarget {a.EssentialTarget} must be ≥ 0.");
+            var coreIds = a.Cards.Core.Select(pack.Canonical).ToHashSet(StringComparer.Ordinal);
+            var essentialCount = a.Cards.Payoff.Concat(a.Cards.Enabler).Select(pack.Canonical)
+                .Where(id => !coreIds.Contains(id)).Distinct(StringComparer.Ordinal).Count();
+            if (a.EssentialTarget is { } et && et > essentialCount)
+            {
+                Warn($"{where}.essentialTarget", $"essentialTarget {et} is more than the {essentialCount} essential (payoff + enabler) card(s); it is clamped to {essentialCount}.");
+            }
 
             foreach (var r in a.KeyRelics)
             {
@@ -245,6 +257,32 @@ public static partial class DataPackValidator
         }
         if (!(w.Shop.ColorlessPriceMultiplier > 0) || !double.IsFinite(w.Shop.ColorlessPriceMultiplier)) error("weights.shop.colorlessPriceMultiplier", "Must be > 0.");
         if (!InRange(w.Shop.SaleMultiplier, 0, 1)) error("weights.shop.saleMultiplier", "Must be within 0..1.");
+        var cp = w.CorePriority;
+        if (!double.IsFinite(cp.Bonus) || cp.Bonus < 0) error("weights.corePriority.bonus", "Must be ≥ 0.");
+        if (!double.IsFinite(cp.StarterBonus) || cp.StarterBonus < 0) error("weights.corePriority.starterBonus", "Must be ≥ 0.");
+        if (!InRange(cp.LeanMin, 0, 1)) error("weights.corePriority.leanMin", "Must be within 0..1.");
+        if (!(cp.LeanFull > 0 && cp.LeanFull <= 1)) error("weights.corePriority.leanFull", "Must be within (0, 1].");
+        else if (cp.LeanFull < cp.LeanMin) warn("weights.corePriority.leanFull", "leanFull is below leanMin; every leaning build gets the full bonus.");
+        if (!InRange(cp.WeakFactor, 0, 1)) error("weights.corePriority.weakFactor", "Must be within 0..1.");
+        if (cp.StarterBonus > cp.Bonus) warn("weights.corePriority.starterBonus", "starterBonus is above bonus; it is clamped to bonus and the lean part is 0.");
+        if (cp.EssentialTarget < 0) error("weights.corePriority.essentialTarget", "Must be ≥ 0.");
+        if (!InRange(cp.SubBeforeEssential, 0, 1)) error("weights.corePriority.subBeforeEssential", "Must be within 0..1.");
+        if (!InRange(cp.NoCoreMaxUnlock, 0, 1)) error("weights.corePriority.noCoreMaxUnlock", "Must be within 0..1.");
+        foreach (var (act, unlock) in cp.NoCoreUnlockByAct)
+        {
+            if (!InRange(unlock, 0, 1)) error($"weights.corePriority.noCoreUnlockByAct.{act}", $"Unlock {unlock} is outside 0..1.");
+        }
+        if (cp.FloorsPerAct < 1) error("weights.corePriority.floorsPerAct", "Must be ≥ 1.");
+        if (cp.RunActs < 1) error("weights.corePriority.runActs", "Must be ≥ 1.");
+        if (!double.IsFinite(cp.RewardsPerFloor) || cp.RewardsPerFloor < 0) error("weights.corePriority.rewardsPerFloor", "Must be ≥ 0.");
+        foreach (var (role, factor) in cp.NoCoreFactor)
+        {
+            if (role is not (ArchetypeRoles.Enabler or ArchetypeRoles.Payoff or ArchetypeRoles.Support))
+            {
+                warn($"weights.corePriority.noCoreFactor.{role}", $"'{role}' is not a non-core archetype role (enabler/payoff/support); ignored.");
+            }
+            if (!InRange(factor, 0, 1)) error($"weights.corePriority.noCoreFactor.{role}", $"Factor {factor} is outside 0..1.");
+        }
         foreach (var (rarity, size) in w.Completion.PoolSize)
         {
             if (size <= 0) error($"weights.completion.poolSize.{rarity}", $"Pool size {size} must be > 0.");

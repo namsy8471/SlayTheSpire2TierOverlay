@@ -9,6 +9,8 @@ obj/
 TestResults/
 artifacts/
 publish/
+# Velopack release packages (vpk pack / tools\release.ps1 -Local)
+releases/
 
 # Game files must never be committed (copyright). Reference via Directory.Build.props.
 *.pck

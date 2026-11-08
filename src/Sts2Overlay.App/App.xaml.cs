@@ -11,6 +11,7 @@ using Sts2Overlay.App.Interop;
 using Sts2Overlay.App.Services;
 using Sts2Overlay.App.ViewModels;
 using Sts2Overlay.App.Views;
+using Velopack;
 
 namespace Sts2Overlay.App;
 
@@ -29,12 +30,29 @@ public partial class App : Application
     private PanelWindow? _panel;
     private PanelViewModel? _vm;
     private LocalResourceService? _resources;
+    private UpdateService? _updates;
+
+    /// <summary>
+    /// Entry point (StartupObject in the csproj; App.xaml is a Page, so WPF does not generate its own Main).
+    /// Velopack first: when Setup.exe / Update.exe start the exe with a --veloapp-* hook argument, Run() handles it and
+    /// exits before any window or mutex exists. Otherwise it returns at once and WPF starts as before
+    /// (OnStartup still gets the command line through StartupEventArgs.Args).
+    /// </summary>
+    [STAThread]
+    public static int Main(string[] args)
+    {
+        VelopackApp.Build().Run();
+        var app = new App();
+        app.InitializeComponent();
+        return app.Run(); // the code passed to Shutdown(..), e.g. --prepare / --verify-capture results
+    }
 
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
         AppLog.Init(AppPaths.LogFile);
         AppLog.Info($"---- start {string.Join(' ', e.Args)} (exe {AppContext.BaseDirectory})");
+        AppLog.Info($"data: {AppPaths.Layout.Kind}, content {AppPaths.ContentRoot}, local {AppPaths.LocalDataDir}");
         var options = AppOptions.Parse(e.Args);
 
         if (options.VerifyCapture)
@@ -126,6 +144,14 @@ public partial class App : Application
         _resources.EvaluateGuard(_controller.Pack, _controller.PackDir);
         _resources.Start();
 
+        _updates = new UpdateService(_settings);
+        _updates.Message += text => _controller.ShowMessage(text);
+        _updates.StateChanged += () =>
+        {
+            _vm.UpdateText = _updates.ReadyVersion is { } v ? $"새 버전 v{v} 준비됨 — 종료하면 적용 (트레이: 업데이트 적용)" : null;
+            UpdateTray();
+        };
+
         SetUpHotkeys();
         SetUpTray();
         _controller.StateChanged += UpdateTray;
@@ -140,6 +166,7 @@ public partial class App : Application
         }
         _tray?.ShowBalloon("STS2 티어 오버레이",
             options.Demo is not null ? "데모 모드로 실행 중입니다." : "실행 중입니다. 게임이 앞에 있을 때 표시됩니다.");
+        _updates.Start();
     }
 
     /// <summary>--selftest: after 2 s save one capture and recognise once, then exit after 6 s (results are in app.log).</summary>
@@ -174,6 +201,7 @@ public partial class App : Application
         {
             if (!_hotkeys!.RegisterCtrl(vk, name, a)) failed.Add("Ctrl+" + name);
         }
+        Reg(HotkeyManager.VK_F5, "F5", () => _controller!.ToggleMapOverlay());
         Reg(HotkeyManager.VK_F6, "F6", () => _controller!.ToggleAlwaysOnTop());
         Reg(HotkeyManager.VK_F7, "F7", () => _controller!.ToggleClickThrough());
         Reg(HotkeyManager.VK_F8, "F8", () => _controller!.ToggleHidden());
@@ -186,8 +214,14 @@ public partial class App : Application
 
     private void SetUpTray()
     {
-        _tray = new TrayIcon();
+        _tray = new TrayIcon(_updates!.CurrentVersion + (_updates.IsInstalled ? "" : " (개발용)"));
         _tray.ExitRequested += () => Shutdown();
+        _tray.CheckUpdateRequested += () => _updates.CheckNow();
+        _tray.ApplyUpdateRequested += () =>
+        {
+            // Normal shutdown first (settings saved in OnExit), then Velopack swaps the files and restarts us.
+            if (_updates.RequestApplyAndRestart()) Shutdown();
+        };
         _tray.ToggleVisibilityRequested += () => _controller!.ToggleHidden();
         _tray.RecognizeRequested += () => _controller!.RecognizeNow();
         _tray.SaveCaptureRequested += () => _controller!.SaveCapture();
@@ -195,6 +229,7 @@ public partial class App : Application
         _tray.DemoRequested += s => _controller!.SetDemo(s);
         _tray.DebugOutlinesRequested += () => _controller!.ToggleDebugOutlines();
         _tray.AlwaysOnTopRequested += () => _controller!.ToggleAlwaysOnTop();
+        _tray.MapOverlayRequested += () => _controller!.ToggleMapOverlay();
         _tray.ReloadPackRequested += () => _controller!.ReloadPack();
         _tray.OpenCapturesRequested += () =>
         {
@@ -215,6 +250,8 @@ public partial class App : Application
         _tray.SetState(_controller.UserHidden, _controller.Demo, scale, isAuto, "STS2 티어 오버레이 — " + _controller.StatusLine);
         _tray.SetDebugOutlines(_controller.DebugOutlines);
         _tray.SetAlwaysOnTop(_controller.AlwaysOnTop);
+        _tray.SetMapOverlay(_controller.MapOverlayOn);
+        _tray.SetUpdateReady(_updates?.ReadyVersion);
     }
 
     private static void OpenShell(string path)
@@ -254,6 +291,8 @@ public partial class App : Application
             _controller?.Dispose();
             _pipeline?.Dispose();
             _tracker?.Dispose();
+            _updates?.Dispose();
+            _updates?.ApplyOnExit(); // only does something when an update was downloaded
             AppLog.Info("---- exit");
         }
         finally

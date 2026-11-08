@@ -25,6 +25,20 @@ public sealed class Archetype
     public double FullWeight { get; set; } = 4.0;
 
     public double CommitThreshold { get; set; } = 0.7;
+
+    /// <summary>
+    /// Distinct core cards the build needs before it works (default 1). Until the deck owns this many, the scorer pushes the
+    /// missing core cards (<c>core_priority</c>) and gates the build's other cards by <c>ownedCore / coreTarget</c> (<c>core_missing</c>).
+    /// Clamped to the number of core cards, so an archetype without core cards is always "core secured".
+    /// </summary>
+    public int CoreTarget { get; set; } = 1;
+
+    /// <summary>
+    /// Distinct essential (payoff + enabler) cards the build needs before its support cards count fully; null uses
+    /// <see cref="CorePriorityWeights.EssentialTarget"/>. Clamped to the number of essential cards.
+    /// </summary>
+    public int? EssentialTarget { get; set; }
+
     public List<KeyRelic> KeyRelics { get; set; } = [];
     public List<ArchetypeNeed> Needs { get; set; } = [];
     public string? Desc { get; set; }

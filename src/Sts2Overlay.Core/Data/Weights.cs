@@ -40,6 +40,10 @@ public sealed class Weights
     /// <summary>Two archetypes within this commit distance are shown as a hybrid.</summary>
     public double HybridMargin { get; set; } = 0.15;
 
+    /// <summary>Core cards first: bonus for a build's missing core card, its synergy locked until a core is owned, then essentials before support.</summary>
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+    public CorePriorityWeights CorePriority { get; set; } = new();
+
     // ---- Combo ----
     public double ComboCap { get; set; } = 15;
 
@@ -135,6 +139,85 @@ public sealed class SaturationWeights
 
     /// <summary>Positive synergy never drops below this fraction.</summary>
     public double MinFactor { get; set; } = 0.3;
+}
+
+/// <summary>
+/// "코어 먼저, 그다음 필수 시너지" rule (all card roles come from the archetype JSON; no card ids in code).
+/// <list type="number">
+/// <item><b>Synergy locked until core.</b> <c>coreFactor(A) = min(1, ownedCore / coreTarget)</c>. A non-core card's build value
+/// from A is multiplied by <c>gate = floor + (1 − floor) × coreFactor</c>, <c>floor = max(noCoreFactor[role], unlock(A))</c>
+/// (see <see cref="NoCoreMaxUnlock"/>; default noCoreFactor 0, so with no core gate = unlock, 0 while the core is still likely).
+/// The lost value is the negative <c>core_missing</c> component.</item>
+/// <item><b>No core → no commitment.</b> In the scorer a build counts as committed (off-build penalty) only when it is core-secured.</item>
+/// <item><b>Core bonus.</b> A missing core card of A gets
+/// <c>core_priority = (starter + (Bonus − starter) × ramp) × (1 − coreFactor) × weak</c>, where <c>starter = StarterBonus</c> up to
+/// <see cref="StarterMaxAct"/> (else 0), <c>ramp = clamp(commit / LeanFull, 0, 1)</c> while A is leaning (commit ≥ <see cref="LeanMin"/>
+/// and top or within <see cref="Weights.HybridMargin"/> of the top), else 0, and <c>weak = WeakFactor</c> on a weak deck. Max over
+/// builds, never summed; 0 when the card's <c>requires</c> axis is missing.</item>
+/// <item><b>Staged synergy after core.</b> Essential = payoff + enabler, sub = support. Once A owns a core, its support cards count only
+/// <see cref="SubBeforeEssential"/> of their role weight until A owns <see cref="EssentialTarget"/> distinct essential cards
+/// (per-archetype <see cref="Archetype.EssentialTarget"/> overrides it).</item>
+/// </list>
+/// </summary>
+public sealed class CorePriorityWeights
+{
+    /// <summary>Largest core-priority bonus (score points) = one tier step (15), reached at commit ≥ <see cref="LeanFull"/>.</summary>
+    public double Bonus { get; set; } = 15;
+
+    /// <summary>Commit at which a build starts to count as leaning.</summary>
+    public double LeanMin { get; set; } = 0.15;
+
+    /// <summary>Commit at which the lean part reaches <c>Bonus − starter</c> (linear from 0 below).</summary>
+    public double LeanFull { get; set; } = 0.4;
+
+    /// <summary>Multiplier on the bonus when a weak role (block/draw) is short — fix weaknesses before builds (DECK_COMPASS rule 3).</summary>
+    public double WeakFactor { get; set; } = 0.5;
+
+    /// <summary>Part of the bonus every missing core card gets in the early acts, leaning or not.</summary>
+    public double StarterBonus { get; set; } = 6;
+
+    /// <summary>Last act in which <see cref="StarterBonus"/> applies.</summary>
+    public int StarterMaxAct { get; set; } = 2;
+
+    /// <summary>
+    /// Share of a non-core role weight that still counts toward the build while the build owns no core card (default 0 for every role:
+    /// before a core, cards are judged on their own). Rises linearly to 1 as the build reaches its <see cref="Archetype.CoreTarget"/>.
+    /// A role without a key is not gated.
+    /// </summary>
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+    public Dictionary<string, double> NoCoreFactor { get; set; } = new(StringComparer.Ordinal)
+    {
+        [ArchetypeRoles.Payoff] = 0,
+        [ArchetypeRoles.Support] = 0,
+        [ArchetypeRoles.Enabler] = 0,
+    };
+
+    /// <summary>
+    /// Largest share of a non-core card's synergy that counts while its build owns no core ("코어 전: 시너지 n% 반영").
+    /// <c>unlock = clamp(NoCoreMaxUnlock − P, 0, NoCoreMaxUnlock)</c>, P = chance that a missing core of the build is still offered
+    /// (<see cref="Archetypes.ArchetypeStatus.CoreChance"/>): 0 while P ≥ NoCoreMaxUnlock, up to NoCoreMaxUnlock when the core is unlikely to come.
+    /// Owning more of the build's synergy cards never raises it.
+    /// </summary>
+    public double NoCoreMaxUnlock { get; set; } = 0.5;
+
+    /// <summary>Fallback unlock per act when P is unknown (status built without the detector); capped by <see cref="NoCoreMaxUnlock"/>.</summary>
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+    public Dictionary<int, double> NoCoreUnlockByAct { get; set; } = new() { [1] = 0, [2] = 0.2, [3] = 0.4 };
+
+    /// <summary>[추정] Floors per act for the remaining-rewards estimate behind P (same rule as the build tab: half the floors give a card reward).</summary>
+    public int FloorsPerAct { get; set; } = 15;
+
+    /// <summary>[추정] Normal card rewards per remaining floor.</summary>
+    public double RewardsPerFloor { get; set; } = 0.5;
+
+    /// <summary>Acts in a run; each act not yet finished still has a boss card reward (3 rares).</summary>
+    public int RunActs { get; set; } = 3;
+
+    /// <summary>Distinct essential (payoff + enabler) cards a build needs before its support cards count fully.</summary>
+    public int EssentialTarget { get; set; } = 2;
+
+    /// <summary>Share of a support card's role weight while its build owns a core but fewer than the essential target.</summary>
+    public double SubBeforeEssential { get; set; } = 0.4;
 }
 
 public sealed class PowerSaturationWeights

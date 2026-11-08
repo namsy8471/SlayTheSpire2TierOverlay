@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Map overlay bench: fits the act map (node positions from the save) to captured frames, reports map-screen
+    detection and scroll accuracy, and renders the fitted nodes onto the frames for checking by eye.
+    Frames and saves stay on the user's PC (they contain game imagery / the user's run).
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Sts2Overlay.Tools.MapBench</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Sts2Overlay.GameState\Sts2Overlay.GameState.csproj" />
+    <ProjectReference Include="..\..\src\Sts2Overlay.Vision\Sts2Overlay.Vision.csproj" />
+  </ItemGroup>
+</Project>

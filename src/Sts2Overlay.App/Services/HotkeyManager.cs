@@ -14,7 +14,7 @@ namespace Sts2Overlay.App.Services;
 /// </summary>
 public sealed class HotkeyManager : IDisposable
 {
-    public const uint VK_F6 = 0x75, VK_F7 = 0x76, VK_F8 = 0x77, VK_F9 = 0x78, VK_F10 = 0x79, VK_F11 = 0x7A;
+    public const uint VK_F5 = 0x74, VK_F6 = 0x75, VK_F7 = 0x76, VK_F8 = 0x77, VK_F9 = 0x78, VK_F10 = 0x79, VK_F11 = 0x7A;
 
     private readonly HwndSource _source;
     private readonly Dictionary<int, Action> _actions = [];

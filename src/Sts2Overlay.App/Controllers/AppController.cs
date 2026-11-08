@@ -58,7 +58,8 @@ public sealed partial class AppController : IDisposable
     private string? _lastOfferKey;
     private string? _lastEvalKey;
     private IReadOnlyList<BadgeSpec> _lastBadges = [];
-    private string? _lastSkip;
+    private SkipSpec? _lastSkip;
+    private string? _lastRemovalText;
     private bool _userHidden;
     private bool _clickThrough;
 
@@ -83,6 +84,8 @@ public sealed partial class AppController : IDisposable
         CatalogPath = catalogPath;
         (_engine, _cards) = LoadPack(packDir, catalogPath, vm);
         InitForecastReview(packDir, catalogPath); // forecast + run review (AppController.ForecastReview.cs)
+        InitMapOverlay(); // marks on the game's map (AppController.MapOverlay.cs)
+        InitEvents(packDir); // event option advice (AppController.Events.cs)
 
         _tracker.Changed += (_, _) => OnTrackerChanged();
         // The panel moved to a monitor with another DPI: the DPI part of the scale changed, ours must follow.
@@ -181,7 +184,9 @@ public sealed partial class AppController : IDisposable
         _pipeline.CharacterHint = snap.Run?.Character;
         RefreshRunViews(snap.Run);
         UpdateForecastReview(snap); // AppController.ForecastReview.cs
+        UpdateEvent(snap); // AppController.Events.cs
         if (Demo is null) RefreshPath(snap);
+        UpdateMapTarget(snap); // AppController.MapOverlay.cs
 
         var likely = IsOfferHint(snap.Hint);
         if (likely && prevHint != snap.Hint)
@@ -214,6 +219,7 @@ public sealed partial class AppController : IDisposable
         {
             _pathKey = null;
             UpdatePath(null);
+            SetMapRecommendation(null);
             return;
         }
         var key = $"{map.ActId}|{map.Current}|{run.Hp}/{run.MaxHp}|{run.Gold}|{run.Deck.Count}|{run.Deck.Count(c => c.Upgrade > 0)}#{_engineVersion}";
@@ -223,6 +229,7 @@ public sealed partial class AppController : IDisposable
         {
             var rec = new PathAdvisor(_engine.Pack).Recommend(run, map);
             UpdatePath(ToPathView(rec, map));
+            SetMapRecommendation(rec);
         }
         catch (Exception ex)
         {
@@ -280,8 +287,9 @@ public sealed partial class AppController : IDisposable
     /// </summary>
     private void UpdateCadence()
     {
-        var offer = IsOfferHint(_snapshot.Hint) || (_snapshot.Hint == ScreenHint.None && _badges.HasBadges);
+        var offer = IsOfferHint(_snapshot.Hint) || (_snapshot.Hint == ScreenHint.None && _badges.HasBadges) || EventScreenLikely;
         var hz = offer ? Math.Clamp(_settings.RecognizeHz, 0.5, 10) : Math.Clamp(_settings.IdleRecognizeHz, 0, 10);
+        hz = Math.Max(hz, Math.Max(MapCadenceHz(), RestCadenceHz())); // faster while the map / a rest site is open, so the marks follow
         _pipeline.SetInterval(hz > 0 ? TimeSpan.FromSeconds(1 / hz) : null);
     }
 
@@ -298,6 +306,7 @@ public sealed partial class AppController : IDisposable
             AppLog.Info($"screen: {_loggedKind?.ToString() ?? "-"} -> {r.ScreenKind} ({r.Cards.Count} cards, hint {_snapshot.Hint})");
             _loggedKind = r.ScreenKind;
         }
+        UpdateRestMarks(r); // rest-site buttons / Smith grid (AppController.RestOverlay.cs)
         // A card grid is an offer only when it shows cards the deck does not hold; otherwise it is the deck itself
         // (remove / upgrade / transform screens, deck view), which needs no badges.
         if (r.ScreenKind == ScreenKind.Grid && !CardGridFilter.IsOffer(r.Cards.Select(c => c.Card).ToList(), _snapshot.Run?.Deck.Select(d => d.Card)))
@@ -318,10 +327,11 @@ public sealed partial class AppController : IDisposable
         {
             try
             {
-                var (offer, badges, skip) = r.ScreenKind == ScreenKind.Shop ? EvaluateShop(r) : EvaluateReward(r);
+                var (offer, badges, skip, removal) = r.ScreenKind == ScreenKind.Shop ? EvaluateShop(r) : EvaluateReward(r);
                 _vm.Offer = offer;
                 _lastBadges = badges;
                 _lastSkip = skip;
+                _lastRemovalText = removal;
                 _lastEvalKey = evalKey;
             }
             catch (Exception ex)
@@ -347,11 +357,13 @@ public sealed partial class AppController : IDisposable
                 ? _lastBadges[i] with { CardBounds = r.Cards[i].ScreenBounds, PriceBounds = r.Cards[i].PriceBounds }
                 : new BadgeSpec(r.Cards[i].ScreenBounds, "?", "", false, true, r.Cards[i].Card.IsUpgraded, r.Cards[i].PriceBounds);
         }
-        _badges.ShowBadges(specs, _lastSkip, showBounds: Demo is not null || DebugOutlines);
+        // The removal marker needs both: the engine recommends removal AND the probe sees the service still for sale.
+        var removalMark = r.RemovalService is { } coin && _lastRemovalText is { } text ? new RemovalSpec(coin, text) : null;
+        _badges.ShowBadges(specs, _lastSkip, removalMark, showBounds: Demo is not null || DebugOutlines);
         UpdateCadence();
     }
 
-    private (OfferSectionVm, IReadOnlyList<BadgeSpec>, string?) EvaluateReward(RecognitionResult r)
+    private (OfferSectionVm, IReadOnlyList<BadgeSpec>, SkipSpec?, string?) EvaluateReward(RecognitionResult r)
     {
         var run = _snapshot.Run ?? UnknownRun;
         var cards = r.Cards.Select(c => c.Card).ToArray();
@@ -365,6 +377,7 @@ public sealed partial class AppController : IDisposable
             var sub = $"{e.Rank}위 · 데이터 신뢰도 {e.Confidence:P0}";
             if (r.Cards[i].Confidence < 0.8) sub += $" · 인식 {r.Cards[i].Confidence:P0}";
             if (!e.IsRated) sub += " · 미평가 카드";
+            if (ScoringLabels.BuildRoleText(e.BuildRoles) is { } buildRole) sub = buildRole + "\n" + sub;
             rows.Add(new OfferRowVm
             {
                 Name = _cards.Name(e.Card),
@@ -413,12 +426,13 @@ public sealed partial class AppController : IDisposable
         };
 
         var badges = eval.Cards
-            .Select((e, i) => new BadgeSpec(r.Cards[i].ScreenBounds, e.DisplayTier.ToString(), Fmt(e.Total), e.IsBest, e.IsEstimate, e.Card.IsUpgraded))
+            .Select((e, i) => new BadgeSpec(r.Cards[i].ScreenBounds, e.DisplayTier.ToString(), Fmt(e.Total), e.IsBest, e.IsEstimate, e.Card.IsUpgraded,
+                Chips: OfferMarkers.CardChips(e.Chips), Ribbon: e.IsBest ? OfferMarkers.RecommendRibbon : null))
             .ToArray();
-        return (offer, badges, eval.SkipRecommended ? Fmt(eval.Skip.Total) : null);
+        return (offer, badges, OfferMarkers.Skip(eval, Fmt), null);
     }
 
-    private (OfferSectionVm, IReadOnlyList<BadgeSpec>, string?) EvaluateShop(RecognitionResult r)
+    private (OfferSectionVm, IReadOnlyList<BadgeSpec>, SkipSpec?, string?) EvaluateShop(RecognitionResult r)
     {
         var run = _snapshot.Run ?? UnknownRun;
         // --- shop prices (m2/shop-price): unread prices are estimated by the scorer; label colours bound the gold ---
@@ -433,6 +447,7 @@ public sealed partial class AppController : IDisposable
             var score = e?.Total ?? item.Value.Total;
             var sub = $"구매 가치 {Fmt(item.Value.Total)} · 골드당 {item.ValuePerGold.ToString("0.00", CultureInfo.InvariantCulture)}";
             if (!item.Affordable) sub += " · 골드 부족";
+            if (e is not null && ScoringLabels.BuildRoleText(e.BuildRoles) is { } buildRole) sub = buildRole + "\n" + sub;
             return new OfferRowVm
             {
                 Name = isCard ? _cards.Name(item.Card!.Value) : $"카드 제거 ({(item.RemovalTarget is { } t ? _cards.Name(t) : "?")})",
@@ -469,10 +484,11 @@ public sealed partial class AppController : IDisposable
         {
             var item = byCard.TryGetValue(rc.Card, out var q) && q.Count > 0 ? q.Dequeue() : null;
             var e = item?.CardEvaluation;
+            var buy = item is not null && recommended.Contains(item);
             return new BadgeSpec(rc.ScreenBounds, e?.DisplayTier.ToString() ?? "?", e is null ? "" : Fmt(e.Total),
-                item is not null && recommended.Contains(item), e?.IsEstimate ?? true, rc.Card.IsUpgraded);
+                buy, e?.IsEstimate ?? true, rc.Card.IsUpgraded, Ribbon: buy ? OfferMarkers.BuyRibbon : null);
         }).ToArray();
-        return (section, badges, null);
+        return (section, badges, null, OfferMarkers.RemovalText(eval, _cards.Name));
     }
 
     /// <summary>"75골드", "~150골드 (추정)" for an unread label, "37골드 세일" for the half-price card.</summary>
@@ -486,7 +502,8 @@ public sealed partial class AppController : IDisposable
         _lastResult = null;
         _lastEvalKey = null;
         _lastOfferKey = null;
-        if (_vm.Offer.HasContent && !_vm.Offer.IsStale) _vm.Offer = _vm.Offer with { IsStale = true };
+        // In an event room the 추천 tab shows the event's options (AppController.Events.cs): keep it fresh.
+        if (_vm.Offer.HasContent && !_vm.Offer.IsStale && _lastEvent is null) _vm.Offer = _vm.Offer with { IsStale = true };
     }
 
     private void ResetOffer()
@@ -634,6 +651,13 @@ public sealed partial class AppController : IDisposable
                 ? null
                 : "필요: " + string.Join(", ", st.MissingCards.Take(5).Select(m =>
                     $"{_cards.Name(m.CardId)}({RoleName(m.Role)}, {CardInfoProvider.RarityKorean(m.Rarity)})"));
+            // 코어 먼저: before a core the scorer locks this build's synergy; after it, essentials (payoff + enabler) before support.
+            var cores = string.Join(", ", st.MissingCore.Take(3).Select(m => _cards.Name(m.CardId)));
+            var stage = st.CoreTarget == 0 || st.Commit <= 0 ? null
+                : st.OwnedCore == 0 ? $"코어 전: 시너지 점수 잠김 · 먼저 노릴 코어 {cores}"
+                : (st.EssentialTarget > 0 ? $"필수 시너지 {Math.Min(st.OwnedEssential, st.EssentialTarget)}/{st.EssentialTarget}" : "")
+                  + (st.CoreSecured ? "" : $" · 코어 {st.OwnedCore}/{st.CoreTarget}, 다음 코어 {cores}");
+            if (!string.IsNullOrWhiteSpace(stage)) missing = stage.TrimStart(' ', '·') + (missing is null ? "" : "\n" + missing);
             var needs = st.UnmetNeeds.Count == 0
                 ? null
                 : "조건 미충족: " + string.Join(", ", st.UnmetNeeds.Select(n =>
@@ -733,6 +757,7 @@ public sealed partial class AppController : IDisposable
         _vm.UiScale = UiScale.LayoutFactor(effective, dpi);
         _vm.UiScaleText = $"UI {effective * 100:0}%{(isAuto ? " (자동)" : "")}";
         _badges.ScaleMultiplier = effective / auto;
+        SetMapScale(effective / auto);
     }
 
     /// <summary>
@@ -754,6 +779,8 @@ public sealed partial class AppController : IDisposable
         {
             _badges.Hide();
         }
+        UpdateMapLayerVisibility(show, info);
+        UpdateEventMarkerVisibility(); // AppController.Events.cs
         if (showPanel)
         {
             if (!_panel.IsVisible) _panel.Show();
@@ -771,6 +798,8 @@ public sealed partial class AppController : IDisposable
         if (!_panel.IsVisible && !_badges.IsVisible) return;
         // Badges first, then the panel, so the panel ends up above the badge layer.
         OverlayWindowHelper.AssertTopmost(_badges.Hwnd);
+        ReassertMapTopmost();
+        ReassertEventMarkersTopmost(); // AppController.Events.cs
         if (_settings.AlwaysOnTop) OverlayWindowHelper.AssertTopmost(_panel.Hwnd);
     }
 
@@ -833,6 +862,7 @@ public sealed partial class AppController : IDisposable
         _engineVersion++;
         RefreshRunViews(_snapshot.Run);
         ReloadForecastReview(); // AppController.ForecastReview.cs
+        ReloadEvents(); // AppController.Events.cs
         if (_lastResult is not null) ApplyRecognition(_lastResult);
         ShowMessage("데이터 팩을 다시 읽었습니다");
         PackReloaded?.Invoke();
@@ -951,5 +981,6 @@ public sealed partial class AppController : IDisposable
         _source.Changed -= OnSourceChanged;
         _source.Dispose();
         DisposeForecastReview(); // AppController.ForecastReview.cs
+        DisposeMapOverlay();
     }
 }

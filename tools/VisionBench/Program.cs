@@ -17,8 +17,9 @@ using VisionBench;
 //   VisionBench price-occlude [--prices file] [--upscale 2] [--dark x] [--no-rarity x]   paints a "hand" (or a dark
 //                         panel) over parts of each price: unknown is fine, wrong is not
 //   VisionBench price-glyphs [--prices file] [--upscale 2]     derive the price digit templates from labelled shops
-//   VisionBench preview   [png ...] [--captures dir] [--out dir]   badges drawn where the overlay would put them
+//   VisionBench preview   [png ...] [--captures dir] [--out dir] [--skip on]   badges + recommendation marks drawn where the overlay would put them
 //                         (4K/150 % and FHD/100 %), with the debug card/price outlines
+//   VisionBench removal   --labels file [--captures dir]   card-removal probe vs hand labels at FHD, 1440p and 2x (4K)
 //
 // Everything it reads or writes lives outside the repo or in data/local (gitignored).
 
@@ -76,8 +77,21 @@ switch (args.FirstOrDefault())
     case "preview":
         PreviewCommand();
         break;
+    case "removal":
+    {
+        // Labels live outside the repo (they name the user's captures); see RemovalBench for the format.
+        string capturesDir = opts.GetValueOrDefault("captures") ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Sts2Overlay", "captures");
+        int errors = RemovalBench.Run(capturesDir, opts["labels"],
+            [
+                new("native", f => f),
+                new("1440p-linear", f => Resize(f, 2560, 1439, 1f)),
+                new("2x-nearest", f => Upscale(f, 2)),
+            ], Console.WriteLine);
+        Environment.ExitCode = errors == 0 ? 0 : 1;
+        break;
+    }
     default:
-        Console.WriteLine("commands: build-db | selftest | recognize <png> | annotate <png> [out] | bench | stress | probe | price-glyphs | price-occlude | price-debug | preview");
+        Console.WriteLine("commands: build-db | selftest | recognize <png> | annotate <png> [out] | bench | stress | probe | price-glyphs | price-occlude | price-debug | preview | removal");
         break;
 }
 
@@ -250,7 +264,7 @@ void PreviewCommand()
     List<string> files = positional.Count > 0 ? positional : PickPreviewCaptures(rec,
         opts.GetValueOrDefault("captures") ?? Path.Combine(repo, "data", "local", "vision-robust", "frozen2", "captures"));
     var tiers = Preview.LoadTiers(Path.Combine(repo, "data", "packs", "v0.107.1", "tiers"));
-    Console.WriteLine(Preview.Run(files, rec, Upscale, tiers, outDir, Console.WriteLine));
+    Console.WriteLine(Preview.Run(files, rec, Upscale, tiers, outDir, Console.WriteLine, skip: opts.GetValueOrDefault("skip") == "on"));
 }
 
 static List<string> PickPreviewCaptures(CardRecognizer rec, string dir)

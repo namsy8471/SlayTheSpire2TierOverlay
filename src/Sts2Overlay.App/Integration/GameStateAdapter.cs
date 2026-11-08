@@ -1,5 +1,6 @@
 using System.IO;
 using Sts2Overlay.App.Infrastructure;
+using Sts2Overlay.Core.Map;
 using Sts2Overlay.Core.Model;
 using Sts2Overlay.GameState;
 using Sts2Overlay.GameState.Log;
@@ -76,7 +77,12 @@ public sealed class GameStateAdapter : IGameStateSource, ICardOfferSink
             CombatKind.Boss => OfferContext.BossReward,
             _ => OfferContext.CardReward,
         };
-        return new GameStateSnapshot(run.State, run.Map, hint, rewardContext, run.UpdatedAt.ToLocalTime(), Doubts(run));
+        return new GameStateSnapshot(run.State, run.Map, hint, rewardContext, run.UpdatedAt.ToLocalTime(), Doubts(run))
+        {
+            Seed = run.Seed,
+            PartnerVotes = run.PartnerVotes.Select(v => v.Coord).ToList(),
+            UnknownOdds = run.Save is { } save ? UnknownRoomOdds.From(save.UnknownMapPointOdds) : null,
+        };
     }
 
     private static DeckDoubts? Doubts(TrackedRun run)

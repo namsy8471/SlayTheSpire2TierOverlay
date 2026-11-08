@@ -2,6 +2,7 @@ using System.IO;
 using Sts2Overlay.App.Infrastructure;
 using Sts2Overlay.Core.Model;
 using Sts2Overlay.Vision;
+using Sts2Overlay.Vision.Rest;
 using VisionKind = Sts2Overlay.Vision.ScreenKind;
 
 namespace Sts2Overlay.App.Integration;
@@ -13,7 +14,6 @@ namespace Sts2Overlay.App.Integration;
 /// </summary>
 public sealed class VisionRecognizer : ICardRecognizer
 {
-    private readonly string? _repoRoot = AppPaths.FindRepoRoot();
     private readonly RecognitionTracker _tracker = new();
     private readonly Lock _loadLock = new();
     private volatile CardRecognizer? _recognizer;
@@ -44,7 +44,10 @@ public sealed class VisionRecognizer : ICardRecognizer
             VisionKind.CardGrid => ScreenKind.Grid,
             _ => ScreenKind.Other,
         };
-        if (kind == ScreenKind.Other) return RecognitionResult.Other;
+        // Rest site: option buttons / Smith grid. A fixed-layout colour check, ~0.2 ms at 4K, so it runs on every frame.
+        var rest = RestSiteDetector.Detect(vf);
+        var restSeen = rest.ChoiceScreen || rest.CardGridOpen ? rest : null;
+        if (kind == ScreenKind.Other) return restSeen is null ? RecognitionResult.Other : RecognitionResult.Other with { RestSite = restSeen };
 
         var cards = shown.Cards
             .Where(c => c.Accepted && c.CardId is not null)
@@ -60,7 +63,15 @@ public sealed class VisionRecognizer : ICardRecognizer
                 c.PriceReading?.OnSale == true,
                 c.PriceBounds is { } p ? new PixelRect(p.X, p.Y, p.Width, p.Height).Offset(frame.ScreenRect.X, frame.ScreenRect.Y) : null))
             .ToArray();
-        return new RecognitionResult(kind, cards);
+        // Shop: is the card-removal service still for sale? A fixed-place colour probe (CardRemovalProbe), ~0.1 ms.
+        var removal = kind == ScreenKind.Shop ? CardRemovalProbe.Read(vf) : null;
+        return new RecognitionResult(kind, cards)
+        {
+            RemovalService = removal is { Available: true, Bounds: var b }
+                ? new PixelRect(b.X, b.Y, b.Width, b.Height).Offset(frame.ScreenRect.X, frame.ScreenRect.Y)
+                : null,
+            RestSite = restSeen,
+        };
     }
 
     private CardRecognizer? Load()
@@ -75,13 +86,13 @@ public sealed class VisionRecognizer : ICardRecognizer
     private CardRecognizer? LoadLocked()
     {
         if (_unavailable) return null;
-        var root = _repoRoot ?? AppContext.BaseDirectory;
-        var artRoot = Path.Combine(root, "data", "local", "pck", "card_art");
+        var local = AppPaths.LocalDataDir;
+        var artRoot = Path.Combine(local, "pck", "card_art");
         // The catalog generated from the INSTALLED game (data/local, see LocalResourceService) knows cards added by a game
         // update; the committed names-free catalog is the fallback.
-        var catalog = new Sts2Overlay.Resources.LocalLayout(Path.Combine(root, "data", "local")).ManifestCatalog()
-            ?? Path.Combine(root, "data", "catalog", "cards.v0.107.1.json");
-        var cache = Path.Combine(root, "data", "local", "vision", "card-art.bin");
+        var catalog = new Sts2Overlay.Resources.LocalLayout(local).ManifestCatalog()
+            ?? AppPaths.CommittedCatalogFile;
+        var cache = Path.Combine(local, "vision", "card-art.bin");
         if (!Directory.Exists(artRoot))
         {
             _unavailable = true;

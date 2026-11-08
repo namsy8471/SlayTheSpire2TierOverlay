@@ -32,6 +32,15 @@ public sealed record GameStateSnapshot(
     DeckDoubts? Doubts = null)
 {
     public static GameStateSnapshot Empty { get; } = new(null, null, ScreenHint.None, OfferContext.CardReward, DateTime.MinValue);
+
+    /// <summary>Run seed string (save <c>rng.seed</c>): the map overlay needs it to place the nodes exactly.</summary>
+    public string? Seed { get; init; }
+
+    /// <summary>Co-op: the nodes the other players currently vote for on this act's map (empty in single player).</summary>
+    public IReadOnlyList<MapCoord> PartnerVotes { get; init; } = [];
+
+    /// <summary>What the next "?" room turns into, from the save's run odds. Null when unknown (log-only run).</summary>
+    public UnknownRoomOdds? UnknownOdds { get; init; }
 }
 
 /// <summary>

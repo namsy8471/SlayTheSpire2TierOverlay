@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Rest-site bench: checks RestSiteDetector against a hand-labelled list of captured frames (names + numbers only,
+    data/rest-site-truth.txt), measures its speed, renders the detected buttons for checking by eye, and regenerates
+    the icon signature table from the game's icons. Frames and icons stay on the user's PC.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Sts2Overlay.Tools.RestBench</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Sts2Overlay.Vision\Sts2Overlay.Vision.csproj" />
+  </ItemGroup>
+</Project>

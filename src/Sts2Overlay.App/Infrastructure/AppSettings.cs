@@ -53,8 +53,29 @@ public sealed class AppSettings
     /// Off: a normal window that stays open while the game runs and can be covered. Badges are always on top.</summary>
     public bool AlwaysOnTop { get; set; } = true;
 
+    /// <summary>
+    /// "맵·휴식처 위 추천": draws the recommended next node and path on the game's own map screen, and the advised
+    /// button / card to upgrade at rest sites (tray / Ctrl+F5).
+    /// </summary>
+    public bool MapOverlay { get; set; } = true;
+
+    /// <summary>Capture rate while the map screen is open, so the marks follow when the map is scrolled.</summary>
+    public double MapHz { get; set; } = 6;
+
     /// <summary>Panel background opacity 0..1.</summary>
     public double PanelOpacity { get; set; } = 0.86;
+
+    /// <summary>
+    /// Installed builds only: check for a new version ~15 s after start (then at most every 6 h) and download it in the
+    /// background. It is applied when the overlay exits, or right away from the tray ("업데이트 적용"). Never restarts by itself.
+    /// </summary>
+    public bool AutoUpdate { get; set; } = true;
+
+    /// <summary>
+    /// Where updates come from. Null = the GitHub releases of namsy8471/SlayTheSpire2TierOverlay. Also accepts another
+    /// github.com repo URL, any http(s) folder with Velopack release files, or a local folder (for testing).
+    /// </summary>
+    public string? UpdateUrl { get; set; }
 }
 
 /// <summary>Loads and saves <see cref="AppSettings"/>. A broken file falls back to defaults (and is logged).</summary>

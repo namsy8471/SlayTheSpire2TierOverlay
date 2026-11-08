@@ -146,6 +146,8 @@ public sealed class RecommendationEngine(DataPack pack)
                 return leaderIsFirst
                     ? $"덱에 {roleName} 카드가 더 있으면 순위가 바뀝니다."
                     : $"덱의 {roleName} 공급이 조금만 더 부족하면 순위가 바뀝니다.";
+            case ComponentKeys.CorePriority or ComponentKeys.CoreMissing:
+                return "빌드의 코어 카드를 이미 갖고 있었다면 순위가 바뀝니다.";
             case ComponentKeys.Build or ComponentKeys.Combo when diff > 0:
                 return "빌드 몰입도가 더 낮았다면 순위가 바뀝니다.";
             case ComponentKeys.Build or ComponentKeys.Combo:

@@ -1,0 +1,59 @@
+<Window x:Class="Sts2Overlay.App.Views.EventMarkerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="STS2 Event Markers"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        Topmost="True" ShowInTaskbar="False" ShowActivated="False" ResizeMode="NoResize"
+        Focusable="False" IsHitTestVisible="False"
+        Left="0" Top="0" Width="100" Height="100"
+        FontFamily="{StaticResource UiFont}">
+  <!--
+    Same kind of layer as the card badges (BadgeWindow): transparent, click-through, over the game's client area.
+    One marker per event option button, to the RIGHT of the button (hover tooltips open on the left).
+    The recommended option gets the gold "추천!" pill; the others a small score.
+  -->
+  <ItemsControl ItemsSource="{Binding Markers}">
+    <ItemsControl.ItemsPanel>
+      <ItemsPanelTemplate>
+        <Canvas />
+      </ItemsPanelTemplate>
+    </ItemsControl.ItemsPanel>
+    <ItemsControl.ItemContainerStyle>
+      <Style TargetType="ContentPresenter">
+        <Setter Property="Canvas.Left" Value="{Binding Left}" />
+        <Setter Property="Canvas.Top" Value="{Binding Top}" />
+      </Style>
+    </ItemsControl.ItemContainerStyle>
+    <ItemsControl.ItemTemplate>
+      <DataTemplate>
+        <Grid>
+          <Grid.LayoutTransform>
+            <ScaleTransform ScaleX="{Binding Scale}" ScaleY="{Binding Scale}" />
+          </Grid.LayoutTransform>
+          <!-- Recommended option -->
+          <Border Height="44" CornerRadius="10" Background="#F2231E0C" BorderBrush="{StaticResource Gold}" BorderThickness="3"
+                  Padding="10,0,12,0" Visibility="{Binding IsBest, Converter={StaticResource BoolVis}}">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+              <Path Data="{StaticResource CrownGeometry}" Fill="{StaticResource Gold}" Width="20" Height="17" Stretch="Uniform" VerticalAlignment="Center" />
+              <TextBlock Text="추천!" FontSize="20" FontWeight="Bold" Foreground="{StaticResource Gold}" Margin="6,0,0,0" VerticalAlignment="Center" />
+              <TextBlock Text="{Binding ScoreText}" FontSize="16" FontWeight="Bold" Foreground="White" Margin="8,0,0,0" VerticalAlignment="Center" />
+            </StackPanel>
+          </Border>
+          <!-- Other options: rank and score, dimmed; a warning tag for lethal / unaffordable ones -->
+          <Border Height="32" CornerRadius="8" Background="#D015161C" BorderBrush="#66FFFFFF" BorderThickness="1.5"
+                  Padding="8,0,10,0" VerticalAlignment="Center"
+                  Visibility="{Binding IsOther, Converter={StaticResource BoolVis}}">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+              <TextBlock Text="{Binding RankText}" FontSize="14" FontWeight="Bold" Foreground="{StaticResource TextDim}" VerticalAlignment="Center" />
+              <TextBlock Text="{Binding ScoreText}" FontSize="15" FontWeight="Bold" Foreground="{StaticResource TextMain}" Margin="6,0,0,0" VerticalAlignment="Center" />
+              <Border Background="{StaticResource ChipNeg}" CornerRadius="4" Padding="5,0" Margin="6,0,0,0" VerticalAlignment="Center"
+                      Visibility="{Binding HasWarning, Converter={StaticResource BoolVis}}">
+                <TextBlock Text="{Binding Warning}" FontSize="12" FontWeight="Bold" Foreground="White" />
+              </Border>
+            </StackPanel>
+          </Border>
+        </Grid>
+      </DataTemplate>
+    </ItemsControl.ItemTemplate>
+  </ItemsControl>
+</Window>
