@@ -222,9 +222,9 @@ public sealed class CorePriorityWeights
     // ---- After the core: the build's essentials beat generic cards ("빌드 필수 카드") ----
 
     /// <summary>
-    /// Least synergy (score points) an essential card (payoff/enabler) of a core-secured, leaning build counts for:
-    /// <c>secured_essential = max(0, floor − synergy)</c>, <c>floor = SecuredEssentialFloor × ramp × taper × emergency</c>,
-    /// <c>ramp = clamp((commit − LeanMin) / (LeanFull − LeanMin), 0, 1)</c>.
+    /// Least synergy (score points) an essential card (payoff/enabler) counts for once its build owns its core target and is the deck's
+    /// build (top commit or within the hybrid margin), whatever the commit:
+    /// <c>secured_essential = max(0, floor − synergy)</c>, <c>floor = SecuredEssentialFloor × taper × emergency</c>.
     /// 27 = one tier step (15) + a typical role need (~6) + the dilution edge of a card that draws (~6), so an essential beats a generic card
     /// one tier higher; it stays below two tier steps (30), so a card two tiers higher still wins. 0 turns the rule off.
     /// </summary>

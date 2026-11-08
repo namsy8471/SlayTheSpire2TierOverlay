@@ -193,9 +193,9 @@ public sealed class CardScorer(DataPack pack)
         }
 
         // ---- secured build essential ("빌드 필수 카드") ----
-        // Once a leaning build owns its core, its essential cards (payoff/enabler) count at least `floor` of synergy, so they beat a
-        // generic card one tier higher with a typical need, but not one two tiers higher (see off-build below). Ramps with commit from
-        // leanMin to leanFull, tapers once the build holds essentialTarget + extra essentials, halves in an emergency. Max over builds.
+        // Once the deck's build owns its core, its essential cards (payoff/enabler) count at least `floor` of synergy, so they beat a
+        // generic card one tier higher with a typical need, but not one two tiers higher (see off-build below). Full as soon as the core is in
+        // (whatever the commit, if it is the deck's build), tapers once the build holds essentialTarget + extra essentials, halves in an emergency. Max over builds.
         double securedEssential = 0;
         string? securedDetail = null;
         if (!engineMissing)
@@ -207,7 +207,6 @@ public sealed class CardScorer(DataPack pack)
                 if (f.Floor <= bestFloor + Epsilon) continue;
                 bestFloor = f.Floor;
                 securedDetail = $"{m.Status.Archetype.DisplayName} 코어 확보: 필수 시너지 최소 {Num(f.Floor)}점"
-                    + (f.Ramp < 1.0 ? $", 몰입 {m.Commit * 100:0}%" : "")
                     + (f.Taper < 1.0 ? $", 필수 {m.Essential.Owned}장 보유 (감쇠 ×{Num(f.Taper)})" : "")
                     + (emergency ? $" (위급: 방어·체력 우선 ×{Num(f.EmergencyFactor)})" : "");
             }
@@ -412,10 +411,12 @@ public sealed class CardScorer(DataPack pack)
     public const double TwoTierMargin = 1.0;
 
     /// <summary>
-    /// Secured-essential floor of build <paramref name="s"/> (0 unless it has core cards, owns its core target and leans):
-    /// <c>SecuredEssentialFloor × ramp × taper × emergency</c>, and never above <see cref="Weights.BuildCapWeak"/> on a weak deck in an emergency.
+    /// Secured-essential floor of build <paramref name="s"/>: 0 unless it has core cards, owns its core target and is the deck's build
+    /// (top commit or within <see cref="Weights.HybridMargin"/> of it). Then the full <c>SecuredEssentialFloor × taper × emergency</c>
+    /// whatever the commit ("once the core arrives, essential synergy gets its points"), never above <see cref="Weights.BuildCapWeak"/>
+    /// on a weak deck in an emergency.
     /// </summary>
-    private (double Floor, double Ramp, double Taper, double EmergencyFactor) SecuredFloor(
+    private (double Floor, double Taper, double EmergencyFactor) SecuredFloor(
         ArchetypeStatus s, DeckProfile profile, double topCommit, bool emergency)
     {
         var w = Pack.Weights;
@@ -423,28 +424,14 @@ public sealed class CardScorer(DataPack pack)
         if (!(Finite(cp.SecuredEssentialFloor) > 0)) return default;
         var core = ArchetypeDetector.CoreProgress(s.Archetype, Pack, profile.Copies);
         if (core.Target == 0 || core.Owned < core.Target) return default;
-        var commit = Commit(s);
-        if (commit < cp.LeanMin - Epsilon || commit < topCommit - w.HybridMargin - Epsilon) return default;
-        var ramp = SecuredRamp(commit, cp);
+        if (Commit(s) < topCommit - w.HybridMargin - Epsilon) return default;
         var essential = ArchetypeDetector.EssentialProgress(s.Archetype, Pack, profile.Copies);
         var extra = essential.Owned - (essential.Target + cp.SecuredEssentialExtra);
         var taper = extra <= 0 ? 1.0 : Math.Max(0.0, 1 - extra * Math.Clamp(Finite(cp.SecuredEssentialTaper), 0.0, 1.0));
         var emergencyFactor = emergency ? Math.Clamp(Finite(cp.EmergencyFactor), 0.0, 1.0) : 1.0;
-        var floor = Finite(cp.SecuredEssentialFloor) * ramp * taper * emergencyFactor;
+        var floor = Finite(cp.SecuredEssentialFloor) * taper * emergencyFactor;
         if (emergency && profile.IsWeak) floor = Math.Min(floor, w.BuildCapWeak);
-        return (floor, ramp, taper, emergencyFactor);
-    }
-
-    /// <summary>
-    /// Share of <see cref="CorePriorityWeights.SecuredEssentialFloor"/> a secured build gets at <paramref name="commit"/>: 0 at
-    /// <see cref="CorePriorityWeights.LeanMin"/> (where a build starts to lean), rising linearly to 1 at <see cref="CorePriorityWeights.LeanFull"/>.
-    /// A core plus one card (commit ≈ 0.25) is not yet "clearly running the build"; core + two essentials is.
-    /// </summary>
-    public static double SecuredRamp(double commit, CorePriorityWeights cp)
-    {
-        var span = cp.LeanFull - cp.LeanMin;
-        if (!(span > Epsilon)) return commit >= cp.LeanFull - Epsilon ? 1.0 : 0.0;
-        return Math.Clamp((commit - cp.LeanMin) / span, 0.0, 1.0);
+        return (floor, taper, emergencyFactor);
     }
 
     /// <summary>

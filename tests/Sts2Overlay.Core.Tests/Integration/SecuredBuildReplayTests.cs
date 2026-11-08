@@ -44,23 +44,23 @@ public class SecuredBuildReplayTests(ITestOutputHelper output)
 
     private static readonly Lazy<IReadOnlyList<Replayed>> All = new(() => Replay(TestPaths.AllRuns.Append(PoisonRun)));
 
-    /// <summary>Builds with core cards that own their core and lean (commit ≥ leanMin, top or within hybridMargin of the top).</summary>
+    /// <summary>Builds with core cards that own their core and are the deck's build (top commit or within hybridMargin of the top).</summary>
     private static IEnumerable<ArchetypeStatus> SecuredLeaning(DeckProfile p, Weights w)
     {
         var top = p.Archetypes.Select(CardScorer.Commit).DefaultIfEmpty(0).Max();
         return p.Archetypes.Where(a => a.CoreTarget > 0 && a.CoreSecured
-            && CardScorer.Commit(a) >= w.CorePriority.LeanMin - 1e-9 && CardScorer.Commit(a) >= top - w.HybridMargin - 1e-9);
+            && CardScorer.Commit(a) >= top - w.HybridMargin - 1e-9);
     }
 
-    /// <summary>The documented floor for build <paramref name="a"/>: <c>floor × clamp((commit − leanMin)/(leanFull − leanMin)) × taper × emergency</c>.</summary>
+    /// <summary>The documented floor for build <paramref name="a"/>: <c>floor × taper × emergency</c> (≤ buildCapWeak on a weak deck in an emergency).</summary>
     private static double ExpectedFloor(ArchetypeStatus a, Replayed r, Weights w)
     {
         var cp = w.CorePriority;
-        var ramp = Math.Clamp((CardScorer.Commit(a) - cp.LeanMin) / (cp.LeanFull - cp.LeanMin), 0, 1);
         var excess = a.OwnedEssential - (a.EssentialTarget + cp.SecuredEssentialExtra);
         var taper = excess <= 0 ? 1 : Math.Max(0, 1 - excess * cp.SecuredEssentialTaper);
         var emergency = CardScorer.IsEmergency(r.State, r.Profile, w) ? cp.EmergencyFactor : 1;
-        return cp.SecuredEssentialFloor * ramp * taper * emergency;
+        var floor = cp.SecuredEssentialFloor * taper * emergency;
+        return emergency < 1 && r.Profile.IsWeak ? Math.Min(floor, w.BuildCapWeak) : floor;
     }
 
     private static double Synergy(CardEvaluation e)
@@ -87,7 +87,7 @@ public class SecuredBuildReplayTests(ITestOutputHelper output)
             {
                 states++;
                 var floor = ExpectedFloor(a, r, w);
-                if (floor < w.CorePriority.SecuredEssentialFloor * CardScorer.SecuredRamp(CardScorer.Commit(a), w.CorePriority) - 1e-9)
+                if (floor < w.CorePriority.SecuredEssentialFloor - 1e-9)
                 {
                     if (CardScorer.IsEmergency(r.State, r.Profile, w)) emergencies++; else tapered++;
                 }
@@ -108,7 +108,7 @@ public class SecuredBuildReplayTests(ITestOutputHelper output)
     }
 
     /// <summary>
-    /// Invariant (d), recorded offers: when a secured build leans fully (commit ≥ leanFull) and there is no emergency, an offered essential
+    /// Invariant (d), recorded offers: when a build has secured its core and there is no emergency, an offered essential
     /// of it ranks above every offered card that no build lists and that is not on-theme, with a base at most one tier step higher —
     /// on base + synergy + need (dilution, duplicates and saturation are reported only). The total is reported too.
     /// </summary>
@@ -123,7 +123,7 @@ public class SecuredBuildReplayTests(ITestOutputHelper output)
         foreach (var r in All.Value)
         {
             if (CardScorer.IsEmergency(r.State, r.Profile, w)) continue;
-            foreach (var a in SecuredLeaning(r.Profile, w).Where(a => CardScorer.Commit(a) >= w.CorePriority.LeanFull - 1e-9))
+            foreach (var a in SecuredLeaning(r.Profile, w))
             {
                 var excess = a.OwnedEssential - (a.EssentialTarget + w.CorePriority.SecuredEssentialExtra);
                 if (excess > 0) continue; // tapered: the build is done, needs may win again
@@ -177,7 +177,7 @@ public class SecuredBuildReplayTests(ITestOutputHelper output)
                 themeChecks++;
                 Assert.True(e.Score.ValueOf(ComponentKeys.OffBuild) == 0, $"f{r.Floor} {id}: {e.Score}");
             }
-            if (CardScorer.IsEmergency(r.State, r.Profile, w) || CardScorer.Commit(poison) < w.CorePriority.LeanFull) continue;
+            if (CardScorer.IsEmergency(r.State, r.Profile, w)) continue;
             foreach (var e in r.Offered.Where(e => IsEssential(poison.Archetype.RoleOf(pack.Canonical(e.Card.Id)))
                                                    && e.Score.ValueOf(ComponentKeys.Duplicate) == 0))
             {

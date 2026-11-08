@@ -237,20 +237,27 @@ public class SecuredBuildTests
 
     [Theory]
     [MemberData(nameof(Lists))]
-    public void SecuredEssential_RampsWithCommit_OnlyForTheLeaningBuild(string list)
+    public void SecuredEssential_FullAsSoonAsTheCoreIsIn_OnlyForTheDecksBuild(string list)
     {
         var pack = Pack(list);
         var (scorer, state, profile) = Setup(pack, PoisonDeck());
         var cp = pack.Weights.CorePriority;
         var venom = profile.Archetypes.Single(a => a.Archetype.Id == Venom);
 
-        // Halfway from leanMin to leanFull: half the floor (when that is above the card's own build value).
-        var half = profile with { Archetypes = profile.Archetypes.Select(a => a == venom ? a with { Commit = (cp.LeanMin + cp.LeanFull) / 2 } : a).ToArray() };
-        var e = Score(scorer, state, half, Enabler);
-        Assert.Equal(Math.Max(e.Score.ValueOf(ComponentKeys.Build), cp.SecuredEssentialFloor / 2), Synergy(e), 9);
-        // At leanMin (core plus little else): nothing yet.
-        var start = profile with { Archetypes = profile.Archetypes.Select(a => a == venom ? a with { Commit = cp.LeanMin } : a).ToArray() };
-        Assert.Equal(0, Score(scorer, state, start, Enabler).Score.ValueOf(ComponentKeys.SecuredEssential));
+        // Core alone (real detector: deck with only the core of the build): the full floor already.
+        var coreOnly = PoisonDeck();
+        coreOnly.Remove(Payoff);
+        var (s1, st1, p1) = Setup(pack, coreOnly);
+        var v1 = p1.Archetypes.Single(a => a.Archetype.Id == Venom);
+        Assert.True(v1.CoreSecured);
+        Assert.True(v1.Commit < cp.LeanFull, $"commit {v1.Commit}");
+        Assert.Equal(cp.SecuredEssentialFloor, Synergy(Score(s1, st1, p1, Enabler)), 9);
+        // Any commit: full floor.
+        foreach (var commit in new[] { 0.05, cp.LeanMin, 0.5, 1.0 })
+        {
+            var p = profile with { Archetypes = profile.Archetypes.Select(a => a == venom ? a with { Commit = commit } : a).ToArray() };
+            Assert.Equal(cp.SecuredEssentialFloor, Synergy(Score(scorer, state, p, Enabler)), 9);
+        }
 
         // Another build far ahead: venom is not leaning, no floor.
         var behind = profile with
