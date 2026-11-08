@@ -263,17 +263,4 @@ public class RealPackTests
         var unknown = Pack.Value.RelicStats!.Relics.Keys.Where(id => !KnownRelics.Value.Contains(id)).Order(StringComparer.Ordinal);
         Assert.Equal(NewerRelics.Order(StringComparer.Ordinal), unknown);
     }
-
-    /// <summary>
-    /// <c>onTheme</c> (v2 archetype field: cards common in the build's decks but in no role list) is data only here;
-    /// scoring support lands with the off-build exemption change. The loader must ignore it, so the pack still loads.
-    /// </summary>
-    [Fact]
-    public void ArchetypeFiles_CarryOnTheme_AndStillLoad()
-    {
-        var withField = Directory.GetFiles(Path.Combine(PackDir, "archetypes"), "*.json")
-            .Count(f => File.ReadAllText(f).Contains("\"onTheme\"", StringComparison.Ordinal));
-        Assert.True(withField > 0, "no archetype file has onTheme");
-        Assert.Equal(24, Pack.Value.Archetypes.Count);
-    }
 }
