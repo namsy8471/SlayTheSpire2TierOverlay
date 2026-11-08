@@ -161,9 +161,9 @@ public sealed class RecommendationEngine(DataPack pack)
                     : $"덱의 {roleName} 공급이 조금만 더 부족하면 순위가 바뀝니다.";
             case ComponentKeys.CorePriority or ComponentKeys.CoreMissing:
                 return "빌드의 코어 카드를 이미 갖고 있었다면 순위가 바뀝니다.";
-            case ComponentKeys.Build or ComponentKeys.Combo when diff > 0:
+            case ComponentKeys.Build or ComponentKeys.Combo or ComponentKeys.SecuredEssential when diff > 0:
                 return "빌드 몰입도가 더 낮았다면 순위가 바뀝니다.";
-            case ComponentKeys.Build or ComponentKeys.Combo:
+            case ComponentKeys.Build or ComponentKeys.Combo or ComponentKeys.SecuredEssential:
                 return "빌드 몰입도가 조금만 더 높아지면 순위가 바뀝니다.";
             case ComponentKeys.Base when diff > 0:
                 return "기본 티어 차이로 앞섭니다. 2위의 덱 시너지가 조금만 커지면 순위가 바뀝니다.";

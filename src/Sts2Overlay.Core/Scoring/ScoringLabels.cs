@@ -37,6 +37,7 @@ public static class ScoringLabels
     public const string Duplicate = "중복";
     public const string CorePriority = "코어 확보";
     public const string CoreMissing = "코어 없음";
+    public const string SecuredEssential = "빌드 필수 카드";
 
     /// <summary>"코어", "필수 시너지", "서브 시너지".</summary>
     public static string BuildRoleKind(BuildRoleKind kind) => kind switch

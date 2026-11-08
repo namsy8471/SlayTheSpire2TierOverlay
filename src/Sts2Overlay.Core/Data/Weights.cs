@@ -218,6 +218,36 @@ public sealed class CorePriorityWeights
 
     /// <summary>Share of a support card's role weight while its build owns a core but fewer than the essential target.</summary>
     public double SubBeforeEssential { get; set; } = 0.4;
+
+    // ---- After the core: the build's essentials beat generic cards ("빌드 필수 카드") ----
+
+    /// <summary>
+    /// Least synergy (score points) an essential card (payoff/enabler) counts for once its build owns its core target and is the deck's
+    /// build (top commit or within the hybrid margin), whatever the commit:
+    /// <c>secured_essential = max(0, floor − synergy)</c>, <c>floor = SecuredEssentialFloor × taper × emergency</c>.
+    /// 27 = one tier step (15) + a typical role need (~6) + the dilution edge of a card that draws (~6), so an essential beats a generic card
+    /// one tier higher; it stays below two tier steps (30), so a card two tiers higher still wins. 0 turns the rule off.
+    /// </summary>
+    public double SecuredEssentialFloor { get; set; } = 27;
+
+    /// <summary>Owned distinct essentials above the build's essential target at which the floor starts to taper (the build is done).</summary>
+    public int SecuredEssentialExtra { get; set; } = 2;
+
+    /// <summary>Share of the floor removed per owned essential beyond <c>essentialTarget + SecuredEssentialExtra</c>.</summary>
+    public double SecuredEssentialTaper { get; set; } = 0.5;
+
+    /// <summary>
+    /// Roles whose shortage is an emergency: gap ≥ <see cref="EmergencyGap"/> (supply below 30% of target by default). In an emergency
+    /// (or HP below <see cref="SituationWeights.LowHpThreshold"/>) the floor is multiplied by <see cref="EmergencyFactor"/> and the weak build cap
+    /// applies again, so the role need can win.
+    /// </summary>
+    public List<string> EmergencyRoles { get; set; } = [Roles.Block];
+
+    /// <summary>Role gap (0..1, 1 = no supply) at and above which an <see cref="EmergencyRoles"/> role is an emergency.</summary>
+    public double EmergencyGap { get; set; } = 0.7;
+
+    /// <summary>Multiplier on the secured-essential floor in an emergency.</summary>
+    public double EmergencyFactor { get; set; } = 0.5;
 }
 
 public sealed class PowerSaturationWeights

@@ -3,6 +3,7 @@
 // - 희귀도 확률 등 게임 수치는 다른 작업에서 Weights 기본값(코드)으로 갱신하므로 여기서 중복 정의하지 않습니다.
 // - "코어 먼저, 그다음 필수 시너지" 규칙(corePriority: bonus 15, starterBonus 6, noCoreFactor 0, noCoreMaxUnlock 0.5,
 //   essentialTarget 2, subBeforeEssential 0.4 ...)도 코드 기본값을 씁니다. 표는 docs/DATA_SCHEMA.md §3.1.
+// - 코어를 잡은 뒤 "빌드 필수 카드"(corePriority.securedEssentialFloor 27, securedEssentialExtra 2, emergencyGap 0.7 ...)도 코드 기본값입니다.
 // - 초반 스킵 완화(skip.basicPickBias 1:30 2:10 3:0, basicShareFull 0.5, lowConfidenceStep 15)도 코드 기본값을 씁니다.
 //   시작 덱 1막에서 스킵 기준이 45 → 15가 되어 D 티어(20) 카드도 타격·수비보다 낫다고 봅니다.
 // - 값을 바꿀 때는 이유를 주석으로 남기고, 런 기록 리플레이(README 참고)로 전후 일치율을 비교하세요.
