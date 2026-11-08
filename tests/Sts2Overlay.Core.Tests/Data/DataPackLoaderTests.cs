@@ -35,7 +35,7 @@ public class DataPackLoaderTests
             {
               "wArch": 30,
               "skip": { "margin": 2.5 },
-              "completion": { "rarityOdds": { "rare": 0.05 } },
+              "cardOdds": { "eliteReward": { "rare": 0.12 }, "pity": { "cap": 0.5 } },
               "situation": { "lowHpThreshold": 0.4 }
             }
             """);
@@ -51,8 +51,12 @@ public class DataPackLoaderTests
         Assert.Equal(0.4, w.Situation.LowHpThreshold);
         Assert.Equal(d.Situation.BossRewardBuildBonus, w.Situation.BossRewardBuildBonus);
 
-        Assert.Equal(0.05, w.Completion.RarityOdds["rare"]);
-        Assert.Equal(0.60, w.Completion.RarityOdds["common"]);
+        Assert.Equal(0.12, w.CardOdds.EliteReward.Rare);
+        Assert.Equal(0.40, w.CardOdds.EliteReward.Uncommon);
+        Assert.Equal(0.05, w.CardOdds.EliteReward.RareHighAscension);
+        Assert.Equal(0.5, w.CardOdds.Pity.Cap);
+        Assert.Equal(-0.05, w.CardOdds.Pity.Start);
+        Assert.Equal(d.CardOdds.CardReward.Rare, w.CardOdds.CardReward.Rare);
         Assert.Equal(d.Completion.PoolSize, w.Completion.PoolSize);
     }
 
@@ -371,9 +375,21 @@ public class DataPackLoaderTests
     public void SampleCatalogExample_ParsesAsCatalog()
     {
         var path = Path.Combine(TestPaths.RepoRoot, "data", "packs", "sample", "catalog.example.json");
-        var catalog = DataPackLoader.LoadCatalog(File.ReadAllText(path));
-        Assert.Equal("CARD.BALL_LIGHTNING", Assert.Single(catalog.Cards).Id);
-        Assert.Empty(catalog.Cards[0].Names);
+        var catalog = DataPackLoader.LoadCatalogFile(path);
+        Assert.Equal(["CARD.BALL_LIGHTNING", "CARD.SAMPLE_COLORLESS"], catalog.Cards.Select(c => c.Id));
+        Assert.Equal(catalog.CardCount, catalog.Cards.Count);
+        Assert.All(catalog.Cards, c => Assert.Empty(c.Names));
+        Assert.Equal("CHARACTER.DEFECT", catalog.Cards[0].PoolOwner);
+        Assert.Equal(DataPack.Colorless, catalog.Cards[1].PoolOwner);
+        Assert.Null(catalog.Cards[1].Character);
+        Assert.True(catalog.Cards[1].MultiplayerOnly);
+
+        // Same shape as the real catalog: every property of the example card exists on the real one.
+        var real = DataPackLoader.LoadCatalogFile(Path.Combine(TestPaths.RepoRoot, DataPackLoader.DefaultCatalogRelativePath));
+        var ball = real.Cards.Single(c => c.Id == "CARD.BALL_LIGHTNING");
+        Assert.Equal(ball.Pool, catalog.Cards[0].Pool);
+        Assert.Equal(ball.Type, catalog.Cards[0].Type);
+        Assert.Equal(ball.Rarity, catalog.Cards[0].Rarity);
     }
 }
 

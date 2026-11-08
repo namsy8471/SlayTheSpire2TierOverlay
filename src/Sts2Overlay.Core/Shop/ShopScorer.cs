@@ -49,7 +49,7 @@ public sealed class ShopScorer(DataPack pack)
         };
     }
 
-    /// <summary>75 + 25 × removals so far (ascension ≥ 6: 100 + 50 ×). [확인, sts2.gg; 게임 코드로 재확인 필요]</summary>
+    /// <summary>75 + 25 × removals so far (ascension ≥ 6: 100 + 50 ×). [코드 확인] SPIKE §5.</summary>
     public static int RemovalPrice(RunState state, Weights weights)
     {
         var s = weights.Shop;
@@ -59,6 +59,14 @@ public sealed class ShopScorer(DataPack pack)
             ? s.RemovalBaseHighAscension + s.RemovalStepHighAscension * count
             : s.RemovalBase + s.RemovalStep * count;
     }
+
+    /// <summary>
+    /// Estimated merchant price of a card when the screen price cannot be read (<see cref="ShopPrices.Estimated"/>).
+    /// <paramref name="rarity"/> and <paramref name="colorless"/> default to the catalog / tier data (<see cref="DataPack.CardRarity"/>,
+    /// <see cref="DataPack.IsColorless"/>). Null when the rarity is unknown or not sold.
+    /// </summary>
+    public int? EstimatedPrice(string character, string cardId, string? rarity = null, bool? colorless = null, bool onSale = false)
+        => ShopPrices.Estimated(Pack.Weights.Shop, rarity ?? Pack.CardRarity(character, cardId), colorless ?? Pack.IsColorless(cardId), onSale);
 
     /// <summary>
     /// The card the removal service should take: a curse first, else a basic Strike, else a basic Defend.
