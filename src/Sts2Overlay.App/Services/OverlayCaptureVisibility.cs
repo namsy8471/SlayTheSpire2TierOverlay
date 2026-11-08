@@ -30,7 +30,8 @@ internal static class CaptureExclusionPolicy
 ///
 /// Thread-safety: <see cref="Register"/>/<see cref="ShowInCapture"/> are called on the UI thread,
 /// <see cref="BeforeCapture"/> on the capture worker. <c>SetWindowDisplayAffinity</c> works from any thread of the
-/// owning process (checked), so the worker sets the flag itself instead of waiting on the UI thread.
+/// owning process and returns at once even while the owning UI thread is blocked and not pumping messages (checked:
+/// &lt;1 ms), so the worker sets the flag itself and holding <c>_applyLock</c> around it can't deadlock with the UI.
 /// </summary>
 public sealed class OverlayCaptureVisibility
 {
@@ -135,8 +136,9 @@ public sealed class OverlayCaptureVisibility
             // ago. DwmFlush blocks until DWM presents its next frame; the affinity change takes effect at a
             // composition, so after two of them the desktop the GDI fallback reads no longer has our windows. They
             // can't come back meanwhile: the policy keeps them hidden while recognition reads the desktop.
-            DwmFlush();
-            DwmFlush();
+            var hr1 = DwmFlush();
+            var hr2 = DwmFlush();
+            if (hr1 != 0 || hr2 != 0) AppLog.Warn($"capture visibility: DwmFlush failed (0x{hr1:X8}, 0x{hr2:X8}); the next desktop frame may still show the overlay");
         }
     }
 

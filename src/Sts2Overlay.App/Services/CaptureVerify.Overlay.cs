@@ -79,9 +79,16 @@ internal static partial class CaptureVerify
                 if (ps.Mismatched == blockArea) seenWhenShown++;
                 if (round > 0 && AffinityOf(overlay.Hwnd) == WDA_NONE) shownAgain++;
 
-                // Switch to the GDI fallback: hide + DwmFlush happen inside, right before BitBlt.
-                var g = gdiFallback.Capture(info);
-                var gs = FrameCompare.Compare(src.Bgra.Span, src.Stride, g.Bgra, g.Stride, src.Width, src.Height);
+                // Switch to the GDI fallback: hide + DwmFlush happen inside, right before BitBlt. On another thread, as
+                // in the app (capture worker hides windows owned by the UI thread, which is blocked meanwhile).
+                FrameCompare.Stats gs = default;
+                var worker = new Thread(() =>
+                {
+                    var g = gdiFallback.Capture(info);
+                    gs = FrameCompare.Compare(src.Bgra.Span, src.Stride, g.Bgra, g.Stride, src.Width, src.Height);
+                });
+                worker.Start();
+                if (!worker.Join(TimeSpan.FromSeconds(5))) throw new TimeoutException("gdi fallback capture on the worker thread hung");
                 if (gs.Mismatched == 0 && visibility.IsExcluded) cleanGdi++;
                 else output(CaptureBench.Inv($"  round {round}: gdi fallback frame has {gs.Mismatched} overlay pixels"));
 
