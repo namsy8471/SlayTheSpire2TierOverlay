@@ -71,7 +71,7 @@ ID는 게임 모델 ID 그대로입니다. 게임이 ID를 바꾼 경우(예: `R
 |---|---|---|
 | 숫자·문자열 | 적은 값으로 교체 | `"wArch": 30` |
 | 중첩 객체 (`skip`, `shop`, `completion`, `cardOdds`, `cardOdds.eliteReward`, `cardOdds.pity` 등) | **병합**: 적은 속성만 바뀌고 나머지는 기본값 유지 | `"skip": { "margin": 1 }` → `t0`, `lambdaSize` 유지 |
-| 사전 (`tierValue`, `targets`, `urgency`, `idealDeckSize`, `skip.t0`, `completion.poolSize`, `shop.cardPrice`, `shop.characterCardSlots`, `shop.colorlessCardSlots`) | **키 단위 병합**: 적은 키의 값만 교체(값이 사전이면 그 값 전체를 교체), 나머지 키 유지 | `"tierValue": { "S": 90 }` → A~D 유지 |
+| 사전 (`tierValue`, `targets`, `urgency`, `idealDeckSize`, `skip.t0`, `skip.basicPickBias`, `completion.poolSize`, `shop.cardPrice`, `shop.characterCardSlots`, `shop.colorlessCardSlots`) | **키 단위 병합**: 적은 키의 값만 교체(값이 사전이면 그 값 전체를 교체), 나머지 키 유지 | `"tierValue": { "S": 90 }` → A~D 유지 |
 | 배열 (`weakRoles`) | 통째로 교체 | `"weakRoles": ["block"]` |
 
 예: `"targets": { "CHARACTER.DEFECT": { "1": { ... } } }`는 `"default"`를 그대로 두고 디펙트 목표치를 추가합니다. 반대로 `"urgency": { "2": { "block": 2 } }`는 2막의 역할별 사전 전체를 `{ "block": 2 }`로 바꿉니다(1·3막은 유지).
@@ -128,7 +128,10 @@ ID는 게임 모델 ID 그대로입니다. 게임이 ID를 바꾼 경우(예: `R
 | `skip.lambdaSize` | 숫자 | 1.5 | 덱 크기 초과 1장당 스킵 가산 | §7.2 |
 | `skip.lambdaCommit` | 숫자 | 5 | 빌드 확정 시 스킵 가산. 코어를 반영한 commit(`commit × gate`, 아래 §5.1 코어 먼저 1)이 `commitThreshold` 이상일 때만 | §7.2 |
 | `skip.margin` | 숫자 | 0.5 | 카드가 스킵을 이겨야 하는 최소 차이 | §7.2 |
-| `skip.lowConfidence` | 0..1 | 0.5 | 이 미만 신뢰도의 카드는 스킵을 이기지 못함 | §7.2 |
+| `skip.lowConfidence` | 0..1 | 0.5 | 이 미만 신뢰도의 카드는 스킵을 이기지 못함 (아래 `lowConfidenceStep` 예외) | §7.2 |
+| `skip.lowConfidenceStep` | 숫자 ≥ 0 | 15 | 신뢰도 낮은 카드라도 `스킵 + margin + 이 값` 이상이고 신뢰도 충분한 카드 중 스킵을 이기는 카드가 없으면 스킵 대신 추천(확신도 "추정"). 한 티어 낮게 평가돼도 이기는 경우만. 최선 카드를 바꾸지는 않음 | §7.2 |
+| `skip.basicPickBias` | `{막: 숫자 ≥ 0}` | 1:30 2:10 3:0 | "초반엔 어떤 카드든 타격·수비보다 낫다": 스킵에 `−basicPickBias[막] × min(1, basicShare / basicShareFull)` ("기본 카드 교체"). `basicShare` = 덱의 기본 카드(카탈로그·티어 희귀도 `basic`, 희귀도를 모르면 타격/수비 id) / 덱 크기. 1막 30이면 시작 덱의 스킵이 15로 D 티어(20)보다 낮아, 1막 초반엔 "엔진 없음"·중복 같은 실제 감점이 있는 카드만 스킵 | §7.2 |
+| `skip.basicShareFull` | (0, 1] | 0.5 | 기본 카드 비율이 이 이상이면 `basicPickBias` 전부, 아래로는 비례 | §7.2 |
 | `confidenceSureGap` | 숫자 | 10 | 1·2위 차이가 이 이상이면 "확신" | §7.4 |
 | `confidenceCloseGap` | 숫자 | 5 | 1·2위 차이가 이 미만이면 "박빙" | §7.4 |
 | `shop.removalBase` | 정수 | 75 | 카드 제거 첫 가격 [코드 확인] | §7.3 |
@@ -364,7 +367,7 @@ v0.107.1 캐릭터 풀 크기 (싱글플레이): 모든 캐릭터가 일반 20 /
 | 티어 항목 | `roles` 값이 0..1 밖, `confidence`가 0..1 밖, `dupFactor`가 0..3 밖, `cycle`이 0..1 밖, `upgradedDelta`가 유한수가 아님, `actTier` 막 < 1, `cost` < 0 |
 | 아키타입 | id 없음, **id 중복**, 카드 0장, `fullWeight` ≤ 0, `commitThreshold`가 (0, 1] 밖, `coreTarget` < 1, `essentialTarget` < 0, `roleWeight` 음수, 유물 `w` 음수, `needs`에 `tag`와 `role`이 모두 없음, `min` 음수 |
 | 콤보 | 서로 다른 카드가 2장 미만 |
-| 가중치 | `unknownConfidence`·`commitThreshold`·`hybridMargin`·`weakThreshold`·`skip.lowConfidence`가 0..1 밖, `completion.cardsPerReward` < 1, `poolSize` 값 ≤ 0, `cardOdds.*`의 `rare`/`uncommon`/`rareHighAscension`이 0..1 밖, `rareMultiplierHighAscension`이 0..1 밖, `pity`의 `start`/`cap`이 -1..1 밖이거나 `start > cap`, `pity` step이나 강화 확률이 0..1 밖, `shop.cardPrice` 값 ≤ 0, `priceJitterMin`이 0 이하이거나 `priceJitterMax`보다 큼, `colorlessPriceMultiplier` ≤ 0, `saleMultiplier`가 0..1 밖, `corePriority.bonus`·`starterBonus` 음수, `leanMin`·`weakFactor`·`noCoreFactor`·`noCoreMaxUnlock`·`noCoreUnlockByAct`·`subBeforeEssential` 값이 0..1 밖, `leanFull`이 (0, 1] 밖, `essentialTarget`·`rewardsPerFloor` 음수, `floorsPerAct`·`runActs` < 1 |
+| 가중치 | `unknownConfidence`·`commitThreshold`·`hybridMargin`·`weakThreshold`·`skip.lowConfidence`가 0..1 밖, `completion.cardsPerReward` < 1, `poolSize` 값 ≤ 0, `cardOdds.*`의 `rare`/`uncommon`/`rareHighAscension`이 0..1 밖, `rareMultiplierHighAscension`이 0..1 밖, `pity`의 `start`/`cap`이 -1..1 밖이거나 `start > cap`, `pity` step이나 강화 확률이 0..1 밖, `shop.cardPrice` 값 ≤ 0, `priceJitterMin`이 0 이하이거나 `priceJitterMax`보다 큼, `colorlessPriceMultiplier` ≤ 0, `saleMultiplier`가 0..1 밖, `corePriority.bonus`·`starterBonus` 음수, `skip.basicPickBias` 값·`skip.lowConfidenceStep` 음수, `skip.basicShareFull`이 (0, 1] 밖, `leanMin`·`weakFactor`·`noCoreFactor`·`noCoreMaxUnlock`·`noCoreUnlockByAct`·`subBeforeEssential` 값이 0..1 밖, `leanFull`이 (0, 1] 밖, `essentialTarget`·`rewardsPerFloor` 음수, `floorsPerAct`·`runActs` < 1 |
 
 **경고(Warning)**: 데이터가 덜 채워졌을 가능성이 큽니다.
 

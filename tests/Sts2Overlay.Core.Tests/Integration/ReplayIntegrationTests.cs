@@ -113,7 +113,7 @@ public class ReplayIntegrationTests
     }
 
     [Fact]
-    public void Engine_OnReconstructedStates_NeverRecommendsLowConfidenceCard()
+    public void Engine_OnReconstructedStates_LowConfidenceCardNeverBeatsAConfidentPick()
     {
         var engine = new RecommendationEngine(Pack.Value);
         var state = new RunState
@@ -126,9 +126,15 @@ public class ReplayIntegrationTests
             Deck = Starter(),
         };
 
-        // CARD.STORM has confidence 0.4 in the test pack: it may score high but cannot be "best".
-        var offer = engine.EvaluateOffer(state, [new CardRef("CARD.STORM"), new CardRef("CARD.STRIKE_DEFECT"), new CardRef("CARD.DEFEND_DEFECT")]);
-        Assert.NotEqual("CARD.STORM", offer.Best?.Id);
+        // CARD.STORM has confidence 0.4 in the test pack: it cannot be "best" while a confident card beats skip.
+        var offer = engine.EvaluateOffer(state, [new CardRef("CARD.STORM"), new CardRef("CARD.COLD_SNAP"), new CardRef("CARD.STRIKE_DEFECT")]);
+        Assert.Equal("CARD.COLD_SNAP", offer.Best?.Id);
+
+        // Only basics besides it on a starter deck (skip lowered by skip.basicPickBias): it beats skip by more than a tier step,
+        // so it is taken over skipping, flagged as an estimate.
+        var alone = engine.EvaluateOffer(state, [new CardRef("CARD.STORM"), new CardRef("CARD.STRIKE_DEFECT"), new CardRef("CARD.DEFEND_DEFECT")]);
+        Assert.Equal("CARD.STORM", alone.Best?.Id);
+        Assert.Equal(RecommendationConfidence.Estimate, alone.Confidence);
     }
 
     [Fact]
