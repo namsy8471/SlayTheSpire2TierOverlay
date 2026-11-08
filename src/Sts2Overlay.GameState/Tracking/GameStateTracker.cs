@@ -665,7 +665,12 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
     {
         CheckEventPrediction(save);
         if (!_inEventRoom) return null;
-        if (_eventId != null) return new ActiveEvent(_eventId, _eventKeys, _eventChosen.ToArray(), EventSource.Log);
+        if (_eventId != null)
+        {
+            if (_eventKeys == null && NeowDraw(_eventId) is { } replayed)
+                return new ActiveEvent(_eventId, replayed.Keys, _eventChosen.ToArray(), EventSource.Log) { OptionsReplayed = true, PossibleKeys = replayed.Possible };
+            return new ActiveEvent(_eventId, _eventKeys, _eventChosen.ToArray(), EventSource.Log);
+        }
         // The room-entry save predicts the event; later saves of the room (after an event fight) don't, so keep the guess.
         if (_eventGuess == null && save != null && EventPrediction.Predict(save) is { } guess)
         {
@@ -673,9 +678,49 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
             _eventCheck = (guess, save.Events!.EventsSeen.Count);
             Diagnostic?.Invoke(this, $"event predicted: {guess.EventId}{(guess.Certain ? "" : $" (or {string.Join(", ", guess.Alternatives)})")}");
         }
-        return _eventGuess is { } g
-            ? new ActiveEvent(g.EventId, null, _eventChosen.ToArray(), EventSource.SavePrediction) { Certain = g.Certain, Alternatives = g.Alternatives }
-            : null;
+        if (_eventGuess is not { } g) return null;
+        var draw = g.Certain ? NeowDraw(g.EventId) : null;
+        return new ActiveEvent(g.EventId, draw?.Keys, _eventChosen.ToArray(), EventSource.SavePrediction)
+        {
+            Certain = g.Certain,
+            Alternatives = g.Alternatives,
+            OptionsReplayed = draw is not null,
+            PossibleKeys = draw?.Possible,
+        };
+    }
+
+    private sealed record NeowReplay(IReadOnlyList<string> Keys, IReadOnlyList<string> Possible);
+
+    private (string Seed, int Slot, int Players, NeowReplay? Draw)? _neowDraw; // the last answer, null ones included
+
+    /// <summary>
+    /// Neow's three options, replayed from the run seed (<see cref="NeowOptions"/>), and the pool they came from; null for
+    /// other events, runs with modifiers (or unknown modifiers: no save), or when the unlocks that decide Kaleidoscope
+    /// can't be read and change the draw.
+    /// </summary>
+    private NeowReplay? NeowDraw(string eventId)
+    {
+        if (eventId != NeowOptions.EventId) return null;
+        if (ChooseSave()?.Save is not { ModifierCount: 0 } || RunSeed() is not { } seed) return null;
+        int slot = MySlot();
+        if (slot < 0) return null;
+        int players = IsMultiplayer() ? PlayerOrder().Count : 1;
+        if (_neowDraw is { } c && c.Seed == seed && c.Slot == slot && c.Players == players) return c.Draw;
+
+        bool? unlocked = _options.Paths?.SavesDirectory is { } dir ? ProgressSave.AllCharactersUnlockedIn(dir) : null;
+        NeowReplay? draw;
+        if (unlocked is { } u) draw = new(NeowOptions.Keys(seed, slot, players, u), NeowOptions.PossibleKeys(players, u));
+        else
+        {
+            // Unlocks unknown: usable only when Kaleidoscope's condition doesn't change the draw.
+            var a = NeowOptions.Keys(seed, slot, players, true);
+            draw = a.SequenceEqual(NeowOptions.Keys(seed, slot, players, false)) ? new(a, NeowOptions.PossibleKeys(players, true)) : null;
+        }
+        _neowDraw = (seed, slot, players, draw);
+        Diagnostic?.Invoke(this, draw is null
+            ? "neow options: progress.save unreadable and the unlocks decide the draw; showing every option"
+            : $"neow options (seed replay): {string.Join(", ", draw.Keys.Select(k => k[(k.LastIndexOf('.') + 1)..]))}");
+        return draw;
     }
 
     /// <summary>

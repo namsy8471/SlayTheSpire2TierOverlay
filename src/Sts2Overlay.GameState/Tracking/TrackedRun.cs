@@ -65,6 +65,14 @@ public sealed record ActiveEvent(string EventId, IReadOnlyList<string>? OptionKe
 
     /// <summary>Other events the prediction could be (save prediction only).</summary>
     public IReadOnlyList<string> Alternatives { get; init; } = [];
+
+    /// <summary>
+    /// <see cref="OptionKeys"/> were replayed from the run seed (Neow, <see cref="NeowOptions"/>) rather than read from the log.
+    /// </summary>
+    public bool OptionsReplayed { get; init; }
+
+    /// <summary>With <see cref="OptionsReplayed"/>: every option this run could have drawn (the pool the others came from).</summary>
+    public IReadOnlyList<string>? PossibleKeys { get; init; }
 }
 
 /// <summary>A deck card the log-only rebuild is not sure about (see <see cref="TrackedRun.UncertainCards"/>).</summary>

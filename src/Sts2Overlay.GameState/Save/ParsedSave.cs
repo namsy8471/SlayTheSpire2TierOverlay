@@ -55,6 +55,9 @@ public sealed record ParsedSave
 
     public string? GameMode { get; init; }
 
+    /// <summary>Number of run modifiers (custom/daily runs; they replace Neow's options). -1 when the save has no list.</summary>
+    public int ModifierCount { get; init; } = -1;
+
     /// <summary>The current act's event bookkeeping, for <see cref="Tracking.EventPrediction"/>. Null when the save lacks it.</summary>
     public EventRoomState? Events { get; init; }
 }

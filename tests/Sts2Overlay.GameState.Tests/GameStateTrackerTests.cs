@@ -241,6 +241,73 @@ public class GameStateTrackerTests
         Assert.Equal(CombatKind.Elite, t.Current!.LastCombatKind);
     }
 
+    /// <summary>A single-player Neow room: the run-start save stands on the act's ancient node.</summary>
+    private static SaveSnapshot NeowSave(string seed, int modifiers)
+    {
+        var start = new MapCoord(3, 0);
+        SaveSnapshot s = Save(seed, 100);
+        return s with
+        {
+            Save = s.Save with
+            {
+                ModifierCount = modifiers,
+                Map = new MapGraph
+                {
+                    Nodes = new Dictionary<MapCoord, MapNode> { [start] = new(start, MapNodeType.Ancient, []) },
+                    Start = start, Boss = start, Current = start,
+                },
+                Events = new EventRoomState { AncientId = "EVENT.NEOW", VisitedInAct = 1, HistoryInAct = 0 },
+            },
+        };
+    }
+
+    private static GameStateTracker NeowTracker(string progressJson, string seed, int modifiers = 0)
+    {
+        string dir = Directory.CreateTempSubdirectory("sts2-neow-").FullName;
+        File.WriteAllText(Path.Combine(dir, ProgressSave.FileName), progressJson);
+        var t = new GameStateTracker(new TrackerOptions { Paths = new GamePaths(dir, null, null), Clock = () => T0 });
+        t.ProcessLines([$"[INFO] Embarking on a singleplayer IRONCLAD run. Ascension: 0 Seed: {seed}", Wrote(100)]);
+        t.OnSave(NeowSave(seed, modifiers));
+        t.ProcessLine("[INFO] Preloading 'Event Room' assets... count=2 vfx=0");
+        return t;
+    }
+
+    private const string AllUnlocked =
+        """{"epochs":[{"id":"SILENT1_EPOCH","state":"revealed"},{"id":"REGENT1_EPOCH","state":"revealed"},{"id":"NECROBINDER1_EPOCH","state":"revealed"},{"id":"DEFECT1_EPOCH","state":"revealed"}]}""";
+
+    [Fact]
+    public void Single_player_neow_options_are_replayed_from_the_seed()
+    {
+        // R9REQLA5XL: the real run behind single_ironclad_run.log; its history file lists these three options.
+        var ev = NeowTracker(AllUnlocked, "R9REQLA5XL").Current!.CurrentEvent!;
+        Assert.Equal("EVENT.NEOW", ev.EventId);
+        Assert.Equal(EventSource.SavePrediction, ev.Source);
+        Assert.True(ev.OptionsReplayed);
+        Assert.Equal(
+            ["NEOW.pages.INITIAL.options.LEAD_PAPERWEIGHT", "NEOW.pages.INITIAL.options.NEOWS_TORMENT", "NEOW.pages.INITIAL.options.LEAFY_POULTICE"],
+            ev.OptionKeys);
+        Assert.Equal(NeowOptions.PossibleKeys(1, allCharactersUnlocked: true), ev.PossibleKeys);
+    }
+
+    [Fact]
+    public void Neow_options_follow_the_unlocks_in_progress_save()
+    {
+        string seed = "3FCYMZNLDZ"; // all unlocked: NEW_LEAF, KALEIDOSCOPE, LARGE_CAPSULE
+        Assert.Contains("NEOW.pages.INITIAL.options.KALEIDOSCOPE", NeowTracker(AllUnlocked, seed).Current!.CurrentEvent!.OptionKeys!);
+        var locked = NeowTracker("""{"epochs":[{"id":"SILENT1_EPOCH","state":"revealed"}]}""", seed).Current!.CurrentEvent!.OptionKeys!;
+        Assert.DoesNotContain("NEOW.pages.INITIAL.options.KALEIDOSCOPE", locked);
+        Assert.Equal(NeowOptions.Keys(seed, 0, 1, allCharactersUnlocked: false), locked);
+    }
+
+    [Fact]
+    public void Neow_with_run_modifiers_is_not_replayed()
+    {
+        var ev = NeowTracker(AllUnlocked, "R9REQLA5XL", modifiers: 1).Current!.CurrentEvent!;
+        Assert.Equal("EVENT.NEOW", ev.EventId);
+        Assert.Null(ev.OptionKeys);
+        Assert.False(ev.OptionsReplayed);
+    }
+
     [Fact]
     public void Stale_save_with_another_seed_is_ignored()
     {
