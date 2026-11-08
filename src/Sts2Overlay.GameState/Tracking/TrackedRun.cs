@@ -28,6 +28,23 @@ public enum RunOutcome { InProgress, Won, Lost, Abandoned, Ended }
 /// <param name="OffsetBefore">Pity offset the roll used (printed in the line).</param>
 public sealed record RarityRoll(double Roll, double Need, double OffsetBefore, bool IsRare, RaritySource Source);
 
+/// <summary>Why a rebuilt deck card is uncertain.</summary>
+public enum UncertainReason
+{
+    /// <summary>A card-select screen the log can't interpret (event / relic) may have removed, transformed or upgraded it.</summary>
+    UnknownCardSelect,
+    /// <summary>
+    /// The card was never logged as obtained but the log proves it is in the deck (played from the deck in a fight, or
+    /// picked from the deck by a card-select). Identity is certain; its upgrade level is not.
+    /// </summary>
+    Inferred,
+    /// <summary>A card reward from act 2 on: it may have rolled a free upgrade (CardFactory.RollForUpgrade), which isn't logged.</summary>
+    UpgradeRoll,
+}
+
+/// <summary>A deck card the log-only rebuild is not sure about (see <see cref="TrackedRun.UncertainCards"/>).</summary>
+public sealed record UncertainCard(int DeckIndex, string CardId, UncertainReason Reason);
+
 /// <summary>
 /// The tracker's current snapshot: Core <see cref="RunState"/> + map + log-derived hints. Immutable; a new
 /// instance is published on every change.
@@ -81,6 +98,31 @@ public sealed record TrackedRun
     /// or log patches applied on top of a save (upgrade level of reward cards is unknown until the next save).
     /// </summary>
     public bool DeckApproximate { get; init; }
+
+    /// <summary>
+    /// Deck cards the log could not pin down (co-op guest rebuild): e.g. a card an event may have removed or
+    /// transformed, or an upgrade whose target is unknown. Indices point into <c>State.Deck</c>. Empty when the deck
+    /// came from a save or a run-end <c>.run</c> reconciliation.
+    /// </summary>
+    public IReadOnlyList<UncertainCard> UncertainCards { get; init; } = [];
+
+    /// <summary>
+    /// Cards the log proves joined the deck but can't name yet (random transform results, random event cards). Usually
+    /// identified later when they are played in a fight; until then the deck is this many cards short.
+    /// </summary>
+    public int UnidentifiedCards { get; init; }
+
+    /// <summary>Upgrades the log proves happened but can't place (Whetstone, Doors of Light ... pick cards with the game RNG).</summary>
+    public int UnknownUpgrades { get; init; }
+
+    /// <summary>Random removals the log can't place (Slippery Bridge).</summary>
+    public int UnknownRemovals { get; init; }
+
+    /// <summary>True when the deck was replaced by the run-history file the game wrote at run end (exact).</summary>
+    public bool DeckFromRunHistory { get; init; }
+
+    /// <summary>True when <see cref="UncertainCards"/> lists <paramref name="deckIndex"/>.</summary>
+    public bool IsUncertain(int deckIndex) => UncertainCards.Any(u => u.DeckIndex == deckIndex);
 
     /// <summary>Number of log events (obtain/remove/upgrade/relic/potion/gold) applied on top of the base state.</summary>
     public int AppliedLogPatches { get; init; }
