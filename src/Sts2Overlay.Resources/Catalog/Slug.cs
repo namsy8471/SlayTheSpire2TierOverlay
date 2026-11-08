@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace CatalogBuilder;
+namespace Sts2Overlay.Resources.Catalog;
 
 /// <summary>
 /// Re-implementation of the game's ModelId naming (see decompiled StringHelper.Slugify and

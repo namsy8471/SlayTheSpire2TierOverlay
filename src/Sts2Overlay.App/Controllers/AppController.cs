@@ -104,7 +104,7 @@ public sealed class AppController : IDisposable
 
     public DemoScreen? Demo { get; private set; }
     public bool UserHidden => _userHidden;
-    public string? CatalogPath { get; }
+    public string? CatalogPath { get; private set; }
 
     public string StatusLine => $"{_vm.StatusText} · {_vm.PackText}";
 
@@ -725,7 +725,36 @@ public sealed class AppController : IDisposable
         RefreshRunViews(_snapshot.Run);
         if (_lastResult is not null) ApplyRecognition(_lastResult);
         ShowMessage("데이터 팩을 다시 읽었습니다");
+        PackReloaded?.Invoke();
     }
+
+    // ---- local resources (Services.LocalResourceService) -------------------------------------------------
+
+    /// <summary>The loaded data pack and its folder, for the game-version guard.</summary>
+    public DataPack Pack => _engine.Pack;
+
+    public string PackDir => _packDir;
+
+    /// <summary>Raised (UI thread) after <see cref="ReloadPack"/>.</summary>
+    public event Action? PackReloaded;
+
+    /// <summary>
+    /// data/local was (re)generated: use the new catalog for names, and a fresh recogniser that reads the new art and
+    /// catalog (its art cache is warmed on a worker thread). Demo mode keeps its fake recogniser.
+    /// </summary>
+    public void ApplyPreparedResources(string? catalogPath)
+    {
+        CatalogPath = catalogPath ?? CatalogPath;
+        if (Demo is null)
+        {
+            var recognizer = IntegrationFactory.CreateRealRecognizer();
+            _pipeline.Recognizer = recognizer;
+            _ = Task.Run(recognizer.Preload);
+        }
+        ReloadPack();
+        ShowMessage("게임 리소스를 준비했습니다 (카드 그림·이름)");
+    }
+    // ---- end local resources ----
 
     public void ShowMessage(string text)
     {

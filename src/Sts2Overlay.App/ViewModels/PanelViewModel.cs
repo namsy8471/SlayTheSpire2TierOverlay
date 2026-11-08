@@ -95,6 +95,20 @@ public sealed class PanelViewModel : ObservableObject
         set => Set(ref _messageText, value);
     }
 
+    // ---- local resources / version guard (Services.LocalResourceService) ----
+    private string? _resourceBanner;
+
+    /// <summary>
+    /// Persistent notice above the footer: resource preparation progress/failure and the game-vs-pack version warning.
+    /// Unlike <see cref="MessageText"/> it does not time out. Null hides it.
+    /// </summary>
+    public string? ResourceBanner
+    {
+        get => _resourceBanner;
+        set => Set(ref _resourceBanner, value);
+    }
+    // ---- end local resources ----
+
     public bool ClickThrough
     {
         get => _clickThrough;

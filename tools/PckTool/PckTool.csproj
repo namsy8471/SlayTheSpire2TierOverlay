@@ -11,4 +11,9 @@
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
 
+  <!-- The pack reader/extractor lives in src/Sts2Overlay.Resources so the overlay can run it in-process too. -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Sts2Overlay.Resources\Sts2Overlay.Resources.csproj" />
+  </ItemGroup>
+
 </Project>

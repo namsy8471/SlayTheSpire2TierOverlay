@@ -6,7 +6,10 @@ namespace Sts2Overlay.App.Infrastructure;
 /// Command line:
 /// <code>
 /// Sts2Overlay.exe [--demo [reward|shop|other]] [--pack &lt;dir&gt;] [--catalog &lt;file&gt;] [--show-in-capture] [--selftest]
+///                 [--prepare [--force]] [--game-dir &lt;dir&gt;]
 /// </code>
+/// <c>--prepare</c> only generates data/local (card art, localization, catalog) from the installed game and exits;
+/// <c>--force</c> rebuilds even when manifest.json says it is up to date.
 /// <c>--demo</c> uses fake game-state/recognition so the UI can be seen without the game.
 /// <c>--show-in-capture</c> keeps our windows visible to screenshots (for checking the layout).
 /// </summary>
@@ -19,6 +22,14 @@ public sealed record AppOptions
 
     /// <summary>Saves one capture + runs one recognition after start-up, logs the result and exits (checks the capture path).</summary>
     public bool SelfTest { get; init; }
+
+    /// <summary>Headless: prepare local resources, print progress to the console, exit (see <see cref="Services.PrepareCommand"/>).</summary>
+    public bool Prepare { get; init; }
+
+    /// <summary>With <see cref="Prepare"/>: rebuild even when up to date.</summary>
+    public bool Force { get; init; }
+
+    public string? GameDir { get; init; }
 
     public static AppOptions Parse(IReadOnlyList<string> args)
     {
@@ -52,6 +63,15 @@ public sealed record AppOptions
                     break;
                 case "--selftest":
                     o = o with { SelfTest = true };
+                    break;
+                case "--prepare":
+                    o = o with { Prepare = true };
+                    break;
+                case "--force":
+                    o = o with { Force = true };
+                    break;
+                case "--game-dir":
+                    o = o with { GameDir = Next() };
                     break;
                 default:
                     AppLog.Warn($"unknown argument '{a}'");

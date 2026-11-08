@@ -1,7 +1,7 @@
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 
-namespace CatalogBuilder;
+namespace Sts2Overlay.Resources.Catalog;
 
 /// <summary>Everything we statically decoded about one card class.</summary>
 public sealed class DecodedCard
@@ -53,11 +53,18 @@ public sealed class GameReader : IDisposable
         // when we call .Resolve(). It only reads those files too.
         var resolver = new DefaultAssemblyResolver();
         resolver.AddSearchDirectory(Path.GetDirectoryName(dllPath)!);
-        _module = ModuleDefinition.ReadModule(dllPath, new ReaderParameters
+        // Read the bytes ourselves with FileShare.ReadWrite so this also works while the game is running
+        // (a plain File.OpenRead refuses a file that another process holds open with write access).
+        byte[] bytes;
+        using (var fs = new FileStream(dllPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+        {
+            bytes = new byte[fs.Length];
+            fs.ReadExactly(bytes);
+        }
+        _module = ModuleDefinition.ReadModule(new MemoryStream(bytes), new ReaderParameters
         {
             AssemblyResolver = resolver,
             ReadWrite = false,
-            InMemory = true, // read the whole file into memory and close it immediately
         });
 
         // GetTypes() also returns nested types, which plain .Types does not.
