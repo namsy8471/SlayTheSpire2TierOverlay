@@ -1,5 +1,6 @@
 using Sts2Overlay.App.Infrastructure;
 using Sts2Overlay.App.Integration;
+using Sts2Overlay.Core.Localization;
 using Sts2Overlay.Core.Map;
 using Sts2Overlay.Core.Model;
 using Sts2Overlay.Core.Rest;
@@ -66,7 +67,7 @@ public sealed partial class AppController
     private RestSiteAdvice RestAdvice(RunState run)
     {
         var map = _snapshot.Map;
-        var key = $"{run.Hp}/{run.MaxHp}|{run.Deck.Count}|{string.Join(",", run.Deck.Select(d => d.Card))}|{map?.ActId}|{map?.Current}#{_engineVersion}";
+        var key = $"{run.Hp}/{run.MaxHp}|{run.Deck.Count}|{string.Join(",", run.Deck.Select(d => d.Card))}|{map?.ActId}|{map?.Current}#{_engineVersion}@{Loc.CurrentCode}";
         if (key != _restKey || _restAdvice is null)
         {
             _restAdvice = new RestSiteAdvisor(_engine.Pack).Advise(run, map);

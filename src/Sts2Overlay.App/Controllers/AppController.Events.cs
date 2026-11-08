@@ -4,6 +4,7 @@ using Sts2Overlay.App.Services;
 using Sts2Overlay.App.ViewModels;
 using Sts2Overlay.App.Views;
 using Sts2Overlay.Core.Events;
+using Sts2Overlay.Core.Localization;
 using Sts2Overlay.Core.Scoring;
 using Sts2Overlay.GameState.Tracking;
 using Sts2Overlay.Vision;
@@ -87,7 +88,7 @@ public sealed partial class AppController
         var match = _eventScreens?.Current;
         var page = match?.Page ?? CurrentPage(active);
         var keys = match?.Keys ?? (active.ChosenKeys.Count == 0 ? active.OptionKeys : null);
-        var key = $"{active.EventId}|{page}|{string.Join(",", keys ?? [])}|{run.Hp}/{run.MaxHp}|{run.Gold}|{run.Deck.Count}#{_engineVersion}";
+        var key = $"{active.EventId}|{page}|{string.Join(",", keys ?? [])}|{run.Hp}/{run.MaxHp}|{run.Gold}|{run.Deck.Count}#{_engineVersion}@{Loc.CurrentCode}";
         if (key == _eventKey)
         {
             ShowEventMarkers(); // same options; the buttons may have moved
@@ -113,6 +114,12 @@ public sealed partial class AppController
         var first = _lastEvent?.Event.Id != eval.Event.Id;
         _lastEvent = eval;
         _vm.Offer = EventOffer(eval, active, match);
+        _offerSource = null;
+        // Core bakes its reason labels in the current language when it scores, so a re-render scores again.
+        var scorer = _eventScorer;
+        _eventOfferRebuild = () => scorer.Evaluate(run, active.EventId, keys, page, active.PossibleKeys) is { } again
+            ? EventOffer(again, active, match)
+            : null;
         if (first) _vm.SelectedTab = PanelTab.Offer;
         AppLog.Info($"event {eval.Event.Id} page {eval.Page} ({active.Source}{(match is null ? "" : $", {match.Keys.Count} buttons on screen")}): best {eval.Best?.Option.Key ?? "-"}");
         ShowEventMarkers();
@@ -178,9 +185,9 @@ public sealed partial class AppController
         {
             var o = eval.Options[i];
             var b = match.Buttons[i];
-            var warning = o.IsLethal ? "죽음 위험"
-                : o.Option.Key.EndsWith(EventSlots.LockedSuffix, StringComparison.Ordinal) ? "잠김"
-                : o.IsUnaffordable ? "골드 부족"
+            var warning = o.IsLethal ? LethalText()
+                : o.Option.Key.EndsWith(EventSlots.LockedSuffix, StringComparison.Ordinal) ? LockedText()
+                : o.IsUnaffordable ? NoGoldText()
                 : null;
             specs.Add(new EventMarkerSpec(new PixelRect(b.X + _eventOrigin.X, b.Y + _eventOrigin.Y, b.Width, b.Height),
                 o.Rank, o.IsBest, Fmt(o.Total), warning));
@@ -239,26 +246,26 @@ public sealed partial class AppController
         // An ancient's options that weren't drawn this time: their own ranking, below, for reference.
         var extra = eval.NotOffered.Select(o => EventRow(o, rankOnly: true)).ToList();
 
-        var source = active.Source == EventSource.Log ? "로그" : active.Certain ? "세이브 예측" : "세이브 예측 (추정)";
-        var options = match is not null ? " · 화면 버튼 일치"
-            : active.OptionsReplayed ? " · 선택지는 시드로 계산"
+        var source = active.Source == EventSource.Log ? Loc.T("로그", "log")
+            : active.Certain ? Loc.T("세이브 예측", "save prediction")
+            : Loc.T("세이브 예측 (추정)", "save prediction (est.)");
+        var options = match is not null ? Loc.T(" · 화면 버튼 일치", " · matches the buttons on screen")
+            : active.OptionsReplayed ? Loc.T(" · 선택지는 시드로 계산", " · options from the seed")
             : eval.OptionsExact ? ""
-            : " · 선택지는 데이터 기준";
+            : Loc.T(" · 선택지는 데이터 기준", " · options from data");
         return new OfferSectionVm
         {
-            Title = $"이벤트 · {_eventText.EventTitle(eval.Event.Id)}",
-            ConfidenceText = eval.Confidence switch
-            {
-                RecommendationConfidence.Sure => "확신",
-                RecommendationConfidence.Close => "박빙",
-                RecommendationConfidence.Estimate => "추정",
-                _ => "보통",
-            },
+            Title = Loc.T($"이벤트 · {_eventText.EventTitle(eval.Event.Id)}", $"Event · {_eventText.EventTitle(eval.Event.Id)}"),
+            ConfidenceText = ConfidenceText(eval.Confidence),
             ConfidenceKind = eval.Confidence.ToString(),
             Rows = rows,
-            Footer = (eval.Best is { } best ? $"추천: {_eventText.OptionTitle(best.Option.Key)}" : "추천 없음")
-                     + $" · 인식: {source}{options}",
-            ExtraTitle = extra.Count > 0 ? $"이번에 안 나온 선택지 {extra.Count}개 · 참고 순위" : null,
+            Footer = (eval.Best is { } best
+                         ? Loc.T($"추천: {_eventText.OptionTitle(best.Option.Key)}", $"Pick: {_eventText.OptionTitle(best.Option.Key)}")
+                         : Loc.T("추천 없음", "No pick"))
+                     + Loc.T($" · 인식: {source}{options}", $" · source: {source}{options}"),
+            ExtraTitle = extra.Count > 0
+                ? Loc.T($"이번에 안 나온 선택지 {extra.Count}개 · 참고 순위", $"{extra.Count} options not offered this time · ranked for reference")
+                : null,
             ExtraRows = extra,
         };
     }
@@ -266,13 +273,13 @@ public sealed partial class AppController
     /// <summary>One option row. <paramref name="rankOnly"/>: the sub line is just "N위" (one-line rows of the lower block).</summary>
     private OfferRowVm EventRow(EventOptionEvaluation o, bool rankOnly = false)
     {
-        var sub = new List<string> { $"{o.Rank}위" };
+        var sub = new List<string> { Loc.T($"{o.Rank}위", $"#{o.Rank}") };
         if (!rankOnly)
         {
-            if (o.IsLethal) sub.Add("죽음 위험");
-            if (o.IsUnaffordable) sub.Add(o.Option.Key.EndsWith(EventSlots.LockedSuffix, StringComparison.Ordinal) ? "잠김" : "골드 부족");
-            if (o.IsRandom) sub.Add("운 요소");
-            if (o.HasUnmodelled) sub.Add("일부 효과 미반영");
+            if (o.IsLethal) sub.Add(LethalText());
+            if (o.IsUnaffordable) sub.Add(o.Option.Key.EndsWith(EventSlots.LockedSuffix, StringComparison.Ordinal) ? LockedText() : NoGoldText());
+            if (o.IsRandom) sub.Add(Loc.T("운 요소", "Random"));
+            if (o.HasUnmodelled) sub.Add(Loc.T("일부 효과 미반영", "Some effects not modeled"));
         }
         return new OfferRowVm
         {
@@ -305,6 +312,15 @@ public sealed partial class AppController
     }
 
     private static string DisplayEffect(string text) => text.Length > 60 ? text[..57] + "…" : text;
+
+    private static string LethalText() => Loc.T("죽음 위험", "Lethal risk");
+
+    private static string LockedText() => Loc.T("잠김", "Locked");
+
+    private static string NoGoldText() => Loc.T("골드 부족", "Not enough Gold");
+
+    /// <summary>Re-scores and re-formats the last event offer shown (also after the room closed and it went stale); null when none.</summary>
+    private Func<OfferSectionVm?>? _eventOfferRebuild;
 
     private void ReloadEvents()
     {
