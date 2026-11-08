@@ -45,7 +45,7 @@ public sealed class TrayIcon : IDisposable
 
         _outlines = new ToolStripMenuItem("인식 영역 표시 (Ctrl+F11)", null, (_, _) => DebugOutlinesRequested?.Invoke());
         _onTop = new ToolStripMenuItem("항상 맨 앞에 표시 (Ctrl+F6)", null, (_, _) => AlwaysOnTopRequested?.Invoke());
-        _mapOverlay = new ToolStripMenuItem("맵 위 추천 표시 (Ctrl+F5)", null, (_, _) => MapOverlayRequested?.Invoke());
+        _mapOverlay = new ToolStripMenuItem("맵·휴식처 위 추천 표시 (Ctrl+F5)", null, (_, _) => MapOverlayRequested?.Invoke());
 
         var menu = new ContextMenuStrip();
         menu.Items.AddRange(

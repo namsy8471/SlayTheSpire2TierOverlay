@@ -46,7 +46,7 @@ public sealed partial class AppController
         _settings.MapOverlay = !_settings.MapOverlay;
         SettingsStore.Save(AppPaths.SettingsFile, _settings);
         AppLog.Info($"map overlay = {_settings.MapOverlay}");
-        ShowMessage(_settings.MapOverlay ? "맵 위 추천 켜짐: 맵 화면에 추천 노드와 경로를 표시합니다" : "맵 위 추천 꺼짐");
+        ShowMessage(_settings.MapOverlay ? "게임 화면 위 추천 켜짐: 맵의 추천 노드·경로, 휴식처의 추천 버튼·강화 카드를 표시합니다" : "게임 화면 위 추천 꺼짐 (맵·휴식처)");
         UpdateMapTarget(_snapshot);
         UpdateVisibility();
         UpdateCadence();
@@ -101,6 +101,12 @@ public sealed partial class AppController
     private void RedrawMap()
     {
         if (_mapLayer is null) return;
+        // Rest-site marks (AppController.RestOverlay.cs) use the same layer; the map can't be open at the same time.
+        if (!_restPlan.IsEmpty)
+        {
+            _mapLayer.ShowPlan(_restPlan);
+            return;
+        }
         if (!_mapOpen || _mapMoving || _lastSighting is not { } s || _mapWatcher.Target is not { } t || s.Target.Key != t.Key)
         {
             _mapLayer.Clear();

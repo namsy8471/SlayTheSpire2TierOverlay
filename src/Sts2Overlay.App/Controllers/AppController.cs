@@ -287,7 +287,7 @@ public sealed partial class AppController : IDisposable
     {
         var offer = IsOfferHint(_snapshot.Hint) || (_snapshot.Hint == ScreenHint.None && _badges.HasBadges);
         var hz = offer ? Math.Clamp(_settings.RecognizeHz, 0.5, 10) : Math.Clamp(_settings.IdleRecognizeHz, 0, 10);
-        hz = Math.Max(hz, MapCadenceHz()); // faster while the map is open, so its marks follow the scroll
+        hz = Math.Max(hz, Math.Max(MapCadenceHz(), RestCadenceHz())); // faster while the map / a rest site is open, so the marks follow
         _pipeline.SetInterval(hz > 0 ? TimeSpan.FromSeconds(1 / hz) : null);
     }
 
@@ -304,6 +304,7 @@ public sealed partial class AppController : IDisposable
             AppLog.Info($"screen: {_loggedKind?.ToString() ?? "-"} -> {r.ScreenKind} ({r.Cards.Count} cards, hint {_snapshot.Hint})");
             _loggedKind = r.ScreenKind;
         }
+        UpdateRestMarks(r); // rest-site buttons / Smith grid (AppController.RestOverlay.cs)
         // A card grid is an offer only when it shows cards the deck does not hold; otherwise it is the deck itself
         // (remove / upgrade / transform screens, deck view), which needs no badges.
         if (r.ScreenKind == ScreenKind.Grid && !CardGridFilter.IsOffer(r.Cards.Select(c => c.Card).ToList(), _snapshot.Run?.Deck.Select(d => d.Card)))

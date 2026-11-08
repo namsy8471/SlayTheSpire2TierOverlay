@@ -156,6 +156,54 @@ public sealed class MapOverlayWindow : Window
                     break;
             }
         }
+
+        // Rectangle marks (rest-site buttons, upgrade-grid cards): outline + ribbon above + optional note below.
+        // Sizes scale with the user's UI multiplier; the outline itself follows the rectangle exactly.
+        foreach (var r in _plan.Rects)
+        {
+            double cx = r.X + r.Width / 2;
+            if (r.Kind == ScreenRectMarkKind.Note)
+            {
+                Label(r.Ribbon, cx, r.Y, 22 * m, GoldDark, Gold, anchorBottom: false, bold: true);
+                if (r.Note is { Length: > 0 } lines)
+                    Label(lines, cx, r.Y + 40 * m, 16 * m, Brushes.White, ChipBack, anchorBottom: false, bold: false, maxWidth: r.Width * m);
+                continue;
+            }
+            if (r.Kind == ScreenRectMarkKind.Best)
+            {
+                Box(r, Shadow, 9 * m);
+                Box(r, Gold, 5 * m);
+                _canvas.Children.Add(new Polygon
+                {
+                    Points = [new Point(cx - 11 * m, r.Y - 8 * m), new Point(cx + 11 * m, r.Y - 8 * m), new Point(cx, r.Y + 4 * m)],
+                    Fill = Gold,
+                });
+                Label(r.Ribbon, cx, r.Y - 8 * m, 26 * m, GoldDark, Gold, anchorBottom: true, bold: true);
+            }
+            else
+            {
+                Box(r, AltLine, 3 * m);
+                Label(r.Ribbon, cx, r.Y - 4 * m, 16 * m, Brushes.White, ChipBack, anchorBottom: true, bold: true);
+            }
+            if (r.Note is { Length: > 0 } note)
+                Label(note, cx, r.Y + r.Height + 8 * m, 15 * m, Brushes.White, ChipBack, anchorBottom: false, bold: false, maxWidth: Math.Max(r.Width, 300) * 1.4);
+        }
+    }
+
+    private void Box(ScreenRectMark r, Brush stroke, double thickness)
+    {
+        var rect = new Rectangle
+        {
+            Width = r.Width + thickness,
+            Height = r.Height + thickness,
+            Stroke = stroke,
+            StrokeThickness = thickness,
+            RadiusX = 10,
+            RadiusY = 10,
+        };
+        Canvas.SetLeft(rect, r.X - thickness / 2);
+        Canvas.SetTop(rect, r.Y - thickness / 2);
+        _canvas.Children.Add(rect);
     }
 
     private Ellipse Ring(double cx, double cy, double r, Brush stroke, double thickness)
@@ -168,9 +216,9 @@ public sealed class MapOverlayWindow : Window
     }
 
     /// <summary>A rounded label centred on <paramref name="cx"/>, with its bottom (or top) edge at <paramref name="y"/>.</summary>
-    private void Label(string text, double cx, double y, double size, Brush fg, Brush bg, bool anchorBottom, bool bold)
+    private void Label(string text, double cx, double y, double size, Brush fg, Brush bg, bool anchorBottom, bool bold, double maxWidth = double.PositiveInfinity)
     {
-        var b = MakeLabel(text, size, fg, bg, bold);
+        var b = MakeLabel(text, size, fg, bg, bold, maxWidth);
         b.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
         Canvas.SetLeft(b, cx - b.DesiredSize.Width / 2);
         Canvas.SetTop(b, anchorBottom ? y - b.DesiredSize.Height : y);
@@ -187,7 +235,7 @@ public sealed class MapOverlayWindow : Window
         _canvas.Children.Add(b);
     }
 
-    private static Border MakeLabel(string text, double size, Brush fg, Brush bg, bool bold) => new()
+    private static Border MakeLabel(string text, double size, Brush fg, Brush bg, bool bold, double maxWidth = double.PositiveInfinity) => new()
     {
         Background = bg,
         CornerRadius = new CornerRadius(size * 0.35),
@@ -198,6 +246,9 @@ public sealed class MapOverlayWindow : Window
             FontSize = size,
             FontWeight = bold ? FontWeights.Bold : FontWeights.SemiBold,
             Foreground = fg,
+            TextWrapping = TextWrapping.Wrap,
+            TextAlignment = TextAlignment.Center,
+            MaxWidth = maxWidth,
         },
     };
 

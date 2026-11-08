@@ -31,12 +31,37 @@ public enum MapNodeMarkKind
 /// <summary>A mark pinned on node <paramref name="Coord"/>, whose centre is at (X, Y) design px on screen.</summary>
 public sealed record MapNodeMark(MapCoord Coord, float X, float Y, MapNodeMarkKind Kind, string? Caption);
 
-/// <summary>Everything the map layer draws for one sighting of the map.</summary>
+/// <summary>How a rectangle mark is drawn.</summary>
+public enum ScreenRectMarkKind
+{
+    /// <summary>The recommendation: gold outline + ribbon.</summary>
+    Best,
+
+    /// <summary>A runner-up: thin outline + small tag.</summary>
+    Candidate,
+
+    /// <summary>No target, just a note panel at the rectangle's top (title = Ribbon, lines = Note), e.g. a fixed side panel.</summary>
+    Note,
+}
+
+/// <summary>
+/// A mark around a rectangle of the game screen (design px), e.g. a rest-site button or a card in the upgrade grid:
+/// <paramref name="Ribbon"/> above it, <paramref name="Note"/> (optional) in a chip below it.
+/// </summary>
+public sealed record ScreenRectMark(float X, float Y, float Width, float Height, ScreenRectMarkKind Kind, string Ribbon, string? Note = null);
+
+/// <summary>
+/// Everything the game-screen mark layer draws: path lines and node marks on the map screen, or rectangle marks on
+/// other screens (rest site). Coordinates are 1920x1080 design px.
+/// </summary>
 public sealed record MapMarkPlan(IReadOnlyList<MapLineMark> Lines, IReadOnlyList<MapNodeMark> Nodes)
 {
     public static MapMarkPlan Empty { get; } = new([], []);
 
-    public bool IsEmpty => Lines.Count == 0 && Nodes.Count == 0;
+    /// <summary>Rectangle marks (rest-site buttons, upgrade-grid cards).</summary>
+    public IReadOnlyList<ScreenRectMark> Rects { get; init; } = [];
+
+    public bool IsEmpty => Lines.Count == 0 && Nodes.Count == 0 && Rects.Count == 0;
 }
 
 /// <summary>
