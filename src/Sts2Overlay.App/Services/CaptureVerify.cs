@@ -23,8 +23,10 @@ namespace Sts2Overlay.App.Services;
 /// 2. Replay: real reward/shop captures are shown 1:1 in a layered window BEHIND everything (WGC still sees it, the user
 ///    does not), captured through WGC, and compared with the PNG byte for byte; the raw recogniser result (kind, ids,
 ///    upgrade flags, scores, bounds) must be identical too. An odd-sized crop exercises padded row pitch.
+/// 3. Overlay: our overlay can be visible to screen capture without ever being in a recognised frame
+///    (CaptureVerify.Overlay.cs).
 /// </summary>
-internal static class CaptureVerify
+internal static partial class CaptureVerify
 {
     private const int LiveRounds = 5;
 
@@ -50,6 +52,7 @@ internal static class CaptureVerify
         var failures = 0;
         failures += LiveCheck(options, recognizer, outDir, Out, out var liveGdi);
         failures += ReplayCheck(options, recognizer, liveGdi, Out);
+        failures += OverlayCheck(options, Out);
         Out(failures == 0 ? "VERIFY PASS" : $"VERIFY FAIL ({failures} failed checks)");
         var report = Path.Combine(outDir, "verify_capture.txt");
         File.WriteAllLines(report, lines);

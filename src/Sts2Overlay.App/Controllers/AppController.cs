@@ -817,6 +817,24 @@ public sealed partial class AppController : IDisposable
         UpdateVisibility();
     }
 
+    /// <summary>"방송·캡처에 오버레이 표시" is on (the user's choice; it can still be hidden for a GDI frame).</summary>
+    public bool ShowOverlayInCapture => _pipeline.CaptureVisibility.ShowInCapture;
+
+    /// <summary>True while recognition reads the desktop (GDI fallback), which hides the overlay from capture anyway.</summary>
+    public bool CaptureForcedHidden => _pipeline.CaptureVisibility.RecognitionSeesDesktop;
+
+    /// <summary>Tray: shows or hides the overlay in OBS / Discord / screenshots (persisted). Recognition is unaffected.</summary>
+    public void ToggleShowInCapture()
+    {
+        _settings.ShowOverlayInCapture = !_pipeline.CaptureVisibility.ShowInCapture;
+        _pipeline.CaptureVisibility.ShowInCapture = _settings.ShowOverlayInCapture;
+        SettingsStore.Save(AppPaths.SettingsFile, _settings);
+        AppLog.Info($"show overlay in capture = {_settings.ShowOverlayInCapture}");
+        ShowMessage(_settings.ShowOverlayInCapture
+            ? "방송·캡처에 오버레이 표시 켜짐: OBS 디스플레이 캡처, 디스코드 화면 공유, 스크린샷에 보입니다"
+            : "방송·캡처에 오버레이 표시 꺼짐: 내 화면에만 보이고 녹화·방송·스크린샷에는 안 나옵니다");
+    }
+
     // ---- commands (hotkeys / tray) ------------------------------------------------------------------------
 
     public void ToggleHidden()

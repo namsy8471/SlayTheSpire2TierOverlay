@@ -4,6 +4,7 @@ using System.Windows.Media;
 using System.Windows.Shapes;
 using Sts2Overlay.App.Integration;
 using Sts2Overlay.App.Interop;
+using Sts2Overlay.App.Services;
 using Sts2Overlay.Core.Map;
 using RefTransform = Sts2Overlay.Vision.RefTransform;
 using static Sts2Overlay.App.Interop.NativeMethods;
@@ -35,16 +36,16 @@ public sealed class MapOverlayWindow : Window
     private static readonly Brush Partner = Frozen(new SolidColorBrush(Color.FromRgb(0x4F, 0xC3, 0xF7)));
     private static readonly Brush PartnerDark = Frozen(new SolidColorBrush(Color.FromRgb(0x05, 0x26, 0x38)));
 
-    private readonly bool _excludeFromCapture;
+    private readonly OverlayCaptureVisibility _captureVisibility;
     private readonly Canvas _canvas = new() { IsHitTestVisible = false };
     private IntPtr _hwnd;
     private PixelRect _layer;
     private MapMarkPlan _plan = MapMarkPlan.Empty;
     private double _scaleMultiplier = 1.0;
 
-    public MapOverlayWindow(bool excludeFromCapture)
+    public MapOverlayWindow(OverlayCaptureVisibility captureVisibility)
     {
-        _excludeFromCapture = excludeFromCapture;
+        _captureVisibility = captureVisibility;
         Title = "STS2 Map Marks";
         WindowStyle = WindowStyle.None;
         AllowsTransparency = true;
@@ -65,7 +66,8 @@ public sealed class MapOverlayWindow : Window
         {
             _hwnd = OverlayWindowHelper.Handle(this);
             OverlayWindowHelper.SetExStyle(_hwnd, WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW, true);
-            if (_excludeFromCapture) OverlayWindowHelper.SetExcludeFromCapture(_hwnd, true);
+            _captureVisibility.Register(_hwnd);
+            Closed += (_, _) => _captureVisibility.Unregister(_hwnd);
         };
         DpiChanged += (_, _) => Redraw();
     }

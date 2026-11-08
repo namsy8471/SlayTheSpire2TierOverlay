@@ -33,13 +33,18 @@ public sealed class CapturePipeline : IDisposable
 
     /// <param name="target">Current game window (read on the worker thread).</param>
     /// <param name="captureBackend">The <c>captureBackend</c> setting: "auto" (null), "wgc" or "gdi".</param>
-    public CapturePipeline(Func<GameWindowInfo?> target, string? captureBackend = null)
+    /// <param name="captureVisibility">Hides our windows before a frame that reads the desktop; null = a new one that shows them.</param>
+    public CapturePipeline(Func<GameWindowInfo?> target, string? captureBackend = null, OverlayCaptureVisibility? captureVisibility = null)
     {
         _target = target;
-        _capturer = FrameCapturerFactory.Create(captureBackend);
+        CaptureVisibility = captureVisibility ?? new OverlayCaptureVisibility(showInCapture: true);
+        _capturer = FrameCapturerFactory.Create(captureBackend, CaptureVisibility.BeforeCapture);
         _thread = new Thread(Run) { IsBackground = true, Name = "CapturePipeline", Priority = ThreadPriority.BelowNormal };
         _thread.Start();
     }
+
+    /// <summary>Whether our overlay windows show up in screen capture (OBS, screenshots); every overlay window registers here.</summary>
+    public OverlayCaptureVisibility CaptureVisibility { get; }
 
     /// <summary>Raised on the WORKER thread with each non-null recognition result.</summary>
     public event Action<RecognitionResult>? Recognized;

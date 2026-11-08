@@ -112,7 +112,8 @@ public partial class App : Application
         AppDomain.CurrentDomain.UnhandledException += (_, args) => AppLog.Error("unhandled exception", args.ExceptionObject as Exception);
 
         _settings = SettingsStore.Load(AppPaths.SettingsFile);
-        var excludeFromCapture = _settings.HideOverlayFromCapture && !options.ShowInCapture;
+        // --show-in-capture forces it on for this run (old debug flag); recognition stays safe either way.
+        var captureVisibility = new OverlayCaptureVisibility(_settings.ShowOverlayInCapture || options.ShowInCapture);
         var packDir = AppPaths.ResolvePackDir(options.PackDir ?? _settings.PackDir);
         var catalog = AppPaths.FindLocalCatalog(options.CatalogPath ?? _settings.CatalogPath);
 
@@ -124,10 +125,10 @@ public partial class App : Application
         };
 
         _tracker = new GameWindowTracker();
-        _pipeline = new CapturePipeline(() => _tracker.Current, _settings.CaptureBackend);
+        _pipeline = new CapturePipeline(() => _tracker.Current, _settings.CaptureBackend, captureVisibility);
 
-        var badges = new BadgeWindow(excludeFromCapture);
-        _panel = new PanelWindow(_vm, _settings, excludeFromCapture);
+        var badges = new BadgeWindow(captureVisibility);
+        _panel = new PanelWindow(_vm, _settings, captureVisibility);
         // Create the HWNDs (SourceInitialized → window styles) without showing anything yet;
         // the controller shows them when the game is in front.
         new WindowInteropHelper(badges).EnsureHandle();
@@ -158,7 +159,7 @@ public partial class App : Application
         _tracker.Refresh();
         _controller.UpdateVisibility();
 
-        AppLog.Info($"ready: pack {packDir}, catalog {catalog ?? "(none)"}, {_vm.UiScaleText} (layout x{_vm.UiScale:0.###}), excludeFromCapture {excludeFromCapture}");
+        AppLog.Info($"ready: pack {packDir}, catalog {catalog ?? "(none)"}, {_vm.UiScaleText} (layout x{_vm.UiScale:0.###}), overlay in screen capture {!captureVisibility.IsExcluded}");
         if (options.SelfTest)
         {
             RunSelfTest();
@@ -230,6 +231,13 @@ public partial class App : Application
         _tray.DebugOutlinesRequested += () => _controller!.ToggleDebugOutlines();
         _tray.AlwaysOnTopRequested += () => _controller!.ToggleAlwaysOnTop();
         _tray.MapOverlayRequested += () => _controller!.ToggleMapOverlay();
+        _tray.ShowInCaptureRequested += () =>
+        {
+            _controller!.ToggleShowInCapture();
+            UpdateTray();
+        };
+        // Raised on the capture thread when a GDI frame hides the overlay (or window capture shows it again).
+        _pipeline!.CaptureVisibility.ExcludedChanged += _ => Dispatcher.BeginInvoke(UpdateTray);
         _tray.ReloadPackRequested += () => _controller!.ReloadPack();
         _tray.OpenCapturesRequested += () =>
         {
@@ -251,6 +259,7 @@ public partial class App : Application
         _tray.SetDebugOutlines(_controller.DebugOutlines);
         _tray.SetAlwaysOnTop(_controller.AlwaysOnTop);
         _tray.SetMapOverlay(_controller.MapOverlayOn);
+        _tray.SetShowInCapture(_controller.ShowOverlayInCapture, _controller.CaptureForcedHidden);
         _tray.SetUpdateReady(_updates?.ReadyVersion);
     }
 

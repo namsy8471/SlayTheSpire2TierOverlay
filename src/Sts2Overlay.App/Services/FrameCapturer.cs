@@ -25,6 +25,13 @@ internal interface IFrameCapturer : IDisposable
     /// <summary>Captures <see cref="GameWindowInfo.CaptureRect"/> of the target. Throws on failure.</summary>
     CapturedFrame Capture(GameWindowInfo target);
 
+    /// <summary>
+    /// True when the frame is cut out of the composed desktop, so windows above the game (our overlay!) would be in it
+    /// unless hidden from capture: GDI BitBlt always, WGC only when capturing a monitor (no game window, demo mode).
+    /// WGC of a window gets that window's own surface, never what is drawn over it.
+    /// </summary>
+    bool ReadsDesktop(GameWindowInfo target);
+
     /// <summary>Periodic capture stopped: release what is expensive to keep running (WGC session). Idempotent.</summary>
     void Suspend();
 }
@@ -87,12 +94,21 @@ internal sealed class FallbackFrameCapturer : IFrameCapturer
     /// <summary>True once the primary backend has been given up on (or there never was one).</summary>
     public bool UsingFallbackOnly => _primary is null;
 
+    /// <summary>
+    /// Called right before each capture with <see cref="IFrameCapturer.ReadsDesktop"/> of the backend about to run
+    /// (see <see cref="OverlayCaptureVisibility.BeforeCapture"/>): hides the overlay before a desktop read.
+    /// </summary>
+    public Action<bool>? BeforeCapture { get; set; }
+
+    public bool ReadsDesktop(GameWindowInfo target) => (_primary ?? _fallback).ReadsDesktop(target);
+
     public CapturedFrame Capture(GameWindowInfo target)
     {
         if (_primary is { } primary)
         {
             try
             {
+                BeforeCapture?.Invoke(primary.ReadsDesktop(target));
                 var frame = primary.Capture(target);
                 _failures = 0;
                 MarkUsed(primary);
@@ -110,6 +126,7 @@ internal sealed class FallbackFrameCapturer : IFrameCapturer
                 }
             }
         }
+        BeforeCapture?.Invoke(_fallback.ReadsDesktop(target));
         var fallbackFrame = _fallback.Capture(target);
         MarkUsed(_fallback);
         return fallbackFrame;
@@ -138,12 +155,15 @@ internal sealed class FallbackFrameCapturer : IFrameCapturer
 internal static class FrameCapturerFactory
 {
     /// <summary>The capturer the app uses: WGC with GDI fallback, or GDI only (setting or unsupported OS).</summary>
-    public static IFrameCapturer Create(string? setting)
+    /// <param name="beforeCapture">See <see cref="FallbackFrameCapturer.BeforeCapture"/>.</param>
+    public static IFrameCapturer Create(string? setting, Action<bool>? beforeCapture = null)
     {
         var (backend, reason) = CaptureBackendSelector.Choose(setting, WgcCapturer.IsSupported());
         AppLog.Info($"capture backend: {backend.ToString().ToLowerInvariant()} ({reason})");
-        return backend == CaptureBackend.Wgc
+        var capturer = backend == CaptureBackend.Wgc
             ? new FallbackFrameCapturer(new WgcCapturer(), new ScreenCapturer())
             : new FallbackFrameCapturer(null, new ScreenCapturer());
+        capturer.BeforeCapture = beforeCapture;
+        return capturer;
     }
 }

@@ -124,8 +124,10 @@ public class FallbackFrameCapturerTests
 {
     private static readonly GameWindowInfo Target = new(IntPtr.Zero, 0, new PixelRect(0, 0, 2, 1), new PixelRect(0, 0, 2, 1), false, true, false, false);
 
-    private sealed class FakeCapturer(string name) : IFrameCapturer
+    private sealed class FakeCapturer(string name, bool readsDesktop = false) : IFrameCapturer
     {
+        public bool ReadsDesktop(GameWindowInfo target) => readsDesktop;
+
         public Queue<bool> Script { get; } = new(); // true = succeed, false = throw; empty = succeed
         public int Calls { get; private set; }
         public int Suspends { get; private set; }
@@ -217,6 +219,63 @@ public class FallbackFrameCapturerTests
         gdi.Script.Enqueue(false);
         using var c = new FallbackFrameCapturer(wgc, gdi);
         Assert.Throws<InvalidOperationException>(() => c.Capture(Target));
+    }
+
+    private sealed class LoggingCapturer(string name, bool readsDesktop, List<string> log, bool fail = false) : IFrameCapturer
+    {
+        public string Name => name;
+        public CaptureTimings LastTimings => default;
+
+        public bool ReadsDesktop(GameWindowInfo target) => readsDesktop;
+
+        public CapturedFrame Capture(GameWindowInfo target)
+        {
+            log.Add("capture " + name);
+            if (fail) throw new InvalidOperationException(name + " broke");
+            return new CapturedFrame(new byte[8], 2, 1, 8, target.CaptureRect, DateTime.Now);
+        }
+
+        public void Suspend()
+        {
+        }
+
+        public void Dispose()
+        {
+        }
+    }
+
+    [Fact]
+    public void Before_capture_runs_first_and_says_whether_the_backend_reads_the_desktop()
+    {
+        var log = new List<string>();
+        using var c = new FallbackFrameCapturer(new LoggingCapturer("wgc", false, log), new LoggingCapturer("gdi", true, log))
+        {
+            BeforeCapture = desktop => log.Add("before " + (desktop ? "desktop" : "window")),
+        };
+        c.Capture(Target);
+        Assert.Equal(["before window", "capture wgc"], log);
+    }
+
+    [Fact]
+    public void A_failed_window_capture_hides_the_overlay_before_the_gdi_frame()
+    {
+        var log = new List<string>();
+        using var c = new FallbackFrameCapturer(new LoggingCapturer("wgc", false, log, fail: true), new LoggingCapturer("gdi", true, log))
+        {
+            BeforeCapture = desktop => log.Add("before " + (desktop ? "desktop" : "window")),
+        };
+        c.Capture(Target);
+        Assert.Equal(["before window", "capture wgc", "before desktop", "capture gdi"], log);
+    }
+
+    [Fact]
+    public void Reads_desktop_follows_the_backend_in_use()
+    {
+        var log = new List<string>();
+        using var withPrimary = new FallbackFrameCapturer(new LoggingCapturer("wgc", false, log), new LoggingCapturer("gdi", true, log));
+        Assert.False(withPrimary.ReadsDesktop(Target));
+        using var gdiOnly = new FallbackFrameCapturer(null, new LoggingCapturer("gdi", true, log));
+        Assert.True(gdiOnly.ReadsDesktop(Target));
     }
 
     [Fact]
@@ -336,4 +395,53 @@ public class CaptureOptionsTests
         Assert.Equal("d", v.VerifyDir);
         Assert.False(v.VerifyGdiOnTop);
     }
+}
+
+public class OverlayCaptureVisibilityTests
+{
+    [Theory]
+    [InlineData(true, false, false)] // normal play: window capture, user wants the overlay in OBS → visible
+    [InlineData(true, true, true)] // GDI / monitor capture: hidden, or the badges would be in our own frames
+    [InlineData(false, false, true)] // user turned it off
+    [InlineData(false, true, true)]
+    public void Policy(bool showInCapture, bool recognitionSeesDesktop, bool excluded)
+        => Assert.Equal(excluded, CaptureExclusionPolicy.ShouldExclude(showInCapture, recognitionSeesDesktop));
+
+    [Fact]
+    public void Visible_by_default_and_hidden_while_recognition_reads_the_desktop()
+    {
+        var v = new OverlayCaptureVisibility(showInCapture: true);
+        var changes = new List<bool>();
+        v.ExcludedChanged += changes.Add;
+        Assert.False(v.IsExcluded);
+
+        v.BeforeCapture(false); // window capture: nothing to do
+        Assert.False(v.IsExcluded);
+
+        v.BeforeCapture(true); // WGC failed, GDI frame next
+        Assert.True(v.IsExcluded);
+        Assert.True(v.RecognitionSeesDesktop);
+
+        v.BeforeCapture(true);
+        v.BeforeCapture(false); // WGC works again
+        Assert.False(v.IsExcluded);
+        Assert.Equal([true, false], changes);
+    }
+
+    [Fact]
+    public void The_user_can_hide_it_and_a_desktop_read_never_shows_it()
+    {
+        var v = new OverlayCaptureVisibility(showInCapture: false);
+        Assert.True(v.IsExcluded);
+        v.BeforeCapture(true);
+        v.ShowInCapture = true; // turned on while GDI is in use: stays hidden
+        Assert.True(v.IsExcluded);
+        v.BeforeCapture(false);
+        Assert.False(v.IsExcluded);
+        v.ShowInCapture = false;
+        Assert.True(v.IsExcluded);
+    }
+
+    [Fact]
+    public void Settings_default_shows_the_overlay_in_capture() => Assert.True(new AppSettings().ShowOverlayInCapture);
 }

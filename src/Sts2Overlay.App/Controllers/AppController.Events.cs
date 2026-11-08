@@ -188,12 +188,12 @@ public sealed partial class AppController
         markers.Show(specs);
     }
 
-    /// <summary>The marker layer, created on first use next to the badge layer (same capture exclusion).</summary>
+    /// <summary>The marker layer, created on first use next to the badge layer (same capture visibility).</summary>
     private EventMarkerWindow? EnsureEventMarkers()
     {
         if (_eventMarkers is not null) return _eventMarkers;
         if (_badges.Hwnd == IntPtr.Zero) return null;
-        _eventMarkers = new EventMarkerWindow(EventMarkerWindow.IsExcludedFromCapture(_badges.Hwnd)) { ScaleMultiplier = _badges.ScaleMultiplier };
+        _eventMarkers = new EventMarkerWindow(_pipeline.CaptureVisibility) { ScaleMultiplier = _badges.ScaleMultiplier };
         _eventMarkers.Show();
         UpdateEventMarkerVisibility();
         return _eventMarkers;

@@ -17,8 +17,8 @@ namespace Sts2Overlay.App.Services;
 ///    (negative height), so the memory layout is exactly BGRA rows starting at the top.
 /// 3. <c>BitBlt</c> copies the game rectangle from the desktop DC into the DIB, then one <c>Marshal.Copy</c> moves the
 ///    pixels into a managed array that is reused while the size stays the same.
-/// Layered windows (our overlays) are not included because we don't pass CAPTUREBLT, and they additionally opt out
-/// with WDA_EXCLUDEFROMCAPTURE.
+/// Everything drawn over the game is in the frame, our overlay included, so before a GDI frame
+/// <see cref="OverlayCaptureVisibility"/> hides our windows from capture (WDA_EXCLUDEFROMCAPTURE).
 ///
 /// Why this is slow at 4K (~50 ms): the game is drawn by the GPU and composed by DWM in VRAM. A desktop-DC BitBlt makes
 /// Windows read the composed desktop back from the GPU into system memory through GDI, synchronously, every call.
@@ -41,6 +41,9 @@ internal sealed class ScreenCapturer : IFrameCapturer
     public CaptureTimings LastTimings { get; private set; }
 
     public CapturedFrame Capture(GameWindowInfo target) => Capture(target.CaptureRect);
+
+    /// <summary>Always: BitBlt copies the composed desktop.</summary>
+    public bool ReadsDesktop(GameWindowInfo target) => true;
 
     public CapturedFrame Capture(PixelRect rect)
     {

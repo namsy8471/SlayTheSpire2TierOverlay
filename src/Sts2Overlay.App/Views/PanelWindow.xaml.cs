@@ -3,6 +3,7 @@ using System.Windows.Input;
 using System.Windows.Threading;
 using Sts2Overlay.App.Infrastructure;
 using Sts2Overlay.App.Interop;
+using Sts2Overlay.App.Services;
 using Sts2Overlay.App.ViewModels;
 using static Sts2Overlay.App.Interop.NativeMethods;
 
@@ -20,15 +21,15 @@ namespace Sts2Overlay.App.Views;
 public partial class PanelWindow : Window
 {
     private readonly AppSettings _settings;
-    private readonly bool _excludeFromCapture;
+    private readonly OverlayCaptureVisibility _captureVisibility;
     private readonly DispatcherTimer _saveTimer;
     private IntPtr _hwnd;
     private bool _positioned;
 
-    public PanelWindow(PanelViewModel vm, AppSettings settings, bool excludeFromCapture)
+    public PanelWindow(PanelViewModel vm, AppSettings settings, OverlayCaptureVisibility captureVisibility)
     {
         _settings = settings;
-        _excludeFromCapture = excludeFromCapture;
+        _captureVisibility = captureVisibility;
         InitializeComponent();
         DataContext = vm;
 
@@ -60,7 +61,8 @@ public partial class PanelWindow : Window
     {
         _hwnd = OverlayWindowHelper.Handle(this);
         OverlayWindowHelper.SetExStyle(_hwnd, WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW, true);
-        if (_excludeFromCapture) OverlayWindowHelper.SetExcludeFromCapture(_hwnd, true);
+        _captureVisibility.Register(_hwnd);
+        Closed += (_, _) => _captureVisibility.Unregister(_hwnd);
     }
 
     /// <summary>Restores the saved physical position, or docks to the right edge of the primary monitor's work area.</summary>
