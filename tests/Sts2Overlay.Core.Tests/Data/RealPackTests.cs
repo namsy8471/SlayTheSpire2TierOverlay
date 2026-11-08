@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Sts2Overlay.Core.Data;
+using Sts2Overlay.Core.Events;
 
 namespace Sts2Overlay.Core.Tests.Data;
 
@@ -76,14 +77,15 @@ public class RealPackTests
 
     /// <summary>
     /// Builds whose core list is empty on purpose: no card passed the core test in the top-player win data
-    /// (docs/research/build-sources). For these the core-first rule is off; the validator warns about each one.
+    /// (docs/research/build-sources, v2 = OP.GG top players 2026-11). For these the core-first rule is off; the validator
+    /// warns about each one. v2: defect.orb_focus (CAPACITOR), defect.zero_cost (FERAL), ironclad.block (BARRICADE) and
+    /// regent.creation (PILLAR_OF_CREATION) got a core; defect.orb_variety lost SYNCHRONIZE as its core.
     /// </summary>
     private static readonly string[] IntentionallyCoreless =
     [
-        "defect.dark_orbs", "defect.orb_focus", "defect.zero_cost",
-        "ironclad.attack_replay", "ironclad.block", "ironclad.strength", "ironclad.strike_tempo", "ironclad.vulnerable",
+        "defect.dark_orbs", "defect.orb_variety",
+        "ironclad.attack_replay", "ironclad.strength", "ironclad.strike_tempo", "ironclad.vulnerable",
         "necrobinder.ethereal",
-        "regent.creation",
         "silent.sly_discard",
     ];
 
@@ -150,6 +152,12 @@ public class RealPackTests
         Assert.True(problems.Count == 0, string.Join(Environment.NewLine, problems));
     }
 
+    /// <summary>
+    /// Source tags a tier entry may carry: the hand-written draft (colorless and every entry the v2 data left
+    /// "불확실"), or the v2 OP.GG top-player pick rates (docs/research/v2-stats/tiers.md).
+    /// </summary>
+    private static readonly string[] TierSourcePrefixes = ["claude-draft-v1", "opgg-top-a10-2026-11"];
+
     [Fact]
     public void DraftEntries_AreMarkedAsDraftsWithHonestConfidence()
     {
@@ -157,7 +165,7 @@ public class RealPackTests
         {
             foreach (var (id, e) in tiers.Cards)
             {
-                Assert.True(e.Source.StartsWith("claude-draft-v1", StringComparison.Ordinal), $"{character} {id}: source '{e.Source}'");
+                Assert.True(TierSourcePrefixes.Any(p => e.Source.StartsWith(p, StringComparison.Ordinal)), $"{character} {id}: source '{e.Source}'");
                 Assert.InRange(e.Confidence, 0.3, 0.7);
                 Assert.DoesNotContain("CARD.", e.Tip ?? "", StringComparison.Ordinal);
             }
@@ -174,5 +182,85 @@ public class RealPackTests
     public void EveryCharacter_HasTheDocumentedArchetypeCount(string character, int expected)
     {
         Assert.Equal(expected, Pack.Value.Archetypes.Count(a => a.Character == character));
+    }
+
+    // ---- v2 measured rates: events.stats.json, relics.json ----
+
+    private const string StatsSourcePrefix = "opgg-top-a10-2026-11";
+
+    private static readonly Lazy<EventCatalog> EventsJson = new(() => EventCatalog.LoadFile(Path.Combine(PackDir, "events.json")));
+
+    private static readonly Lazy<HashSet<string>> KnownRelics = new(() =>
+    {
+        using var doc = JsonDocument.Parse(File.ReadAllText(Path.Combine(TestPaths.RepoRoot, "data", "catalog", $"relics.{Version}.json")));
+        return doc.RootElement.GetProperty("relics").EnumerateArray().Select(r => r.GetProperty("id").GetString() ?? "").ToHashSet(StringComparer.Ordinal);
+    });
+
+    /// <summary>
+    /// Ids in the v2 data that the v0.107.1 game does not have: the sample pools v0.107.x with the v0.108–v0.111 beta.
+    /// NEOWS_SACRIFICE / DOWSING_ROD are not in the v0.107.1 relic catalog; the OROBAS ids are character ids, not v0.107.1 OROBAS buttons.
+    /// They never match a key at runtime (no v0.107.1 option has these ids), so they are inert; listed so a new unknown id still fails.
+    /// </summary>
+    private static readonly string[] NewerAncientOptions = ["NEOW.NEOWS_SACRIFICE", "OROBAS.IRONCLAD", "OROBAS.REGENT", "OROBAS.SILENT"];
+
+    private static readonly string[] NewerRelics = ["RELIC.DOWSING_ROD", "RELIC.NEOWS_SACRIFICE"];
+
+    [Fact]
+    public void StatsFiles_AreLoaded_WithTheV2Source()
+    {
+        var events = Assert.IsType<EventStats>(Pack.Value.EventStats);
+        var relics = Assert.IsType<RelicStats>(Pack.Value.RelicStats);
+        Assert.StartsWith(StatsSourcePrefix, events.Source, StringComparison.Ordinal);
+        Assert.StartsWith(StatsSourcePrefix, relics.Source, StringComparison.Ordinal);
+        Assert.NotEmpty(events.Events);
+        Assert.NotEmpty(events.Ancients);
+        Assert.Contains(relics.Relics.Values, r => r.Use == true);
+    }
+
+    [Fact]
+    public void EveryEventStatsOption_ExistsInEventsJson()
+    {
+        var missing = new List<string>();
+        var count = 0;
+        foreach (var (eventId, pages) in Pack.Value.EventStats!.Events)
+        {
+            Assert.NotNull(EventsJson.Value.Find($"EVENT.{eventId}"));
+            foreach (var (page, p) in pages)
+            {
+                Assert.True(p.Options.Count <= p.K, $"{eventId}.{page}: {p.Options.Count} options listed but k = {p.K}");
+                foreach (var option in p.Options.Keys)
+                {
+                    count++;
+                    var key = $"{eventId}.pages.{page}.options.{option}";
+                    if (EventsJson.Value.FindOption(key) is null) missing.Add(key);
+                }
+            }
+        }
+        Assert.True(missing.Count == 0, "Not in events.json:" + Environment.NewLine + string.Join(Environment.NewLine, missing));
+        Assert.Equal(115, count); // docs/research/v2-stats/events.md
+    }
+
+    [Fact]
+    public void EveryAncientStatsOption_IsAnAncientOptionInEventsJson_OrADocumentedNewerId()
+    {
+        var unmatched = new List<string>();
+        foreach (var (ancient, options) in Pack.Value.EventStats!.Ancients)
+        {
+            var def = EventsJson.Value.Find($"EVENT.{ancient}");
+            Assert.True(def is { IsAncient: true }, $"{ancient} is not an ancient in events.json");
+            foreach (var option in options.Keys)
+            {
+                // The key is built the way NeowOptions / the log name an ancient's buttons.
+                if (EventsJson.Value.FindOption($"{ancient}.pages.INITIAL.options.{option}") is null) unmatched.Add($"{ancient}.{option}");
+            }
+        }
+        Assert.Equal(NewerAncientOptions.Order(StringComparer.Ordinal), unmatched.Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void EveryRelicStatsId_IsAKnownRelic_OrADocumentedNewerId()
+    {
+        var unknown = Pack.Value.RelicStats!.Relics.Keys.Where(id => !KnownRelics.Value.Contains(id)).Order(StringComparer.Ordinal);
+        Assert.Equal(NewerRelics.Order(StringComparer.Ordinal), unknown);
     }
 }

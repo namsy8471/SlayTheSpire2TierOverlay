@@ -345,6 +345,154 @@ public class DataPackLoaderTests
         Assert.Contains(second, ex.Message);
     }
 
+    // ---- Optional measured-rate files: events.stats.json, relics.json ----
+
+    private static void WriteSmallPack(TempDir dir)
+    {
+        dir.Write("weights.json", """{ "skip": { "margin": 3 } }""");
+        dir.Write("tiers/defect.json", """{ "character": "CHARACTER.DEFECT", "cards": { "CARD.HOLOGRAM": { "tier": "A" } } }""");
+        dir.Write("archetypes/defect.json", """[{ "id": "d.a", "character": "CHARACTER.DEFECT", "cards": { "core": ["CARD.HOLOGRAM"] } }]""");
+    }
+
+    private const string EventStatsJsonc = """
+    // comment line, as in the real file
+    {
+      "version": 1, "source": "test",
+      "events": { "ABYSSAL_BATHS": { "INITIAL": { "k": 2, "options": {
+        "ABSTAIN": { "choiceRate": 0.648, "n": 254, "players": 17, "dirBoot": 0.95, "byAct": { "3": 0.7 }, }, // trailing comma + unknown field
+      } } } },
+      "ancients": { "NEOW": { "LEAD_PAPERWEIGHT": { "pickRate": 0.62, "offered": 300, "basis": "good" } } },
+    }
+    """;
+
+    private const string RelicStatsJsonc = """
+    /* block comment */
+    { "version": 1, "source": "test", "shopMedianPickRate": 0.327, "ancientNeutralPickRate": 0.333,
+      "relics": { "RELIC.MINIATURE_TENT": { "signal": "shop", "use": true, "pickRate": 0.645, "tier": "A", "eff_n": 320.2 }, } }
+    """;
+
+    [Fact]
+    public void LoadDirectory_WithoutStatsFiles_BothNull_AndEverythingElseIdentical()
+    {
+        using var without = new TempDir();
+        WriteSmallPack(without);
+        using var with = new TempDir();
+        WriteSmallPack(with);
+        with.Write("events.stats.json", EventStatsJsonc);
+        with.Write("relics.json", RelicStatsJsonc);
+
+        var a = DataPackLoader.LoadDirectory(without.Path);
+        var b = DataPackLoader.LoadDirectory(with.Path);
+        Assert.Null(a.EventStats);
+        Assert.Null(a.RelicStats);
+        Assert.NotNull(b.EventStats);
+        Assert.NotNull(b.RelicStats);
+
+        var o = DataPackLoader.JsonOptions;
+        Assert.Equal(JsonSerializer.Serialize(a.Weights, o), JsonSerializer.Serialize(b.Weights, o));
+        Assert.Equal(JsonSerializer.Serialize(a.Tiers, o), JsonSerializer.Serialize(b.Tiers, o));
+        Assert.Equal(JsonSerializer.Serialize(a.Archetypes, o), JsonSerializer.Serialize(b.Archetypes, o));
+        Assert.DoesNotContain(DataPackValidator.Validate(a), i => i.Severity == ValidationSeverity.Error);
+        Assert.DoesNotContain(DataPackValidator.Validate(b), i => i.Severity == ValidationSeverity.Error);
+    }
+
+    [Fact]
+    public void LoadStats_JsoncWithCommentsAndTrailingCommas_Parses()
+    {
+        var s = DataPackLoader.LoadEventStats(EventStatsJsonc);
+        var page = s.Events["ABYSSAL_BATHS"]["INITIAL"];
+        Assert.Equal(2, page.K);
+        Assert.Equal(0.648, page.Options["ABSTAIN"].ChoiceRate);
+        Assert.Equal(0.7, page.Options["ABSTAIN"].ByAct![3]);
+        Assert.Equal(0.62, s.Ancients["NEOW"]["LEAD_PAPERWEIGHT"].PickRate);
+        Assert.Equal(new MeasuredChoice(0.7, 0.5, true), s.Find("ABYSSAL_BATHS.pages.INITIAL.options.ABSTAIN", act: 3));
+        Assert.Equal(new MeasuredChoice(0.648, 0.5, false), s.Find("ABYSSAL_BATHS.pages.INITIAL.options.ABSTAIN", act: 1));
+        Assert.Equal(0.62, s.Find("NEOW.pages.INITIAL.options.LEAD_PAPERWEIGHT", act: 1)!.Value.Rate);
+        Assert.Null(s.Find("ABYSSAL_BATHS.pages.INITIAL.options.IMMERSE", act: 1));
+        Assert.Null(s.Find("not a key", act: 1));
+
+        var r = DataPackLoader.LoadRelicStats(RelicStatsJsonc);
+        Assert.Equal(0.327, r.ShopMedianPickRate);
+        var tent = r.Relics["RELIC.MINIATURE_TENT"];
+        Assert.True(tent.Use);
+        Assert.Equal("A", tent.Tier);
+        Assert.Equal(0.645, tent.PickRate);
+    }
+
+    [Theory]
+    [InlineData("events.stats.json", "{ \"events\": ")]
+    [InlineData("events.stats.json", "{ \"events\": { \"X\": { \"INITIAL\": { \"k\": \"two\" } } } }")]
+    [InlineData("relics.json", "[1, 2]")]
+    [InlineData("relics.json", "{ \"relics\": { \"RELIC.X\": { \"use\": \"yes\" } } }")]
+    public void LoadDirectory_BrokenStatsFile_ThrowsWithItsPathFirst(string relative, string content)
+    {
+        using var dir = new TempDir();
+        WriteSmallPack(dir);
+        var path = dir.Write(relative, content);
+        var ex = Assert.Throws<InvalidDataException>(() => DataPackLoader.LoadDirectory(dir.Path));
+        Assert.StartsWith(path, ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LoadWeights_Events_MergesIntoDefaults_AndRoundTrips()
+    {
+        var w = DataPackLoader.LoadWeights("""{ "events": { "measuredBlend": 0, "relicTier": { "shop": 18 } } }""");
+        Assert.Equal(0, w.Events.MeasuredBlend);
+        Assert.Equal(20, w.Events.MeasuredScale);                 // untouched default
+        Assert.Equal(18, w.Events.RelicTier["shop"]);
+        Assert.Equal(13, w.Events.RelicTier["COMMON"]);           // other keys kept, comparer still case-insensitive
+        Assert.Equal(2.2, w.Events.MaxHpFactor[1]);
+
+        var again = DataPackLoader.LoadWeights(JsonSerializer.Serialize(w, DataPackLoader.JsonOptions));
+        Assert.Equal(0, again.Events.MeasuredBlend);
+        Assert.Equal(18, again.Events.RelicTier["shop"]);
+        Assert.Equal(JsonSerializer.Serialize(w, DataPackLoader.JsonOptions), JsonSerializer.Serialize(again, DataPackLoader.JsonOptions));
+        Assert.DoesNotContain(DataPackValidator.Validate(new DataPack { Weights = w }), i => i.Severity == ValidationSeverity.Error);
+
+        Assert.Equal(0.5, new Weights().Events.MeasuredBlend); // defaults of other instances untouched
+    }
+
+    [Theory]
+    [InlineData("""{ "events": { "measuredBlend": 1.5 } }""", "weights.events.measuredBlend")]
+    [InlineData("""{ "events": { "measuredBlend": -0.1 } }""", "weights.events.measuredBlend")]
+    [InlineData("""{ "events": { "measuredScale": -1 } }""", "weights.events.measuredScale")]
+    public void Validate_EventsWeightsOutOfRange_IsAnError(string json, string where)
+    {
+        var issues = DataPackValidator.Validate(new DataPack { Weights = DataPackLoader.LoadWeights(json) });
+        Assert.Contains(issues, i => i.Severity == ValidationSeverity.Error && i.Where == where);
+    }
+
+    [Fact]
+    public void Validate_StatsFiles_RejectBadRatesKUseTierAndIds()
+    {
+        var events = DataPackLoader.LoadEventStats("""
+        { "events": { "E": { "INITIAL": { "k": 0, "options": { "A": { "choiceRate": 1.2, "byAct": { "0": 0.5, "2": -0.1 } } } } } },
+          "ancients": { "NEOW": { "X": { "pickRate": 2 } } } }
+        """);
+        var relics = DataPackLoader.LoadRelicStats("""
+        { "shopMedianPickRate": 0, "ancientNeutralPickRate": 0.333, "relics": {
+          "relic.lower": { "signal": "shop", "use": true, "pickRate": 0.5 },
+          "RELIC.NO_USE": { "signal": "shop", "pickRate": 0.5 },
+          "RELIC.BAD_TIER": { "signal": "ancient:NEOW", "use": false, "pickRate": 0.5, "tier": "E" },
+          "RELIC.BAD_RATE": { "signal": "elite", "use": true, "pickRate": 1.5 } } }
+        """);
+        var errors = DataPackValidator.Validate(new DataPack { EventStats = events, RelicStats = relics })
+            .Where(i => i.Severity == ValidationSeverity.Error).Select(i => i.Where).ToHashSet(StringComparer.Ordinal);
+
+        Assert.Contains("events.stats.events[E].INITIAL.k", errors);
+        Assert.Contains("events.stats.events[E].INITIAL.options[A].choiceRate", errors);
+        Assert.Contains("events.stats.events[E].INITIAL.options[A].byAct", errors);
+        Assert.Contains("events.stats.events[E].INITIAL.options[A].byAct.2", errors);
+        Assert.Contains("events.stats.ancients[NEOW].X.pickRate", errors);
+        Assert.Contains("relics.shopMedianPickRate", errors);
+        Assert.Contains("relics[relic.lower]", errors);
+        Assert.Contains("relics[RELIC.NO_USE].use", errors);
+        Assert.Contains("relics[RELIC.BAD_TIER].tier", errors);
+        Assert.Contains("relics[RELIC.BAD_RATE].pickRate", errors);
+        Assert.Contains("relics[RELIC.BAD_RATE].signal", errors);
+        Assert.Equal(11, errors.Count);
+    }
+
     [Fact]
     public void SamplePack_LoadsAndValidatesClean()
     {

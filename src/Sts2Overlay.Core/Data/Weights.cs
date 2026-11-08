@@ -115,6 +115,10 @@ public sealed class Weights
     [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
     public Map.PathWeights Path { get; set; } = new();
 
+    // ---- Event advisor (weights.json "events") ----
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+    public Events.EventWeights Events { get; set; } = new();
+
     public static Weights Default => new();
 
     /// <summary>Looks up an act-keyed value, falling back to the closest lower act, then the lowest act.</summary>

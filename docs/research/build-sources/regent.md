@@ -1,201 +1,193 @@
-# 리젠트: 빌드 카드 근거
+# 리젠트: 빌드 카드 근거 (v2)
 
-공통 출처와 판정 규칙은 [README.md](README.md)에 있습니다. 이 문서는 `archetypes/regent.json`의 카드마다 어떤 근거로 들어갔는지 적습니다.
+공통 출처와 판정 규칙은 [README.md](README.md)에 있습니다. 이 문서는 `archetypes/regent.json`의 카드마다 어떤 근거로 들어갔는지 적습니다. v1(승리 39판)보다 표본이 약 8배 큽니다.
 
 ## 표본
 
-- **OP.GG**: 리젠트 승천 10 바닐라 승리 **39판, 플레이어 16명** (v0.107.1 26판, v0.111.0 13판). v0.105.1 런 1판은 팩 버전과 너무 멀어 뺐습니다.
-  - OP.GG 랭킹 1위 플레이어가 **13판**(모두 v0.107.1)을 차지합니다. 그다음은 4판씩입니다.
-  - 베타에서 바뀐 카드(PILLAR_OF_CREATION, ALIGNMENT, SPOILS_OF_BATTLE, REFINE_BLADE, GUARDS, COLLISION_COURSE, DEVASTATE, TERRAFORMING, CRUSH_UNDER)는 v0.107.x 26판(10명)만 봤습니다. 표에 ¹로 표시합니다.
-- **Baalorlord**: A10 리젠트 승리 덱 9판 (2026-08-21 ~ 11-05, 6연승 중 2~6번째 포함). 런 페이지에 게임 버전이 없어 v0.10x~v0.111 중 어느 것인지는 확인하지 못했습니다. 예: <https://baalorlord.tv/runs/1790276915>, <https://baalorlord.tv/runs/1792083714>, <https://baalorlord.tv/runs/1793910099>.
-- 표본이 작습니다. 빌드마다 10~14판이라 한 판 차이로 비율이 7~10%p 움직입니다.
+- **OP.GG**: OP.GG 주간 순위 상위 100에 오른 플레이어 171명의 전체 기록 중 리젠트 승천 10·일반 모드·솔로·바닐라(게임플레이 모드 없음)·v0.107 이상 **승리 323판, 플레이어 45명** (v0.107.x 163판, v0.108~v0.111 160판).
+  - **우수 플레이어**(A10 v0.107+ 5승 이상, 1막을 넘긴 판의 승률 25% 이상) 13명이 237판입니다. OP.GG 랭킹 1위 플레이어가 79판(모두 v0.107.x)으로 가장 많습니다.
+  - 베타에서 바뀐 카드(¹ 표시: PILLAR_OF_CREATION, COLLISION_COURSE, SPOILS_OF_BATTLE, REFINE_BLADE, GUARDS, ALIGNMENT, DEVASTATE, TERRAFORMING, CRUSH_UNDER)는 v0.107.x 런만 봤습니다.
+- **Baalorlord**: A10 리젠트 승리 덱 9판(v1과 같음). 예: <https://baalorlord.tv/runs/1792083714>, <https://baalorlord.tv/runs/1793910099>.
 
-## 빌드 소속 정의
+## 판정 방법 (v2)
 
-카드 효과를 기준으로 고른 "엔진 카드"를, 평가하는 카드를 빼고 **2장 이상** 가진 덱을 그 빌드 덱으로 봤습니다(leave-one-out). 그래서 카드가 자기 비율을 스스로 부풀리지 못합니다.
+- **빌드 소속**(v1과 같음): 카드 효과로 정한 엔진 카드를, 평가하는 카드를 빼고 2장 이상 가진 덱(leave-one-out).
+  - 별 엔진: BLACK_HOLE, CHILD_OF_THE_STARS, RADIATE, CRESCENT_SPEAR, STARDUST, GENESIS, THE_SEALED_THRONE, SEVEN_STARS, DECISIONS_DECISIONS, COMET, NEUTRON_AEGIS, ROYAL_GAMBLE
+  - 벼리기 엔진: SWORD_SAGE, SEEKING_EDGE, PARRY, CONQUEROR, SUMMON_FORTH, FURNACE / 생성 엔진: ARSENAL, PILLAR_OF_CREATION, SUPERMASSIVE, HEIRLOOM_HAMMER, SPECTRUM_SHIFT
+  - 별 덱은 v1처럼 1위 플레이어의 덱(`regent.star_spend`)과 나머지(`regent.stars`)로 나눕니다. 큰 표본에서도 1위 플레이어 별 덱의 BLACK_HOLE은 9/65(14%), 다른 랭커 별 덱은 69/133(52%)입니다.
+- **빌드 인정**: 25판 이상·6명 이상·한 사람 절반 이하. 1위 플레이어 빌드는 그의 승리 15판 이상.
+- **카드 근거**: 5명 이상, lift 1.5 이상, 빌드 덱 비율(플레이어 균형) 25% 이상(또는 15% 이상 + 보상 10번 이상 나와 50% 이상 집음). **core**: 근거가 있는 고급·희귀 엔진 카드(효과 기준)로 비율 40% 이상·5명 이상, 최대 3장.
+- **플레이어 균형**: 모든 비율은 한 사람 가중치를 전체의 10% 이하로 묶은 값입니다(원래 비율은 괄호 안 판수로 표시).
+- **부트스트랩**: 플레이어를 복원 추출해 200번 다시 계산하고, 결정(근거 있음/없음, core 여부)이 80% 이상 유지될 때만 반영합니다. 20~80%면 **불확실**로 보고 v1 역할을 그대로 둡니다(v1에 없던 카드는 넣지 않음). 1위 플레이어 빌드는 플레이어가 한 명이라 그의 런을 복원 추출했습니다.
+- **우수 플레이어 vs 전체**: 우수 플레이어만 보면 빌드마다 실질 플레이어가 너무 적습니다(별 빌드 유효 플레이어 수 4.5, 벼리기는 1위 플레이어가 우수 플레이어 덱의 52%, 1위 빌드는 1명). 그래서 별·벼리기·1위 빌드는 전체 플레이어 결과로 정했고, 카드 생성 빌드는 우수 플레이어 결과가 안정적일 때(80% 이상 또는 20% 이하) 그것을, 아니면 전체 결과를 썼습니다. 표에는 둘 다 적습니다.
+- **보조 근거(Baalorlord)**: OP.GG 기준을 못 넘어도 그의 덱 9판 중 5판 이상 + 효과가 그 빌드 축에 작동 + OP.GG lift 1.0 이상이 부트스트랩 80% 이상이면 enabler·payoff·support로 남깁니다(core 불가).
 
-- 별 엔진: BLACK_HOLE, CHILD_OF_THE_STARS, RADIATE, CRESCENT_SPEAR, STARDUST, GENESIS, THE_SEALED_THRONE, SEVEN_STARS, DECISIONS_DECISIONS, COMET, NEUTRON_AEGIS, ROYAL_GAMBLE (별에 반응하거나, 매 턴 별을 만들거나, 별 5개 이상을 씀)
-- 벼리기 엔진: SWORD_SAGE, SEEKING_EDGE, PARRY, CONQUEROR, SUMMON_FORTH, FURNACE
-- 생성 엔진: ARSENAL, PILLAR_OF_CREATION, SUPERMASSIVE, HEIRLOOM_HAMMER, SPECTRUM_SHIFT
-
-**별 덱은 두 빌드로 나눴습니다.** 별 덱 22판 중 1위 플레이어의 10판에는 BLACK_HOLE이 한 장도 없고(그는 보상에서 2/9번만 집음), 다른 플레이어의 12판 중 9판에는 BLACK_HOLE이 있습니다. 하나로 합치면 BLACK_HOLE의 lift가 1.0으로 떨어져 어느 빌드의 엔진도 core에 남지 않습니다.
-- `regent.stars` = 1위 플레이어를 뺀 별 덱. 12판·8명, 한 사람 최대 4판 → 일반 빌드 기준 통과.
-- `regent.star_spend` = 1위 플레이어의 별 덱. 10판 → **1위 플레이어 빌드** 규칙(4승 이상)으로 인정. 소속이 그의 덱뿐이라 일반 기준(3명 이상)은 이 빌드에서 성립할 수 없고, 카드는 "그의 덱 절반 이상 + lift 1.5 이상"으로만 판정했습니다.
-
-표 읽는 법: **비율** = 빌드 덱 중 그 카드를 가진 덱(LOO). **lift** = 빌드 덱 비율 ÷ 다른 덱 비율. **집음** = 빌드 덱 런의 카드 보상에서 집은 횟수/나온 횟수(상점·고대 제외). **1위** = 1위 플레이어가 그 카드를 가진 덱/그의 리젠트 승리 13판(¹ 카드도 13판 모두 v0.107.1). **B** = Baalorlord 9판 중. lift 1.5~1.6은 **경계선**으로 표시합니다.
+표 읽는 법: **비율** = 빌드 덱 중 그 카드를 가진 덱(플레이어 균형, 괄호는 원래 판수). **lift** = 빌드 덱 비율 ÷ 다른 덱 비율(둘 다 균형). **근거 유지/core 유지** = 부트스트랩에서 근거·core 기준을 넘은 비율. **집음** = 빌드 덱 런의 전투 보상에서 집은 횟수/나온 횟수. **B** = Baalorlord 9판 중.
 
 ---
 
 ## 1. `regent.stars` 별 (블랙홀)
 
-표본: 12판·8명, 1위 플레이어 0판, v0.107.1 6판·v0.111.0 6판. 1위 플레이어가 아닌 랭커들의 별 덱입니다.
+표본: 전체 **133판·34명**(한 사람 최대 36판, 1위 플레이어 0판, v0.107.x 42판), 우수 플레이어 92판·11명.
 
-| 카드 | 역할 | 비율 | lift | 명 | 집음 | 1위 | B | 통과한 기준 |
-|---|---|---|---|---|---|---|---|---|
-| BLACK_HOLE | core | 5/8 = 62% | 3.2 | 4 | 3/7 | 2/13 | 4/9 | OP.GG (core: 40%·4명 이상) |
-| GATHER_LIGHT | enabler | 10/12 = 83% | 1.9 | 7 | 11/27 | 7/13 | 5/9 | OP.GG |
-| GLOW | enabler | 8/12 = 67% | 2.6 | 6 | 6/25 | 2/13 | 8/9 | OP.GG |
-| ROYAL_GAMBLE | enabler | 6/12 = 50% | 2.7 | 5 | 4/8 | 5/13 | 0/9 | OP.GG |
-| BIG_BANG | enabler | 6/12 = 50% | 2.3 | 4 | 4/4 | 2/13 | 3/9 | OP.GG |
-| SOLAR_STRIKE | enabler | 4/12 = 33% | 1.8 | 3 | 5/30 | 2/13 | 0/9 | OP.GG |
-| CLOAK_OF_STARS | payoff | 6/12 = 50% | 13.5 | 5 | 6/15 | 1/13 | 5/9 | OP.GG |
-| STARDUST | payoff | 5/12 = 42% | 2.8 | 4 | 3/6 | 4/13 | 0/9 | OP.GG |
-| COMET | payoff | 3/11 = 27% | 3.8 | 3 | 3/6 | 1/13 | 0/9 | OP.GG |
-| REFLECT | payoff | 6/12 = 50% | 1.2 | 4 | 6/9 | 5/13 | 5/9 | 보조 근거 (OP.GG lift 미달) |
-| PARTICLE_WALL | payoff | 2/12 = 17% | 1.1 | 2 | 1/4 | 3/13 | 6/9 | 보조 근거 |
-| ASTRAL_PULSE | payoff | 2/12 = 17% | ∞ (다른 덱 0/27) | 2 | 2/23 | 0/13 | 6/9 | 보조 근거 (**충돌**, 아래 참고) |
-| SPECTRUM_SHIFT | support | 8/12 = 67% | 2.0 | 6 | 6/10 | 1/13 | 3/9 | OP.GG (별 축 카드가 아니라 support) |
-| ORBIT | support | 7/12 = 58% | 2.0 | 5 | 9/17 | 3/13 | 3/9 | OP.GG (범용) |
+| 카드 | 역할 | 비율(전체, 균형) | lift | 명 | 근거 유지 | core 유지 | 우수 플레이어(비율·lift·명·유지) | 집음 | B | 판정 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| BLACK_HOLE | core | 46% (49/113) | 2.3 | 21 | 94% | 76% | 26%·1.3·6명·9% | 40/74 | 4/9 | 불확실: core 유지가 80% 미만 → v1 core 유지 |
+| GATHER_LIGHT | enabler | 65% (85/133) | 1.3 | 28 | 8% | - | 61%·1.0·9명·1% | 95/265 | 5/9 | 보조 근거(Baalorlord) |
+| GLOW | enabler | 60% (76/133) | 1.5 | 27 | 56% | - | 56%·1.4·9명·32% | 71/234 | 8/9 | 보조 근거(Baalorlord) |
+| HIDDEN_CACHE | enabler | 55% (64/133) | 2.0 | 25 | 91% | - | 38%·0.9·7명·10% | 58/258 | 4/9 | OP.GG 기준 |
+| BIG_BANG | enabler | 48% (61/133) | 1.6 | 24 | 69% | - | 56%·1.6·9명·57% | 53/61 | 3/9 | 불확실: 근거가 80% 미만 → v1 역할 유지 |
+| ROYAL_GAMBLE | enabler | 32% (37/120) | 1.7 | 17 | 66% | - | 23%·1.5·7명·24% | 32/68 | 0/9 | 불확실: 근거가 80% 미만 → v1 역할 유지 |
+| SOLAR_STRIKE | enabler | 25% (36/133) | 1.5 | 18 | 31% | - | 28%·1.8·7명·27% | 36/248 | 0/9 | 불확실: 근거가 80% 미만 → v1 역할 유지 |
+| REFLECT | payoff | 48% (66/133) | 1.3 | 21 | 14% | - | 39%·0.8·7명·1% | 60/91 | 5/9 | 보조 근거(Baalorlord) |
+| CLOAK_OF_STARS | payoff | 40% (49/133) | 1.6 | 22 | 56% | - | 29%·0.7·7명·2% | 42/226 | 5/9 | 보조 근거(Baalorlord) |
+| GUIDING_STAR | payoff | 31% (36/133) | 3.4 | 21 | 93% | - | 21%·1.6·6명·10% | 32/231 | 3/9 | OP.GG 기준 |
+| PARTICLE_WALL | payoff | 31% (44/133) | 1.8 | 16 | 69% | - | 23%·1.9·6명·18% | 37/87 | 6/9 | 보조 근거(Baalorlord) |
+| ASTRAL_PULSE | payoff | 28% (32/133) | 1.5 | 20 | 50% | - | 30%·1.5·8명·37% | 28/223 | 6/9 | 보조 근거(Baalorlord) |
+| STARDUST | payoff | 28% (31/130) | 2.8 | 18 | 70% | - | 21%·1.5·7명·20% | 23/89 | 0/9 | 불확실: 근거가 80% 미만 → v1 역할 유지 |
 
-- 역할: 별을 얻는 카드는 enabler, 별 비용을 내는 카드는 효과가 방어든 공격이든 별을 소비하므로 payoff입니다. BLACK_HOLE은 별을 얻거나 쓸 때마다 작동하는 파워라 엔진입니다.
-- BLACK_HOLE의 LOO 기준 덱이 8판인 이유: BLACK_HOLE 덱 9판 중 4판은 BLACK_HOLE을 빼면 별 엔진이 1장만 남아 빠집니다. 이 4판을 넣어도(9/12) 결론은 같습니다.
-- 대표 덱: <https://op.gg/slay-the-spire2/history/7210354>, <https://op.gg/slay-the-spire2/history/7162265>, <https://op.gg/slay-the-spire2/history/7152833>, <https://op.gg/slay-the-spire2/history/6977736>
+- 대표 덱: <https://op.gg/slay-the-spire2/history/4114272>, <https://op.gg/slay-the-spire2/history/6806553>, <https://op.gg/slay-the-spire2/history/4735669>, <https://op.gg/slay-the-spire2/history/7106770>
 
-**뺀 카드**
+**뺀 카드 (v1에 있었음)**
 
-| 카드 | 기존 역할 | 근거 | 이유 |
-|---|---|---|---|
-| GENESIS | core, 대표 카드 | 1/12, 1명, 집음 1/4 | 이 빌드에서 거의 안 씀. 1위 플레이어 덱에서도 3/9(33%)로 절반 미만 |
-| HIDDEN_CACHE | enabler | 5/12, lift 1.1 | lift 미달. B 4/9로 보조 근거도 미달. `regent.star_spend`로 옮김 |
-| CONVERGENCE | enabler | 2/12, lift 0.35 | `regent.star_spend`로 옮김 |
-| SHINING_STRIKE | enabler | 2/12, 2명, 전체 집음 2/28 | 3명 미만, 잘 안 집음 |
-| THE_SEALED_THRONE | enabler | 2/12, 2명 | 고대 카드, 3명 미만 |
-| CHILD_OF_THE_STARS | payoff | 2/11, lift 0.7 | `regent.star_spend`로 옮김 (core) |
-| RADIATE | payoff | 2/11, lift 0.9 | `regent.star_spend`로 옮김 |
-| SEVEN_STARS | payoff | 2/12, 2명 | 3명 미만. 1위 플레이어 덱에서도 3/10 |
-| GAMMA_BLAST | payoff | 3/12, lift 1.35 | lift 미달 |
-| DEVASTATE ¹ | payoff | v0.107 빌드 덱 0/6 | 1위 플레이어 덱 2판뿐 |
-| ALIGNMENT ¹ | payoff | v0.107 빌드 덱 0/6 | 1위 플레이어 덱 3판뿐 |
-| METEOR_SHOWER | payoff | 1/12 | 고대 카드, 1명 |
-| NEUTRON_AEGIS | support | 0/12, 전체 집음 0/12 | 아무도 안 씀 |
+| 카드 | 역할 | 비율(전체, 균형) | lift | 명 | 근거 유지 | core 유지 | 우수 플레이어(비율·lift·명·유지) | 집음 | B | 이유 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| SPECTRUM_SHIFT | - | 50% (65/133) | 0.9 | 24 | 0% | - | 48%·0.9·8명·2% | 52/95 | 3/9 | v1 support → 근거 없음(유지 0%) |
+| ORBIT | - | 43% (54/133) | 1.2 | 19 | 8% | - | 22%·0.6·5명·0% | 48/91 | 3/9 | v1 support → 근거 없음(유지 8%) |
+| COMET | - | 19% (22/119) | 1.1 | 12 | 8% | - | 15%·0.8·6명·0% | 17/43 | 0/9 | v1 payoff → 근거 없음(유지 8%) |
 
-Baalorlord 덱 절반 이상이지만 별 축 효과가 없어 보조 근거로 살리지 않은 카드: KNOW_THY_PLACE(6/9, OP.GG lift 1.0), GLITTERSTREAM(7/9, 이 빌드 lift 0.6).
+**불확실해서 넣지 않은 카드** (점 추정은 기준 근처지만 부트스트랩 80% 미만): GAMMA_BLAST 31%·lift 1.7·유지 68%, RADIATE 27%·lift 2.9·유지 66%, PALE_BLUE_DOT 27%·lift 1.5·유지 44%, PATTER 26%·lift 1.3·유지 36%, GENESIS 18%·lift 2.4·유지 31%, CHILD_OF_THE_STARS 28%·lift 1.3·유지 26%
+
+- fullWeight 5.5 (v1 4.5): 빌드 덱 commit 중앙값 1.00, 다른 덱 0.54(전체·균형, 새 목록·v1 fullWeight 기준). 우수 플레이어 0.92 / 0.67.
+  - 다른 덱 중앙값이 0.5를 넘어(변경 필요 부트스트랩 97%) v1 규칙대로 빌드 덱 중앙값이 약 0.85가 되도록 5.5로 올렸습니다. 5.5에서 빌드 덱 0.83, 다른 덱 0.45이고 기준(0.7 이상 / 0.5 이하)을 만족하는 비율이 94%입니다(5.0은 57%).
+- coreTarget: 기본값(1). core가 1장이고 빌드 덱이 가진 core 수 중앙값도 1입니다.
+- essentialTarget 5: 빌드 덱이 가진 서로 다른 enabler·payoff 수의 중앙값(부트스트랩 분포 {'5': 178, '4': 22}).
+- 핵심 유물: GALACTIC_DUST(w 0.6) 빌드 덱 19/133·12명·lift 2.1·유지 82%
+  - 기준(5명·lift 1.5·유지 80%)은 넘지만 효과가 이 빌드 축과 상관없는 범용 유물이라 넣지 않음: MEMBERSHIP_CARD(lift 4.1·유지 91%), MUMMIFIED_HAND(lift 3.0·유지 94%)
 
 ---
 
-## 2. `regent.star_spend` 별 소모 (수렴) — OP.GG 랭킹 1위 플레이어 빌드 (새로 추가)
+## 2. `regent.star_spend` 별 소모 (별의 아이) — OP.GG 랭킹 1위 플레이어 빌드
 
-표본: 1위 플레이어의 별 덱 10판(v0.107.1, 주간 순위 4~30위 런). 그의 리젠트 승리 13판 중 10판입니다. 다른 랭커 중에도 CHILD_OF_THE_STARS를 쓰는 사람(덱 2~3판)이 있지만, 이 조합 전체(CONVERGENCE·HIDDEN_CACHE·DECISIONS_DECISIONS·RADIATE·BEGONE)는 그의 덱에서만 반복됩니다.
+표본: 1위 플레이어의 별 덱 **65판**(그의 리젠트 승리 79판 중, 모두 v0.107.x). 1위 플레이어 빌드 규칙(그의 승리 15판 이상)으로 유지합니다. 카드는 "그의 덱 50% 이상 + 다른 모든 덱 대비 lift 1.5 이상"으로 판정했습니다. 다른 랭커도 CHILD_OF_THE_STARS를 쓰지만(별 덱 48/133) 다른 랭커 별 덱에서는 근거가 불안정합니다(26%).
 
-| 카드 | 역할 | 그의 덱 비율 | lift | 그의 집음 | B | 통과한 기준 |
-|---|---|---|---|---|---|---|
-| CHILD_OF_THE_STARS | core | 5/9 = 56% | 4.2 | 4/7 | 4/9 | 1위 빌드 (core: 그의 덱 50% 이상) |
-| CONVERGENCE | enabler | 7/10 = 70% | 2.5 | 9/10 | 3/9 | 1위 빌드 |
-| HIDDEN_CACHE | enabler | 7/10 = 70% | 2.5 | 4/18 | 4/9 | 1위 빌드 |
-| GATHER_LIGHT | enabler | 6/10 = 60% | 1.1 | 5/14 | 5/9 | 보조 근거 (lift 미달) |
-| DECISIONS_DECISIONS | payoff | 5/9 = 56% | 3.3 | 5/5 | 0/9 | 1위 빌드 |
-| RADIATE | payoff | 5/10 = 50% | 4.8 | 4/8 | 0/9 | 1위 빌드 |
-| GUIDING_STAR | payoff | 6/10 = 60% | 2.5 | 6/28 | 3/9 | 1위 빌드 |
-| PARTICLE_WALL | payoff | 3/10 = 30% | 2.9 | 3/12 | 6/9 | 보조 근거 (그의 덱 절반 미만) |
-| BEGONE | support | 8/10 = 80% | 1.8 | 8/21 | 5/9 | 1위 빌드 (별 축 카드가 아니라 support) |
+| 카드 | 역할 | 비율(전체, 균형) | lift | 명 | 근거 유지 | core 유지 | 우수 플레이어(비율·lift·명·유지) | 집음 | B | 판정 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| CHILD_OF_THE_STARS | core | 53% (31/59) | 2.3 | - | 70% | - | - | 23/35 | 4/9 | 불확실: 근거가 80% 미만 → v1 역할 유지 |
+| HIDDEN_CACHE | enabler | 69% (45/65) | 1.8 | - | 88% | - | - | 42/128 | 4/9 | OP.GG 기준 |
+| ROYAL_GAMBLE | enabler | 56% (31/55) | 2.3 | - | 86% | - | - | 29/32 | 0/9 | OP.GG 기준 |
+| REFLECT | payoff | 58% (38/65) | 1.4 | - | 38% | - | - | 35/44 | 5/9 | 보조 근거(Baalorlord) |
+| RADIATE | payoff | 45% (28/62) | 2.7 | - | 30% | - | - | 21/41 | 0/9 | 불확실: 근거가 80% 미만 → v1 역할 유지 |
+| BEGONE | support | 71% (46/65) | 1.4 | - | 32% | - | - | 50/120 | 5/9 | 불확실: 근거가 80% 미만 → v1 역할 유지 |
 
-- CONVERGENCE는 다음 턴 별을 공급하는 카드라 core가 아니라 enabler입니다. core는 별을 쓸 때마다 작동하는 파워인 CHILD_OF_THE_STARS 하나입니다.
-- 대표 덱: <https://op.gg/slay-the-spire2/history/7173573>, <https://op.gg/slay-the-spire2/history/7278207>, <https://op.gg/slay-the-spire2/history/7278201>
-- 그의 덱 절반에 못 미쳐 넣지 않은 카드: STARDUST·TYRANNY·MONOLOGUE 4/10, ROYAL_GAMBLE 3/8, SEVEN_STARS 3/10, GENESIS 3/9, GUARDS¹·ALIGNMENT¹ 3/10, COSMIC_INDIFFERENCE 5/10(lift 1.2).
-- Baalorlord 덱 절반 이상이지만 이 빌드에서 OP.GG와 어긋나 넣지 않은 카드: ASTRAL_PULSE(그의 덱 0/10, 보상 0/19), CLOAK_OF_STARS(0/10), GLOW(lift 0.45), REFLECT(lift 0.9).
-- 핵심 유물: 3명 이상 기준이 1인 빌드에서 성립하지 않아 비웠습니다.
+- 대표 덱: <https://op.gg/slay-the-spire2/history/6636495>, <https://op.gg/slay-the-spire2/history/6669199>, <https://op.gg/slay-the-spire2/history/6669204>, <https://op.gg/slay-the-spire2/history/6669185>
+
+**뺀 카드 (v1에 있었음)**
+
+| 카드 | 역할 | 비율(전체, 균형) | lift | 명 | 근거 유지 | core 유지 | 우수 플레이어(비율·lift·명·유지) | 집음 | B | 이유 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| GATHER_LIGHT | - | 51% (33/65) | 0.9 | - | 0% | - | - | 27/88 | 5/9 | v1 enabler → 근거 없음(유지 0%) |
+| CONVERGENCE | - | 43% (28/65) | 1.5 | - | 13% | - | - | 28/31 | 3/9 | v1 enabler → 근거 없음(유지 13%) |
+| DECISIONS_DECISIONS | - | 31% (18/59) | 2.0 | - | 0% | - | - | 17/18 | 0/9 | v1 payoff → 근거 없음(유지 0%) |
+| GUIDING_STAR | - | 25% (16/65) | 1.3 | - | 0% | - | - | 15/118 | 3/9 | v1 payoff → 근거 없음(유지 0%) |
+| PARTICLE_WALL | - | 12% (8/65) | 0.5 | - | 0% | - | - | 6/45 | 6/9 | v1 payoff → 근거 없음(유지 0%) |
+
+**불확실해서 넣지 않은 카드** (점 추정은 기준 근처지만 부트스트랩 80% 미만): STARDUST 45%·lift 2.7·유지 26%, MONOLOGUE 26%·lift 2.0·유지 0%, PARRY 31%·lift 1.5·유지 0%
+
+- fullWeight 4.0 (v1 4.0): 빌드 덱 commit 중앙값 0.78, 다른 덱 0.35(전체·균형, 새 목록·v1 fullWeight 기준). 우수 플레이어 0.78 / 0.35.
+- coreTarget: 기본값(1). core가 1장이고 빌드 덱이 가진 core 수 중앙값도 1입니다.
+- essentialTarget: 넣지 않음(기본값 2와 같음, 그의 덱 중앙값 2).
 
 ---
 
 ## 3. `regent.forge` 벼리기(검 토큰)
 
-표본: 14판·8명, 1위 플레이어 4판(주로 FURNACE·PARRY·BULWARK를 별 덱에 곁들인 형태, 4판 중 3판이 별 소모 덱과 겹침), v0.107.1 10판·v0.111.0 4판.
+표본: 전체 **102판·27명**(한 사람 최대 35판, 1위 플레이어 35판, v0.107.x 63판), 우수 플레이어 67판·9명.
 
-| 카드 | 역할 | 비율 | lift | 명 | 집음 | 1위 | B | 통과한 기준 |
-|---|---|---|---|---|---|---|---|---|
-| SWORD_SAGE | core | 6/13 = 46% | 12.0 | 5 | 6/7 | 0/13 | 1/9 | OP.GG (core) |
-| FURNACE | core | 4/8 = 50% | 2.2 | 4 | 6/7 | 3/13 | 0/9 | OP.GG (core) |
-| BULWARK | enabler | 6/14 = 43% | 2.7 | 3 | 6/10 | 5/13 | 3/9 | OP.GG |
-| SPOILS_OF_BATTLE ¹ | enabler | 4/10 = 40% | 3.2 | 4 | 5/24 | 2/13 | 0/9 | OP.GG |
-| WROUGHT_IN_WAR | enabler | 5/14 = 36% | 4.5 | 5 | 7/27 | 2/13 | 0/9 | OP.GG |
-| SUMMON_FORTH | enabler | 4/12 = 33% | 4.5 | 4 | 4/8 | 1/13 | 0/9 | OP.GG |
-| PARRY | payoff | 3/9 = 33% | 2.0 | 3 | 4/6 | 3/13 | 0/9 | OP.GG |
-| COSMIC_INDIFFERENCE | support | 8/14 = 57% | **1.59 (경계선)** | 4 | 6/28 | 6/13 | 3/9 | OP.GG (범용) |
-| ORBIT | support | 8/14 = 57% | 2.0 | 5 | 10/16 | 3/13 | 3/9 | OP.GG (범용) |
+| 카드 | 역할 | 비율(전체, 균형) | lift | 명 | 근거 유지 | core 유지 | 우수 플레이어(비율·lift·명·유지) | 집음 | B | 판정 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| FURNACE | core | 44% (32/72) | 2.1 | 15 | 98% | 73% | 59%·4.2·8명·79% | 27/49 | 0/9 | 불확실: core 유지가 80% 미만 → v1 core 유지 |
+| REFINE_BLADE | enabler ¹ | 51% (19/63) | 2.8 | 11 | 93% | - | 26%·2.8·3명·0% | 16/100 | 0/9 | OP.GG 기준 |
+| BULWARK | enabler | 49% (54/102) | 2.2 | 18 | 100% | - | 43%·1.8·7명·52% | 52/79 | 3/9 | OP.GG 기준 |
+| SPOILS_OF_BATTLE | enabler ¹ | 39% (20/63) | 2.7 | 10 | 90% | - | 29%·3.5·3명·0% | 20/121 | 0/9 | OP.GG 기준 |
+| SUMMON_FORTH | enabler | 35% (26/82) | 3.2 | 15 | 98% | - | 26%·3.1·5명·8% | 22/44 | 0/9 | OP.GG 기준 |
+| WROUGHT_IN_WAR | enabler | 27% (31/102) | 3.8 | 13 | 68% | - | 18%·1.9·3명·0% | 30/199 | 0/9 | 불확실: 근거가 80% 미만 → v1 역할 유지 |
+| PARRY | payoff | 36% (28/73) | 2.4 | 14 | 93% | 26% | 35%·2.7·7명·53% | 21/42 | 0/9 | OP.GG 기준 |
+| SWORD_SAGE | payoff | 31% (23/83) | 3.7 | 13 | 95% | 6% | 39%·5.5·7명·56% | 21/25 | 1/9 | OP.GG 기준 |
+| CONQUEROR | payoff | 30% (27/86) | 4.4 | 11 | 93% | - | 26%·4.8·5명·8% | 23/34 | 0/9 | OP.GG 기준 |
 
-- SUMMON_FORTH는 벼리기를 공급하므로 payoff → enabler로 옮겼습니다. PARRY는 검 토큰 사용에 반응하는 파워라 payoff입니다.
-- coreTarget은 기본값(1) 그대로: 두 core를 함께 가진 덱은 4/14입니다.
-- 1위 플레이어는 SWORD_SAGE(1번 나옴)와 SEEKING_EDGE(5번 나옴)를 한 번도 집지 않았습니다. 그의 벼리기 덱 4판 중 3판은 별 소모 덱이기도 해서 따로 빌드로 만들지 않았습니다.
-- 대표 덱: <https://op.gg/slay-the-spire2/history/7295402>, <https://op.gg/slay-the-spire2/history/7177823>, <https://op.gg/slay-the-spire2/history/7214782>, <https://op.gg/slay-the-spire2/history/7093776>
+- 대표 덱: <https://op.gg/slay-the-spire2/history/6751787>, <https://op.gg/slay-the-spire2/history/5119239>, <https://op.gg/slay-the-spire2/history/4605613>, <https://op.gg/slay-the-spire2/history/7177823>
 
-**뺀 카드**
+**뺀 카드 (v1에 있었음)**
 
-| 카드 | 기존 역할 | 근거 | 이유 |
-|---|---|---|---|
-| SEEKING_EDGE | core, 대표 카드 | 3/13, 2명, 전체 집음 3/12 | 3명 미만 (근거 부족) |
-| REFINE_BLADE ¹ | enabler | 3/10, lift 4.8, 2명 | 3명 미만 (근거 부족) |
-| THE_SMITH | enabler | 2/14, 2명, 전체 집음 2/12 | 3명 미만 |
-| BEAT_INTO_SHAPE | enabler | 1/14, 전체 집음 1/14 | 거의 안 씀 |
-| BIG_BANG | enabler | 2/14, lift 0.4 | 벼리기 덱에 특별히 많지 않음 (별 빌드에 남김) |
-| CONQUEROR | payoff | 2/13, 2명, 전체 집음 2/14 | 3명 미만 |
+| 카드 | 역할 | 비율(전체, 균형) | lift | 명 | 근거 유지 | core 유지 | 우수 플레이어(비율·lift·명·유지) | 집음 | B | 이유 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| COSMIC_INDIFFERENCE | - | 49% (48/102) | 1.2 | 20 | 10% | - | 38%·0.9·7명·0% | 46/184 | 3/9 | v1 support → 근거 없음(유지 10%) |
+| ORBIT | - | 44% (37/102) | 1.2 | 15 | 17% | - | 25%·0.8·5명·0% | 38/75 | 3/9 | v1 support → 근거 없음(유지 17%) |
 
-BLACK_HOLE은 이 빌드 덱에서도 5/14·4명이지만 lift 1.49로 기준 바로 아래라 넣지 않았습니다.
+**불확실해서 넣지 않은 카드** (점 추정은 기준 근처지만 부트스트랩 80% 미만): THE_SMITH 21%·lift 3.3·유지 55%, SEEKING_EDGE 19%·lift 3.6·유지 39%, DECISIONS_DECISIONS 21%·lift 1.5·유지 29%
+
+- fullWeight 4.0 (v1 4.0): 빌드 덱 commit 중앙값 0.88, 다른 덱 0.15(전체·균형, 새 목록·v1 fullWeight 기준). 우수 플레이어 0.86 / 0.15.
+- coreTarget: 기본값(1). core가 1장이고 빌드 덱이 가진 core 수 중앙값도 1입니다.
+- essentialTarget 3: 빌드 덱이 가진 서로 다른 enabler·payoff 수의 중앙값(부트스트랩 분포 {'3': 183, '4': 17}).
+- 핵심 유물: FENCING_MANUAL(w 0.6) 빌드 덱 31/102·16명·lift 2.6·유지 98%
+  - 기준(5명·lift 1.5·유지 80%)은 넘지만 효과가 이 빌드 축과 상관없는 범용 유물이라 넣지 않음: GALACTIC_DUST(lift 2.1·유지 81%)
 
 ---
 
 ## 4. `regent.creation` 카드 생성
 
-표본: 13판·9명, 1위 플레이어 0판, v0.107.1 7판·v0.111.0 6판.
+표본: 전체 **115판·32명**(한 사람 최대 19판, 1위 플레이어 1판, v0.107.x 48판), 우수 플레이어 73판·11명.
 
-| 카드 | 역할 | 비율 | lift | 명 | 집음 | 1위 | B | 통과한 기준 |
-|---|---|---|---|---|---|---|---|---|
-| CHARGE | enabler | 6/13 = 46% | 3.0 | 4 | 3/7 | 3/13 | 0/9 | OP.GG |
-| MANIFEST_AUTHORITY | enabler | 6/13 = 46% | 12.0 | 5 | 6/9 | 0/13 | 3/9 | OP.GG |
-| QUASAR | enabler | 5/13 = 38% | 10.0 | 5 | 4/8 | 0/13 | 4/9 | OP.GG |
-| BEGONE | enabler | 8/13 = 62% | 1.2 | 7 | 8/18 | 11/13 | 5/9 | 보조 근거 (lift 미달) |
-| PILLAR_OF_CREATION ¹ | payoff | 3/5 = 60% | 3.2 | 3 | 4/5 | 2/13 | 3/9 | OP.GG (core 기준 4명 미달) |
-| SUPERMASSIVE | payoff | 3/11 = 27% | 3.8 | 3 | 1/6 | 0/13 | 1/9 | OP.GG |
-| GLITTERSTREAM | support | 7/13 = 54% | 4.7 | 5 | 7/30 | 1/13 | 7/9 | OP.GG (범용) |
-| GLOW | support | 7/13 = 54% | 1.75 | 6 | 6/23 | 2/13 | 8/9 | OP.GG (별 공급 카드라 이 빌드에선 support) |
-| VOID_FORM | support | 4/13 = 31% | 2.0 | 4 | 4/7 | 2/13 | 0/9 | OP.GG (범용) |
+| 카드 | 역할 | 비율(전체, 균형) | lift | 명 | 근거 유지 | core 유지 | 우수 플레이어(비율·lift·명·유지) | 집음 | B | 판정 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| PILLAR_OF_CREATION | core ¹ | 72% (22/31) | 1.9 | 17 | 92% | 92% | 78%·1.9·8명·60% | 28/36 | 3/9 | core 기준 통과 |
+| BEGONE | enabler | 63% (69/115) | 1.7 | 27 | 75% | - | 68%·1.5·11명·48% | 66/205 | 5/9 | 보조 근거(Baalorlord) |
+| COLLISION_COURSE | enabler ¹ | 52% (25/48) | 2.6 | 17 | 98% | - | 57%·1.6·7명·29% | 35/97 | 4/9 | OP.GG 기준 |
+| CHARGE | enabler | 42% (49/115) | 1.8 | 17 | 80% | - | 47%·3.6·9명·88% | 47/84 | 0/9 | OP.GG 기준 |
+| MANIFEST_AUTHORITY | enabler | 46% (52/115) | 1.5 | 20 | 58% | - | 42%·1.3·8명·24% | 61/91 | 3/9 | 불확실: 근거가 80% 미만 → v1 역할 유지 |
+| BUNDLE_OF_JOY | enabler | 29% (32/115) | 2.4 | 16 | 96% | - | 20%·2.6·7명·45% | 30/43 | 0/9 | OP.GG 기준 |
+| QUASAR | enabler | 26% (29/115) | 1.6 | 21 | 36% | - | 23%·2.2·8명·30% | 27/66 | 4/9 | 불확실: 근거가 80% 미만 → v1 역할 유지 |
+| ARSENAL | payoff | 37% (35/92) | 2.0 | 16 | 88% | 28% | 37%·1.4·7명·27% | 32/45 | 0/9 | OP.GG 기준 |
+| SUPERMASSIVE | payoff | 34% (34/100) | 2.5 | 20 | 96% | - | 38%·2.3·9명·76% | 27/69 | 0/9 | OP.GG 기준 |
 
-- **core 비움.** 엔진 후보 PILLAR_OF_CREATION은 베타 변경 카드라 v0.107 덱만 셉니다. 그러면 빌드 덱 5판 중 3판(3명)으로, core 기준(4명)에 못 미칩니다. v0.111을 합치면 4명이 되지만 규칙상 쓰지 않았습니다. 그래서 이 빌드는 "코어 먼저"가 꺼집니다. 대표 카드는 근거 있는 카드 중 비율이 가장 높은 PILLAR_OF_CREATION입니다.
-- BEGONE은 손패 카드를 하수인 카드로 바꾸는 카드로, 티어 파일에서 생성 축(CREATE)을 공급합니다. 이를 생성 메커니즘에 작동한다고 보고 보조 근거로 살렸습니다.
-- 대표 덱: <https://op.gg/slay-the-spire2/history/7285865>, <https://op.gg/slay-the-spire2/history/6749776>, <https://op.gg/slay-the-spire2/history/7202938>, <https://op.gg/slay-the-spire2/history/6955603>
+- 대표 덱: <https://op.gg/slay-the-spire2/history/7202938>, <https://op.gg/slay-the-spire2/history/6497786>, <https://op.gg/slay-the-spire2/history/4220586>, <https://op.gg/slay-the-spire2/history/4735621>
 
-**뺀 카드**
+**뺀 카드 (v1에 있었음)**
 
-| 카드 | 기존 역할 | 근거 | 이유 |
-|---|---|---|---|
-| ARSENAL | core, 대표 카드 | 2/9, 2명, lift 1.3 | 3명 미만 (근거 부족) |
-| SPECTRUM_SHIFT | enabler | 4/8, lift 1.2 | 생성 덱에 특별히 많지 않음 (별 블랙홀 빌드에 support로 남김) |
-| BUNDLE_OF_JOY | enabler | 3/13 = 23%, lift 6.0, 집음 1/2 | 비율 25% 미달, 보상 등장 5번 미만 |
-| COLLISION_COURSE ¹ | enabler | v0.107 1/7, 전체 집음 2/44 | 1명. 사용 대부분이 v0.111 런 |
-| CRASH_LANDING | enabler | 2/13, 1명 | 1명 |
-| GUARDS ¹ | enabler | v0.107 1/7 | 1명. v0.107에선 1위 플레이어 별 덱에서만 씀 |
-| HEIRLOOM_HAMMER | payoff | 0/10 | 아무도 안 씀 |
+| 카드 | 역할 | 비율(전체, 균형) | lift | 명 | 근거 유지 | core 유지 | 우수 플레이어(비율·lift·명·유지) | 집음 | B | 이유 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| GLITTERSTREAM | - | 35% (40/115) | 1.1 | 16 | 8% | - | 39%·1.6·8명·34% | 38/207 | 7/9 | v1 support → 근거 없음(유지 8%) |
+| GLOW | - | 41% (45/115) | 0.7 | 23 | 0% | - | 30%·0.5·7명·0% | 40/176 | 8/9 | v1 support → 근거 없음(유지 0%) |
+| VOID_FORM | - | 13% (16/115) | 0.6 | 11 | 0% | - | 14%·0.7·5명·1% | 12/30 | 0/9 | v1 support → 근거 없음(유지 1%) |
 
-Baalorlord 덱 절반 이상이지만 생성 축 효과가 없어 살리지 않은 카드: REFLECT(5/9), KNOW_THY_PLACE(6/9). COSMIC_INDIFFERENCE(7/13, lift 1.4)는 lift 미달.
+**불확실해서 넣지 않은 카드** (점 추정은 기준 근처지만 부트스트랩 80% 미만): CRASH_LANDING 26%·lift 4.8·유지 62%, TYRANNY 21%·lift 2.1·유지 48%, SPECTRUM_SHIFT 67%·lift 1.5·유지 46%, KNOW_THY_PLACE 55%·lift 1.4·유지 22%
+
+- fullWeight 4.0 (v1 4.0): 빌드 덱 commit 중앙값 0.89, 다른 덱 0.26(전체·균형, 새 목록·v1 fullWeight 기준). 우수 플레이어 0.92 / 0.35.
+- coreTarget: 기본값(1). core가 1장이고 빌드 덱이 가진 core 수 중앙값도 1입니다.
+- essentialTarget: 넣지 않음(기본값). 중앙값이 부트스트랩에서 갈림(분포 {'4': 84, '3': 116}).
+- 핵심 유물: TOOLBOX(w 0.3) 빌드 덱 8/115·7명·lift 2.7·유지 48%
+  - 기준(5명·lift 1.5·유지 80%)은 넘지만 효과가 이 빌드 축과 상관없는 범용 유물이라 넣지 않음: CURSED_PEARL(lift 3.4·유지 88%)
 
 ---
 
-## 5. 핵심 유물
+## 5. 빌드 추가·삭제
 
-기존 핵심 유물을 빌드 덱으로 다시 확인했습니다(3명 이상·lift 1.5 이상이면 유지).
-- 유지: FENCING_MANUAL (벼리기 3/14·3명·lift 1.8), TOOLBOX (생성 3/13·3명·다른 덱 0/26).
-- 삭제: GALACTIC_DUST(별 2/12), LUNAR_PASTRY(1/12), MINI_REGENT(0), DIVINE_DESTINY(0), REGALITE(생성 2/13), VITRUVIAN_MINION(1/13), ORANGE_DOUGH(0).
-- 새로 넣지 않음: 기준을 넘는 유물(GORGET, LANTERN, ANCHOR 등)은 여러 빌드에 고루 나오는 범용 유물이라 기존 빌드에 더하지 않았습니다.
+- **삭제 없음**: 네 빌드 모두 기준(25판·6명 이상, 한 사람 절반 이하; 1위 빌드는 그의 승리 15판 이상)을 넘습니다.
+- **추가 없음**: 검토한 후보
+  - "한 턴에 카드 많이 쓰기"(MONOLOGUE·LUNAR_BLAST·MAKE_IT_SO·PALE_BLUE_DOT 중 2장 이상): 37판·15명으로 빌드 인정 기준은 넘지만, 부트스트랩 80%를 넘는 카드가 하나도 없어(MONOLOGUE 26%, LUNAR_BLAST 7%) 근거 있는 목록을 만들 수 없습니다. MONARCHS_GAZE를 넣은 변형(31판·11명)도 같습니다.
+  - PALE_BLUE_DOT·TYRANNY·VOID_FORM, ASTRAL_PULSE·PATTER·QUASAR 묶음: 효과상 공통 축이 없는 범용 카드 묶음이라 빌드로 보지 않았습니다.
+  - 어느 빌드에도 안 드는 덱 30판(12명)은 특정 카드로 모이지 않습니다.
 
-## 6. fullWeight
+## 6. ASTRAL_PULSE (v1 미해결 충돌 정리)
 
-빌드 덱과 다른 덱의 commit 중앙값(새 목록, 39판 기준):
+- v1: Baalorlord 덱 6/9에 있지만 OP.GG에서 보상 68번 중 2번만 집혀 충돌로 남겼습니다.
+- v2 (큰 표본): 전투 보상에서 **819번 나와 92번 집음** — 플레이어 균형 13%, 48명, 부트스트랩에서 20% 미만이 100% 유지(티어 밴드 D). 우수 플레이어만 보면 19%(670번), 1위 플레이어는 196번 중 7번(4%). 막별로 1막 23%, 2막 10%, 3막 1%.
+- 별 빌드 안에서는 비율 28%·lift 1.5·20명으로 점 추정은 기준을 넘지만 부트스트랩 51%로 **불확실**합니다. 우수 플레이어의 최종 덱 보유율은 승리 23% / 패배 32%로 진 덱에 더 많습니다(참고).
+- 결론: OP.GG 상위 랭커는 이 카드를 거의 고르지 않습니다. 규칙상 Baalorlord 보조 근거(6/9 + 별 비용 카드 + lift 1.0 이상 유지 98%)로 `regent.stars`의 payoff에 남지만 **core·OP.GG 근거는 아닙니다.** 1위 플레이어 빌드에는 넣지 않았습니다(그의 덱 2/79). 보조 근거 규칙을 "보상 픽률 D 밴드면 제외"로 바꿀지는 사용자 결정 사항입니다.
 
-| 빌드 | fullWeight | 빌드 덱 중앙값 | 다른 덱 중앙값 | 결정 |
-|---|---|---|---|---|
-| stars | 4.5 | 1.00 | 0.49 | 유지 (다른 덱 0.5 이하, 거의 경계) |
-| star_spend | 4.0 (새로, 기본값) | 1.00 | 0.39 | 기본값으로 기준 통과 |
-| forge | 4.0 | 0.99 | 0.12 | 유지 |
-| creation | 4.0 | 0.72 | 0.17 | 유지 |
+## 7. 출처 간 충돌·남은 문제
 
-## 7. 빌드 추가·삭제
-
-- **추가 `regent.star_spend`**: 1위 플레이어 빌드 규칙(그의 승리 10판)으로 추가했습니다.
-- **삭제 없음**: 세 기존 빌드 모두 기준(6판·4명 이상, 한 사람 절반 이하)을 넘습니다.
-- **모델링하지 않은 것**: 벼리기 보조 묶음(FURNACE+PARRY+BULWARK를 별·생성 덱에 곁들임, 1위 플레이어 4판 + 2명). 1위 플레이어의 4판 중 3판이 별 소모 덱과 겹치는 곁들이 묶음이라 별도 빌드로 만들지 않았고, 해당 카드는 `regent.forge`에 있습니다. CHARGE·PHOTON_CUT·BIG_BANG·COMET 조합은 3판뿐이라 빌드로 보지 않았습니다.
-
-## 8. 출처 간 충돌 (해결 안 됨)
-
-- **ASTRAL_PULSE**: Baalorlord 덱 6/9에 있지만 OP.GG에서는 보상에 68번 나와 2번만 집혔고, 1위 플레이어는 27번 중 0번입니다. 규칙상 "OP.GG와 어긋남"은 lift 1.0 미만으로 정의되어 있고, 블랙홀 빌드에서는 2/12 대 다른 덱 0/27이라 lift가 1.0 이상이므로 `regent.stars`에 payoff로 남겼습니다. 1위 빌드에는 넣지 않았습니다(그의 덱 0/10).
-- **GLITTERSTREAM·KNOW_THY_PLACE·GLOW**: Baalorlord의 거의 모든 리젠트 덱(7~8/9, 6/9)에 있지만, OP.GG에선 별 빌드 특유의 카드가 아닙니다. GLITTERSTREAM·GLOW는 생성 빌드에서 OP.GG 기준으로 support에 들어갔고, GLOW는 블랙홀 별 빌드 enabler입니다.
-- **BLACK_HOLE**: 다른 랭커의 별 덱 9/12에 있고 Baalorlord도 4/9를 쓰지만, 1위 플레이어는 별 덱 10판에서 한 번도 쓰지 않았습니다(집음 2/9). 그래서 별 빌드를 둘로 나눴습니다.
-- **"별 덱과 벼리기 덱을 섞지 말라"는 커뮤니티 조언**: SWORD_SAGE·SEEKING_EDGE 엔진은 별 엔진과 따로 쓰는 경향이 있지만, FURNACE·PARRY·BULWARK는 별 덱에도 흔히 들어갑니다.
+- **보조 근거 카드가 많음**: 별 빌드의 GATHER_LIGHT·GLOW·CLOAK_OF_STARS·REFLECT·PARTICLE_WALL·ASTRAL_PULSE는 OP.GG 기준만으로는 불안정하거나(GLOW·CLOAK 56%, PARTICLE_WALL 69%) lift가 낮아(GATHER_LIGHT 1.3, REFLECT 1.3) 리젠트 덱 어디에나 들어가는 별 카드입니다. Baalorlord 보조 근거로 남았습니다.
+- **core가 불확실한 빌드**: BLACK_HOLE(core 유지 76%), CHILD_OF_THE_STARS(70%), FURNACE(73%)는 v1 core를 그대로 두었습니다. 다음 수집에서 표본이 늘면 다시 확인해야 합니다.
+- **우수 플레이어만 보면 다른 결과**: 별 빌드에서 BLACK_HOLE·HIDDEN_CACHE·CLOAK_OF_STARS는 우수 플레이어만 보면 lift 0.7~1.3입니다(우수 플레이어 11명 중 6명이 판수 대부분). 표본이 얇아 전체 결과를 썼습니다.
