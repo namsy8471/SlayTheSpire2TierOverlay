@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Sts2Overlay.Core.Localization;
 using Sts2Overlay.Resources.Catalog;
 using Sts2Overlay.Resources.Pck;
 
@@ -18,7 +19,7 @@ public enum PrepareNeed
 /// <summary>Result of <see cref="ResourcePreparer.Check"/>. <paramref name="Reason"/> is a short English log text.</summary>
 public sealed record PrepareCheck(PrepareNeed Need, string Reason, ResourceManifest? Manifest);
 
-/// <summary>One progress report: overall 0..1 plus a short Korean status line for the panel.</summary>
+/// <summary>One progress report: overall 0..1 plus a short status line for the panel (current overlay language).</summary>
 public sealed record PrepareProgress(double Fraction, string Text);
 
 /// <summary>
@@ -89,17 +90,17 @@ public sealed class ResourcePreparer(LocalLayout layout, Func<CatalogOptions, Ca
 
             string stRelics = Path.Combine(staging, "relic_icons");
             int locFiles = 0, artFiles, relicFiles = 0;
-            progress?.Report(new PrepareProgress(0, "리소스 준비: 게임 파일 여는 중"));
+            progress?.Report(new PrepareProgress(0, Loc.T("리소스 준비: 게임 파일 여는 중", "Preparing resources: opening game files")));
             using (var pck = new PckReader(game.Install.PckPath))
             {
                 foreach (var lang in LocalizationLanguages)
                 {
                     locFiles += PckExtractor.ExtractFiles(pck, $"localization/{lang}/*.json", Path.Combine(stLoc, lang), ct: ct);
                 }
-                progress?.Report(new PrepareProgress(LocEnd, $"리소스 준비: 현지화 {locFiles}개"));
+                progress?.Report(new PrepareProgress(LocEnd, Loc.T($"리소스 준비: 현지화 {locFiles}개", $"Preparing resources: localization files {locFiles}")));
 
                 var artProgress = new Throttled(progress, (done, total) =>
-                    new PrepareProgress(LocEnd + (ArtEnd - LocEnd) * done / Math.Max(1, total), $"리소스 준비: 카드 그림 {done}/{total}"));
+                    new PrepareProgress(LocEnd + (ArtEnd - LocEnd) * done / Math.Max(1, total), Loc.T($"리소스 준비: 카드 그림 {done}/{total}", $"Preparing resources: card art {done}/{total}")));
                 var art = PckExtractor.ExtractImages(pck, CardArtGlob, stArt, artProgress, ct);
                 artFiles = art.Written;
                 if (artFiles == 0) throw new InvalidDataException($"no card portraits found in {game.Install.PckPath} ({CardArtGlob})");
@@ -111,10 +112,10 @@ public sealed class ResourcePreparer(LocalLayout layout, Func<CatalogOptions, Ca
             }
 
             ct.ThrowIfCancellationRequested();
-            progress?.Report(new PrepareProgress(ArtEnd, "리소스 준비: 카드 목록 분석 중 (sts2.dll)"));
+            progress?.Report(new PrepareProgress(ArtEnd, Loc.T("리소스 준비: 카드 목록 분석 중 (sts2.dll)", "Preparing resources: reading the card list (sts2.dll)")));
             var catalog = _buildCatalog(new CatalogOptions(game.Install.DllPath, stLoc, versionLabel));
             CatalogGenerator.Write(catalog, stCatalog);
-            progress?.Report(new PrepareProgress(CatalogEnd, $"리소스 준비: 카드 {catalog.Cards.Count}장"));
+            progress?.Report(new PrepareProgress(CatalogEnd, Loc.T($"리소스 준비: 카드 {catalog.Cards.Count}장", $"Preparing resources: cards {catalog.Cards.Count}")));
 
             // ---- swap in (each move is a quick rename on the same drive) ----
             ct.ThrowIfCancellationRequested();
@@ -140,7 +141,7 @@ public sealed class ResourcePreparer(LocalLayout layout, Func<CatalogOptions, Ca
                 RelicIconFiles = relicFiles,
             };
             manifest.Save(Layout.ManifestPath);
-            progress?.Report(new PrepareProgress(1, $"리소스 준비 완료 ({manifest.DurationSeconds:0.0}초)"));
+            progress?.Report(new PrepareProgress(1, Loc.T($"리소스 준비 완료 ({manifest.DurationSeconds:0.0}초)", $"Resources ready ({manifest.DurationSeconds:0.0}s)")));
             return manifest;
         }
         finally
@@ -158,7 +159,7 @@ public sealed class ResourcePreparer(LocalLayout layout, Func<CatalogOptions, Ca
         }
         catch (IOException ex)
         {
-            throw new PrepareBusyException("다른 프로세스가 리소스를 준비하는 중입니다", ex);
+            throw new PrepareBusyException(Loc.T("다른 프로세스가 리소스를 준비하는 중입니다", "Another process is preparing the resources"), ex);
         }
     }
 

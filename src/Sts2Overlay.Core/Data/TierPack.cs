@@ -42,7 +42,16 @@ public sealed class CardTierEntry
     /// <summary>0..1: how much the card "replaces itself" (draw/cycle). Reduces dilution.</summary>
     public double Cycle { get; set; }
 
+    /// <summary>Short Korean hint shown with the card (pack JSON <c>tip</c>).</summary>
     public string? Tip { get; set; }
+
+    /// <summary>English <see cref="Tip"/>, from the pack's <c>text.eng.json</c> (<see cref="PackText"/>).</summary>
+    [JsonIgnore]
+    public string? TipEng { get; set; }
+
+    /// <summary><see cref="Tip"/> in the current overlay language (<see cref="Localization.Loc"/>).</summary>
+    [JsonIgnore]
+    public string? LocalTip => Localization.Loc.IsEnglish ? TipEng ?? Tip : Tip;
 
     /// <summary>0..1 confidence in this rating. Low confidence cards cannot beat Skip (PLAN §7.2).</summary>
     public double Confidence { get; set; } = 1.0;

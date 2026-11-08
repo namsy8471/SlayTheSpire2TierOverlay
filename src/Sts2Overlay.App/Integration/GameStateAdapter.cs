@@ -87,16 +87,10 @@ public sealed class GameStateAdapter : IGameStateSource, ICardOfferSink
 
     private static DeckDoubts? Doubts(TrackedRun run)
     {
-        static string Reason(UncertainReason r) => r switch
-        {
-            UncertainReason.UnknownCardSelect => "로그로 해석할 수 없는 카드 선택(이벤트/유물)에 쓰였을 수 있음",
-            UncertainReason.Inferred => "획득 로그 없이 전투에서 확인됨: 강화 여부 모름",
-            UncertainReason.UpgradeRoll => "보상 카드 무료 강화 여부를 확인하지 못함",
-            _ => "불확실",
-        };
+        // Kept as reason kinds: DeckDoubts.ReasonText words them in the language current when the deck tab is drawn.
         var reasons = run.UncertainCards
             .GroupBy(u => u.CardId)
-            .ToDictionary(g => g.Key, g => string.Join(" / ", g.Select(u => Reason(u.Reason)).Distinct()));
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<UncertainReason>)g.Select(u => u.Reason).Distinct().ToArray());
         var d = new DeckDoubts(reasons, run.UnidentifiedCards, run.UnknownUpgrades, run.UnknownRemovals);
         return d.Any ? d : null;
     }

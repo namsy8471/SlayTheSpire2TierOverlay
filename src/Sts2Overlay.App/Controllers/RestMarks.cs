@@ -1,3 +1,4 @@
+using Sts2Overlay.Core.Localization;
 using Sts2Overlay.Core.Map;
 using Sts2Overlay.Core.Model;
 using Sts2Overlay.Core.Rest;
@@ -19,9 +20,9 @@ public static class RestMarks
         var want = advice.Action == RestAction.Heal ? RestOption.Heal : RestOption.Smith;
         if (rest.Find(want) is not { Enabled: true } button) return MapMarkPlan.Empty;
 
-        var ribbon = advice.Confidence == RestConfidence.Close ? "추천! (박빙)" : "추천!";
+        var ribbon = advice.Confidence == RestConfidence.Close ? Loc.T("추천! (박빙)", "Pick! (close)") : Loc.T("추천!", "Pick!");
         var note = advice.Action == RestAction.Smith && advice.BestUpgrade is { } best
-            ? $"강화할 카드: {name(best.Card)}\n{advice.Reason}"
+            ? Loc.T($"강화할 카드: {name(best.Card)}\n{advice.Reason}", $"Upgrade: {name(best.Card)}\n{advice.Reason}")
             : advice.Reason;
         // The layout slot, not the drawn picture: the picture grows by 10 % on hover, the mark should not jump.
         var s = button.Slot;
@@ -45,13 +46,13 @@ public static class RestMarks
             used.Add(i);
             var r = cards[i].Rect;
             rects.Add(rank == 0
-                ? new ScreenRectMark(r.X, r.Y, r.Width, r.Height, ScreenRectMarkKind.Best, "강화 추천!", Chips(top[rank]))
-                : new ScreenRectMark(r.X, r.Y, r.Width, r.Height, ScreenRectMarkKind.Candidate, $"{rank + 1}순위"));
+                ? new ScreenRectMark(r.X, r.Y, r.Width, r.Height, ScreenRectMarkKind.Best, Loc.T("강화 추천!", "Upgrade!"), Chips(top[rank]))
+                : new ScreenRectMark(r.X, r.Y, r.Width, r.Height, ScreenRectMarkKind.Candidate, Loc.T($"{rank + 1}순위", $"#{rank + 1}")));
         }
         // The grid scrolls and only part of the deck is recognised at a time, so the ranking is also pinned in the empty
         // strip left of the grid (columns start at x≈250; the back button is lower, at y 715).
         if (top.Count > 0)
-            rects.Add(new ScreenRectMark(NoteX, NoteY, NoteWidth, 0, ScreenRectMarkKind.Note, "강화 추천",
+            rects.Add(new ScreenRectMark(NoteX, NoteY, NoteWidth, 0, ScreenRectMarkKind.Note, Loc.T("강화 추천", "Upgrade picks"),
                 string.Join('\n', top.Select((u, k) => $"{k + 1}. {name(u.Card)}"))));
         return rects.Count == 0 ? MapMarkPlan.Empty : MapMarkPlan.Empty with { Rects = rects };
     }

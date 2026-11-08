@@ -809,6 +809,15 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
 
     private bool IsMe(ulong? playerId) => playerId is null || playerId == MyId();
 
+    /// <summary>The other players: the save's (deck included) when it has them, else the lobby's characters (no deck).</summary>
+    private IReadOnlyList<PartnerPlayer> PartnersOf(ParsedSave? save, ulong me)
+    {
+        if (save is { Partners.Count: > 0 } && save.MyPlayerMatched) return save.Partners;
+        return _logRun is { Players.Count: > 0 } r
+            ? r.Players.Where(p => p.NetId != me).Select(p => new PartnerPlayer(p.NetId, p.Character, [], [])).ToList()
+            : [];
+    }
+
     private IReadOnlyList<ulong> PlayerOrder() =>
         _logRun is { Players.Count: > 0 } r ? r.Players.Select(p => p.NetId).ToList()
         : ChooseSave()?.Save.PlayerNetIds ?? [];
@@ -1199,6 +1208,8 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
             DeckFromRunHistory = fromHistory,
             AppliedLogPatches = applied,
             LocalPlayerId = me,
+            PlayerCount = IsMultiplayer() ? Math.Max(1, PlayerOrder().Count) : 1,
+            Partners = IsMultiplayer() ? PartnersOf(save?.Save, me) : [],
             // Votes for another act's map (stale lines after an act change) can't be drawn on this map. Without a map
             // (co-op guest: no save) they are kept as they are.
             PartnerVotes = _partnerVotes.Values

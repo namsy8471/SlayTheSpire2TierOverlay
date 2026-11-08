@@ -1,5 +1,6 @@
 using System.Windows.Input;
 using System.Windows.Media;
+using Sts2Overlay.Core.Localization;
 
 namespace Sts2Overlay.App.ViewModels;
 
@@ -19,9 +20,9 @@ public sealed class PanelViewModel : ObservableObject
     private bool _isCollapsed;
     private double _uiScale = 1.0;
     private Brush _background = new SolidColorBrush(Color.FromArgb(220, 18, 18, 24));
-    private string _statusText = "게임 창을 찾는 중…";
+    private string _statusText = Loc.T("게임 창을 찾는 중…", "Looking for the game window…");
     private string _packText = "";
-    private string _runText = "런 정보 없음";
+    private string _runText = Loc.T("런 정보 없음", "No run info");
     private string? _messageText;
     private bool _clickThrough;
     private bool _isDemo;

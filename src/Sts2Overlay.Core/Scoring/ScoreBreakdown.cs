@@ -1,7 +1,15 @@
 namespace Sts2Overlay.Core.Scoring;
 
-/// <summary>One signed, labelled part of a score, e.g. <c>{ key: "need", label: "광역 부족", value: +24 }</c>.</summary>
-public sealed record ScoreComponent(string Key, string Label, double Value, string? Detail = null);
+/// <summary>
+/// One signed, labelled part of a score, e.g. <c>{ key: "need", label: "광역 부족", value: +24 }</c>.
+/// <see cref="Label"/> and <see cref="Detail"/> are display text in the overlay language at scoring time; logic keys on
+/// <see cref="Key"/> (and <see cref="Role"/>), never on the text.
+/// </summary>
+public sealed record ScoreComponent(string Key, string Label, double Value, string? Detail = null)
+{
+    /// <summary>Role key (<see cref="Data.Roles"/>) a <see cref="ComponentKeys.Need"/> component is labelled after (its dominant role); null otherwise.</summary>
+    public string? Role { get; init; }
+}
 
 /// <summary>
 /// A score as a list of components. <see cref="Total"/> is always exactly the sum of the components (PLAN §5.3),

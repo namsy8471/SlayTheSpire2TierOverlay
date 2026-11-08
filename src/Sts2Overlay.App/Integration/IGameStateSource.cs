@@ -1,5 +1,7 @@
 using Sts2Overlay.Core.Map;
+using Sts2Overlay.Core.Localization;
 using Sts2Overlay.Core.Model;
+using Sts2Overlay.GameState.Tracking;
 
 namespace Sts2Overlay.App.Integration;
 
@@ -61,9 +63,25 @@ public interface IGameStateSource : IDisposable
 
 /// <summary>
 /// Doubts about the deck shown in the 덱 tab: per card id, why its copy (or upgrade) is uncertain; plus cards / upgrades /
-/// removals the log proves happened but can't place.
+/// removals the log proves happened but can't place. The reasons are kept as kinds and worded when shown
+/// (<see cref="ReasonText"/>), so a snapshot taken before a language change still reads in the new language.
 /// </summary>
-public sealed record DeckDoubts(IReadOnlyDictionary<string, string> CardReasons, int Unidentified, int UnknownUpgrades, int UnknownRemovals)
+public sealed record DeckDoubts(IReadOnlyDictionary<string, IReadOnlyList<UncertainReason>> CardReasons, int Unidentified, int UnknownUpgrades, int UnknownRemovals)
 {
     public bool Any => CardReasons.Count > 0 || Unidentified > 0 || UnknownUpgrades > 0 || UnknownRemovals > 0;
+
+    /// <summary>Why this card is marked "?", in the current language; null when it isn't in doubt.</summary>
+    public string? ReasonText(string cardId)
+        => CardReasons.TryGetValue(cardId, out var reasons) && reasons.Count > 0
+            ? string.Join(" / ", reasons.Distinct().Select(Reason))
+            : null;
+
+    /// <summary>One reason's wording.</summary>
+    public static string Reason(UncertainReason r) => r switch
+    {
+        UncertainReason.UnknownCardSelect => Loc.T("로그로 해석할 수 없는 카드 선택(이벤트/유물)에 쓰였을 수 있음", "May have gone to a card choice the log can't read (event/relic)"),
+        UncertainReason.Inferred => Loc.T("획득 로그 없이 전투에서 확인됨: 강화 여부 모름", "Seen in combat with no pickup log: Upgrade unknown"),
+        UncertainReason.UpgradeRoll => Loc.T("보상 카드 무료 강화 여부를 확인하지 못함", "Couldn't confirm a free Upgrade on the reward card"),
+        _ => Loc.T("불확실", "Uncertain"),
+    };
 }

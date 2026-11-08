@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using Sts2Overlay.App.Infrastructure;
 using Sts2Overlay.App.Integration;
+using Sts2Overlay.Core.Localization;
 
 namespace Sts2Overlay.App.Services;
 
@@ -122,7 +123,7 @@ public sealed class CapturePipeline : IDisposable
             catch (Exception ex)
             {
                 AppLog.Error("capture pipeline step failed", ex);
-                Status?.Invoke("캡처/인식 실패: " + ex.Message);
+                Status?.Invoke(Loc.T("캡처/인식 실패: ", "Capture/recognition failed: ") + ex.Message);
             }
         }
     }
@@ -145,7 +146,7 @@ public sealed class CapturePipeline : IDisposable
         var info = _target();
         if (info is null || !info.CanCapture)
         {
-            if (manual || save) Status?.Invoke("게임 창이 앞에 없어 캡처하지 않았습니다");
+            if (manual || save) Status?.Invoke(Loc.T("게임 창이 앞에 없어 캡처하지 않았습니다", "Not captured: the game window is not in front"));
             return;
         }
 
@@ -185,7 +186,7 @@ public sealed class CapturePipeline : IDisposable
         var file = Path.Combine(AppPaths.CapturesDir, $"manual_{frame.At:yyyyMMdd_HHmmss_fff}.png");
         FramePng.Save(frame, file);
         AppLog.Info($"capture saved {file} ({frame.Width}x{frame.Height} @ {frame.ScreenRect}, {_capturer.Name})");
-        Status?.Invoke($"캡처 저장: {Path.GetFileName(file)} ({frame.Width}x{frame.Height})");
+        Status?.Invoke(Loc.T($"캡처 저장: {Path.GetFileName(file)} ({frame.Width}x{frame.Height})", $"Capture saved: {Path.GetFileName(file)} ({frame.Width}x{frame.Height})"));
     }
 
     /// <summary>32x18 grid of luminance samples: a cheap "did the screen change?" fingerprint.</summary>

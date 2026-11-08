@@ -1,4 +1,5 @@
-using Sts2Overlay.Core.Data;
+﻿using Sts2Overlay.Core.Data;
+using Sts2Overlay.Core.Localization;
 using Sts2Overlay.Core.Model;
 
 namespace Sts2Overlay.Core.Scoring;
@@ -33,7 +34,7 @@ public sealed class RelicScorer(DataPack pack, Events.EventWeights? eventWeights
     {
         var baseValue = EventWeights.RelicValue(rarity, relicId, relicStats);
         var measured = relicStats?.ValueMultiplier(relicId) ?? 1.0;
-        var baseDetail = measured == 1.0 ? rarity : $"{rarity} · 랭커 선택률 ×{measured:0.00}";
+        var baseDetail = measured == 1.0 ? rarity : Loc.T($"{rarity} · 랭커 선택률 ×{measured:0.00}", $"{rarity} · top-player pick rate ×{measured:0.00}");
         var parts = new List<ScoreComponent> { new(ComponentKeys.RelicBase, ScoringLabels.RelicBase, baseValue, baseDetail) };
 
         var fit = relicId is null ? null : Fit(profile, Pack.Canonical(relicId));
@@ -72,14 +73,14 @@ public sealed class RelicScorer(DataPack pack, Events.EventWeights? eventWeights
             && stat.Lift(s.CoreSecured, W.MinSplitDecisions, out var split) is { } lift)
         {
             var ratio = Math.Clamp(Math.Pow(lift, W.FitExponent), W.MinMultiplier, W.MaxMultiplier);
-            var situation = !split ? "" : s.CoreSecured ? " (코어 보유 시)" : " (코어 없을 때)";
+            var situation = !split ? "" : s.CoreSecured ? Loc.T(" (코어 보유 시)", " (with core)") : Loc.T(" (코어 없을 때)", " (without core)");
             var rate = split ? (s.CoreSecured ? stat.PickRateCoreHeld : stat.PickRateNoCore) ?? stat.PickRateIn : stat.PickRateIn;
-            return (ratio, $"랭커 선택률 {rate:P0}{situation} vs 다른 빌드 {stat.PickRateOut:P0}");
+            return (ratio, Loc.T($"랭커 선택률 {rate:P0}{situation} vs 다른 빌드 {stat.PickRateOut:P0}", $"Top-player pick rate {rate:P0}{situation} vs other builds {stat.PickRateOut:P0}"));
         }
         foreach (var k in s.Archetype.KeyRelics)
         {
             if (string.Equals(Pack.Canonical(k.Id), relicId, StringComparison.Ordinal))
-                return (1 + W.KeyRelicBonus * k.W, "랭커 빌드 핵심 유물");
+                return (1 + W.KeyRelicBonus * k.W, Loc.T("랭커 빌드 핵심 유물", "Key relic of top players' build"));
         }
         return null;
     }

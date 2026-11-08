@@ -68,7 +68,7 @@ public sealed record PathOption
     /// <summary>Shops on the path where the simulation expects to spend gold (removal and/or a purchase).</summary>
     public int ShopPurchases { get; init; }
 
-    /// <summary>Short Korean reason chips, e.g. "엘리트 2", "휴식처 2 (보스 전 휴식 있음)", "HP 낮음: 전투 적은 길".</summary>
+    /// <summary>Short reason chips in the current language, e.g. "엘리트 2", "휴식처 2 (보스 전 휴식 있음)" / "Elites 2", "Low HP: fewer fights".</summary>
     public IReadOnlyList<string> Chips { get; init; } = [];
 
     /// <summary>Risk patterns found on the path (keys from <see cref="PathRisks"/>).</summary>

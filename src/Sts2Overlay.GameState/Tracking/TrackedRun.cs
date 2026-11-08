@@ -167,6 +167,15 @@ public sealed record TrackedRun
     /// <summary>Our net id (1 in single player, Steam ID in co-op).</summary>
     public ulong LocalPlayerId { get; init; }
 
+    /// <summary>Players in the run (1 in single player). Monster HP scales with it.</summary>
+    public int PlayerCount { get; init; } = 1;
+
+    /// <summary>
+    /// The other co-op players. From the save (host): character, deck and relics. From the log (guest): character only,
+    /// with an empty deck. Empty in single player.
+    /// </summary>
+    public IReadOnlyList<PartnerPlayer> Partners { get; init; } = [];
+
     /// <summary>
     /// Co-op: where each other player currently votes to go on this act's map (<c>Player vote changed for X</c>),
     /// since the party last moved. Empty in single player and right after entering a room.

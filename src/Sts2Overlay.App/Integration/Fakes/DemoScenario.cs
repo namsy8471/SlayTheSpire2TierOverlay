@@ -1,3 +1,4 @@
+using Sts2Overlay.Core.Localization;
 using Sts2Overlay.Core.Model;
 
 namespace Sts2Overlay.App.Integration.Fakes;
@@ -77,12 +78,16 @@ public static class DemoScenario
         return new(frame.X + (int)(1403 * sx), frame.Y + (int)(682 * sy), (int)(170 * sx), (int)(170 * sy));
     }
 
-    public static PathView Path { get; } = new(
+    /// <summary>Demo path section, built on each read so it follows the current language.</summary>
+    public static PathView Path => new(
         [
-            new PathOptionView("균형", "엘리트 1 · 휴식 2 · 상점 1 · 보스 도착 HP 예상 64%", ["휴식 전 엘리트 없음", "상점에서 제거"], 71, IsRecommended: true),
-            new PathOptionView("안전", "엘리트 0 · 휴식 3 · 미지 3 · 보스 도착 HP 예상 78%", ["HP 보존", "카드 보상 적음"], 63),
-            new PathOptionView("공격", "엘리트 3 · 휴식 1 · 보스 도착 HP 예상 41%", ["위험: 엘리트 연속", "유물 +3"], 55),
+            new PathOptionView(Loc.T("균형", "Balanced"), Loc.T("엘리트 1 · 휴식 2 · 상점 1 · 보스 도착 HP 예상 64%", "Elite 1 · Rest 2 · Shop 1 · HP at Boss est. 64%"),
+                [Loc.T("휴식 전 엘리트 없음", "No Elite before Rest"), Loc.T("상점에서 제거", "Remove at Shop")], 71, IsRecommended: true),
+            new PathOptionView(Loc.T("안전", "Safe"), Loc.T("엘리트 0 · 휴식 3 · 미지 3 · 보스 도착 HP 예상 78%", "Elite 0 · Rest 3 · Unknown 3 · HP at Boss est. 78%"),
+                [Loc.T("HP 보존", "Keeps HP"), Loc.T("카드 보상 적음", "Few Card Rewards")], 63),
+            new PathOptionView(Loc.T("공격", "Aggressive"), Loc.T("엘리트 3 · 휴식 1 · 보스 도착 HP 예상 41%", "Elite 3 · Rest 1 · HP at Boss est. 41%"),
+                [Loc.T("위험: 엘리트 연속", "Risk: Elites in a row"), Loc.T("유물 +3", "Relics +3")], 55),
         ],
-        "다음: 오른쪽 위 휴식 (4,8)",
-        "데모 데이터 (경로 추천 엔진 연결 전)");
+        Loc.T("다음: 오른쪽 위 휴식 (4,8)", "Next: Rest, up-right (4,8)"),
+        Loc.T("데모 데이터 (경로 추천 엔진 연결 전)", "Demo data (path engine not connected)"));
 }

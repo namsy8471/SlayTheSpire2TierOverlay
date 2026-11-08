@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using Sts2Overlay.Core.Data;
+using Sts2Overlay.Core.Localization;
 using Sts2Overlay.Core.Model;
 using Sts2Overlay.Core.Scoring;
 
@@ -44,12 +45,13 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
     /// (e.g. no co-op-only relic in single player); null = the whole pool.
     /// </summary>
     public EventEvaluation? Evaluate(RunState state, string eventId, IReadOnlyList<string>? offeredKeys = null, string? page = null,
-        IReadOnlyCollection<string>? possibleKeys = null)
-        => Evaluate(state, DeckAnalyzer.Analyze(state, Pack), eventId, offeredKeys, page, possibleKeys);
+        IReadOnlyCollection<string>? possibleKeys = null, EventContext? context = null)
+        => Evaluate(state, DeckAnalyzer.Analyze(state, Pack), eventId, offeredKeys, page, possibleKeys, context);
 
     public EventEvaluation? Evaluate(RunState state, DeckProfile profile, string eventId, IReadOnlyList<string>? offeredKeys = null, string? page = null,
-        IReadOnlyCollection<string>? possibleKeys = null)
+        IReadOnlyCollection<string>? possibleKeys = null, EventContext? context = null)
     {
+        _context = context;
         var def = Catalog.Find(eventId);
         IReadOnlyList<EventOptionDef> options;
         string pageName;
@@ -104,8 +106,15 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
             Confidence = confidence,
             OptionsExact = offeredKeys is { Count: > 0 },
             NotOffered = offeredKeys is { Count: > 0 } ? NotOfferedOptions(state, profile, def!, pageName, offeredKeys, possibleKeys) : [],
+            Forecast = evals.Any(e => e.DummyHp is not null) ? context?.Forecast : null,
+            ForecastNotes = evals.Any(e => e.DummyHp is not null) ? context?.ForecastNotes ?? [] : [],
         };
     }
+
+    // Evaluate is called from one thread at a time (the UI thread); the context only lives for that call.
+    private EventContext? _context;
+
+    private const double UnknownWinChance = 0.5;
 
     /// <summary>
     /// An ancient's other options on the offered page (its pool: the game draws a few of them at random), scored the same
@@ -147,12 +156,14 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
     private EventOptionEvaluation WithMeasured(EventOptionEvaluation e, MeasuredChoice m, int act)
     {
         var value = Weights.MeasuredBlend * Weights.MeasuredScale * (m.Rate - m.Neutral);
-        var label = $"상위 플레이어 {m.Rate * 100:0}% 선택";
-        var detail = m.FromAct ? $"{act}막 기준, 무작위면 {m.Neutral * 100:0}%" : $"무작위면 {m.Neutral * 100:0}%";
+        var label = Loc.T($"상위 플레이어 {m.Rate * 100:0}% 선택", $"Top players pick {m.Rate * 100:0}%");
+        var detail = m.FromAct
+            ? Loc.T($"{act}막 기준, 무작위면 {m.Neutral * 100:0}%", $"Act {act}; random would be {m.Neutral * 100:0}%")
+            : Loc.T($"무작위면 {m.Neutral * 100:0}%", $"random would be {m.Neutral * 100:0}%");
         return e with
         {
             Score = new ScoreBreakdown(e.Score.Components.Append(new ScoreComponent(EventComponentKeys.Measured, label, value, detail))),
-            EffectTexts = [.. e.EffectTexts, m.FromAct ? $"{label} ({act}막)" : label],
+            EffectTexts = [.. e.EffectTexts, m.FromAct ? Loc.T($"{label} ({act}막)", $"{label} (Act {act})") : label],
         };
     }
 
@@ -187,6 +198,8 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
         var texts = new List<string>();
         var sim = new Sim(state.Hp, Math.Max(1, state.MaxHp), state.Gold);
         bool lethal = false, unaffordable = false, unmodelled = false, random = false;
+        double? winChance = null; // chance to win this option's dummy fight; its OnWin rewards are weighted by it
+        int? dummyHp = null;
         var vars = Variables(state, def);
         // Deck pool the option works on; removals/transforms take from it so "remove 2" doesn't count the same curse twice.
         var pool = new DeckPool(Pack, state, profile);
@@ -194,7 +207,7 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
         if (option.Effects.Count == 0 && !option.Leave && Catalog.FindOption(option.Key) is null && !option.Key.EndsWith(LockedSuffix, StringComparison.Ordinal))
         {
             unmodelled = true;
-            texts.Add("효과 정보 없음");
+            texts.Add(Loc.T("효과 정보 없음", "No effect data"));
         }
 
         foreach (var e in option.Effects)
@@ -202,7 +215,13 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
             var p = Math.Clamp(e.Chance ?? 1.0, 0, 1);
             if (p < 1) random = true;
             if (string.Equals(e.How, "random", StringComparison.OrdinalIgnoreCase)) random = true;
-            var chanceText = p < 1 ? $" ({p * 100:0}% 확률)" : "";
+            var chanceText = p < 1 ? Loc.T($" ({p * 100:0}% 확률)", $" ({p * 100:0}% chance)") : "";
+            if (e.OnWin)
+            {
+                // Without a damage forecast the fight is a coin flip as far as we know (the option is marked unmodelled).
+                p *= winChance ?? UnknownWinChance;
+                chanceText = Loc.T(" (처치 시)", " (if killed)");
+            }
             var count = Resolve(e.Count, vars, out var countKnown) is double c ? (int)Math.Max(0, Math.Round(c)) : 1;
             if (!countKnown) unmodelled = true;
             double? amount = Resolve(e.Amount, vars, out var amountKnown);
@@ -215,8 +234,8 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
                     if (p >= 1 && a >= sim.Hp) lethal = true;
                     var lost = Math.Min(a, sim.Hp);
                     var v = -HpPoints(lost, sim) * p;
-                    acc.Add(new(EventComponentKeys.Hp, $"체력 −{a:0}", v));
-                    texts.Add($"체력 {a:0} 잃음{chanceText}");
+                    acc.Add(new(EventComponentKeys.Hp, Loc.T($"체력 −{a:0}", $"HP −{a:0}"), v));
+                    texts.Add(Loc.T($"체력 {a:0} 잃음", $"Lose {a:0} HP") + chanceText);
                     sim = sim with { Hp = sim.Hp - lost * p };
                     break;
                 }
@@ -224,8 +243,8 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
                 {
                     var gained = Math.Clamp(a, 0, sim.MaxHp - sim.Hp);
                     var v = HpPoints(gained, sim) * p;
-                    acc.Add(new(EventComponentKeys.Hp, $"체력 +{gained:0}", v));
-                    texts.Add(a >= sim.MaxHp ? $"체력 모두 회복{chanceText}" : $"체력 {a:0} 회복{chanceText}");
+                    acc.Add(new(EventComponentKeys.Hp, Loc.T($"체력 +{gained:0}", $"HP +{gained:0}"), v));
+                    texts.Add((a >= sim.MaxHp ? Loc.T("체력 모두 회복", "Heal to full") : Loc.T($"체력 {a:0} 회복", $"Heal {a:0} HP")) + chanceText);
                     sim = sim with { Hp = sim.Hp + gained * p };
                     break;
                 }
@@ -233,8 +252,9 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
                 {
                     var hpw = HpWeight(sim);
                     var v = Path.HpValue * a / sim.MaxHp * Weights.MaxHpFactorFor(state.Act) * (a < 0 ? hpw : 1) * p;
-                    acc.Add(new(EventComponentKeys.MaxHp, $"최대 체력 {a:+0;−0}", v));
-                    texts.Add($"최대 체력 {a:+0;−0}{chanceText}");
+                    var maxHpText = Loc.T($"최대 체력 {a:+0;−0}", $"Max HP {a:+0;−0}");
+                    acc.Add(new(EventComponentKeys.MaxHp, maxHpText, v));
+                    texts.Add(maxHpText + chanceText);
                     var maxHp = Math.Max(1, sim.MaxHp + a * p);
                     // GainMaxHp heals by the same amount; LoseMaxHp only caps current HP.
                     var hp = a > 0 ? sim.Hp + a * p : Math.Min(sim.Hp, maxHp);
@@ -246,8 +266,8 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
                 {
                     if (a < 0 && -a > sim.Gold + 1e-9 && p >= 1) unaffordable = true;
                     var v = GoldPoints(a, sim.Gold) * p;
-                    acc.Add(new(EventComponentKeys.Gold, a >= 0 ? $"골드 +{a:0}" : $"골드 −{-a:0}", v));
-                    texts.Add((a >= 0 ? $"골드 {a:0} 획득" : $"골드 {-a:0} 지불") + chanceText);
+                    acc.Add(new(EventComponentKeys.Gold, a >= 0 ? Loc.T($"골드 +{a:0}", $"Gold +{a:0}") : Loc.T($"골드 −{-a:0}", $"Gold −{-a:0}"), v));
+                    texts.Add((a >= 0 ? Loc.T($"골드 {a:0} 획득", $"Gain {a:0} Gold") : Loc.T($"골드 {-a:0} 지불", $"Pay {-a:0} Gold")) + chanceText);
                     sim = sim with { Gold = Math.Max(0, sim.Gold + a * p) };
                     break;
                 }
@@ -255,16 +275,22 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
                 {
                     var choose = !string.Equals(e.How, "random", StringComparison.OrdinalIgnoreCase);
                     var v = pool.Remove(count, choose, e.Filter, Weights) * p;
-                    acc.Add(new(EventComponentKeys.Deck, choose ? $"카드 {count}장 제거" : $"무작위 카드 {count}장 제거", v, pool.LastDetail));
-                    texts.Add((choose ? $"카드 {count}장 제거" : $"무작위 카드 {count}장 제거") + FilterText(e.Filter) + chanceText);
+                    var label = choose
+                        ? Loc.T($"카드 {count}장 제거", $"Remove {Cards(count)}")
+                        : Loc.T($"무작위 카드 {count}장 제거", $"Remove {Cards(count, "random ")}");
+                    acc.Add(new(EventComponentKeys.Deck, label, v, pool.LastDetail));
+                    texts.Add(label + FilterText(e.Filter) + chanceText);
                     break;
                 }
                 case EventEffectTypes.CardTransform:
                 {
                     var choose = !string.Equals(e.How, "random", StringComparison.OrdinalIgnoreCase);
                     var v = pool.Transform(count, choose, e.Filter, Weights) * p;
-                    acc.Add(new(EventComponentKeys.Deck, choose ? $"카드 {count}장 변화" : $"무작위 카드 {count}장 변화", v, pool.LastDetail));
-                    texts.Add((choose ? $"카드 {count}장 변화" : $"무작위 카드 {count}장 변화") + FilterText(e.Filter) + chanceText);
+                    var label = choose
+                        ? Loc.T($"카드 {count}장 변화", $"Transform {Cards(count)}")
+                        : Loc.T($"무작위 카드 {count}장 변화", $"Transform {Cards(count, "random ")}");
+                    acc.Add(new(EventComponentKeys.Deck, label, v, pool.LastDetail));
+                    texts.Add(label + FilterText(e.Filter) + chanceText);
                     break;
                 }
                 case EventEffectTypes.CardUpgrade:
@@ -274,7 +300,12 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
                     var n = how == "all" ? upgradable : Math.Min(count, upgradable);
                     var each = how == "choose" ? Weights.UpgradeChosen : Weights.UpgradeRandom;
                     var v = n * each * p;
-                    var label = how switch { "all" => "모두 강화", "random" => $"무작위 {count}장 강화", _ => $"카드 {count}장 강화" };
+                    var label = how switch
+                    {
+                        "all" => Loc.T("모두 강화", "Upgrade all"),
+                        "random" => Loc.T($"무작위 {count}장 강화", $"Upgrade {Cards(count, "random ")}"),
+                        _ => Loc.T($"카드 {count}장 강화", $"Upgrade {Cards(count)}"),
+                    };
                     acc.Add(new(EventComponentKeys.Upgrade, label, v));
                     texts.Add(label + FilterText(e.Filter) + chanceText);
                     break;
@@ -291,8 +322,8 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
                 {
                     var n = Math.Max(1, count);
                     var v = -Weights.CursePenalty * n * p;
-                    acc.Add(new(EventComponentKeys.Curse, n > 1 ? $"저주 {n}장" : "저주", v, e.Card));
-                    texts.Add((n > 1 ? $"저주 {n}장 받음" : "저주 받음") + chanceText);
+                    acc.Add(new(EventComponentKeys.Curse, n > 1 ? Loc.T($"저주 {n}장", $"{n} Curses") : Loc.T("저주", "Curse"), v, e.Card));
+                    texts.Add((n > 1 ? Loc.T($"저주 {n}장 받음", $"Gain {n} Curses") : Loc.T("저주 받음", "Gain a Curse")) + chanceText);
                     break;
                 }
                 case EventEffectTypes.CardReward:
@@ -300,17 +331,17 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
                     var rare = string.Equals(e.Rarity, "rare", StringComparison.OrdinalIgnoreCase);
                     var n = Math.Max(1, count);
                     var v = (rare ? Weights.RareCardReward : Weights.CardReward) * n * p;
-                    var label = rare ? "희귀 카드 보상" : "카드 보상";
+                    var label = rare ? Loc.T("희귀 카드 보상", "Rare Card Reward") : Loc.T("카드 보상", "Card Reward");
                     acc.Add(new(EventComponentKeys.Card, n > 1 ? $"{label} ×{n}" : label, v));
-                    texts.Add((n > 1 ? $"{label} {n}번" : label) + chanceText);
+                    texts.Add((n > 1 ? Loc.T($"{label} {n}번", $"{label} ×{n}") : label) + chanceText);
                     break;
                 }
                 case EventEffectTypes.Enchant:
                 {
                     var n = Math.Max(1, count);
                     var v = Weights.EnchantValue * n * p;
-                    acc.Add(new(EventComponentKeys.Card, "카드 인챈트", v, e.Enchantment));
-                    texts.Add($"카드 {n}장 인챈트" + FilterText(e.Filter) + chanceText);
+                    acc.Add(new(EventComponentKeys.Card, Loc.T("카드 인챈트", "Enchant card"), v, e.Enchantment));
+                    texts.Add(Loc.T($"카드 {n}장 인챈트", $"Enchant {Cards(n)}") + FilterText(e.Filter) + chanceText);
                     break;
                 }
                 case EventEffectTypes.Relic:
@@ -321,49 +352,73 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
                     // Plus the build fit (top players' take rate in the builds this deck leans toward, RelicScorer).
                     var relic = Relics.Score(profile, e.Relic, e.Tier, relicStats);
                     var baseValue = relic.Value.Components.Where(c => c.Key == ComponentKeys.RelicBase).Sum(c => c.Value);
-                    acc.Add(new(EventComponentKeys.Relic, "유물", baseValue * n * p, e.Relic));
+                    acc.Add(new(EventComponentKeys.Relic, Loc.T("유물", "Relic"), baseValue * n * p, e.Relic));
                     foreach (var fit in relic.Value.Components.Where(c => c.Key == ComponentKeys.RelicFit))
                         acc.Add(new(EventComponentKeys.RelicFit, fit.Label, fit.Value * n * p, fit.Detail));
-                    texts.Add((e.Relic is null ? "무작위 유물" : "유물") + (n > 1 ? $" {n}개" : "") + chanceText);
+                    texts.Add((e.Relic is null ? Loc.T("무작위 유물", "Random Relic") : Loc.T("유물", "Relic"))
+                        + (n > 1 ? Loc.T($" {n}개", $" ×{n}") : "") + chanceText);
                     break;
                 }
                 case EventEffectTypes.RelicLose:
                 {
                     var v = state.Relics.Count == 0 ? 0 : -Weights.RelicLoss * p;
-                    acc.Add(new(EventComponentKeys.Relic, "유물 잃음", v, e.Relic));
-                    texts.Add("유물 잃음" + chanceText);
+                    var label = Loc.T("유물 잃음", "Lose a Relic");
+                    acc.Add(new(EventComponentKeys.Relic, label, v, e.Relic));
+                    texts.Add(label + chanceText);
                     break;
                 }
                 case EventEffectTypes.Potion:
                 {
                     var n = Math.Max(1, count);
                     var v = Weights.PotionValue * n * p;
-                    acc.Add(new(EventComponentKeys.Potion, "포션", v, e.Potion));
-                    texts.Add($"포션 {n}개" + chanceText);
+                    acc.Add(new(EventComponentKeys.Potion, Loc.T("포션", "Potion"), v, e.Potion));
+                    texts.Add(Loc.T($"포션 {n}개", Potions(n)) + chanceText);
                     break;
                 }
                 case EventEffectTypes.PotionLose:
                 {
                     var n = Math.Max(1, count);
                     var v = -Weights.PotionValue * n * p;
-                    acc.Add(new(EventComponentKeys.Potion, "포션 잃음", v));
-                    texts.Add($"포션 {n}개 잃음" + chanceText);
+                    acc.Add(new(EventComponentKeys.Potion, Loc.T("포션 잃음", "Lose Potion"), v));
+                    texts.Add(Loc.T($"포션 {n}개 잃음", $"Lose {Potions(n)}") + chanceText);
+                    break;
+                }
+                case EventEffectTypes.Fight when e.DummyHp is { } hpVar:
+                {
+                    // Training dummy: never attacks (no HP cost), escapes after TurnLimit player turns. Won or lost.
+                    var turns = e.TurnLimit ?? 3;
+                    var baseHp = vars.TryGetValue(hpVar, out var bh) ? bh : 0;
+                    var hp = DummyFight.ScaleHp(baseHp, _context?.PlayerCount ?? 1, Math.Max(0, state.Act - 1));
+                    dummyHp = hp;
+                    if (_context?.Forecast is { } forecast && _context.ForecastTurns == turns)
+                    {
+                        winChance = forecast.ProbAtLeast(hp);
+                        texts.Add(Loc.T($"체력 {hp} 인형을 {turns}턴 안에 처치 · 예상 확률 {winChance * 100:0}%",
+                            $"Kill the {hp} HP dummy within {turns} turns · est. chance {winChance * 100:0}%"));
+                    }
+                    else
+                    {
+                        unmodelled = true;
+                        texts.Add(Loc.T($"체력 {hp} 인형을 {turns}턴 안에 처치", $"Kill the {hp} HP dummy within {turns} turns"));
+                    }
+                    random = true;
                     break;
                 }
                 case EventEffectTypes.Fight:
                 {
                     var lost = Weights.FightHpLossFraction * sim.MaxHp;
                     var v = (-HpPoints(Math.Min(lost, sim.Hp), sim) + Weights.FightReward) * p;
-                    acc.Add(new(EventComponentKeys.Fight, "전투", v, e.Encounter));
-                    texts.Add("전투" + chanceText);
+                    var label = Loc.T("전투", "Fight");
+                    acc.Add(new(EventComponentKeys.Fight, label, v, e.Encounter));
+                    texts.Add(label + chanceText);
                     sim = sim with { Hp = Math.Max(1, sim.Hp - lost * p) };
                     break;
                 }
                 case EventEffectTypes.Duplicate:
                 {
                     var n = Math.Max(1, count);
-                    acc.Add(new(EventComponentKeys.Card, "카드 복제", Weights.DuplicateValue * n * p));
-                    texts.Add($"카드 {n}장 복제" + chanceText);
+                    acc.Add(new(EventComponentKeys.Card, Loc.T("카드 복제", "Duplicate card"), Weights.DuplicateValue * n * p));
+                    texts.Add(Loc.T($"카드 {n}장 복제", $"Duplicate {Cards(n)}") + chanceText);
                     break;
                 }
                 default:
@@ -376,9 +431,9 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
             }
         }
 
-        if (option.Leave && option.Effects.Count == 0) texts.Add("아무 일도 없음");
+        if (option.Leave && option.Effects.Count == 0) texts.Add(Loc.T("아무 일도 없음", "Nothing happens"));
 
-        if (lethal) acc.Add(new(EventComponentKeys.Death, "사망 위험", -Weights.DeathCost));
+        if (lethal) acc.Add(new(EventComponentKeys.Death, Loc.T("사망 위험", "Death risk"), -Weights.DeathCost));
 
         // Follow-up page: add its best option, scored with the HP/gold this option leaves.
         if (!lethal && depth > 0 && def.FindPage(option.Next) is { Options.Count: > 0 } next)
@@ -389,9 +444,9 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
             if (nextEvals.Count > 0)
             {
                 var bestNext = nextEvals.MaxBy(o => o.Total)!;
-                acc.Add(new(EventComponentKeys.Next, "다음 선택", bestNext.Total, bestNext.Option.Key));
+                acc.Add(new(EventComponentKeys.Next, Loc.T("다음 선택", "Next choice"), bestNext.Total, bestNext.Option.Key));
                 unmodelled |= bestNext.HasUnmodelled;
-                texts.Add("이어서 선택지");
+                texts.Add(Loc.T("이어서 선택지", "More choices follow"));
             }
         }
 
@@ -404,6 +459,8 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
             HasUnmodelled = unmodelled,
             IsRandom = random,
             EffectTexts = texts,
+            WinChance = winChance,
+            DummyHp = dummyHp,
         };
     }
 
@@ -428,25 +485,34 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
         {
             if (DeckAnalyzer.IsCurse(Pack, state.Character, id) || string.Equals(e.Pool, "curse", StringComparison.OrdinalIgnoreCase))
             {
-                return (-Weights.CursePenalty * n, "저주 카드", id);
+                return (-Weights.CursePenalty * n, Loc.T("저주 카드", "Curse card"), id);
             }
             var eval = new CardScorer(Pack).Score(state, profile, new CardRef(id), OfferContext.Event);
             var skip = new SkipScorer(Pack).Score(state, profile).Total;
-            return ((eval.Total - skip) * n, n > 1 ? $"카드 추가 ×{n}" : "카드 추가", id);
+            var add = Loc.T("카드 추가", "Add card");
+            return ((eval.Total - skip) * n, n > 1 ? $"{add} ×{n}" : add, id);
         }
         if (string.Equals(e.Pool, "curse", StringComparison.OrdinalIgnoreCase))
         {
-            return (-Weights.CursePenalty * n, "저주 카드", null);
+            return (-Weights.CursePenalty * n, Loc.T("저주 카드", "Curse card"), null);
         }
         if (string.Equals(e.How, "choose", StringComparison.OrdinalIgnoreCase))
         {
-            return (Weights.CardReward * n, "카드 선택 추가", null);
+            return (Weights.CardReward * n, Loc.T("카드 선택 추가", "Choose a card to add"), null);
         }
         var bonus = string.Equals(e.Rarity, "rare", StringComparison.OrdinalIgnoreCase) ? Weights.RareCardReward - Weights.CardReward : 0;
-        return ((Weights.RandomCardAdd + bonus) * n, n > 1 ? $"무작위 카드 {n}장" : "무작위 카드", null);
+        return ((Weights.RandomCardAdd + bonus) * n,
+            n > 1 ? Loc.T($"무작위 카드 {n}장", $"{n} random cards") : Loc.T("무작위 카드", "Random card"), null);
     }
 
+    /// <summary>The event's own filter note (English in events.json in either language), in parentheses.</summary>
     private static string FilterText(string? filter) => string.IsNullOrWhiteSpace(filter) ? "" : $" ({filter})";
+
+    /// <summary>English count of cards: "1 card", "2 random cards".</summary>
+    private static string Cards(int n, string adjective = "") => n == 1 ? $"1 {adjective}card" : $"{n} {adjective}cards";
+
+    /// <summary>English count of potions: "1 Potion", "2 Potions".</summary>
+    private static string Potions(int n) => n == 1 ? "1 Potion" : $"{n} Potions";
 
     private static Dictionary<string, double> Variables(RunState state, EventDef def)
     {

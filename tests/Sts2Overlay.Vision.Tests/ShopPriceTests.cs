@@ -11,15 +11,30 @@ public class ShopPriceTests
 
     internal static readonly (byte R, byte G, byte B) CreamText = (255, 246, 226), RedText = (255, 85, 85), GreenText = (127, 255, 0);
 
-    /// <summary>Draws the price label of the card at (cx, cy, scale) like merchant_card.tscn does.</summary>
-    internal static void DrawPrice(Canvas canvas, string digits, (byte R, byte G, byte B) color, float cx = Cx, float cy = Cy, float scale = Scale)
+    /// <summary>
+    /// Kreon Bold's digit advance (+ spacing_glyph 2) / digit height: proportional figures, unlike GyeonggiBatang's
+    /// fixed 0.70 (TitleBench digits).
+    /// </summary>
+    private static float KreonPitch(char d) => d switch
     {
+        '0' => 0.94f, '1' => 0.61f, '2' => 0.86f, '3' => 0.84f, '4' => 0.86f, '5' => 0.83f, '6' => 0.89f, '7' => 0.74f, _ => 0.87f,
+    };
+
+    /// <summary>
+    /// Draws the price label of the card at (cx, cy, scale) like merchant_card.tscn does, in the font of
+    /// <paramref name="glyphs"/> (default: the Korean game's GyeonggiBatang set).
+    /// </summary>
+    internal static void DrawPrice(Canvas canvas, string digits, (byte R, byte G, byte B) color, float cx = Cx, float cy = Cy, float scale = Scale,
+        PriceGlyphs? glyphs = null, Func<char, float>? pitch = null)
+    {
+        glyphs ??= PriceGlyphs.Default;
+        pitch ??= _ => 0.70f;                                            // digit pitch (measured on captures)
         RefTransform t = canvas.T;
         float h = ShopPriceReader.DigitHeight * scale * t.Scale;       // digit height in pixels
-        float advance = 0.70f * h;                                       // digit pitch (measured on captures)
         float blockCx = t.ToPixelX(cx + ShopPriceReader.DigitBlockCenterX * scale);
         float blockCy = t.ToPixelY(cy + ShopPriceReader.DigitCenterY * scale);
-        float left = blockCx - digits.Length * advance / 2;
+        float total = digits.Sum(d => pitch(d)) * h;
+        float left = blockCx - total / 2;
         float top = blockCy - h / 2;
 
         // rug
@@ -35,9 +50,11 @@ public class ShopPriceTests
         // sampling window on the glyph's box too).
         var mask = new bool[canvas.Width, canvas.Height];
         float ww = PriceGlyphs.Aspect * h;
+        float pos = left;
         for (int i = 0; i < digits.Length; i++)
         {
-            float[] g = PriceGlyphs.Default.Raw[digits[i] - '0'];
+            float advance = pitch(digits[i]) * h;
+            float[] g = glyphs.Raw[digits[i] - '0'];
             int c0 = PriceGlyphs.Width, c1 = -1;
             for (int k = 0; k < g.Length; k++)
                 if (g[k] >= 0.5f)
@@ -46,7 +63,8 @@ public class ShopPriceTests
                     c1 = Math.Max(c1, k % PriceGlyphs.Width);
                 }
             float boxCenter = (c0 + c1 + 1) / 2f / PriceGlyphs.Width * ww; // glyph box centre inside the window
-            float wx0 = left + (i + 0.5f) * advance - boxCenter;
+            float wx0 = pos + 0.5f * advance - boxCenter;
+            pos += advance;
             for (int y = (int)top; y < top + h; y++)
                 for (int x = (int)wx0; x < wx0 + ww; x++)
                 {
@@ -56,7 +74,7 @@ public class ShopPriceTests
         }
         int outline = Math.Max(1, (int)MathF.Round(h / 6));
         for (int y = (int)top - outline; y < top + h + outline; y++)
-            for (int x = (int)left - outline; x < left + digits.Length * advance + outline; x++)
+            for (int x = (int)left - outline; x < left + total + outline; x++)
             {
                 if (mask[x, y]) canvas.Set(x, y, color.R, color.G, color.B);
                 else if (Near(mask, x, y, outline)) canvas.Set(x, y, 25, 20, 20);
@@ -103,6 +121,41 @@ public class ShopPriceTests
         Assert.Equal(int.Parse(digits), r.Value);
         Assert.Equal(PriceTint.Cream, r.Tint);
         Assert.True(r.Plausible);
+    }
+
+    [Theory]
+    [InlineData(1920, 1080, "49", CardSlotKind.ShopCharacter)]
+    [InlineData(1920, 1080, "146", CardSlotKind.ShopCharacter)]
+    [InlineData(1920, 1080, "175", CardSlotKind.ShopColorless)]
+    [InlineData(3840, 2160, "74", CardSlotKind.ShopCharacter)]
+    [InlineData(3840, 2160, "82", CardSlotKind.ShopColorless)]
+    [InlineData(3842, 2160, "150", CardSlotKind.ShopCharacter)]
+    public void Reads_english_kreon_labels(int w, int h, string digits, CardSlotKind kind)
+    {
+        // An English game keeps CostLabel's Kreon Bold: wider "0"/"2"/"4" and an open "4" that the Korean set reads poorly.
+        var canvas = new Canvas(w, h);
+        DrawPrice(canvas, digits, CreamText, glyphs: PriceGlyphs.Kreon, pitch: KreonPitch);
+        PriceReading? r = new ShopPriceReader().Read(canvas.Frame, Cx, Cy, Scale, kind);
+        Assert.NotNull(r);
+        Assert.True(r.Value != null, r.ToString());
+        Assert.Equal(int.Parse(digits), r.Value);
+        Assert.Equal("kreon", r.Font);
+    }
+
+    [Fact]
+    public void Kreon_labels_need_the_kreon_set()
+    {
+        // "74" in Kreon: Kreon's open "4" matches the Korean "4" template at NCC ~0.5, below MinDigitScore, so a
+        // Korean-only reader leaves the price unknown; with both sets the Kreon set wins clearly.
+        var canvas = new Canvas(1920, 1080);
+        DrawPrice(canvas, "74", CreamText, glyphs: PriceGlyphs.Kreon, pitch: KreonPitch);
+        PriceReading? korean = new ShopPriceReader(PriceGlyphs.Default).Read(canvas.Frame, Cx, Cy, Scale, CardSlotKind.ShopCharacter);
+        Assert.Null(korean?.Value);
+        Assert.True(korean!.MinScore < new PriceReaderOptions().MinDigitScore);
+        PriceReading? both = new ShopPriceReader().Read(canvas.Frame, Cx, Cy, Scale, CardSlotKind.ShopCharacter);
+        Assert.Equal(74, both?.Value);
+        Assert.Equal("kreon", both!.Font);
+        Assert.True(both.FontGap >= new PriceReaderOptions().MinFontGap);
     }
 
     [Fact]
@@ -199,11 +252,13 @@ public class ShopPriceTests
     [InlineData(165, 80, 40, -1)]  // the coin's brown emblem must not look like red text
     public void Pixel_classes(int r, int g, int b, int expected) => Assert.Equal(expected, ShopPriceReader.ClassOf(r, g, b));
 
-    [Fact]
-    public void Templates_round_trip_and_each_digit_matches_itself_best()
+    [Theory]
+    [InlineData("gyeonggi")]
+    [InlineData("kreon")]
+    public void Templates_round_trip_and_each_digit_matches_itself_best(string font)
     {
-        PriceGlyphs glyphs = PriceGlyphs.Default;
-        Assert.Equal(PriceGlyphs.Data, glyphs.Format());
+        PriceGlyphs glyphs = PriceGlyphs.All.Single(g => g.Name == font);
+        Assert.Equal(font == "kreon" ? PriceGlyphs.KreonData : PriceGlyphs.Data, glyphs.Format());
         for (int d = 0; d < 10; d++)
         {
             (int got, float score, float margin) = glyphs.Classify(glyphs.Raw[d]);

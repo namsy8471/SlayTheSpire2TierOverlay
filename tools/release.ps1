@@ -7,8 +7,15 @@
     release.cmd 0.2.0 -Local        Actions 대신 이 PC에서 테스트·publish·vpk pack·vpk upload까지 합니다.
                                     태그는 vpk upload(--tag)가 GitHub에 만듭니다.
                                     토큰: $env:GITHUB_TOKEN, 없으면 'gh auth token' (화면에 찍지 않습니다).
-    release.cmd 0.2.0 -Yes          확인 질문을 건너뜁니다.
+    release.cmd 0.2.0 -Yes          확인 질문을 건너뜁니다 (메모장도 열지 않으므로 -NotesFile과 함께 쓰세요).
     release.cmd 0.2.0 -NoPause      끝나고 키 입력을 기다리지 않습니다 (자동화용).
+    release.cmd 0.2.0 -NotesFile notes.md
+                                    릴리스 노트를 이 파일에서 읽습니다 (초안을 만들지 않음).
+
+  릴리스 노트: 이전 태그 이후 병합된 PR 제목으로 초안을 만들어 artifacts\release-notes\v<버전>.md에 쓰고
+  메모장으로 엽니다. 플레이어가 읽을 글로 고쳐 저장하고 메모장을 닫으면 계속합니다. 노트가 비어 있으면 멈춥니다.
+  노트는 주석 태그(git tag -a)의 메시지가 되고, release.yml이 그것을 Velopack 패키지(--releaseNotes)와
+  GitHub Release 본문에 넣습니다. '<!--'로 시작하는 줄(안내문)은 빠집니다.
 
   버전은 SemVer 2 (예: 0.1.0, 0.2.0-beta.1). 앞에 v는 붙이지 않습니다.
   검사: 추적 중인 파일에 커밋 안 된 변경 없음, HEAD가 upstream과 같음(git fetch 후), 태그 v<버전>이 로컬·원격에 없음,
@@ -21,7 +28,8 @@ param(
     [switch]$Local,
     [switch]$DryRun,
     [switch]$Yes,
-    [switch]$NoPause
+    [switch]$NoPause,
+    [string]$NotesFile
 )
 
 # 'Stop'은 쓰지 않습니다: Windows PowerShell 5.1에서는 git/dotnet이 stderr에 쓰는 진행 메시지까지 오류로 바뀝니다.
@@ -217,6 +225,91 @@ if ($Local) {
     }
 }
 
+# ---- 3-b. 릴리스 노트 ----
+# BOM 없는 UTF-8로 씁니다: Windows PowerShell 5.1의 Out-File -Encoding UTF8은 BOM을 붙여 태그 메시지 첫 줄이 깨집니다.
+$Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+$notesDir = Join-Path $repo 'artifacts\release-notes'
+New-Item -ItemType Directory -Force -Path $notesDir | Out-Null
+$notesPath = $null
+
+# 이전 태그 이후 first-parent 히스토리: PR 병합은 "Merge pull request #N from …" + 본문 첫 줄(PR 제목).
+function New-NotesDraft {
+    if ($prevTag) { $range = "$prevTag..HEAD" } else { $range = 'HEAD' }
+    $lines = @()
+    $log = (git log --first-parent --format='%s%x1f%b%x1e' $range) -join "`n"
+    foreach ($entry in ($log -split [char]0x1e)) {
+        $parts = $entry.Trim() -split [char]0x1f, 2
+        if (-not $parts[0]) { continue }
+        if ($parts[0] -match '^Merge pull request #(\d+)') {
+            $title = @(($parts[1] -split "`n") | Where-Object { $_.Trim() }) | Select-Object -First 1
+            if (-not $title) { $title = $parts[0] }
+            $lines += "- $($title.Trim()) (#$($Matches[1]))"
+        }
+        elseif ($parts[0] -notmatch '^Merge ') {
+            $lines += "- $($parts[0].Trim())"
+        }
+    }
+    if ($lines.Count -eq 0) { $lines = @('- ') }
+    $since = if ($prevTag) { "$prevTag 이후" } else { '처음부터' }
+    return @(
+        "<!-- STS2 티어 오버레이 $tag 릴리스 노트. 플레이어가 읽는 글입니다: 한 줄에 변경 하나, 쉬운 말로. -->"
+        "<!-- 아래 목록은 $since 병합된 PR 제목입니다. 섹션으로 나눠 다듬고, 개발용 변경(CI, 테스트 등)은 지우세요. -->"
+        "<!-- '<!--'로 시작하는 줄은 저장 후 빠집니다. 다 고쳤으면 저장하고 메모장을 닫으세요. -->"
+        ''
+        '## 바뀐 점'
+    ) + $lines + @(
+        ''
+        '## 설치 / 업데이트'
+        '- 처음 설치: 아래 `namsy8471.Sts2Overlay-win-Setup.exe`를 받아 실행하세요.'
+        '- 이미 설치했다면 자동으로 업데이트됩니다. 업데이트는 오버레이를 종료할 때 적용됩니다.'
+    )
+}
+
+if ($NotesFile) {
+    if (-not (Test-Path -LiteralPath $NotesFile)) { Fail "릴리스 노트 파일이 없습니다: $NotesFile" }
+    $notesPath = (Resolve-Path -LiteralPath $NotesFile).Path
+    Write-Host "노트      : $notesPath"
+}
+else {
+    $notesPath = Join-Path $notesDir "$tag.md"
+    if (Test-Path -LiteralPath $notesPath) {
+        Write-Host "노트      : $notesPath (전에 쓴 초안을 이어서 씁니다)"
+    }
+    else {
+        [System.IO.File]::WriteAllText($notesPath, ((New-NotesDraft) -join "`r`n") + "`r`n", $Utf8NoBom)
+        Write-Host "노트      : $notesPath (병합된 PR로 초안을 만들었습니다)"
+    }
+    if (-not $DryRun -and -not $Yes -and -not $NoPause -and [Environment]::UserInteractive) {
+        Write-Host '메모장에서 릴리스 노트를 고쳐 저장하고 닫으면 계속합니다...' -ForegroundColor Cyan
+        Start-Process -FilePath 'notepad.exe' -ArgumentList "`"$notesPath`"" -Wait
+    }
+}
+
+# 안내문(<!-- 줄)을 빼고 앞뒤 빈 줄을 정리합니다.
+# 빈 노트 판정: 제목(#), 빈 줄, 빈 목록 항목("- "), 그리고 "설치 / 업데이트" 섹션(초안에 늘 들어 있는 안내)을 빼고
+# 남는 줄이 없으면 무엇이 바뀌었는지 안 적은 것입니다.
+$noteLines = @([System.IO.File]::ReadAllLines($notesPath, [System.Text.Encoding]::UTF8) |
+        Where-Object { $_.TrimStart() -notlike '<!--*' } | ForEach-Object { $_.TrimEnd() })
+$notesText = ($noteLines -join "`n").Trim()
+$content = 0
+$inInstall = $false
+foreach ($line in $noteLines) {
+    $t = $line.Trim()
+    if ($t -match '^#+\s*(.*)$') { $inInstall = $Matches[1] -match '설치|업데이트|Install'; continue }
+    if (-not $t -or $t -match '^[-*]\s*$' -or $t -match '^-{3,}$' -or $inInstall) { continue }
+    $content++
+}
+if ($content -eq 0) {
+    Problem "릴리스 노트가 비어 있습니다 ($notesPath). 무엇이 바뀌었는지 적은 뒤 다시 실행해 주세요."
+    $notesText = '(비어 있음)'
+}
+$cleanNotes = Join-Path $notesDir "$tag.tag-message.md"
+[System.IO.File]::WriteAllText($cleanNotes, $notesText + "`n", $Utf8NoBom)
+Write-Host ''
+Write-Host "---- 릴리스 노트 ($tag) ----" -ForegroundColor Cyan
+Write-Host $notesText
+Write-Host '----------------------------' -ForegroundColor Cyan
+
 # ---- 4. 확인 ----
 Write-Host ''
 if ($DryRun) {
@@ -234,7 +327,8 @@ elseif (-not $Yes) {
 
 # ---- 5-a. 기본: 태그 만들어 push ----
 if (-not $Local) {
-    Invoke-Native git @('tag', '-a', $tag, '-m', "STS2 티어 오버레이 $tag") | Out-Null
+    # 노트가 태그 메시지입니다. --cleanup=verbatim: 기본 정리는 '#'로 시작하는 줄(마크다운 제목)을 주석으로 보고 지웁니다.
+    Invoke-Native git @('tag', '-a', $tag, '-F', $cleanNotes, '--cleanup=verbatim') | Out-Null
     $pushed = Invoke-Native git @('push', 'origin', $tag) -AllowFail
     if (-not $pushed) {
         # 다음 시도가 "태그가 이미 있음"에 막히지 않도록 로컬 태그를 지웁니다.
@@ -282,12 +376,21 @@ if (-not $got) { Write-Host '이전 릴리스를 받지 못했습니다 (첫 릴
 
 Invoke-Native dotnet @('vpk', 'pack', '--packId', 'namsy8471.Sts2Overlay', '--packVersion', $Version, '--packDir', 'publish',
     '--mainExe', 'Sts2Overlay.exe', '--packTitle', 'STS2 티어 오버레이', '--packAuthors', 'namsy8471',
-    '--icon', 'src/Sts2Overlay.App/Assets/Sts2Overlay.ico', '--runtime', 'win-x64', '--outputDir', 'releases') | Out-Null
+    '--icon', 'src/Sts2Overlay.App/Assets/Sts2Overlay.ico', '--runtime', 'win-x64', '--releaseNotes', $cleanNotes,
+    '--outputDir', 'releases') | Out-Null
 
 # --targetCommitish: 태그가 아직 없으므로 GitHub가 기본 브랜치 끝이 아니라 이 커밋(push됨을 위에서 확인)에 태그를 만들게 합니다.
 Invoke-Native dotnet (@('vpk', 'upload', 'github', '--repoUrl', $RepoUrl, '--outputDir', 'releases', '--publish',
         '--tag', $tag, '--releaseName', "STS2 티어 오버레이 $tag", '--targetCommitish', $head,
         '--token', $script:token) + $preArgs) | Out-Null
+# vpk upload에는 본문 옵션이 없으므로 GitHub Release 본문은 gh로 노트를 넣습니다.
+if (Get-Command gh -ErrorAction SilentlyContinue) {
+    $edited = Invoke-Native gh @('release', 'edit', $tag, '--repo', $RepoUrl, '--notes-file', $cleanNotes) -AllowFail
+    if (-not $edited) { Write-Host "릴리스 본문을 넣지 못했습니다. 'gh release edit $tag --notes-file $cleanNotes'로 넣어 주세요." -ForegroundColor Yellow }
+}
+else {
+    Write-Host "gh가 없어 릴리스 본문을 넣지 못했습니다. GitHub에서 $tag 릴리스 본문에 $cleanNotes 내용을 붙여 넣어 주세요." -ForegroundColor Yellow
+}
 Invoke-Native git @('fetch', '--quiet', '--tags', 'origin') -AllowFail | Out-Null
 
 Write-Host ''

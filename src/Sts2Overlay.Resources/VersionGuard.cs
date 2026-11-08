@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Sts2Overlay.Core.Localization;
 
 namespace Sts2Overlay.Resources;
 
@@ -19,25 +20,39 @@ public sealed record VersionGuardResult(
     public bool VersionMismatch => Comparison is not null and not 0;
 
     /// <summary>
-    /// Korean panel lines; empty when everything matches.
-    /// e.g. "게임 버전 v0.108이 데이터 팩 v0.107.1보다 새롭습니다: 티어가 맞지 않을 수 있음"
+    /// Panel lines in the current overlay language; empty when everything matches.
+    /// e.g. "게임 버전 v0.108이 데이터 팩 v0.107.1보다 새롭습니다: 티어가 맞지 않을 수 있음" /
+    /// "Game version v0.108 is newer than data pack v0.107.1: tiers may be off"
     /// </summary>
     public IReadOnlyList<string> PanelLines(string defaultTier, int maxNames = 6)
     {
         if (!VersionMismatch) return [];
         var lines = new List<string>
         {
-            $"게임 버전 {Subject(Game!.Text)} 데이터 팩 {Pack!.Text}보다 {(Comparison > 0 ? "새롭습니다" : "오래되었습니다")}: 티어가 맞지 않을 수 있음",
+            Loc.T(
+                $"게임 버전 {Subject(Game!.Text)} 데이터 팩 {Pack!.Text}보다 {(Comparison > 0 ? "새롭습니다" : "오래되었습니다")}: 티어가 맞지 않을 수 있음",
+                $"Game version {Game!.Text} is {(Comparison > 0 ? "newer" : "older")} than data pack {Pack!.Text}: tiers may be off"),
         };
         if (UnratedCards.Count > 0)
         {
             var names = string.Join(", ", UnratedCards.Take(maxNames).Select(Short));
-            var more = UnratedCards.Count > maxNames ? $" 외 {UnratedCards.Count - maxNames}장" : "";
-            lines.Add($"티어 없는 카드 {UnratedCards.Count}장 (기본 티어 {defaultTier}로 계산): {names}{more}");
+            var rest = UnratedCards.Count - maxNames;
+            var more = rest > 0 ? Loc.T($" 외 {rest}장", $" and {rest} more") : "";
+            lines.Add(Loc.T(
+                $"티어 없는 카드 {UnratedCards.Count}장 (기본 티어 {defaultTier}로 계산): {names}{more}",
+                $"{Cards(UnratedCards.Count)} without a tier (scored as {defaultTier}): {names}{more}"));
         }
-        if (RemovedCards.Count > 0) lines.Add($"게임에서 빠진 카드 {RemovedCards.Count}장의 티어는 무시합니다");
+        if (RemovedCards.Count > 0)
+        {
+            lines.Add(Loc.T(
+                $"게임에서 빠진 카드 {RemovedCards.Count}장의 티어는 무시합니다",
+                $"Ignoring tiers of {Cards(RemovedCards.Count)} no longer in the game"));
+        }
         return lines;
     }
+
+    /// <summary>English count: "1 card", "2 cards".</summary>
+    private static string Cards(int n) => n == 1 ? "1 card" : $"{n} cards";
 
     private static string Short(string id) => id.StartsWith("CARD.", StringComparison.Ordinal) ? id[5..] : id;
 
