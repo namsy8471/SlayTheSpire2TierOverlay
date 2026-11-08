@@ -1,6 +1,7 @@
 using System.Globalization;
 using Sts2Overlay.Core.Archetypes;
 using Sts2Overlay.Core.Data;
+using Sts2Overlay.Core.Localization;
 using Sts2Overlay.Core.Model;
 
 namespace Sts2Overlay.Core.Scoring;
@@ -38,7 +39,7 @@ public sealed class CardScorer(DataPack pack)
             confidence = w.UnknownConfidence;
             estimate = true;
             rated = false;
-            baseDetail = "티어 미등록 카드 (추정)";
+            baseDetail = Loc.T("티어 미등록 카드 (추정)", "Unrated card (estimate)");
         }
         else
         {
@@ -47,15 +48,15 @@ public sealed class CardScorer(DataPack pack)
             confidence = entry.Confidence;
             estimate = entry.IsEstimate;
             rated = true;
-            baseDetail = hasActTier ? $"{act}막 티어 {tier}" : $"티어 {tier}";
+            baseDetail = hasActTier ? Loc.T($"{act}막 티어 {tier}", $"Act {act} tier {tier}") : Loc.T($"티어 {tier}", $"Tier {tier}");
         }
         var baseValue = Finite(w.TierValue.GetValueOrDefault(tier));
         if (entry is not null && card.Upgrade > 0 && entry.UpgradedDelta != 0)
         {
             baseValue += Finite(entry.UpgradedDelta);
-            baseDetail += $", 강화 {Signed(entry.UpgradedDelta)}";
+            baseDetail += Loc.T($", 강화 {Signed(entry.UpgradedDelta)}", $", upgraded {Signed(entry.UpgradedDelta)}");
         }
-        parts.Add(new ScoreComponent(ComponentKeys.Base, $"기본 {tier}", baseValue, baseDetail));
+        parts.Add(new ScoreComponent(ComponentKeys.Base, Loc.T($"기본 {tier}", $"Base {tier}"), baseValue, baseDetail));
 
         // ---- archetype membership ----
         // 코어 먼저: a non-core card's value from build A is gated by A's core progress (Gate, 0 with no core by default);
@@ -90,18 +91,22 @@ public sealed class CardScorer(DataPack pack)
         var buildCap = profile.IsWeak ? w.BuildCapWeak : w.BuildCap;
         var build = Finite(Math.Min(buildCap, buildRaw));
         var coreMissing = Finite(Math.Min(0.0, Math.Min(buildCap, buildRawGated) - build));
-        string buildLabel = "빌드 시너지", buildDetail = "";
+        string buildLabel = Loc.T("빌드 시너지", "Build synergy"), buildDetail = "";
         if (memberships.Count > 0)
         {
             var top = memberships.OrderByDescending(m => m.Commit * m.Weight).First();
             var name = top.Status.Archetype.DisplayName;
-            buildLabel = $"{name} 시너지";
+            buildLabel = Loc.T($"{name} 시너지", $"{name} synergy");
             buildDetail = $"{name} {top.Commit * 100:0}%"
-                + (buildRaw > buildCap + Epsilon ? $", 상한 {Num(buildCap)}" + (profile.IsWeak ? " (약점 우선)" : "") : "");
+                + (buildRaw > buildCap + Epsilon
+                    ? Loc.T($", 상한 {Num(buildCap)}", $", cap {Num(buildCap)}") + (profile.IsWeak ? Loc.T(" (약점 우선)", " (weakness first)") : "")
+                    : "");
             var staged = memberships.FirstOrDefault(m => m.Stage < 1.0);
             if (staged.Status is not null)
             {
-                buildDetail += $", 보조 시너지 {staged.Stage * 100:0}% (필수 시너지 {staged.Essential.Owned}/{staged.Essential.Target} 전)";
+                buildDetail += Loc.T(
+                    $", 보조 시너지 {staged.Stage * 100:0}% (필수 시너지 {staged.Essential.Owned}/{staged.Essential.Target} 전)",
+                    $", sub synergy {staged.Stage * 100:0}% (until key synergy {staged.Essential.Owned}/{staged.Essential.Target})");
             }
         }
         string? coreMissingDetail = null;
@@ -114,9 +119,12 @@ public sealed class CardScorer(DataPack pack)
             var name = worst.Status.Archetype.DisplayName;
             coreMissingDetail = worst.Core.Owned == 0
                 ? (worst.Gate <= Epsilon
-                    ? $"{name} 코어 전: 개별 성능으로 평가 · 먼저 노릴 코어: {missingCore}"
-                    : $"{name} 코어 전: 시너지 {worst.Gate * 100:0}% 반영 · 먼저 노릴 코어: {missingCore}")
-                : $"{name} 코어 {worst.Core.Owned}/{worst.Core.Target}: 시너지 {worst.Gate * 100:0}% 반영 · 남은 코어: {missingCore}";
+                    ? Loc.T($"{name} 코어 전: 개별 성능으로 평가 · 먼저 노릴 코어: {missingCore}",
+                        $"{name} before core: rated on its own · core to aim for: {missingCore}")
+                    : Loc.T($"{name} 코어 전: 시너지 {worst.Gate * 100:0}% 반영 · 먼저 노릴 코어: {missingCore}",
+                        $"{name} before core: {worst.Gate * 100:0}% of synergy counts · core to aim for: {missingCore}"))
+                : Loc.T($"{name} 코어 {worst.Core.Owned}/{worst.Core.Target}: 시너지 {worst.Gate * 100:0}% 반영 · 남은 코어: {missingCore}",
+                    $"{name} core {worst.Core.Owned}/{worst.Core.Target}: {worst.Gate * 100:0}% of synergy counts · cores left: {missingCore}");
         }
 
         // ---- combo ----
@@ -132,12 +140,12 @@ public sealed class CardScorer(DataPack pack)
             if (present == others.Count)
             {
                 comboRaw += combo.W;
-                comboNames.Add(combo.Name);
+                comboNames.Add(combo.LocalName);
             }
             else if (cards.Count >= 3 && present > 0)
             {
                 comboRaw += combo.W / 2;
-                comboNames.Add(combo.Name + " (일부)");
+                comboNames.Add(combo.LocalName + Loc.T(" (일부)", " (partial)"));
             }
         }
         var comboValue = Finite(Math.Min(w.ComboCap, comboRaw));
@@ -176,9 +184,10 @@ public sealed class CardScorer(DataPack pack)
                 var ramp = !leaning ? 0.0 : cp.LeanFull > Epsilon ? Math.Clamp(m.Commit / cp.LeanFull, 0.0, 1.0) : 1.0;
                 var value = (starter + (bonus - starter) * ramp) * (1 - m.CoreFactor) * weakFactor;
                 if (value <= Epsilon) continue;
-                var detail = $"{m.Status.Archetype.DisplayName} 코어 {m.Core.Owned}/{m.Core.Target}장"
-                    + (leaning ? $", 몰입 {m.Commit * 100:0}%" : " (초반 방향 잡기)");
-                if (profile.IsWeak) detail += $" (약점 우선 ×{Num(weakFactor)})";
+                var archetypeName = m.Status.Archetype.DisplayName;
+                var detail = Loc.T($"{archetypeName} 코어 {m.Core.Owned}/{m.Core.Target}장", $"{archetypeName} core {m.Core.Owned}/{m.Core.Target}")
+                    + (leaning ? Loc.T($", 몰입 {m.Commit * 100:0}%", $", commit {m.Commit * 100:0}%") : Loc.T(" (초반 방향 잡기)", " (early direction)"));
+                if (profile.IsWeak) detail += Loc.T($" (약점 우선 ×{Num(weakFactor)})", $" (weakness first ×{Num(weakFactor)})");
                 if (value > corePriority + Epsilon)
                 {
                     corePriority = value;
@@ -242,7 +251,7 @@ public sealed class CardScorer(DataPack pack)
                 if (factor < worstFactor)
                 {
                     worstFactor = factor;
-                    saturationDetail = $"{axis} 생산 {produced} / 소비 {consumed}";
+                    saturationDetail = Loc.T($"{axis} 생산 {produced} / 소비 {consumed}", $"{axis} made {produced} / used {consumed}");
                 }
             }
             if (worstFactor < 1.0)
@@ -274,25 +283,26 @@ public sealed class CardScorer(DataPack pack)
         Add(parts, ComponentKeys.CoreMissing, ScoringLabels.CoreMissing, coreMissing, coreMissingDetail);
         Add(parts, ComponentKeys.CorePriority, ScoringLabels.CorePriority, corePriority, corePriorityDetail);
         Add(parts, ComponentKeys.OffBuild, ScoringLabels.OffBuild, offBuild,
-            committed.Count > 0 ? $"{committed[0].Archetype.DisplayName} 밖의 카드" : null);
+            committed.Count > 0 ? Loc.T($"{committed[0].Archetype.DisplayName} 밖의 카드", $"Outside {committed[0].Archetype.DisplayName}") : null);
         Add(parts, ComponentKeys.Combo, ScoringLabels.Combo, comboValue, comboNames.Count > 0 ? string.Join(", ", comboNames) : null);
         if (engineMissing)
         {
             Add(parts, ComponentKeys.EngineMissing, ScoringLabels.EngineMissing, -w.RequiresPenalty,
-                $"필요 축 없음: {string.Join("/", entry!.Requires)}");
+                Loc.T($"필요 축 없음: {string.Join("/", entry!.Requires)}", $"Needs axis: {string.Join("/", entry!.Requires)}"));
         }
         if (needParts.Count > 0)
         {
             var dominant = needParts.OrderByDescending(p => p.Value).First().Role;
             Add(parts, ComponentKeys.Need, ScoringLabels.NeedLabel(dominant), need,
-                string.Join(", ", needParts.OrderByDescending(p => p.Value).Select(p => $"{ScoringLabels.Role(p.Role)} {Signed(p.Value)}")));
+                string.Join(", ", needParts.OrderByDescending(p => p.Value).Select(p => $"{ScoringLabels.Role(p.Role)} {Signed(p.Value)}")),
+                role: dominant);
         }
-        Add(parts, ComponentKeys.Situation, ScoringLabels.BossReward, boss, $"빌드 몰입 {bossCommit * 100:0}% (코어 반영)");
+        Add(parts, ComponentKeys.Situation, ScoringLabels.BossReward, boss, Loc.T($"빌드 몰입 {bossCommit * 100:0}% (코어 반영)", $"Build commit {bossCommit * 100:0}% (core-adjusted)"));
         Add(parts, ComponentKeys.Situation, ScoringLabels.LowHpBlock, lowHp, $"HP {state.HpRatio * 100:0}%");
         Add(parts, ComponentKeys.Saturation, ScoringLabels.Saturation, saturation, saturationDetail);
-        Add(parts, ComponentKeys.PowerSaturation, ScoringLabels.PowerSaturation, powerSat, $"파워 {profile.PowerCount}장");
-        Add(parts, ComponentKeys.Dilution, ScoringLabels.Dilution, dilution, $"덱 {profile.DeckSize}장 / 이상 {ideal}장");
-        Add(parts, ComponentKeys.Duplicate, ScoringLabels.Duplicate, duplicate, $"보유 {copies}장");
+        Add(parts, ComponentKeys.PowerSaturation, ScoringLabels.PowerSaturation, powerSat, Loc.T($"파워 {profile.PowerCount}장", $"{profile.PowerCount} Powers"));
+        Add(parts, ComponentKeys.Dilution, ScoringLabels.Dilution, dilution, Loc.T($"덱 {profile.DeckSize}장 / 이상 {ideal}장", $"Deck {profile.DeckSize} / ideal {ideal}"));
+        Add(parts, ComponentKeys.Duplicate, ScoringLabels.Duplicate, duplicate, Loc.T($"보유 {copies}장", $"{copies} owned"));
 
         var breakdown = new ScoreBreakdown(parts);
         return new CardEvaluation
@@ -371,10 +381,10 @@ public sealed class CardScorer(DataPack pack)
         return core.Owned >= core.Target;
     }
 
-    private static void Add(List<ScoreComponent> parts, string key, string label, double value, string? detail)
+    private static void Add(List<ScoreComponent> parts, string key, string label, double value, string? detail, string? role = null)
     {
         if (Math.Abs(value) < Epsilon || !double.IsFinite(value)) return;
-        parts.Add(new ScoreComponent(key, label, value, string.IsNullOrEmpty(detail) ? null : detail));
+        parts.Add(new ScoreComponent(key, label, value, string.IsNullOrEmpty(detail) ? null : detail) { Role = role });
     }
 
     private static double UrgencyOf(IReadOnlyDictionary<string, double> urgency, string role)

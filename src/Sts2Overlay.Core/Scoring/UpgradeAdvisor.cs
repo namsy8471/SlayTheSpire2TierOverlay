@@ -1,5 +1,6 @@
 using System.Globalization;
 using Sts2Overlay.Core.Data;
+using Sts2Overlay.Core.Localization;
 using Sts2Overlay.Core.Model;
 
 namespace Sts2Overlay.Core.Scoring;
@@ -123,8 +124,8 @@ public sealed class UpgradeAdvisor(DataPack pack)
         // 1. The upgrade itself (tier pack). A zero delta in the pack means "not filled in", so it also falls back.
         var rated = entry is not null && entry.UpgradedDelta > 0 && double.IsFinite(entry.UpgradedDelta);
         var delta = rated ? entry!.UpgradedDelta : fallbackDelta;
-        parts.Add(new ScoreComponent(UpgradeComponentKeys.Upgrade, $"강화 {Signed(delta)}", delta,
-            rated ? "티어 팩 upgradedDelta" : "팩에 값 없음: 캐릭터 평균 (추정)"));
+        parts.Add(new ScoreComponent(UpgradeComponentKeys.Upgrade, Loc.T($"강화 {Signed(delta)}", $"Upgrade {Signed(delta)}"), delta,
+            rated ? Loc.T("티어 팩 upgradedDelta", "Tier pack upgradedDelta") : Loc.T("팩에 값 없음: 캐릭터 평균 (추정)", "Not in pack: character average (estimate)")));
 
         // 2. Missing roles: an upgraded card supplies its roles 1.2× (UpgradedSupplyMultiplier), so the upgrade is worth
         //    0.2 of the "need" the card answers. The pick scorer already computes that need for this deck and act.
@@ -136,7 +137,7 @@ public sealed class UpgradeAdvisor(DataPack pack)
             {
                 var v = c.Value * share;
                 if (Math.Abs(v) < Epsilon || !double.IsFinite(v)) continue;
-                parts.Add(new ScoreComponent(c.Key, c.Label, v, c.Detail));
+                parts.Add(c with { Value = v });
             }
         }
 

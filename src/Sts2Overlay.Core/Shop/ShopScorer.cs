@@ -1,4 +1,5 @@
 using Sts2Overlay.Core.Data;
+using Sts2Overlay.Core.Localization;
 using Sts2Overlay.Core.Model;
 using Sts2Overlay.Core.Scoring;
 
@@ -26,7 +27,7 @@ public sealed class ShopScorer(DataPack pack)
         {
             var eval = scorer.Score(state, profile, sale.Card, OfferContext.Shop);
             var value = new ScoreBreakdown(eval.Score.Components.Append(
-                new ScoreComponent(ComponentKeys.SkipRelative, ScoringLabels.SkipRelative, -skip.Total, $"스킵 {skip.Total:0.#}점")));
+                new ScoreComponent(ComponentKeys.SkipRelative, ScoringLabels.SkipRelative, -skip.Total, Loc.T($"스킵 {skip.Total:0.#}점", $"Skip {skip.Total:0.#} pts"))));
             var price = sale.PriceKnown ? sale.Price : ShopPricing.Estimate(Pack, state.Character, sale.Card);
             items.Add(new ShopItemEvaluation
             {

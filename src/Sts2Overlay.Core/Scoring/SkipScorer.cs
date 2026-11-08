@@ -1,4 +1,5 @@
 using Sts2Overlay.Core.Data;
+using Sts2Overlay.Core.Localization;
 using Sts2Overlay.Core.Model;
 
 namespace Sts2Overlay.Core.Scoring;
@@ -21,13 +22,13 @@ public sealed class SkipScorer(DataPack pack)
         var over = Math.Max(0.0, (double)profile.DeckSize - ideal);
         var parts = new List<ScoreComponent>
         {
-            new(ComponentKeys.SkipBase, ScoringLabels.SkipBase, t0, $"{state.Act}막 기준"),
+            new(ComponentKeys.SkipBase, ScoringLabels.SkipBase, t0, Loc.T($"{state.Act}막 기준", $"Act {state.Act} baseline")),
         };
 
         var size = w.Skip.LambdaSize * over;
         if (size != 0)
         {
-            parts.Add(new ScoreComponent(ComponentKeys.SkipDeckSize, ScoringLabels.SkipDeckSize, size, $"덱 {profile.DeckSize}장 / 이상 {ideal}장"));
+            parts.Add(new ScoreComponent(ComponentKeys.SkipDeckSize, ScoringLabels.SkipDeckSize, size, Loc.T($"덱 {profile.DeckSize}장 / 이상 {ideal}장", $"Deck {profile.DeckSize} / ideal {ideal}")));
         }
 
         // 코어 먼저: the build-completion term uses the core-gated commit (CardScorer.GatedCommit), so a build without its core
@@ -37,7 +38,7 @@ public sealed class SkipScorer(DataPack pack)
         if (top is not null && maxCommit >= w.CommitThreshold && w.Skip.LambdaCommit != 0)
         {
             parts.Add(new ScoreComponent(ComponentKeys.SkipCommit, ScoringLabels.SkipCommit, w.Skip.LambdaCommit,
-                $"{top.Archetype.DisplayName} {maxCommit * 100:0}% (코어 반영)"));
+                Loc.T($"{top.Archetype.DisplayName} {maxCommit * 100:0}% (코어 반영)", $"{top.Archetype.DisplayName} {maxCommit * 100:0}% (core-adjusted)")));
         }
 
         // 초반엔 어떤 카드든 타격·수비보다 낫다: lower skip by the act's bias while the deck is starter cards.
@@ -47,7 +48,8 @@ public sealed class SkipScorer(DataPack pack)
         if (basics < 0)
         {
             parts.Add(new ScoreComponent(ComponentKeys.SkipBasics, ScoringLabels.SkipBasics, basics,
-                $"기본 카드 {profile.BasicCards}/{profile.DeckSize}장: 어떤 카드든 타격·수비보다 나음"));
+                Loc.T($"기본 카드 {profile.BasicCards}/{profile.DeckSize}장: 어떤 카드든 타격·수비보다 나음",
+                    $"Basics {profile.BasicCards}/{profile.DeckSize}: any card beats Strike/Defend")));
         }
 
         return new ScoreBreakdown(parts);
