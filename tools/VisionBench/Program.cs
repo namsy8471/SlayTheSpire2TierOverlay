@@ -19,6 +19,7 @@ using VisionBench;
 //   VisionBench price-glyphs [--prices file] [--upscale 2]     derive the price digit templates from labelled shops
 //   VisionBench preview   [png ...] [--captures dir] [--out dir]   badges drawn where the overlay would put them
 //                         (4K/150 % and FHD/100 %), with the debug card/price outlines
+//   VisionBench removal   --labels file [--captures dir]   card-removal probe vs hand labels at FHD, 1440p and 2x (4K)
 //
 // Everything it reads or writes lives outside the repo or in data/local (gitignored).
 
@@ -76,8 +77,21 @@ switch (args.FirstOrDefault())
     case "preview":
         PreviewCommand();
         break;
+    case "removal":
+    {
+        // Labels live outside the repo (they name the user's captures); see RemovalBench for the format.
+        string capturesDir = opts.GetValueOrDefault("captures") ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Sts2Overlay", "captures");
+        int errors = RemovalBench.Run(capturesDir, opts["labels"],
+            [
+                new("native", f => f),
+                new("1440p-linear", f => Resize(f, 2560, 1439, 1f)),
+                new("2x-nearest", f => Upscale(f, 2)),
+            ], Console.WriteLine);
+        Environment.ExitCode = errors == 0 ? 0 : 1;
+        break;
+    }
     default:
-        Console.WriteLine("commands: build-db | selftest | recognize <png> | annotate <png> [out] | bench | stress | probe | price-glyphs | price-occlude | price-debug | preview");
+        Console.WriteLine("commands: build-db | selftest | recognize <png> | annotate <png> [out] | bench | stress | probe | price-glyphs | price-occlude | price-debug | preview | removal");
         break;
 }
 
