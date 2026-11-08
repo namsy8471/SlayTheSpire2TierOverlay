@@ -43,6 +43,14 @@ pwsh tools/refresh-local.ps1 -Force   # 항상 다시
 
 ## 실행
 
+실행 파일 만들기 (한 번, 이후 `dist\Sts2Overlay.exe`를 더블클릭. exe는 위 폴더로 올라가며 `data/packs`를 찾으므로 `dist`는 레포 안에 둡니다):
+
+```bash
+dotnet publish src/Sts2Overlay.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -o dist
+```
+
+개발 중 바로 실행:
+
 ```bash
 dotnet run --project src/Sts2Overlay.App
 ```

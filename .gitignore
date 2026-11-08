@@ -37,3 +37,6 @@ Thumbs.db
 .claude/
 lib/
 # data/catalog/ holds committed, names-free catalogs; game-text catalogs live in data/local/
+
+# published overlay app (dotnet publish)
+dist/
