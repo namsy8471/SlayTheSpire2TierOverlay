@@ -1,0 +1,85 @@
+namespace Sts2Overlay.Core.Events;
+
+/// <summary>
+/// Point values of event effects, on the same scale as card scores and <see cref="Map.PathWeights"/>
+/// (a basic card removal ≈ 14, a treasure relic ≈ 18, 100% max HP at full HP = 30). HP itself is priced by
+/// <see cref="Map.PathWeights.HpValue"/> / <see cref="Map.PathWeights.LowHpValueBoost"/> so map and event advice agree.
+/// [추정] values are estimates to be tuned against run history (tools/RunHistoryAnalyzer events).
+/// </summary>
+public sealed class EventWeights
+{
+    /// <summary>Points per gold. A 75-gold removal is worth ≈ 14 → 0.19; a 50–75-gold shop card ≈ 8–12 → 0.15. [추정]</summary>
+    public double GoldValue { get; set; } = 0.15;
+
+    /// <summary>Gold above this is worth half (nothing left to buy). [추정]</summary>
+    public int GoldSaturation { get; set; } = 300;
+
+    /// <summary>
+    /// Max HP is permanent (and rest sites heal a share of it): one max HP is worth this many current HP, by act.
+    /// Earlier is worth more because it lasts longer. [추정]
+    /// </summary>
+    public Dictionary<int, double> MaxHpFactor { get; set; } = new() { [1] = 2.2, [2] = 1.8, [3] = 1.4 };
+
+    public double MaxHpFactorFor(int act)
+        => MaxHpFactor.TryGetValue(act, out var f) ? f
+            : MaxHpFactor.Count == 0 ? 1 : MaxHpFactor.Where(kv => kv.Key <= act).OrderByDescending(kv => kv.Key).Select(kv => kv.Value).DefaultIfEmpty(MaxHpFactor.Values.First()).First();
+
+    /// <summary>Upgrading a chosen card (same as a rest-site smith, <see cref="Map.PathWeights.UpgradeValue"/>) and a random one. [추정]</summary>
+    public double UpgradeChosen { get; set; } = 7;
+    public double UpgradeRandom { get; set; } = 4.5;
+
+    /// <summary>Removing a chosen basic card / curse is <see cref="Data.ShopWeights.BasicRemovalValue"/> / <see cref="Data.ShopWeights.CurseRemovalValue"/>.
+    /// Removing a non-basic card the player chose (when no basics are left). [추정]</summary>
+    public double RemoveOtherChosen { get; set; } = 4;
+
+    /// <summary>Losing a random non-basic, non-curse card. [추정]</summary>
+    public double RemoveOtherRandom { get; set; } = -12;
+
+    /// <summary>Transforming a basic card / curse / other card (chosen); a random transform averages over the deck. [추정]</summary>
+    public double TransformBasic { get; set; } = 16;
+    public double TransformCurse { get; set; } = 28;
+    public double TransformOther { get; set; } = -6;
+
+    /// <summary>Gaining a curse (the cost of carrying it or paying to remove it). [추정]</summary>
+    public double CursePenalty { get; set; } = 25;
+
+    /// <summary>A card reward screen (pick 1 of N, may skip). Rare-only rewards are worth more. [추정]</summary>
+    public double CardReward { get; set; } = 7;
+    public double RareCardReward { get; set; } = 12;
+
+    /// <summary>A random card of a pool added without choice (above skip on average only for good pools). [추정]</summary>
+    public double RandomCardAdd { get; set; } = 1;
+
+    /// <summary>Relic by tier; an unspecified/random relic uses <see cref="RelicDefault"/>. [추정]</summary>
+    public Dictionary<string, double> RelicTier { get; set; } = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["common"] = 13, ["uncommon"] = 16, ["rare"] = 20, ["shop"] = 16, ["event"] = 15, ["ancient"] = 24, ["boss"] = 24,
+    };
+
+    public double RelicDefault { get; set; } = 16;
+
+    /// <summary>Losing a relic. [추정]</summary>
+    public double RelicLoss { get; set; } = 14;
+
+    public double PotionValue { get; set; } = 4;
+
+    /// <summary>One enchantment on a card (e.g. a chosen attack). [추정]</summary>
+    public double EnchantValue { get; set; } = 6;
+
+    /// <summary>Copying a chosen deck card. [추정]</summary>
+    public double DuplicateValue { get; set; } = 8;
+
+    /// <summary>An event fight: expected HP loss as a fraction of max HP, and its rewards when the data names none. [추정]</summary>
+    public double FightHpLossFraction { get; set; } = 0.12;
+    public double FightReward { get; set; } = 6;
+
+    /// <summary>An option that would kill the player (game flags it with ThatDoesDamage / WillKillPlayer).</summary>
+    public double DeathCost { get; set; } = 150;
+
+    /// <summary>Recommendation confidence gaps (points between the best and second-best option).</summary>
+    public double SureGap { get; set; } = 8;
+    public double CloseGap { get; set; } = 3;
+
+    /// <summary>How deep "next page" options are looked ahead (Abyssal Baths style loops stop here).</summary>
+    public int LookaheadDepth { get; set; } = 2;
+}

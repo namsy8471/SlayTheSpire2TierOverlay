@@ -46,6 +46,12 @@ public static class ComponentKeys
     public const string Saturation = "saturation";
     public const string PowerSaturation = "power_saturation";
 
+    /// <summary>Bonus for a missing core card of a leaning build ("코어 확보").</summary>
+    public const string CorePriority = "core_priority";
+
+    /// <summary>Build value a non-core card loses while its build owns no core card ("코어 없음"); always ≤ 0.</summary>
+    public const string CoreMissing = "core_missing";
+
     public const string SkipBase = "skip_base";
     public const string SkipDeckSize = "skip_deck_size";
     public const string SkipCommit = "skip_commit";

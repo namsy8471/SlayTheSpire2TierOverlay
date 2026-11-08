@@ -140,8 +140,12 @@ public class RecommendationEngineTests
     public void CloseCall_DecidedByBaseTier()
     {
         // Star 80 vs OrbCore 65 + build 20×0.65 = 78 → Star wins by 2; the base difference (15) is the largest.
+        // Core priority is switched off: with the default weights the orb build's missing core gets "코어 확보" +15 and
+        // wins 93 vs 80 instead (see CorePriorityTests); this test is about the base-tier flip hint.
+        var w = new Weights();
+        w.CorePriority.Bonus = 0;
         var profile = new DeckProfile().WithArchetypes(Pack, (OrbArchetype, 0.65));
-        var r = Evaluate(1, [OrbCore, Star], profile);
+        var r = Evaluate(1, [OrbCore, Star], profile, DefectPack(w));
         Assert.Equal(new CardRef(Star), r.Best);
         Assert.Equal(RecommendationConfidence.Close, r.Confidence);
         Assert.Contains("기본 티어", r.FlipHint);

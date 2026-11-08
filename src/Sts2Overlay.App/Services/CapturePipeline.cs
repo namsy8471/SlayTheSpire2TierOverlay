@@ -56,6 +56,12 @@ public sealed class CapturePipeline : IDisposable
     /// <summary>Raised on the WORKER thread with a short Korean status line (capture saved / failed).</summary>
     public event Action<string>? Status;
 
+    /// <summary>
+    /// Optional extra reader of every periodic frame, called on the WORKER thread while the frame is valid (the
+    /// buffer is reused afterwards, so copy what you keep). Used by the event option markers.
+    /// </summary>
+    public Action<CapturedFrame>? FrameProbe { get; set; }
+
     public ICardRecognizer Recognizer
     {
         get => _recognizer;
@@ -145,6 +151,7 @@ public sealed class CapturePipeline : IDisposable
 
         if (save) SavePng(frame);
         if (!manual && !periodic) return;
+        FrameProbe?.Invoke(frame); // before the "unchanged screen" skip: a hover change is small but matters to the probe
 
         // The map is checked on every frame, before the "unchanged screen" shortcut below: a scrolled map can look
         // almost the same to the coarse signature while every node moved.

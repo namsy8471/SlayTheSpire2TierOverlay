@@ -95,6 +95,12 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
     private ulong _liveEpochs = ulong.MaxValue;          // epoch-lock hypotheses (bit h) the picks so far allow
     private IReadOnlyList<CardRef>? _seenOffer;          // what the screen recognizer saw on the reward screen (this room)
     private MapCoord? _voteCoord;
+    private string? _eventId;                            // event room: id from the co-op log (null = predict from the save)
+    private IReadOnlyList<string>? _eventKeys;           // its first-page options from the co-op log
+    private readonly List<string> _eventChosen = [];     // my choices in this event room
+    private bool _inEventRoom;                           // 'Event Room' preloaded and no other room / map vote since
+    private EventGuess? _eventGuess;                     // single player: the event predicted from the room-entry save
+    private (EventGuess Guess, int SeenCount)? _eventCheck; // prediction waiting for a later save's events_seen (self-check)
     private long _voteSeq = -1;
     private readonly Dictionary<ulong, PartnerVote> _partnerVotes = []; // co-op: other players' current map votes
     private RunOutcome _outcome;
@@ -253,6 +259,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
                 if (v.Generation > 0) _logAct = v.Generation; // map generation count = act number
                 if (IsMe(v.PlayerId))
                 {
+                    ClearEvent();
                     _voteCoord = v.Coord;
                     _voteSeq = _seq;
                     _screen = ScreenHint.Map;
@@ -272,6 +279,9 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
                 FlushCombat();
                 SettleStolenCard();
                 _room = room.Room;
+                // An event fight preloads 'Combat Room' inside the event: keep the event, it resumes after the fight.
+                if (room.Room == RoomKind.Event) { ClearEvent(); _inEventRoom = true; }
+                else if (room.Room != RoomKind.Combat) ClearEvent();
                 if (room.Room == RoomKind.Merchant) _merchantVisited = true;
                 _lastRestOption = null;
                 _pendingRemovalReward = false;
@@ -370,7 +380,14 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
                 if (sp.ItemId.StartsWith("CARD.", StringComparison.Ordinal)) AddPatch(PatchKind.AddCard, sp.ItemId, 0);
                 else { AddPatch(PatchKind.AddRelic, sp.ItemId, 0); ApplyRelicEffect(sp.ItemId); }
                 return true;
+            case EventStartedEvent es when IsMe(es.PlayerId):
+                _eventId = es.EventId;
+                _eventKeys = es.OptionKeys;
+                _eventChosen.Clear();
+                _inEventRoom = true;
+                return true;
             case EventOptionChosenEvent eo when IsMe(eo.PlayerId):
+                if (_inEventRoom) _eventChosen.Add(eo.ChoiceKey);
                 ApplyChoice(eo);
                 return true;
             case CardPlayedEvent play:
@@ -626,8 +643,55 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         _voteCoord = null;
         _voteSeq = -1;
         _partnerVotes.Clear();
+        ClearEvent();
+        _eventCheck = null;
         _outcome = RunOutcome.InProgress;
         _screen = ScreenHint.Unknown;
+    }
+
+    private void ClearEvent()
+    {
+        _eventId = null;
+        _eventKeys = null;
+        _eventChosen.Clear();
+        _inEventRoom = false;
+        _eventGuess = null;
+    }
+
+    /// <summary>
+    /// The event room I'm in: exact from the co-op log, else predicted from the save (<see cref="EventPrediction"/>).
+    /// </summary>
+    private ActiveEvent? CurrentEventOf(ParsedSave? save)
+    {
+        CheckEventPrediction(save);
+        if (!_inEventRoom) return null;
+        if (_eventId != null) return new ActiveEvent(_eventId, _eventKeys, _eventChosen.ToArray(), EventSource.Log);
+        // The room-entry save predicts the event; later saves of the room (after an event fight) don't, so keep the guess.
+        if (_eventGuess == null && save != null && EventPrediction.Predict(save) is { } guess)
+        {
+            _eventGuess = guess;
+            _eventCheck = (guess, save.Events!.EventsSeen.Count);
+            Diagnostic?.Invoke(this, $"event predicted: {guess.EventId}{(guess.Certain ? "" : $" (or {string.Join(", ", guess.Alternatives)})")}");
+        }
+        return _eventGuess is { } g
+            ? new ActiveEvent(g.EventId, null, _eventChosen.ToArray(), EventSource.SavePrediction) { Certain = g.Certain, Alternatives = g.Alternatives }
+            : null;
+    }
+
+    /// <summary>
+    /// Self-check: the first save after a predicted event room lists the event the game really pulled at the end of
+    /// <c>events_seen</c>. Ancient rooms never enter that list, so only "?" predictions are checked.
+    /// </summary>
+    private void CheckEventPrediction(ParsedSave? save)
+    {
+        if (_eventCheck is not { } check || save?.Events is not { } ev) return;
+        if (check.Guess.EventId == ev.AncientId) { _eventCheck = null; return; }
+        if (ev.EventsSeen.Count <= check.SeenCount) return;
+        _eventCheck = null;
+        var actual = ev.EventsSeen[check.SeenCount];
+        Diagnostic?.Invoke(this, actual == check.Guess.EventId
+            ? $"event prediction ok: {actual}"
+            : $"event prediction MISS: guessed {check.Guess.EventId}, game pulled {actual}");
     }
 
     /// <summary>Encounter ids without a known suffix (event fights): use the node type of where we are.</summary>
@@ -1035,6 +1099,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
             RarityPityOffset = pity,
             LastRewardRolls = _lastRolls,
             Potions = potions.OrderBy(x => x.Slot).ToList(),
+            CurrentEvent = CurrentEventOf(save?.Save),
             FromSave = fromSave,
             HpGoldReliable = fromSave,
             DeckApproximate = !fromHistory && (!fromSave || applied > 0),

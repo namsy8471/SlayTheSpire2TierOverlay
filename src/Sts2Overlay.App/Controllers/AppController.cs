@@ -85,6 +85,7 @@ public sealed partial class AppController : IDisposable
         (_engine, _cards) = LoadPack(packDir, catalogPath, vm);
         InitForecastReview(packDir, catalogPath); // forecast + run review (AppController.ForecastReview.cs)
         InitMapOverlay(); // marks on the game's map (AppController.MapOverlay.cs)
+        InitEvents(packDir); // event option advice (AppController.Events.cs)
 
         _tracker.Changed += (_, _) => OnTrackerChanged();
         // The panel moved to a monitor with another DPI: the DPI part of the scale changed, ours must follow.
@@ -183,6 +184,7 @@ public sealed partial class AppController : IDisposable
         _pipeline.CharacterHint = snap.Run?.Character;
         RefreshRunViews(snap.Run);
         UpdateForecastReview(snap); // AppController.ForecastReview.cs
+        UpdateEvent(snap); // AppController.Events.cs
         if (Demo is null) RefreshPath(snap);
         UpdateMapTarget(snap); // AppController.MapOverlay.cs
 
@@ -285,7 +287,7 @@ public sealed partial class AppController : IDisposable
     /// </summary>
     private void UpdateCadence()
     {
-        var offer = IsOfferHint(_snapshot.Hint) || (_snapshot.Hint == ScreenHint.None && _badges.HasBadges);
+        var offer = IsOfferHint(_snapshot.Hint) || (_snapshot.Hint == ScreenHint.None && _badges.HasBadges) || EventScreenLikely;
         var hz = offer ? Math.Clamp(_settings.RecognizeHz, 0.5, 10) : Math.Clamp(_settings.IdleRecognizeHz, 0, 10);
         hz = Math.Max(hz, Math.Max(MapCadenceHz(), RestCadenceHz())); // faster while the map / a rest site is open, so the marks follow
         _pipeline.SetInterval(hz > 0 ? TimeSpan.FromSeconds(1 / hz) : null);
@@ -498,7 +500,8 @@ public sealed partial class AppController : IDisposable
         _lastResult = null;
         _lastEvalKey = null;
         _lastOfferKey = null;
-        if (_vm.Offer.HasContent && !_vm.Offer.IsStale) _vm.Offer = _vm.Offer with { IsStale = true };
+        // In an event room the 추천 tab shows the event's options (AppController.Events.cs): keep it fresh.
+        if (_vm.Offer.HasContent && !_vm.Offer.IsStale && _lastEvent is null) _vm.Offer = _vm.Offer with { IsStale = true };
     }
 
     private void ResetOffer()
@@ -627,6 +630,13 @@ public sealed partial class AppController : IDisposable
                 ? null
                 : "필요: " + string.Join(", ", st.MissingCards.Take(5).Select(m =>
                     $"{_cards.Name(m.CardId)}({RoleName(m.Role)}, {CardInfoProvider.RarityKorean(m.Rarity)})"));
+            // 코어 먼저: until the build owns its core card(s), name them first (the scorer pushes them as "코어 확보").
+            if (!st.CoreSecured && st.MissingCore.Count > 0 && st.Commit > 0)
+            {
+                missing = $"먼저 노릴 코어 ({st.OwnedCore}/{st.CoreTarget}): "
+                    + string.Join(", ", st.MissingCore.Take(3).Select(m => _cards.Name(m.CardId)))
+                    + (missing is null ? "" : "\n" + missing);
+            }
             var needs = st.UnmetNeeds.Count == 0
                 ? null
                 : "조건 미충족: " + string.Join(", ", st.UnmetNeeds.Select(n =>
@@ -744,6 +754,7 @@ public sealed partial class AppController : IDisposable
             _badges.Hide();
         }
         UpdateMapLayerVisibility(show, info);
+        UpdateEventMarkerVisibility(); // AppController.Events.cs
         if (showPanel)
         {
             if (!_panel.IsVisible) _panel.Show();
@@ -762,6 +773,7 @@ public sealed partial class AppController : IDisposable
         // Badges first, then the panel, so the panel ends up above the badge layer.
         OverlayWindowHelper.AssertTopmost(_badges.Hwnd);
         ReassertMapTopmost();
+        ReassertEventMarkersTopmost(); // AppController.Events.cs
         if (_settings.AlwaysOnTop) OverlayWindowHelper.AssertTopmost(_panel.Hwnd);
     }
 
@@ -824,6 +836,7 @@ public sealed partial class AppController : IDisposable
         _engineVersion++;
         RefreshRunViews(_snapshot.Run);
         ReloadForecastReview(); // AppController.ForecastReview.cs
+        ReloadEvents(); // AppController.Events.cs
         if (_lastResult is not null) ApplyRecognition(_lastResult);
         ShowMessage("데이터 팩을 다시 읽었습니다");
         PackReloaded?.Invoke();

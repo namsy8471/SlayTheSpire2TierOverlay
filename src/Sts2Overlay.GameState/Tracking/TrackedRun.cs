@@ -45,6 +45,28 @@ public enum UncertainReason
 /// <summary>Another co-op player's current map vote. <paramref name="Generation"/> = act number the vote is for.</summary>
 public sealed record PartnerVote(ulong PlayerId, int Generation, MapCoord Coord);
 
+/// <summary>How the tracker knows which event is open.</summary>
+public enum EventSource
+{
+    /// <summary>Co-op log: "[EventSynchronizer] Event X began for player me with options: …" (event and options exact).</summary>
+    Log,
+    /// <summary>Single player: the act's pre-rolled event list in the save, at the index the game pulls next.</summary>
+    SavePrediction,
+}
+
+/// <summary>The event room the player is in.</summary>
+/// <param name="EventId"><c>EVENT.X</c>.</param>
+/// <param name="OptionKeys">Exact option text keys offered on the first page, in button order; null when only the event is known.</param>
+/// <param name="ChosenKeys">Options the player already chose in this event (co-op log), oldest first; they tell which page is showing.</param>
+public sealed record ActiveEvent(string EventId, IReadOnlyList<string>? OptionKeys, IReadOnlyList<string> ChosenKeys, EventSource Source)
+{
+    /// <summary>False when the save prediction rested on an approximate check (see <see cref="Alternatives"/>).</summary>
+    public bool Certain { get; init; } = true;
+
+    /// <summary>Other events the prediction could be (save prediction only).</summary>
+    public IReadOnlyList<string> Alternatives { get; init; } = [];
+}
+
 /// <summary>A deck card the log-only rebuild is not sure about (see <see cref="TrackedRun.UncertainCards"/>).</summary>
 public sealed record UncertainCard(int DeckIndex, string CardId, UncertainReason Reason);
 
@@ -86,6 +108,9 @@ public sealed record TrackedRun
     public IReadOnlyList<RarityRoll> LastRewardRolls { get; init; } = [];
 
     public IReadOnlyList<PotionSlot> Potions { get; init; } = [];
+
+    /// <summary>The event room the player is in (null outside events, or when it can't be told).</summary>
+    public ActiveEvent? CurrentEvent { get; init; }
 
     /// <summary>True when the base state came from a save file (single player or co-op host).</summary>
     public bool FromSave { get; init; }

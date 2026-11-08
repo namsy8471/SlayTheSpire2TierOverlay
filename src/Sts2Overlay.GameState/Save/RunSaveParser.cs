@@ -125,6 +125,31 @@ public static class RunSaveParser
             SaveTime = Long(root, "save_time") is { } t and > 0 ? DateTimeOffset.FromUnixTimeSeconds(t) : null,
             ActId = actId,
             GameMode = Str(root, "game_mode"),
+            Events = ParseEvents(root, act, actIndex, history, visited.Count, me),
+        };
+    }
+
+    private static EventRoomState? ParseEvents(JsonElement root, JsonElement act, int actIndex, JsonElement history, int visitedCount, JsonElement me)
+    {
+        JsonElement rooms = Prop(act, "rooms");
+        if (rooms.ValueKind != JsonValueKind.Object) return null;
+        var actHistory = history.ValueKind == JsonValueKind.Array && actIndex < history.GetArrayLength() ? history[actIndex] : default;
+        var last = actHistory.ValueKind == JsonValueKind.Array && actHistory.GetArrayLength() > 0 ? actHistory[actHistory.GetArrayLength() - 1] : default;
+        bool prevShop = Array(last, "rooms").Any(r => Str(r, "room_type") == "shop");
+        return new EventRoomState
+        {
+            ActIndex = actIndex,
+            EventIds = Array(rooms, "event_ids").Select(e => e.ValueKind == JsonValueKind.String ? e.GetString() : null).OfType<string>().ToList(),
+            EventsVisited = Int(rooms, "events_visited") ?? 0,
+            AncientId = Str(rooms, "ancient_id"),
+            EventsSeen = Array(root, "events_seen").Select(e => e.ValueKind == JsonValueKind.String ? e.GetString() : null).OfType<string>().ToList(),
+            VisitedInAct = visitedCount,
+            HistoryInAct = MapPointHistory.FloorsInAct(history, actIndex),
+            TotalHistory = MapPointHistory.TotalFloors(history),
+            PreFinishedRoom = Prop(root, "pre_finished_room").ValueKind is not (JsonValueKind.Null or JsonValueKind.Undefined),
+            UnknownMapPointCounter = Int(Prop(Prop(root, "rng"), "counters"), "unknown_map_point") ?? 0,
+            PreviousWasShop = prevShop,
+            NumberOfRuns = Int(Prop(me, "unlock_state"), "number_of_runs") ?? -1,
         };
     }
 
