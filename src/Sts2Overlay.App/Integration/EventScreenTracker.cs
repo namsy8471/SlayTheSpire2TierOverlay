@@ -45,6 +45,7 @@ public sealed class EventScreenTracker(EventCatalog catalog)
         if (eventId == _eventId) return;
         _eventId = eventId;
         _page = eventId is null ? null : catalog.Find(eventId)?.InitialPage?.Page;
+        _offered = null; // the last room's offered keys (log or seed replay) must not line up this room's buttons
         _logChosen = 0;
         Unmatch();
     }

@@ -91,6 +91,20 @@ public class RealFilesTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void Ancient_replay_matches_every_history_run_of_this_game_version()
+    {
+        // Every act-start ancient (Pael, Orobas, Tanx ...) in the real history: deck and relics rebuilt from the run file,
+        // options replayed from the seed, compared with ancient_choice (button order).
+        if (RealPaths()?.SavesDirectory is not { } saves) { output.WriteLine("no saves folder"); return; }
+        var files = Directory.GetFiles(Path.Combine(saves, "history"), "*.run");
+        var visits = Diagnostics.AncientReplayEvaluation.Run(files);
+        foreach (var g in visits.GroupBy(v => v.EventId).OrderBy(g => g.Key))
+            output.WriteLine($"{g.Key,-16} {g.Count(v => v.Exact)}/{g.Count()}");
+        foreach (var v in visits.Where(v => !v.Exact)) output.WriteLine(v.ToString());
+        Assert.All(visits, v => Assert.True(v.Exact, v.ToString()));
+    }
+
+    [Fact]
     public void Live_run_save_parses()
     {
         if (RealPaths() is not { SavesDirectory: { } saves } paths) { output.WriteLine("no saves folder"); return; }

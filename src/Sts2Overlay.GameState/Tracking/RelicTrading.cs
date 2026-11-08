@@ -61,6 +61,9 @@ public static class RelicTrading
     /// <summary>True when the embedded table knows the relic (tests: the table must cover every relic in real saves).</summary>
     public static bool Knows(string relicId) => s_relics.Value.ContainsKey(relicId);
 
+    /// <summary>The relic's rarity (<c>Starter</c>, <c>Common</c> ... <c>Ancient</c>), or null for an unknown id.</summary>
+    public static string? RarityOf(string relicId) => s_relics.Value.GetValueOrDefault(relicId)?.Rarity;
+
     /// <summary><c>RelicModel.AddsPet</c> (Byrdpip, Pael's Legion): <c>Player.HasEventPet</c> blocks the Byrdonis Nest event.</summary>
     public static bool AddsPet(string relicId) => s_relics.Value.GetValueOrDefault(relicId)?.AddsPet ?? false;
 

@@ -136,6 +136,19 @@ public class EventScreenTrackerTests
     }
 
     [Fact]
+    public void Offered_keys_belong_to_their_room_only()
+    {
+        // A seed replay (single-player ancient) or a log names one room's options; the next room must not reuse them.
+        var t = Start();
+        t.SetLog(["TEST_DOOR.pages.INITIAL.options.KNOCK", "TEST_DOOR.pages.INITIAL.options.OPEN"], []);
+        t.SetEvent(null);
+        t.SetEvent("EVENT.TEST_DOOR");
+        t.OnScreen(Screen(2));
+        Assert.False(t.Current!.Exact);
+        Assert.Equal(["OPEN", "KNOCK"], Short(t.Current));
+    }
+
+    [Fact]
     public void Markers_sit_right_of_the_button_at_half_its_height()
     {
         var layer = new PxBox(0, 0, 3840, 2160);
