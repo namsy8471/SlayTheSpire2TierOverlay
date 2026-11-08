@@ -12,6 +12,8 @@
 //   --all   also include card classes that are in no in-game pool (mocks, tests)
 //   --starting-decks <file>  also write names-free starting loadouts (deck, relics, HP, gold) per
 //                            character, e.g. data/catalog/starting-decks.v0.107.1.json (committed)
+//   --relics <file>  also write the names-free relic table (rarity + IsTradable inputs),
+//                    e.g. data/catalog/relics.v0.107.1.json (committed)
 //
 // The output contains game text when localization is present, so it goes to data/local/ (gitignored).
 
@@ -25,6 +27,7 @@ string dllPath = install?.DllPath ?? @"C:\Program Files (x86)\Steam\steamapps\co
 string? locDir = Path.Combine(repoRoot, "data", "local", "pck", "localization");
 string? outPath = null;
 string? startingDecksPath = null;
+string? relicsPath = null;
 bool includeAll = false;
 
 // --- very small argument parser ---------------------------------------------------------------
@@ -39,6 +42,7 @@ for (int i = 0; i < args.Length; i++)
         case "--game-version": gameVersion = Next(); break;
         case "--all": includeAll = true; break;
         case "--starting-decks": startingDecksPath = Next(); break;
+        case "--relics": relicsPath = Next(); break;
         default:
             Console.Error.WriteLine($"Unknown argument: {args[i]}");
             return 1;
@@ -49,13 +53,23 @@ gameVersion ??= ReleaseInfo.TryLoad(Path.Combine(Path.GetDirectoryName(Path.GetD
 outPath ??= Path.Combine(repoRoot, "data", "local", $"catalog.{gameVersion}.json");
 
 Console.WriteLine($"Reading {dllPath} ({gameVersion})");
-var result = CatalogGenerator.Build(new CatalogOptions(dllPath, locDir, gameVersion, includeAll, startingDecksPath != null));
+var result = CatalogGenerator.Build(new CatalogOptions(dllPath, locDir, gameVersion, includeAll, startingDecksPath != null, relicsPath != null));
 foreach (var w in result.Warnings) Console.WriteLine($"  WARNING: {w}");
 
 if (startingDecksPath != null && result.StartingLoadouts is { } loadouts)
 {
     CatalogGenerator.Write(loadouts, startingDecksPath);
     Console.WriteLine($"Wrote {loadouts.Characters.Count} starting loadouts -> {startingDecksPath}");
+}
+
+if (relicsPath != null && result.Relics is { } relicFile)
+{
+    CatalogGenerator.Write(relicFile, relicsPath);
+    Console.WriteLine($"Wrote {relicFile.Relics.Count} relics -> {relicsPath}");
+    foreach (var g in relicFile.Relics.GroupBy(r => r.Rarity ?? "(unresolved)").OrderByDescending(g => g.Count()))
+        Console.WriteLine($"  {g.Key,-14} {g.Count(),4}");
+    var open = relicFile.Relics.Where(r => r.Rarity is null || r.HasUponPickupEffect is null || r.SpawnsPets is null || r.AddsPet is null).Select(r => r.Id).ToList();
+    Console.WriteLine($"  relics with unresolved fields: {open.Count} {string.Join(", ", open)}");
 }
 
 var rows = result.Catalog.Cards;

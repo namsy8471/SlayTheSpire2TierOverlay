@@ -45,7 +45,12 @@ public static class EventPrediction
             return ev.AncientId is { } a ? new EventGuess(a, true, []) : null;
 
         if (ev.EventIds.Count == 0) return null;
-        var facts = new Facts(ev.ActIndex, state.Gold, state.Hp, state.MaxHp, ev.TotalHistory, state, save.Potions.Select(p => p.Id).ToList());
+        var facts = new Facts(ev.ActIndex, state.Gold, state.Hp, state.MaxHp, ev.TotalHistory, state, save.Potions.Select(p => p.Id).ToList())
+        {
+            Relics = save.RelicDetails,
+            UnlockedEpochs = save.UnlockedEpochs,
+            RelicGrabBag = save.RelicGrabBag,
+        };
         var guess = Pull(ev.EventIds, ev.EventsVisited, ev.EventsSeen.ToHashSet(StringComparer.Ordinal), facts, out _);
         if (ev.ActIndex == 2 && state.Deck.Any(c => c.Id == "CARD.LANTERN_KEY")) return new EventGuess(WarHistorian, true, []);
         return guess;
@@ -92,11 +97,41 @@ public static class EventPrediction
     internal enum Allowed { Yes, No, Probably, ProbablyNot }
 
     /// <param name="Potions">Potion ids held; null when unknown (a replay of past pulls), which makes potion checks approximate.</param>
-    internal sealed record Facts(int Act, int Gold, int Hp, int MaxHp, int TotalFloor, RunState State, IReadOnlyList<string>? Potions);
+    internal sealed record Facts(int Act, int Gold, int Hp, int MaxHp, int TotalFloor, RunState State, IReadOnlyList<string>? Potions)
+    {
+        /// <summary>Relics with their saved flags; null = only the ids in <see cref="RunState.Relics"/> (no relic is melted or used up).</summary>
+        public IReadOnlyList<SavedRelic>? Relics { get; init; }
+
+        /// <summary><c>unlock_state.unlocked_epochs</c>; null = unknown (Colorful Philosophers is then approximate).</summary>
+        public IReadOnlyCollection<string>? UnlockedEpochs { get; init; }
+
+        /// <summary>The player's relic grab bag (rarity key → ids); null = unknown (Luminous Choir is then approximate).</summary>
+        public IReadOnlyDictionary<string, IReadOnlyList<string>>? RelicGrabBag { get; init; }
+    }
 
     /// <summary>
-    /// <c>EventModel.IsAllowed</c> overrides of v0.107.1 (single player). Checks that need card/relic internals the save
-    /// doesn't carry (enchantability, tradable relics, pets) are approximated and say so (Probably / ProbablyNot).
+    /// Cards whose upgrade removes Exhaust (<c>OnUpgrade</c> → <c>RemoveKeyword(Exhaust)</c>, v0.107.1). No upgrade adds
+    /// Exhaust, Eternal or Unplayable, so with the catalog's canonical keywords this gives a deck card's own keywords.
+    /// </summary>
+    private static readonly HashSet<string> s_upgradeDropsExhaust = new(StringComparer.Ordinal)
+    {
+        "CARD.CHILL", "CARD.DEMONIC_SHIELD", "CARD.DISCOVERY", "CARD.FUSION", "CARD.GRAVEBLAST", "CARD.HOLOGRAM",
+        "CARD.HOTFIX", "CARD.IGNITION", "CARD.KNOW_THY_PLACE", "CARD.MIMIC", "CARD.PROLONG", "CARD.RAINBOW", "CARD.SCARE",
+        "CARD.SECRET_TECHNIQUE", "CARD.SECRET_WEAPON", "CARD.SYNCHRONIZE", "CARD.THINKING_AHEAD", "CARD.TRANSFIGURE",
+        "CARD.VOLTAIC",
+    };
+
+    /// <summary>The only thing that makes a deck card Eternal at runtime (<c>TezcatarasEmber.OnEnchant</c>).</summary>
+    private const string EternalEnchantment = "ENCHANTMENT.TEZCATARAS_EMBER";
+
+    /// <summary>Epochs that unlock a second character pool (<c>UnlockState.Characters</c>; Ironclad is always unlocked).</summary>
+    private static readonly string[] s_characterEpochs = ["SILENT1_EPOCH", "REGENT1_EPOCH", "NECROBINDER1_EPOCH", "DEFECT1_EPOCH"];
+
+    /// <summary>
+    /// <c>EventModel.IsAllowed</c> overrides of v0.107.1 (single player), read from the decompiled event classes and the
+    /// card/relic helpers they call. Every check is exact from the save plus the embedded card and relic tables; only
+    /// an unknown input (potions in a replay of past pulls, a card or relic missing from the tables, a relic-bag relic
+    /// with its own <c>IsAllowed</c> rule) makes a check approximate (Probably / ProbablyNot).
     /// </summary>
     internal static Allowed IsAllowed(string eventId, Facts f)
     {
@@ -104,13 +139,37 @@ public static class EventPrediction
         var deck = f.State.Deck;
         // Potions unknown (replay): potion checks can't decide, so they say Probably.
         Allowed Potions(Func<IReadOnlyList<string>, bool> test) => f.Potions is { } p ? B(test(p)) : Allowed.Probably;
-        bool HasPotion() => f.Potions is not { } p || p.Count > 0;
-        int BasicStrikes() => deck.Count(c => c.Id.StartsWith("CARD.STRIKE_", StringComparison.Ordinal));
-        int BasicDefends() => deck.Count(c => c.Id.StartsWith("CARD.DEFEND_", StringComparison.Ordinal));
-        bool UnenchantedBasic() => deck.Any(c => c.EnchantmentId is null
-            && (c.Id.StartsWith("CARD.STRIKE_", StringComparison.Ordinal) || c.Id.StartsWith("CARD.DEFEND_", StringComparison.Ordinal)));
-        // Tradable relics: everything but the starter relic is the usual case; a few relics are not tradable.
-        int Tradable() => Math.Max(0, f.State.Relics.Count - 1);
+        // A card the catalog doesn't know makes card checks approximate (a game update added it).
+        bool unknownCard = deck.Any(c => !CardRarities.Knows(c.Id));
+        Allowed Cards(bool result) => unknownCard ? (result ? Allowed.Probably : Allowed.ProbablyNot) : B(result);
+
+        // CardModel.IsRemovable = no Eternal keyword (catalog keyword, or Tezcatara's Ember enchantment).
+        bool Removable(DeckCard c) => !CardRarities.HasCanonicalKeyword(c.Id, "Eternal") && c.EnchantmentId != EternalEnchantment;
+        // EnchantmentModel.CanEnchant base: Attack/Skill/Power (no Status/Curse/Quest), not Unplayable, no enchantment yet.
+        bool BaseEnchantable(DeckCard c) => c.EnchantmentId is null
+            && CardRarities.TypeOf(c.Id) is "Attack" or "Skill" or "Power"
+            && !CardRarities.HasCanonicalKeyword(c.Id, "Unplayable");
+        bool StrikeOrDefend(DeckCard c) =>
+            c.Id.StartsWith("CARD.STRIKE_", StringComparison.Ordinal) || c.Id.StartsWith("CARD.DEFEND_", StringComparison.Ordinal);
+        // Card keywords after upgrades (Soul's Power reads KeywordSources.Local).
+        bool HasExhaust(DeckCard c) => CardRarities.HasCanonicalKeyword(c.Id, "Exhaust") && !(c.Upgrade > 0 && s_upgradeDropsExhaust.Contains(c.Id));
+
+        // RelicModel.IsTradable over the player's relics (rarity, pickup effect, pets, melted, used up).
+        Allowed Tradable(int atLeast)
+        {
+            var relics = f.Relics ?? f.State.Relics.Select(id => new SavedRelic(id, new HashSet<string>())).ToList();
+            int n = RelicTrading.CountTradable(relics, out bool exact);
+            return n >= atLeast ? (exact ? Allowed.Yes : Allowed.Probably) : (exact ? Allowed.No : Allowed.ProbablyNot);
+        }
+
+        // RelicGrabBag.HasAvailableRelics: some relic of the player's own bag (never refilled) can be pulled.
+        Allowed BagHasRelic()
+        {
+            if (f.RelicGrabBag is not { } bag) return Allowed.Probably;
+            var ids = new[] { "common", "uncommon", "rare", "shop" }.SelectMany(k => bag.GetValueOrDefault(k) ?? []).ToList();
+            if (ids.Count == 0) return Allowed.No;
+            return ids.Any(RelicTrading.AlwaysPullable) ? Allowed.Yes : Allowed.Probably;
+        }
 
         return eventId switch
         {
@@ -123,7 +182,7 @@ public static class EventPrediction
             "EVENT.TEA_MASTER" => B(f.Act < 2 && f.Gold >= 150),
             "EVENT.POTION_COURIER" => B(f.Act > 0),
             "EVENT.SYMBIOTE" => B(f.Act > 0),
-            "EVENT.THE_LEGENDS_WERE_TRUE" => B(f.Act == 0 && f.Hp >= 10),
+            "EVENT.THE_LEGENDS_WERE_TRUE" => B(f.Act == 0 && f.Hp >= 10 && deck.Count > 0),
             "EVENT.ENDLESS_CONVEYOR" => B(f.Gold >= 120),
             "EVENT.ZEN_WEAVER" => B(f.Gold >= 125),
             "EVENT.WATERLOGGED_SCRIPTORIUM" => B(f.Gold >= 55),
@@ -136,18 +195,35 @@ public static class EventPrediction
             "EVENT.THE_FUTURE_OF_POTIONS" => Potions(p => p.Count >= 2),
             "EVENT.WAR_HISTORIAN_REPY" => Allowed.No,
             "EVENT.FAKE_MERCHANT" => f.Act < 1 ? Allowed.No : f.Gold >= 100 ? Allowed.Yes : Potions(p => p.Contains("POTION.FOUL_POTION")),
-            "EVENT.AMALGAMATOR" => BasicStrikes() >= 2 && BasicDefends() >= 2 ? Allowed.Yes : Allowed.ProbablyNot,          // Strike/Defend tags
-            "EVENT.BYRDONIS_NEST" => deck.Any(c => c.Id == "CARD.BYRDONIS_EGG") ? Allowed.No : Allowed.Probably,             // pet relics
-            "EVENT.WOOD_CARVINGS" => BasicStrikes() + BasicDefends() > 0 ? Allowed.Yes : Allowed.ProbablyNot,               // basic + removable
-            "EVENT.FIELD_OF_MAN_SIZED_HOLES" or "EVENT.SPIRALING_WHIRLPOOL" => UnenchantedBasic() ? Allowed.Yes : Allowed.ProbablyNot,
-            "EVENT.GRAVE_OF_THE_FORGOTTEN" => deck.Any(c => c.EnchantmentId is null) ? Allowed.Probably : Allowed.ProbablyNot,
-            "EVENT.LUMINOUS_CHOIR" => f.Gold >= 149 ? Allowed.Probably : Allowed.No,                                        // relic bag not empty
-            "EVENT.MORPHIC_GROVE" => f.Gold >= 100 && deck.Count >= 2 ? Allowed.Probably : Allowed.No,                      // transformable cards
-            "EVENT.RANWID_THE_ELDER" => f.Act != 0 && f.Gold >= 100 && HasPotion() ? (Tradable() >= 1 ? Allowed.Probably : Allowed.ProbablyNot) : Allowed.No,
-            "EVENT.RELIC_TRADER" => f.Act != 0 ? (Tradable() >= 5 ? Allowed.Probably : Allowed.ProbablyNot) : Allowed.No,
-            "EVENT.SLIPPERY_BRIDGE" => f.TotalFloor > 6 && deck.Count > 0 ? Allowed.Probably : Allowed.No,
-            "EVENT.COLORFUL_PHILOSOPHERS" => Allowed.Probably, // more than one character pool unlocked (its epoch is already filtered)
+            // Amalgamator.IsValid: Basic + Strike (Defend) tag + removable; those are exactly the five STRIKE_/DEFEND_ ids.
+            "EVENT.AMALGAMATOR" => Cards(deck.Count(c => c.Id.StartsWith("CARD.STRIKE_", StringComparison.Ordinal) && Removable(c)) >= 2
+                                         && deck.Count(c => c.Id.StartsWith("CARD.DEFEND_", StringComparison.Ordinal) && Removable(c)) >= 2),
+            // Player.HasEventPet: a relic with AddsPet (Byrdpip, Pael's Legion) or a Byrdonis Egg in the deck.
+            "EVENT.BYRDONIS_NEST" => B(!deck.Any(c => c.Id == "CARD.BYRDONIS_EGG") && !f.State.Relics.Any(RelicTrading.AddsPet)),
+            // Any removable Basic card (Bash, Neutralize, Zap ... count too, not only Strike/Defend).
+            "EVENT.WOOD_CARVINGS" => Cards(deck.Any(c => CardRarities.Of(c.Id) == "Basic" && Removable(c))),
+            // Perfect Fit has no rule of its own: any card the base CanEnchant accepts.
+            "EVENT.FIELD_OF_MAN_SIZED_HOLES" => Cards(deck.Any(BaseEnchantable)),
+            // Spiral: base CanEnchant + Basic + Strike/Defend tag.
+            "EVENT.SPIRALING_WHIRLPOOL" => Cards(deck.Any(c => BaseEnchantable(c) && StrikeOrDefend(c))),
+            // Soul's Power: base CanEnchant + the card's own Exhaust keyword.
+            "EVENT.GRAVE_OF_THE_FORGOTTEN" => Cards(deck.Any(c => BaseEnchantable(c) && HasExhaust(c))),
+            "EVENT.LUMINOUS_CHOIR" => f.Gold >= 149 ? BagHasRelic() : Allowed.No,
+            // Transformable == removable for a deck card.
+            "EVENT.MORPHIC_GROVE" => f.Gold >= 100 ? Cards(deck.Count(Removable) >= 2) : Allowed.No,
+            "EVENT.RANWID_THE_ELDER" => f.Act != 0 && f.Gold >= 100 ? Both(Potions(p => p.Count > 0), Tradable(1)) : Allowed.No,
+            "EVENT.RELIC_TRADER" => f.Act != 0 ? Tradable(5) : Allowed.No,
+            "EVENT.SLIPPERY_BRIDGE" => f.TotalFloor > 6 ? Cards(deck.Any(Removable)) : Allowed.No,
+            // UnlockState.CharacterCardPools.Count() > 1: another character's epoch is revealed.
+            "EVENT.COLORFUL_PHILOSOPHERS" => f.UnlockedEpochs is { } ep ? B(s_characterEpochs.Any(ep.Contains)) : Allowed.Probably,
             _ => Allowed.Yes,
         };
     }
+
+    /// <summary>Both checks must pass: a definite No wins, then an approximate No, then an approximate Yes.</summary>
+    private static Allowed Both(Allowed a, Allowed b) =>
+        a == Allowed.No || b == Allowed.No ? Allowed.No
+        : a == Allowed.ProbablyNot || b == Allowed.ProbablyNot ? Allowed.ProbablyNot
+        : a == Allowed.Probably || b == Allowed.Probably ? Allowed.Probably
+        : Allowed.Yes;
 }

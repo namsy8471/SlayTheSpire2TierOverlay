@@ -11,12 +11,14 @@ namespace Sts2Overlay.Resources.Catalog;
 /// <param name="GameVersion">Written into the catalog, e.g. <c>v0.107.1</c>.</param>
 /// <param name="IncludeAll">Also include card classes that are in no in-game pool (mocks, tests).</param>
 /// <param name="WithStartingLoadouts">Also decode each character's starting deck, relics, HP and gold.</param>
+/// <param name="WithRelics">Also decode the names-free relic table (rarity and the constant <c>IsTradable</c> inputs).</param>
 public sealed record CatalogOptions(
     string DllPath,
     string? LocalizationDir,
     string GameVersion,
     bool IncludeAll = false,
-    bool WithStartingLoadouts = false);
+    bool WithStartingLoadouts = false,
+    bool WithRelics = false);
 
 /// <summary>Everything <see cref="CatalogGenerator.Build"/> found; the tool prints a summary from it.</summary>
 public sealed record CatalogBuildResult(
@@ -26,6 +28,7 @@ public sealed record CatalogBuildResult(
     int MultiPoolCards,
     IReadOnlyDictionary<string, IReadOnlyList<string>> StartingDeckClasses,
     StartingLoadoutFile? StartingLoadouts,
+    RelicFile? Relics,
     IReadOnlyList<string> Warnings);
 
 /// <summary>
@@ -79,6 +82,22 @@ public static class CatalogGenerator
                 "tools/CatalogBuilder --starting-decks (static IL of sts2.dll: CharacterModel.StartingDeck/StartingRelics/StartingHp/StartingGold)",
                 "Game facts only (model ids and numbers). Ascension 5 and above also adds CARD.ASCENDERS_BANE at run start (AscensionManager.ApplyEffectsTo).",
                 loadouts);
+        }
+
+        // --- 1c. optional: names-free relic table (committed; RelicModel.IsTradable for Relic Trader / Ranwid) ------
+        RelicFile? relicFile = null;
+        if (options.WithRelics)
+        {
+            var relics = game.ConcreteSubclassesOf(game.RelicModel)
+                .Select(game.DecodeRelic)
+                .Select(r => new RelicRow(r.Id, r.Rarity, r.HasUponPickupEffect, r.SpawnsPets, r.UsedUpOverride, r.AddsPet, r.AllowedOverride))
+                .OrderBy(r => r.Id, StringComparer.Ordinal)
+                .ToList();
+            relicFile = new RelicFile(
+                options.GameVersion,
+                "tools/CatalogBuilder --relics (static IL of sts2.dll: RelicModel.Rarity/HasUponPickupEffect/SpawnsPets/AddsPet, IsUsedUp and IsAllowed overrides)",
+                "Game facts only. RelicModel.IsTradable needs: not IsUsedUp, no HasUponPickupEffect, not IsMelted, no SpawnsPets, rarity other than Starter, Event and Ancient. usedUpOverride = IsUsedUp reads the saved state of the relic. addsPet = Player.HasEventPet. allowedOverride = RelicModel.IsAllowed has its own rule (relic bag pulls).",
+                relics);
         }
 
         // --- 2. card pools: character pools first, then ModelDb.AllSharedCardPools ---------------------
@@ -153,6 +172,7 @@ public static class CatalogGenerator
             multiPoolCards,
             startingDecks.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<string>)kv.Value.Select(t => t.Name).ToList()),
             loadoutFile,
+            relicFile,
             warnings);
     }
 
@@ -164,7 +184,12 @@ public static class CatalogGenerator
     }
 
     /// <summary>Writes the names-free starting loadouts (no relaxed escaping needed: ids and numbers only).</summary>
-    public static void Write(StartingLoadoutFile file, string path)
+    public static void Write(StartingLoadoutFile file, string path) => WriteNamesFree(file, path);
+
+    /// <summary>Writes the names-free relic table.</summary>
+    public static void Write(RelicFile file, string path) => WriteNamesFree(file, path);
+
+    private static void WriteNamesFree<T>(T file, string path)
     {
         var opts = new JsonSerializerOptions { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
@@ -180,6 +205,11 @@ public static class CatalogGenerator
 public sealed record CatalogFile(string GameVersion, string Source, List<CardRow> Cards);
 
 public sealed record StartingLoadoutFile(string GameVersion, string Source, string Note, List<StartingLoadout> Characters);
+
+public sealed record RelicFile(string GameVersion, string Source, string Note, List<RelicRow> Relics);
+
+/// <summary>One relic. A null field is a getter with logic the static reader could not evaluate.</summary>
+public sealed record RelicRow(string Id, string? Rarity, bool? HasUponPickupEffect, bool? SpawnsPets, bool UsedUpOverride, bool? AddsPet, bool AllowedOverride);
 
 public sealed record StartingLoadout(string Character, int? StartingHp, int? StartingGold, int? MaxEnergy, List<string> Deck, List<string> Relics);
 

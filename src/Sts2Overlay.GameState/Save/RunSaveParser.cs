@@ -75,7 +75,13 @@ public static class RunSaveParser
                 EnchantmentId: Str(ench, "id"),
                 EnchantmentAmount: Int(ench, "amount") ?? 0));
         }
-        var relics = Array(me, "relics").Select(r => Str(r, "id")).OfType<string>().ToList();
+        var relicDetails = Array(me, "relics")
+            .Where(r => Str(r, "id") != null)
+            .Select(r => new SavedRelic(Str(r, "id")!, Array(Prop(r, "props"), "bools")
+                .Where(b => Prop(b, "value").ValueKind == JsonValueKind.True)
+                .Select(b => Str(b, "name")).OfType<string>().ToHashSet(StringComparer.Ordinal)))
+            .ToList();
+        var relics = relicDetails.Select(r => r.Id).ToList();
         var potions = Array(me, "potions")
             .Select(p => (id: Str(p, "id"), slot: Int(p, "slot_index") ?? 0))
             .Where(p => p.id != null)
@@ -118,6 +124,14 @@ public static class RunSaveParser
             MyPlayerMatched = matched,
             PlayerNetIds = netIds,
             Potions = potions,
+            RelicDetails = relicDetails,
+            UnlockedEpochs = Array(Prop(me, "unlock_state"), "unlocked_epochs")
+                .Select(e => e.ValueKind == JsonValueKind.String ? e.GetString() : null).OfType<string>().ToList(),
+            RelicGrabBag = Prop(Prop(me, "relic_grab_bag"), "relic_id_lists") is { ValueKind: JsonValueKind.Object } bag
+                ? bag.EnumerateObject().ToDictionary(p => p.Name,
+                    p => (IReadOnlyList<string>)Array(bag, p.Name).Select(e => e.ValueKind == JsonValueKind.String ? e.GetString() : null).OfType<string>().ToList(),
+                    StringComparer.Ordinal)
+                : null,
             MaxPotionSlots = Int(me, "max_potion_slot_count") ?? 3,
             CardRarityOffset = Double(playerOdds, "card_rarity_odds_value"),
             PotionRewardOdds = Double(playerOdds, "potion_reward_odds_value"),

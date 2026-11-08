@@ -3,6 +3,9 @@ using Sts2Overlay.Core.Model;
 
 namespace Sts2Overlay.GameState.Save;
 
+/// <summary>A relic as saved (<c>players[].relics[]</c>): id plus the names of its saved bools that are true (<c>props.bools</c>).</summary>
+public sealed record SavedRelic(string Id, IReadOnlySet<string> TrueBools);
+
 /// <summary>A potion in a belt slot (<c>players[].potions[]</c>).</summary>
 public readonly record struct PotionSlot(string Id, int Slot);
 
@@ -33,6 +36,18 @@ public sealed record ParsedSave
     public IReadOnlyList<ulong> PlayerNetIds { get; init; } = [];
 
     public IReadOnlyList<PotionSlot> Potions { get; init; } = [];
+
+    /// <summary><c>players[].unlock_state.unlocked_epochs</c>: e.g. <c>SILENT1_EPOCH</c> unlocks the Silent's card pool.</summary>
+    public IReadOnlyList<string> UnlockedEpochs { get; init; } = [];
+
+    /// <summary>
+    /// My relic grab bag (<c>players[].relic_grab_bag.relic_id_lists</c>): rarity key (<c>common</c>, <c>uncommon</c>,
+    /// <c>rare</c>, <c>shop</c>) → relic ids still in the bag. Null when the save has none.
+    /// </summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<string>>? RelicGrabBag { get; init; }
+
+    /// <summary>My relics with their saved flags (e.g. <c>IsMelted</c>, Lizard Tail's <c>WasUsed</c>); ids alone are in <see cref="RunState.Relics"/>.</summary>
+    public IReadOnlyList<SavedRelic> RelicDetails { get; init; } = [];
     public int MaxPotionSlots { get; init; } = 3;
 
     /// <summary>
