@@ -142,11 +142,19 @@ public class CardScorerTests
     /// <summary>The orb build's core card is in the deck (core secured), so its commit counts as a build commitment.</summary>
     private static Dictionary<string, int> OrbCoreOwned => new(StringComparer.Ordinal) { [OrbCore] = 1 };
 
+    /// <summary>
+    /// The off-build rule on its own: the secured-essential floor is off, so the full penalty applies (with the floor on, the penalty is
+    /// capped so floor + penalty stays below two tier steps; see SecuredBuildTests).
+    /// </summary>
+    private static readonly DataPack OffBuildPack = DefectPack(new Weights { CorePriority = { SecuredEssentialFloor = 0 } });
+
+    private static CardEvaluation OffScore(string card, DeckProfile profile) => Score(card, profile, pack: OffBuildPack);
+
     [Fact]
     public void OffBuild_PenalisesCardsOutsideCommittedArchetype()
     {
-        var profile = new DeckProfile { Copies = OrbCoreOwned }.WithArchetypes(Pack, (OrbArchetype, 0.8));
-        var e = Score(Filler, profile);
+        var profile = new DeckProfile { Copies = OrbCoreOwned }.WithArchetypes(OffBuildPack, (OrbArchetype, 0.8));
+        var e = OffScore(Filler, profile);
         Assert.Equal(-W.OffBuildPenalty, e.Score.ValueOf(ComponentKeys.OffBuild));
         Assert.Equal(W.TierValue[Tier.C] - W.OffBuildPenalty, e.Total);
         Assert.Contains(e.Chips, c => c.Key == ComponentKeys.OffBuild && c.Label == "오프빌드");
@@ -155,30 +163,30 @@ public class CardScorerTests
     [Fact]
     public void OffBuild_NotAppliedBelowCommitThreshold_OrToArchetypeCards()
     {
-        Assert.Equal(0, Score(Filler, new DeckProfile().WithArchetypes(Pack, (OrbArchetype, 0.6))).Score.ValueOf(ComponentKeys.OffBuild));
-        Assert.Equal(0, Score(OrbSupport, new DeckProfile().WithArchetypes(Pack, (OrbArchetype, 0.8))).Score.ValueOf(ComponentKeys.OffBuild));
+        Assert.Equal(0, OffScore(Filler, new DeckProfile().WithArchetypes(OffBuildPack, (OrbArchetype, 0.6))).Score.ValueOf(ComponentKeys.OffBuild));
+        Assert.Equal(0, OffScore(OrbSupport, new DeckProfile().WithArchetypes(OffBuildPack, (OrbArchetype, 0.8))).Score.ValueOf(ComponentKeys.OffBuild));
         // A card of a non-committed archetype is still off-build relative to the committed one.
         Assert.Equal(-W.OffBuildPenalty,
-            Score(PowerCore, new DeckProfile { Copies = OrbCoreOwned }.WithArchetypes(Pack, (OrbArchetype, 0.8), (PowerArchetype, 0.2))).Score.ValueOf(ComponentKeys.OffBuild));
+            OffScore(PowerCore, new DeckProfile { Copies = OrbCoreOwned }.WithArchetypes(OffBuildPack, (OrbArchetype, 0.8), (PowerArchetype, 0.2))).Score.ValueOf(ComponentKeys.OffBuild));
     }
 
     [Fact]
     public void OffBuild_NeverBeforeTheCommittedBuildOwnsItsCore()
     {
         // 코어 먼저: a high commit made only of non-core cards is not a build commitment yet (scorer only).
-        Assert.Equal(0, Score(Filler, new DeckProfile().WithArchetypes(Pack, (OrbArchetype, 0.9))).Score.ValueOf(ComponentKeys.OffBuild));
+        Assert.Equal(0, OffScore(Filler, new DeckProfile().WithArchetypes(OffBuildPack, (OrbArchetype, 0.9))).Score.ValueOf(ComponentKeys.OffBuild));
     }
 
     [Fact]
     public void OffBuild_ExemptsCardsThatFixAWeakness()
     {
         var profile = new DeckProfile { Copies = OrbCoreOwned, RoleGap = new Dictionary<string, double> { [Roles.Block] = 0.5 } }
-            .WithArchetypes(Pack, (OrbArchetype, 0.9));
-        var e = Score(Blocker, profile);
+            .WithArchetypes(OffBuildPack, (OrbArchetype, 0.9));
+        var e = OffScore(Blocker, profile);
         Assert.True(e.Score.ValueOf(ComponentKeys.Need) > 0);
         Assert.Equal(0, e.Score.ValueOf(ComponentKeys.OffBuild));
         // Same profile, card without block role: penalised.
-        Assert.Equal(-W.OffBuildPenalty, Score(Filler, profile).Score.ValueOf(ComponentKeys.OffBuild));
+        Assert.Equal(-W.OffBuildPenalty, OffScore(Filler, profile).Score.ValueOf(ComponentKeys.OffBuild));
     }
 
     // ---------------- combo ----------------
@@ -382,7 +390,7 @@ public class CardScorerTests
     [Fact]
     public void Weights_AreReadFromThePack()
     {
-        var weights = new Weights { RhoDuplicate = 7, OffBuildPenalty = 3 };
+        var weights = new Weights { RhoDuplicate = 7, OffBuildPenalty = 3, CorePriority = { SecuredEssentialFloor = 0 } };
         weights.TierValue[Tier.B] = 51;
         var pack = DefectPack(weights);
         var e = Score(Blocker, new DeckProfile { Copies = new Dictionary<string, int> { [Blocker] = 1, [OrbCore] = 1 } }.WithArchetypes(pack, (OrbArchetype, 1.0)), pack: pack);

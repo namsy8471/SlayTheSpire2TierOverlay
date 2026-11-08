@@ -136,6 +136,17 @@ public static partial class DataPackValidator
                 }
             }
 
+            // onTheme: fits the build without a role (no off-build penalty, no synergy), so it must not repeat a role-list card.
+            var roleCards = seenCards.Keys.Select(pack.Canonical).ToHashSet(StringComparer.Ordinal);
+            var seenTheme = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var id in a.OnTheme)
+            {
+                var w = $"{where}.onTheme[{id}]";
+                CheckCardRef(w, id, a.Character, requireTier: false);
+                if (roleCards.Contains(pack.Canonical(id))) Error(w, $"'{id}' is also in a role list (core/enabler/payoff/support); onTheme is for cards without a role.");
+                if (!seenTheme.Add(pack.Canonical(id))) Warn(w, $"'{id}' is listed twice in onTheme.");
+            }
+
             foreach (var (role, weight) in a.RoleWeight)
             {
                 if (role is not (ArchetypeRoles.Core or ArchetypeRoles.Enabler or ArchetypeRoles.Payoff or ArchetypeRoles.Support))
@@ -271,6 +282,19 @@ public static partial class DataPackValidator
         if (cp.EssentialTarget < 0) error("weights.corePriority.essentialTarget", "Must be ≥ 0.");
         if (!InRange(cp.SubBeforeEssential, 0, 1)) error("weights.corePriority.subBeforeEssential", "Must be within 0..1.");
         if (!InRange(cp.NoCoreMaxUnlock, 0, 1)) error("weights.corePriority.noCoreMaxUnlock", "Must be within 0..1.");
+        if (!double.IsFinite(cp.SecuredEssentialFloor) || cp.SecuredEssentialFloor < 0) error("weights.corePriority.securedEssentialFloor", "Must be ≥ 0.");
+        else if (cp.SecuredEssentialFloor >= 2 * (w.TierValue.GetValueOrDefault(Tier.A) - w.TierValue.GetValueOrDefault(Tier.B)))
+        {
+            warn("weights.corePriority.securedEssentialFloor", "At or above two tier steps: a build's essential card would beat a generic card two tiers higher.");
+        }
+        if (cp.SecuredEssentialExtra < 0) error("weights.corePriority.securedEssentialExtra", "Must be ≥ 0.");
+        if (!InRange(cp.SecuredEssentialTaper, 0, 1)) error("weights.corePriority.securedEssentialTaper", "Must be within 0..1.");
+        if (!InRange(cp.EmergencyGap, 0, 1)) error("weights.corePriority.emergencyGap", "Must be within 0..1.");
+        if (!InRange(cp.EmergencyFactor, 0, 1)) error("weights.corePriority.emergencyFactor", "Must be within 0..1.");
+        foreach (var role in cp.EmergencyRoles.Where(r => !Roles.All.Contains(r)))
+        {
+            warn($"weights.corePriority.emergencyRoles.{role}", $"Unknown role '{role}'; ignored.");
+        }
         foreach (var (act, unlock) in cp.NoCoreUnlockByAct)
         {
             if (!InRange(unlock, 0, 1)) error($"weights.corePriority.noCoreUnlockByAct.{act}", $"Unlock {unlock} is outside 0..1.");

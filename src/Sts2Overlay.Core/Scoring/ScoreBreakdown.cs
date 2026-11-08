@@ -52,6 +52,9 @@ public static class ComponentKeys
     /// <summary>Build value a non-core card loses while its build owns no core card ("코어 없음"); always ≤ 0.</summary>
     public const string CoreMissing = "core_missing";
 
+    /// <summary>Synergy an essential card of a core-secured build gets up to the secured-essential floor ("빌드 필수 카드"); always ≥ 0.</summary>
+    public const string SecuredEssential = "secured_essential";
+
     public const string SkipBase = "skip_base";
     public const string SkipDeckSize = "skip_deck_size";
     public const string SkipCommit = "skip_commit";
