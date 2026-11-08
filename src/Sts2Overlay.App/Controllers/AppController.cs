@@ -322,10 +322,10 @@ public sealed partial class AppController : IDisposable
         for (var i = 0; i < specs.Length; i++)
         {
             specs[i] = i < _lastBadges.Count
-                ? _lastBadges[i] with { CardBounds = r.Cards[i].ScreenBounds }
-                : new BadgeSpec(r.Cards[i].ScreenBounds, "?", "", false, true, r.Cards[i].Card.IsUpgraded);
+                ? _lastBadges[i] with { CardBounds = r.Cards[i].ScreenBounds, PriceBounds = r.Cards[i].PriceBounds }
+                : new BadgeSpec(r.Cards[i].ScreenBounds, "?", "", false, true, r.Cards[i].Card.IsUpgraded, r.Cards[i].PriceBounds);
         }
-        _badges.ShowBadges(specs, _lastSkip, showBounds: Demo is not null);
+        _badges.ShowBadges(specs, _lastSkip, showBounds: Demo is not null || DebugOutlines);
         UpdateCadence();
     }
 
@@ -716,6 +716,20 @@ public sealed partial class AppController : IDisposable
         _panel.SetClickThrough(_clickThrough);
         _vm.ClickThrough = _clickThrough;
         ShowMessage(_clickThrough ? "클릭 통과 켜짐: 마우스가 게임으로 갑니다" : "클릭 통과 꺼짐: 패널을 클릭할 수 있습니다");
+    }
+
+    // ---- debug outline mode (tray / Ctrl+F11): draw the recognised card and price boxes on the badge layer ----
+
+    /// <summary>Outlines of what the recogniser found (cards blue, price labels orange). Session only, not saved.</summary>
+    public bool DebugOutlines { get; private set; }
+
+    public void ToggleDebugOutlines()
+    {
+        DebugOutlines = !DebugOutlines;
+        AppLog.Info($"debug outlines = {DebugOutlines}");
+        ShowMessage(DebugOutlines ? "인식 영역 표시 켜짐: 카드(파랑)·가격(주황) 상자" : "인식 영역 표시 꺼짐");
+        _pipeline.RequestRecognize(); // redraw with the next result
+        StateChanged?.Invoke();
     }
 
     public void RecognizeNow()

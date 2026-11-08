@@ -17,6 +17,8 @@ using VisionBench;
 //   VisionBench price-occlude [--prices file] [--upscale 2] [--dark x] [--no-rarity x]   paints a "hand" (or a dark
 //                         panel) over parts of each price: unknown is fine, wrong is not
 //   VisionBench price-glyphs [--prices file] [--upscale 2]     derive the price digit templates from labelled shops
+//   VisionBench preview   [png ...] [--captures dir] [--out dir]   badges drawn where the overlay would put them
+//                         (4K/150 % and FHD/100 %), with the debug card/price outlines
 //
 // Everything it reads or writes lives outside the repo or in data/local (gitignored).
 
@@ -71,8 +73,11 @@ switch (args.FirstOrDefault())
     case "price-debug":
         PriceDebug(positional[0]);
         break;
+    case "preview":
+        PreviewCommand();
+        break;
     default:
-        Console.WriteLine("commands: build-db | selftest | recognize <png> | annotate <png> [out] | bench | stress | probe | price-glyphs | price-occlude | price-debug");
+        Console.WriteLine("commands: build-db | selftest | recognize <png> | annotate <png> [out] | bench | stress | probe | price-glyphs | price-occlude | price-debug | preview");
         break;
 }
 
@@ -228,6 +233,36 @@ void Annotate(string png, string outPath)
     Console.WriteLine($"{r.Kind}: {string.Join(", ", r.Cards)} -> {outPath}");
 
     static SKRect ToSk(PixelRect p) => new(p.X, p.Y, p.Right, p.Bottom);
+}
+
+void PreviewCommand()
+{
+    // Badge placement check without running the overlay: given captures, or 4 reward + 2 shop frames picked
+    // evenly across the capture folder (a clean 3-card reward / 7-card shop recognition).
+    var rec = NewRecognizer(LoadDb());
+    string outDir = opts.GetValueOrDefault("out") ?? Path.Combine(repo, "data", "local", "vision-robust", "preview");
+    List<string> files = positional.Count > 0 ? positional : PickPreviewCaptures(rec,
+        opts.GetValueOrDefault("captures") ?? Path.Combine(repo, "data", "local", "vision-robust", "frozen2", "captures"));
+    var tiers = Preview.LoadTiers(Path.Combine(repo, "data", "packs", "v0.107.1", "tiers"));
+    Console.WriteLine(Preview.Run(files, rec, Upscale, tiers, outDir, Console.WriteLine));
+}
+
+static List<string> PickPreviewCaptures(CardRecognizer rec, string dir)
+{
+    var picked = new List<string>();
+    foreach ((string prefix, ScreenKind kind, int cards, int want) in new[] { ("reward_", ScreenKind.RewardCardSelect, 3, 4), ("shop_", ScreenKind.Shop, 7, 2) })
+    {
+        string[] all = Directory.GetFiles(dir, prefix + "*.png").Order(StringComparer.Ordinal).ToArray();
+        for (int q = 0; q < want; q++)
+            for (int i = all.Length * q / want; i < all.Length * (q + 1) / want; i++)
+            {
+                ScreenRecognition r = rec.Recognize(ImageLoader.Load(all[i]));
+                if (r.Kind != kind || r.Cards.Count != cards) continue;
+                picked.Add(all[i]);
+                break;
+            }
+    }
+    return picked;
 }
 
 CardRecognizer NewRecognizer(CardArtDatabase db) =>

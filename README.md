@@ -51,7 +51,7 @@ dotnet run --project src/Sts2Overlay.App
 - 화면 없이 보기: `-- --demo reward` (또는 `shop`, `other`)
 - 리소스만 준비하고 끝내기: `-- --prepare [--force] [--game-dir <폴더>]`
 - UI 배율: 게임 해상도에 맞춰 자동 (FHD 100%, 4K 150%). 트레이 메뉴 "UI 배율"에서 바꿀 수 있습니다.
-- 단축키: `Ctrl+F7` 패널 클릭 통과, `Ctrl+F8` 모두 숨기기, `Ctrl+F9` 캡처 저장, `Ctrl+F10` 지금 인식
+- 단축키: `Ctrl+F7` 패널 클릭 통과, `Ctrl+F8` 모두 숨기기, `Ctrl+F9` 캡처 저장, `Ctrl+F10` 지금 인식, `Ctrl+F11` 인식 영역 표시(카드·가격 상자, 디버그)
 - 기록: `%LOCALAPPDATA%\Sts2Overlay\app.log`, 설정: `settings.json`
 - 캡처 방식: 기본은 Windows.Graphics.Capture(4K 한 장 약 4 ms). 지원되지 않거나 실패하면 GDI(약 50 ms)로 자동 전환합니다. `settings.json`의 `"captureBackend": "gdi"`로 GDI를 강제할 수 있고, 실제로 쓰인 방식은 app.log의 `capture backend` 줄에 남습니다.
 
