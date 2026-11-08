@@ -81,7 +81,8 @@ public class RecommendationEngineTests
     [Fact]
     public void OnlyLowConfidenceCardsBeatSkip_RecommendsSkipAsEstimate()
     {
-        var r = Evaluate(1, [LowConf, Strike]);
+        // LowConf 80 beats skip 70 but by less than skip.lowConfidenceStep (15): one tier lower it would lose.
+        var r = Evaluate(1, [LowConf, Strike], pack: DefectPack(WithT0(70)));
         Assert.True(r.SkipRecommended);
         Assert.Equal(RecommendationConfidence.Estimate, r.Confidence);
     }

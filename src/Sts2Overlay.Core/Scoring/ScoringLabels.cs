@@ -56,6 +56,7 @@ public static class ScoringLabels
     public const string SkipBase = "스킵 기준";
     public const string SkipDeckSize = "덱 크기";
     public const string SkipCommit = "빌드 완성";
+    public const string SkipBasics = "기본 카드 교체";
     public const string SkipRelative = "스킵 대비";
     public const string CurseRemoval = "저주 제거";
     public const string BasicRemoval = "기본 카드 제거";

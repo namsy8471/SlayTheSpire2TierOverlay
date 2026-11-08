@@ -58,8 +58,15 @@ public class ScoringPropertyTests
             {
                 var chosen = result.Cards.Single(c => c.IsBest);
                 Assert.Equal(best, chosen.Card);
-                Assert.True(chosen.Confidence >= Pack.Weights.Skip.LowConfidence);
-                Assert.True(chosen.Total >= result.Skip.Total + Pack.Weights.Skip.Margin);
+                var sw = Pack.Weights.Skip;
+                Assert.True(chosen.Total >= result.Skip.Total + sw.Margin);
+                if (chosen.Confidence < sw.LowConfidence)
+                {
+                    // A low-confidence card wins only by a full tier step and only when no confident card beats skip.
+                    Assert.True(chosen.Total >= result.Skip.Total + sw.Margin + sw.LowConfidenceStep);
+                    Assert.DoesNotContain(result.Cards, c => c.Confidence >= sw.LowConfidence && c.Total >= result.Skip.Total + sw.Margin);
+                    Assert.Equal(RecommendationConfidence.Estimate, result.Confidence);
+                }
             }
 
             var shopOffer = new ShopOffer(offer.Select(c => new ShopCardOffer(c, rng.Next(0, 200))).ToArray(),

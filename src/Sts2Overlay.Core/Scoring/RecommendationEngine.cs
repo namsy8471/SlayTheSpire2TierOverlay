@@ -33,6 +33,19 @@ public sealed class RecommendationEngine(DataPack pack)
         // Low-confidence cards cannot beat skip (PLAN §7.2).
         var eligible = order.Where(i => evals[i].Confidence >= w.Skip.LowConfidence).ToList();
         int? best = eligible.Count > 0 && evals[eligible[0]].Total >= skip.Total + w.Skip.Margin ? eligible[0] : null;
+        // ...unless no confident card beats skip and a low-confidence one beats it by a full tier step (skip.lowConfidenceStep):
+        // even rated one tier lower it would still win, so the uncertainty cannot make skipping right.
+        var lowConfidencePick = false;
+        if (best is null)
+        {
+            var step = Math.Max(0.0, w.Skip.LowConfidenceStep);
+            var sure = order.Where(i => evals[i].Total >= skip.Total + w.Skip.Margin + step).Cast<int?>().FirstOrDefault();
+            if (sure is int s)
+            {
+                best = s;
+                lowConfidencePick = true;
+            }
+        }
 
         // Winner vs runner-up, Skip counting as a candidate.
         ScoreBreakdown winner;
@@ -42,7 +55,7 @@ public sealed class RecommendationEngine(DataPack pack)
         {
             winner = evals[b].Score;
             winnerIsSkip = false;
-            var nextCard = eligible.Count > 1 ? evals[eligible[1]].Score : null;
+            var nextCard = eligible.Where(i => i != b).Select(i => evals[i].Score).FirstOrDefault();
             if (nextCard is not null && nextCard.Total > skip.Total)
             {
                 runnerUp = nextCard;
@@ -64,7 +77,7 @@ public sealed class RecommendationEngine(DataPack pack)
 
         RecommendationConfidence confidence;
         string? flipHint = null;
-        if (best is int bi && evals[bi].IsEstimate)
+        if (best is int bi && (evals[bi].IsEstimate || lowConfidencePick))
         {
             confidence = RecommendationConfidence.Estimate;
         }

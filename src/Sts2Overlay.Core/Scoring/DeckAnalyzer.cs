@@ -30,7 +30,7 @@ public static class DeckAnalyzer
         var provides = new Dictionary<string, int>(StringComparer.Ordinal);
         var consumes = new Dictionary<string, int>(StringComparer.Ordinal);
         var copies = new Dictionary<string, int>(StringComparer.Ordinal);
-        int powers = 0, strikes = 0, defends = 0, curses = 0;
+        int powers = 0, strikes = 0, defends = 0, curses = 0, basics = 0;
 
         foreach (var dc in state.Deck)
         {
@@ -55,6 +55,7 @@ public static class DeckAnalyzer
             if (IsCurse(pack, state.Character, id)) curses++;
             if (CardIdHeuristics.IsBasicStrike(id)) strikes++;
             else if (CardIdHeuristics.IsBasicDefend(id)) defends++;
+            if (IsBasic(pack, state.Character, id)) basics++;
         }
 
         var targets = TargetsFor(state, w);
@@ -84,6 +85,7 @@ public static class DeckAnalyzer
             BasicStrikes = strikes,
             BasicDefends = defends,
             Curses = curses,
+            BasicCards = basics,
             WeakRoles = weak,
         };
     }
@@ -97,6 +99,15 @@ public static class DeckAnalyzer
         }
         return Weights.ForAct(byAct, state.Act, new Dictionary<string, double>(StringComparer.Ordinal));
     }
+
+    /// <summary>
+    /// True for a starter card: rarity "basic" from the catalog (else the tier entry); only when neither knows the rarity,
+    /// the Strike/Defend id heuristic.
+    /// </summary>
+    public static bool IsBasic(DataPack pack, string character, string cardId)
+        => pack.CardRarity(character, cardId) is { } rarity
+            ? rarity == "basic"
+            : CardIdHeuristics.IsBasicStrikeOrDefend(pack.Canonical(cardId));
 
     /// <summary>True when the card is a curse by type, or the catalog marks its rarity as curse.</summary>
     public static bool IsCurse(DataPack pack, string character, string cardId)

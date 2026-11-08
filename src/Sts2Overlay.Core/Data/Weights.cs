@@ -247,8 +247,25 @@ public sealed class SkipWeights
     /// <summary>A card must beat Skip by at least this margin to be recommended.</summary>
     public double Margin { get; set; } = 0.5;
 
-    /// <summary>Cards with confidence below this cannot beat Skip.</summary>
+    /// <summary>Cards with confidence below this cannot beat Skip (unless they beat it by <see cref="LowConfidenceStep"/> more).</summary>
     public double LowConfidence { get; set; } = 0.5;
+
+    /// <summary>
+    /// A low-confidence card still beats Skip when it clears <c>skip + margin + LowConfidenceStep</c> and no confident card beats Skip:
+    /// even rated one tier lower (one tier step = 15) it would win. Only flips a skip into a pick, never changes which card is best.
+    /// </summary>
+    public double LowConfidenceStep { get; set; } = 15;
+
+    /// <summary>
+    /// "초반엔 어떤 카드든 타격·수비보다 낫다": per act, how much Skip drops when the deck is basic cards
+    /// (<c>skip_basics = −BasicPickBias[act] × min(1, basicShare / BasicShareFull)</c>, basicShare = <see cref="Scoring.DeckProfile.BasicShare"/>).
+    /// Act 1 = 30 puts a fresh starting deck's skip at 15, below a D-tier card (20), so early act 1 skips only cards with real penalties.
+    /// </summary>
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+    public Dictionary<int, double> BasicPickBias { get; set; } = new() { [1] = 30, [2] = 10, [3] = 0 };
+
+    /// <summary>Basic share at and above which <see cref="BasicPickBias"/> applies in full (linear below it).</summary>
+    public double BasicShareFull { get; set; } = 0.5;
 }
 
 public sealed class ShopWeights

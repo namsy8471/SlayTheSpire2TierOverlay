@@ -56,6 +56,9 @@ public static class ComponentKeys
     public const string SkipDeckSize = "skip_deck_size";
     public const string SkipCommit = "skip_commit";
 
+    /// <summary>Skip drop while the deck is mostly starter cards ("기본 카드 교체"); always ≤ 0.</summary>
+    public const string SkipBasics = "skip_basics";
+
     public const string RemovalValue = "removal_value";
 
     /// <summary>Shop card items: minus the skip score, so the item value is <c>card − skip</c> and still sums exactly.</summary>

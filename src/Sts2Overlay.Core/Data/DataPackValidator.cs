@@ -224,6 +224,9 @@ public static partial class DataPackValidator
         if (!InRange(w.HybridMargin, 0, 1)) error("weights.hybridMargin", "Must be within 0..1.");
         if (!InRange(w.WeakThreshold, 0, 1)) error("weights.weakThreshold", "Must be within 0..1.");
         if (!InRange(w.Skip.LowConfidence, 0, 1)) error("weights.skip.lowConfidence", "Must be within 0..1.");
+        if (!(w.Skip.LowConfidenceStep >= 0)) error("weights.skip.lowConfidenceStep", "Must be 0 or more.");
+        if (w.Skip.BasicPickBias.Values.Any(v => !(v >= 0) || !double.IsFinite(v))) error("weights.skip.basicPickBias", "Values must be 0 or more.");
+        if (!(w.Skip.BasicShareFull > 0 && w.Skip.BasicShareFull <= 1)) error("weights.skip.basicShareFull", "Must be within (0, 1].");
         if (w.Completion.CardsPerReward < 1) error("weights.completion.cardsPerReward", "Must be at least 1.");
         var odds = w.CardOdds;
         foreach (var (name, src) in new[]

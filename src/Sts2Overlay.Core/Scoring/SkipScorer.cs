@@ -5,7 +5,9 @@ namespace Sts2Overlay.Core.Scoring;
 
 /// <summary>
 /// PLAN §7.2: skip = T0[act] + λ_size × max(0, deck − ideal) + λ_commit × [max core-gated commit ≥ threshold]
-/// (<see cref="CardScorer.GatedCommit"/>).
+/// (<see cref="CardScorer.GatedCommit"/>) − basicPickBias[act] × min(1, basicShare / basicShareFull)
+/// (a card replaces a starter Strike/Defend draw, so while the deck is mostly starter cards almost any card beats skipping).
+/// One formula for the live overlay, the shop ("스킵 대비") and the post-run review.
 /// </summary>
 public sealed class SkipScorer(DataPack pack)
 {
@@ -38,6 +40,18 @@ public sealed class SkipScorer(DataPack pack)
                 $"{top.Archetype.DisplayName} {maxCommit * 100:0}% (코어 반영)"));
         }
 
+        // 초반엔 어떤 카드든 타격·수비보다 낫다: lower skip by the act's bias while the deck is starter cards.
+        var bias = Math.Max(0.0, Finite(Weights.ForAct(w.Skip.BasicPickBias, state.Act, 0.0)));
+        var full = w.Skip.BasicShareFull > 0 && double.IsFinite(w.Skip.BasicShareFull) ? w.Skip.BasicShareFull : 1.0;
+        var basics = -bias * Math.Min(1.0, profile.BasicShare / full);
+        if (basics < 0)
+        {
+            parts.Add(new ScoreComponent(ComponentKeys.SkipBasics, ScoringLabels.SkipBasics, basics,
+                $"기본 카드 {profile.BasicCards}/{profile.DeckSize}장: 어떤 카드든 타격·수비보다 나음"));
+        }
+
         return new ScoreBreakdown(parts);
     }
+
+    private static double Finite(double v) => double.IsFinite(v) ? v : 0.0;
 }

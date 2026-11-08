@@ -30,6 +30,12 @@ public sealed record DeckProfile
     public int BasicDefends { get; init; }
     public int Curses { get; init; }
 
+    /// <summary>Starter (basic-rarity) cards in the deck: catalog/tier rarity "basic", id heuristic (Strike/Defend) when the rarity is unknown.</summary>
+    public int BasicCards { get; init; }
+
+    /// <summary><see cref="BasicCards"/> / <see cref="DeckSize"/> (0 for an empty deck).</summary>
+    public double BasicShare => DeckSize > 0 ? Math.Clamp((double)BasicCards / DeckSize, 0.0, 1.0) : 0.0;
+
     /// <summary>Archetype statuses, highest commit first.</summary>
     public IReadOnlyList<ArchetypeStatus> Archetypes { get; init; } = [];
 
