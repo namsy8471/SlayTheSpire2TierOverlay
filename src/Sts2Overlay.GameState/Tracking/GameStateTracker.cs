@@ -96,6 +96,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
     private IReadOnlyList<CardRef>? _seenOffer;          // what the screen recognizer saw on the reward screen (this room)
     private MapCoord? _voteCoord;
     private long _voteSeq = -1;
+    private readonly Dictionary<ulong, PartnerVote> _partnerVotes = []; // co-op: other players' current map votes
     private RunOutcome _outcome;
     private TrackedRun? _current;
 
@@ -244,7 +245,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
                 return false;
 
             case ActEnteredEvent a:
-                if (a.ActId != _logActId) { _logAct++; _logActId = a.ActId; _moveSinceRoom = true; }
+                if (a.ActId != _logActId) { _logAct++; _logActId = a.ActId; _moveSinceRoom = true; _partnerVotes.Clear(); }
                 return true;
 
             case MapVoteEvent v:
@@ -255,6 +256,12 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
                     _voteCoord = v.Coord;
                     _voteSeq = _seq;
                     _screen = ScreenHint.Map;
+                }
+                else
+                {
+                    // Co-op: the game logs every player's vote. Keep the latest per partner so the map overlay can
+                    // show where they want to go; cleared when the party moves (next room) or the act changes.
+                    _partnerVotes[v.PlayerId] = new PartnerVote(v.PlayerId, v.Generation, v.Coord);
                 }
                 return true;
 
@@ -274,6 +281,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
                 _relicsThisRoom.Clear();
                 _offers.Clear();
                 _seenOffer = null;
+                _partnerVotes.Clear(); // the vote is settled: everyone moved into this room
                 _screen = room.Room switch
                 {
                     RoomKind.Combat => ScreenHint.Combat,
@@ -617,6 +625,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         _merchantVisited = false;
         _voteCoord = null;
         _voteSeq = -1;
+        _partnerVotes.Clear();
         _outcome = RunOutcome.InProgress;
         _screen = ScreenHint.Unknown;
     }
@@ -1036,6 +1045,12 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
             DeckFromRunHistory = fromHistory,
             AppliedLogPatches = applied,
             LocalPlayerId = me,
+            // Votes for another act's map (stale lines after an act change) can't be drawn on this map. Without a map
+            // (co-op guest: no save) they are kept as they are.
+            PartnerVotes = _partnerVotes.Values
+                .Where(v => map == null || ((v.Generation <= 0 || v.Generation == map.Act) && map.Nodes.ContainsKey(v.Coord)))
+                .OrderBy(v => v.PlayerId)
+                .ToList(),
             Seed = save?.Save.Seed ?? _logRun?.Seed,
             Outcome = _outcome,
             Save = save?.Save,
