@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    CatalogBuilder: reads the game's sts2.dll as *data* (via Mono.Cecil) and writes a card catalog JSON.
+    The game assembly is never loaded/executed and never referenced as a compile-time dependency,
+    so nothing from the game ends up in bin/. Sts2DataDir comes from Directory.Build.props.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Mono.Cecil" Version="0.11.6" />
+  </ItemGroup>
+
+</Project>
