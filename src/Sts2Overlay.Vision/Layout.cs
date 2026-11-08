@@ -45,6 +45,55 @@ public static class ScreenLayouts
         return slots;
     }
 
+    // ---- Choose a card (NChooseACardSelectionScreen + choose_a_card_selection_screen.tscn) ----
+    // Same banner and holders (NGridCardHolder, 0.8 → 1.0 on hover) as the reward screen, but CardRow has
+    // offset_top 60 → row centre (960, 600), and _cardXSpacing is 340: x = -(n-1) * 340 / 2 + 340 * i.
+    public const float ChoiceRowY = 600f, ChoiceSpacing = 340f;
+
+    /// <param name="count">Number of cards (3 from relics/potions/Discovery; Splash and Quasar can differ).</param>
+    /// <param name="spread">1 = final layout; 0..1 while the 0.5 s opening tween moves the cards apart.</param>
+    public static SlotLayout[] Choice(int count, float spread = 1f)
+    {
+        var slots = new SlotLayout[count];
+        for (int i = 0; i < count; i++)
+        {
+            float x = RewardRowX + (i - (count - 1) / 2f) * ChoiceSpacing * spread;
+            slots[i] = new SlotLayout(i, CardSlotKind.Choice, x, ChoiceRowY, RewardSmallScale, RewardHoverScale);
+        }
+        return slots;
+    }
+
+    // ---- Card grid (NCardGrid + card_grid.tscn, inside simple_card_select_screen.tscn and the deck screens) ----
+    // The grid Control is the full screen below offset_top 80 → y 80..1080 (height 1000). Its ScrollContainer has
+    // offset_left 150 / offset_right -200 → x 150..1720 (width 1570). Holders are NGridCardHolder at
+    // NCardHolder.smallScale 0.8 → card cell 240 x 337.6, CardPadding 40:
+    //   Columns = (int)((1570 + 40) / (240 + 40)) = 5, and the grid block is always 5 columns wide
+    //   (GetContainedCardsSize uses Columns, not the card count), so fewer cards start at the left column:
+    //   x = 150 + (1570 - 1360) / 2 + 120 + 280 * col = 375 + 280 * col.
+    //   y inside the container = YOffset(0) + 80 + 168.8 + 377.6 * row; the container is
+    //   contentHeight + 400 tall and centred (CenterGrid) only when that fits in 1000, i.e. for one row:
+    //   one row  → container top (1000 - 737.6) / 2 = 131.2 → y = 80 + 131.2 + 248.8 = 460;
+    //   two+ rows → container top 0                    → y = 80 + 248.8 + 377.6 * row = 328.8, 706.4 (row 2 is
+    //   at 1084, off screen until the player scrolls).
+    public const float GridX0 = 375f, GridColumnStep = 280f, GridRowStep = 377.6f;
+    public const float GridOneRowY = 460f, GridFirstRowY = 328.8f;
+    public const int GridColumns = 5;
+
+    /// <param name="twoRows">False: a single centred row (≤ 5 cards); true: the top two rows of a taller grid.</param>
+    public static SlotLayout[] Grid(bool twoRows)
+    {
+        int rows = twoRows ? 2 : 1;
+        var slots = new SlotLayout[rows * GridColumns];
+        for (int r = 0; r < rows; r++)
+            for (int c = 0; c < GridColumns; c++)
+            {
+                float y = twoRows ? GridFirstRowY + GridRowStep * r : GridOneRowY;
+                int i = r * GridColumns + c;
+                slots[i] = new SlotLayout(i, CardSlotKind.Grid, GridX0 + GridColumnStep * c, y, RewardSmallScale, RewardHoverScale);
+            }
+        return slots;
+    }
+
     // ---- Shop (scenes/merchant/merchant_inventory.tscn, merchant_card.tscn, NMerchantInventory/NMerchantSlot) ----
     // SlotsContainer: anchored at the centre, offset_left -842 → x = 118; NMerchantInventory tweens its y to
     // _openPosition 80. CharacterCards container at (332, 303), ColorlessCards at (397, 676); each

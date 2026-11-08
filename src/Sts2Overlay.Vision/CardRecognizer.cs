@@ -28,6 +28,8 @@ public sealed record RecognizerOptions
     public float TileFitScore { get; init; } = 0.82f;
     /// <summary>Coarse NCC above which a slot counts as "a card is here" while choosing the layout.</summary>
     public float SlotPresentScore { get; init; } = 0.60f;
+    /// <summary>Coarse NCC of a slot that clearly holds a card; ranks layout hypotheses (empty slots stay below).</summary>
+    public float SlotStrongScore { get; init; } = 0.75f;
     /// <summary>Fraction of upgrade-green title pixels that marks an upgraded card (upgraded titles: 5-10 %).</summary>
     public float UpgradeFraction { get; init; } = 0.02f;
     /// <summary>Art NCC above which the card is considered fully visible (title not hidden by a tooltip).</summary>
@@ -48,6 +50,13 @@ public sealed record RecognizerOptions
     public IReadOnlySet<string>? CandidatePools { get; init; } = VisionCatalog.OfferablePools;
     /// <summary>Card catalog (rarity): lets the shop price check use the card's own price range. Optional.</summary>
     public VisionCatalog? Catalog { get; init; }
+    /// <summary>
+    /// Look for a card grid (event "pick n of N" and the deck/pile selection screens) when neither the reward banner
+    /// nor the shop rug is seen.
+    /// </summary>
+    public bool GridScreens { get; init; } = true;
+    /// <summary>Also try the choose-a-card row (relics, potions, Discovery) on banner screens.</summary>
+    public bool ChoiceScreens { get; init; } = true;
     /// <summary>Shop price reading; null disables it.</summary>
     public PriceReaderOptions? Price { get; init; } = new();
 
@@ -120,12 +129,12 @@ public sealed class CardRecognizer
 
         if (gate.RewardLikely)
         {
-            (List<RecognizedCard> slots, string detail) = RecognizeReward(frame, t, step, hints);
+            (List<RecognizedCard> slots, string detail, ScreenKind kind) = RecognizeReward(frame, t, step, hints);
             List<RecognizedCard> accepted = slots.Where(s => s.Accepted).ToList();
             // Two whole-art matches are required (checked before any partial rescue, see RescueCovered): one lucky
             // match on a banner screen (loot list) is not enough.
             if (accepted.Count(c => c.Partial == null) >= 2)
-                return new ScreenRecognition(ScreenKind.RewardCardSelect, accepted, slots, gate, sw.Elapsed.TotalMilliseconds, detail);
+                return new ScreenRecognition(kind, accepted, slots, gate, sw.Elapsed.TotalMilliseconds, detail);
             notes.Add($"reward banner but {accepted.Count} card(s): {detail}");
             examined = slots;
         }
@@ -140,57 +149,157 @@ public sealed class CardRecognizer
             examined = slots;
         }
 
+        if (Options.GridScreens)
+        {
+            // No probe announces a card grid (it has no banner and covers whatever was behind it), so the cheap
+            // presence test of the grid slots is the gate: a few ms on a screen without cards.
+            (List<RecognizedCard> slots, string detail) = RecognizeGrid(frame, t, step, hints);
+            List<RecognizedCard> accepted = slots.Where(s => s.Accepted).ToList();
+            if (accepted.Count(c => c.Partial == null) >= 2)
+                return new ScreenRecognition(ScreenKind.CardGrid, accepted, slots, gate, sw.Elapsed.TotalMilliseconds, detail);
+            if (slots.Count > 0)
+            {
+                notes.Add($"grid-like but {accepted.Count} card(s): {detail}");
+                if (examined.Count == 0) examined = slots;
+            }
+        }
+
         return new ScreenRecognition(ScreenKind.Other, [], examined, gate, sw.Elapsed.TotalMilliseconds, string.Join("; ", notes));
     }
 
     // ------------------------------------------------------------------ reward screen
 
-    private (List<RecognizedCard>, string) RecognizeReward(in ScreenFrame frame, RefTransform t, int step, RecognitionHints? hints)
+    private (List<RecognizedCard>, string, ScreenKind) RecognizeReward(in ScreenFrame frame, RefTransform t, int step, RecognitionHints? hints)
     {
         // Band covering portrait + title of every possible slot (cards at scale <= 1.04 plus the search radius).
+        // The choose-a-card row (centre y 600) fits in the same band as the reward row (616).
         using IntegralImage img = IntegralImage.Build(frame, t.ToPixelRect(new RectF(80, 380, 1760, 285)), step);
 
-        // Layout hypotheses, most likely first. A settled 3-card screen is decided after the first one.
+        // Both screens share the banner, so every row hypothesis is scored and the best one wins (see Better): most
+        // slots with a clear card, then the fewest empty slots (a 3-card row also fills 3 of the 5 slots of a 5-card
+        // row because the middle positions coincide), then the higher summed NCC (the reward and choose-a-card rows
+        // are only 10-20 px apart, so the exact one scores higher).
         SlotLayout[]? chosen = null;
         string detail = "";
-        foreach (int n in (int[])[3, 4, 2])
-        {
-            SlotLayout[] layout = ScreenLayouts.Reward(n);
-            (int present, float sum) = QuickPresence(img, t, layout, 0.76f, 1.04f);
-            if (present >= (n >= 3 ? n - 1 : n))
+        Presence best = default;
+        foreach (int n in (int[])[3, 4, 2, 5])
+            foreach (bool choice in Options.ChoiceScreens ? (bool[])[false, true] : [false])
             {
-                chosen = layout;
-                detail = $"{n} cards";
-                break;
+                SlotLayout[] layout = choice ? ScreenLayouts.Choice(n) : ScreenLayouts.Reward(n);
+                Presence p = QuickPresence(img, t, layout, 0.76f, 1.04f);
+                if (p.Present < (n >= 3 ? n - 1 : n)) continue;
+                if (chosen == null || Better(p, best))
+                {
+                    best = p;
+                    chosen = layout;
+                    detail = $"{n} cards{(choice ? ", choose-a-card" : "")}";
+                }
             }
-        }
 
         if (chosen == null)
         {
             // Cards still sliding apart (opening tween, 0.5 s): search the spread of a 3-card row.
             float bestSum = 0;
             for (float spread = 0.2f; spread < 0.99f; spread += 0.05f)
-            {
-                SlotLayout[] layout = ScreenLayouts.Reward(3, spread);
-                (int present, float sum) = QuickPresence(img, t, layout, 0.76f, 0.84f);
-                if (present >= 2 && sum > bestSum)
+                foreach (bool choice in Options.ChoiceScreens ? (bool[])[false, true] : [false])
                 {
-                    bestSum = sum;
-                    chosen = layout;
-                    detail = string.Create(CultureInfo.InvariantCulture, $"3 cards, opening (spread {spread:F2})");
+                    SlotLayout[] layout = choice ? ScreenLayouts.Choice(3, spread) : ScreenLayouts.Reward(3, spread);
+                    Presence p = QuickPresence(img, t, layout, 0.76f, 0.84f);
+                    if (p.Present >= 2 && p.Sum > bestSum)
+                    {
+                        bestSum = p.Sum;
+                        chosen = layout;
+                        string what = choice ? ", choose-a-card" : "";
+                        detail = string.Create(CultureInfo.InvariantCulture, $"3 cards{what}, opening (spread {spread:F2})");
+                    }
                 }
-            }
         }
 
-        if (chosen == null) return ([], "no card row found");
+        if (chosen == null) return ([], "no card row found", ScreenKind.Other);
+        List<RecognizedCard> cards = MatchAll(img, t, chosen, hints, trimRow: true);
+        if (cards.Count < chosen.Length) detail += $" → {cards.Count} (outer slots empty)";
+        ScreenKind kind = RowKind(cards, t) ?? (chosen[0].Kind == CardSlotKind.Choice ? ScreenKind.CardChoice : ScreenKind.RewardCardSelect);
+        return (cards, detail, kind);
+    }
+
+    /// <summary>
+    /// Reward row or choose-a-card row, from where the cards were actually found. The rows differ by 16 px in y
+    /// (616 vs 600), which never changes: the opening tween only moves the cards along x, and while it runs a reward
+    /// row can sit exactly where a settled choose-a-card row would (bench: a fading-in reward frame fitted the
+    /// choose-a-card x positions better). The card box is symmetric about the node centre, so its centre is the
+    /// node position at any scale. Null when no card was accepted.
+    /// </summary>
+    private static ScreenKind? RowKind(List<RecognizedCard> cards, RefTransform t)
+    {
+        float[] ys = cards.Where(c => c.Accepted && c.Partial == null)
+            .Select(c => (c.CardBounds.Y + c.CardBounds.Height / 2f - t.OffsetY) / t.Scale)
+            .Order().ToArray();
+        if (ys.Length == 0) return null;
+        float y = ys[ys.Length / 2];
+        float mid = (ScreenLayouts.RewardRowY + ScreenLayouts.ChoiceRowY) / 2;
+        return y >= mid ? ScreenKind.RewardCardSelect : ScreenKind.CardChoice;
+    }
+
+    /// <summary>
+    /// Layout ranking: more slots with a clear card (<see cref="RecognizerOptions.SlotStrongScore"/>), then fewer empty
+    /// slots, then the higher NCC sum. Clear cards come first because an empty outer slot of a too-wide hypothesis
+    /// can reach the weaker "present" bar on background texture (bench: 0.66 next to a 3-card reward row).
+    /// </summary>
+    private static bool Better(Presence a, Presence b)
+        => a.Strong != b.Strong ? a.Strong > b.Strong : a.Empty != b.Empty ? a.Empty < b.Empty : a.Sum > b.Sum;
+
+    /// <summary>Matches every slot of a layout, then gives covered cards a second chance.</summary>
+    /// <param name="img">Integral table of the band the layout lies in.</param>
+    /// <param name="t">Reference-to-frame transform.</param>
+    /// <param name="chosen">The slots to match.</param>
+    /// <param name="hints">Character hint for near-ties.</param>
+    /// <param name="trimRow">
+    /// A centred row: the n-2 card row sits exactly on the inner slots of the n card row (x = 960 + (i - (n-1)/2) *
+    /// spacing), so when neither outer slot holds a card the row is really two cards narrower. Trimming happens before
+    /// the covered-card rescue, which must not run on empty background (bench: a 3-card row taken as 5 wide let the
+    /// rescue accept a phantom card on the dark left edge).
+    /// </param>
+    private List<RecognizedCard> MatchAll(IntegralImage img, RefTransform t, SlotLayout[] chosen, RecognitionHints? hints, bool trimRow = false)
+    {
         var cards = new RecognizedCard[chosen.Length];
         var boxes = new SlotBox[chosen.Length];
         // Slots are independent and only READ the shared table, so they can be matched on several cores.
         Parallel.For(0, chosen.Length, i => cards[i] = MatchSlot(img, t, chosen[i], 0.76f, 1.04f, hints, out boxes[i]));
+        while (trimRow && cards.Length >= 4 && !cards[0].Accepted && !cards[^1].Accepted)
+        {
+            chosen = chosen[1..^1].Select(s => s with { Index = s.Index - 1 }).ToArray();
+            cards = cards[1..^1].Select(c => c with { Slot = c.Slot - 1 }).ToArray();
+            boxes = boxes[1..^1];
+        }
         // Covered cards get a second chance only on a screen already confirmed by two whole-art matches.
         if (cards.Count(c => c.Accepted) >= 2)
             Parallel.For(0, chosen.Length, i => cards[i] = RescueCovered(img, t, chosen[i], 0.76f, 1.04f, cards[i], boxes[i], hints));
-        return ([.. cards], detail);
+        return [.. cards];
+    }
+
+    // ------------------------------------------------------------------ card grid
+
+    private (List<RecognizedCard>, string) RecognizeGrid(in ScreenFrame frame, RefTransform t, int step, RecognitionHints? hints)
+    {
+        // Band: titles of the top row of a tall grid (y 328.8 - 204 = 125) down to the art bottom of its second row
+        // (706.4 + 22 = 728), plus the search radius and the hover lift; x covers the five columns (375..1495 +- 150).
+        using IntegralImage img = IntegralImage.Build(frame, t.ToPixelRect(new RectF(215, 70, 1440, 680)), step);
+        SlotLayout[]? chosen = null;
+        Presence best = default;
+        foreach (bool twoRows in (bool[])[false, true])
+        {
+            SlotLayout[] layout = ScreenLayouts.Grid(twoRows);
+            Presence p = QuickPresence(img, t, layout, 0.76f, 1.04f);
+            if (p.Present < 2) continue;
+            if (chosen == null || Better(p, best))
+            {
+                best = p;
+                chosen = layout;
+            }
+        }
+        if (chosen == null) return ([], "no grid");
+        string detail = chosen.Length > ScreenLayouts.GridColumns ? "grid, 2+ rows" : "grid, 1 row";
+        return (MatchAll(img, t, chosen, hints), detail);
     }
 
     // ------------------------------------------------------------------ shop
@@ -218,10 +327,12 @@ public sealed class CardRecognizer
     /// How many slots of a layout look like a card: best coarse NCC over the whole database at the small and
     /// the hovered scale. ~0.3 ms per slot; used only to choose between layout hypotheses.
     /// </summary>
-    private (int Present, float Sum) QuickPresence(IntegralImage img, RefTransform t, SlotLayout[] layout, float minScale, float maxScale)
+    private readonly record struct Presence(int Present, int Strong, int Empty, float Sum);
+
+    private Presence QuickPresence(IntegralImage img, RefTransform t, SlotLayout[] layout, float minScale, float maxScale)
     {
         Span<float> v = stackalloc float[Ncc.CoarseLength];
-        int present = 0;
+        int present = 0, strong = 0;
         float sum = 0;
         foreach (SlotLayout slot in layout)
         {
@@ -235,8 +346,9 @@ public sealed class CardRecognizer
             }
             sum += best;
             if (best >= Options.SlotPresentScore) present++;
+            if (best >= Options.SlotStrongScore) strong++;
         }
-        return (present, sum);
+        return new Presence(present, strong, layout.Length - present, sum);
     }
 
     private bool Allowed(ArtEntry e) => _offerable[e.Index];
@@ -318,7 +430,7 @@ public sealed class CardRecognizer
                 Try(cx0 + dx, cy0 + dy, s0, coarse);
         // (3b) Nothing fits well near the layout position: a reward card can sit higher than the layout says
         // (hover lift / click animation, seen 26 px up at scale 1.0). Search a taller window, only then.
-        if (slot.Kind == CardSlotKind.Reward && bestScore < Options.WideSearchBelow)
+        if (!slot.Kind.IsShop() && bestScore < Options.WideSearchBelow)
         {
             // The candidates came from the layout position; a lifted card may not be among them. Add the best
             // matches seen from a few lifted positions first.
@@ -334,7 +446,7 @@ public sealed class CardRecognizer
         }
         // (3c) Same for a shop card: the hovered card (scale 0.8, the merchant's hand pointing at it) was seen
         // 15 px right of the layout position. Search a wider square, only when nothing fits near the layout.
-        else if (slot.Kind != CardSlotKind.Reward && bestScore < Options.WideSearchBelow)
+        else if (slot.Kind.IsShop() && bestScore < Options.WideSearchBelow)
         {
             float w = Options.WideSearchShop;
             foreach (float s in (float[])[slot.SmallScale, slot.HoverScale])
@@ -382,7 +494,7 @@ public sealed class CardRecognizer
         bool upgraded = green >= Options.UpgradeFraction;
         // A clean art match and no tooltip panel over the title: a title without green really is not upgraded.
         bool upgradeKnown = upgraded || (pick.Score >= Options.UnoccludedScore && covered < Options.TitleCoveredFraction);
-        PixelRect? price = slot.Kind == CardSlotKind.Reward ? null : t.ToPixelRect(ScreenLayouts.ShopPrice(bx, by, bs));
+        PixelRect? price = !slot.Kind.IsShop() ? null : t.ToPixelRect(ScreenLayouts.ShopPrice(bx, by, bs));
         PriceReading? reading = ReadPrice(priceFrame, slot, pick.CardId, bx, by, bs);
         return new RecognizedCard(slot.Index, slot.Kind, pick.CardId, upgraded, pick.Score, margin, accepted,
             ambiguous, green, upgradeKnown, bs,
@@ -401,7 +513,7 @@ public sealed class CardRecognizer
     /// </summary>
     private PriceReading? ReadPrice(ScreenFrame? priceFrame, SlotLayout slot, string cardId, float bx, float by, float bs)
     {
-        if (priceFrame is not { } pf || _priceReader == null || slot.Kind == CardSlotKind.Reward) return null;
+        if (priceFrame is not { } pf || _priceReader == null || !slot.Kind.IsShop()) return null;
         string? rarity = Options.Catalog?.Find(cardId)?.Rarity;
         PriceReading? reading = _priceReader.Read(pf, bx, by, bs, slot.Kind, rarity);
         foreach (float s in (float[])[slot.SmallScale, slot.HoverScale])
@@ -553,7 +665,7 @@ public sealed class CardRecognizer
             NodeScale = bs,
             ArtBounds = t.ToPixelRect(CardGeometry.Place(CardGeometry.Art, bx, by, bs)),
             CardBounds = t.ToPixelRect(CardGeometry.Place(CardGeometry.Card, bx, by, bs)),
-            PriceBounds = slot.Kind == CardSlotKind.Reward ? null : t.ToPixelRect(ScreenLayouts.ShopPrice(bx, by, bs)),
+            PriceBounds = !slot.Kind.IsShop() ? null : t.ToPixelRect(ScreenLayouts.ShopPrice(bx, by, bs)),
             Candidates = ranking.Take(3).ToArray(),
             Partial = partial,
             Price = reading?.Value,

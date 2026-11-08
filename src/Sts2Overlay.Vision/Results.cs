@@ -8,6 +8,17 @@ public enum ScreenKind
     RewardCardSelect,
     /// <summary>The merchant's inventory (rug with 5 character + 2 colourless cards).</summary>
     Shop,
+    /// <summary>
+    /// NChooseACardSelectionScreen: "pick 1 of N" opened by relics, potions and cards (Hefty Tablet, Toolbox, Attack
+    /// Potion, Discovery...). Same banner as the reward screen, but its own row geometry.
+    /// </summary>
+    CardChoice,
+    /// <summary>
+    /// A card grid (NCardGrid): NSimpleCardSelectScreen offers from events ("pick 1 of 5" Brain Leech, "pick 2 of 8"
+    /// Room Full of Cheese, Sea Glass) but also the deck/pile selection screens, which share the exact geometry. Only
+    /// the caller knows the deck, so it decides whether the cards are an offer or the player's own cards.
+    /// </summary>
+    CardGrid,
 }
 
 public enum CardSlotKind
@@ -15,6 +26,16 @@ public enum CardSlotKind
     Reward,
     ShopCharacter,
     ShopColorless,
+    /// <summary>A card of the choose-a-card row.</summary>
+    Choice,
+    /// <summary>A card of a card grid.</summary>
+    Grid,
+}
+
+public static class CardSlotKinds
+{
+    /// <summary>Shop slots have a price label and the merchant's hand; every other slot is a bare card.</summary>
+    public static bool IsShop(this CardSlotKind kind) => kind is CardSlotKind.ShopCharacter or CardSlotKind.ShopColorless;
 }
 
 /// <summary>Context that improves accuracy; everything is optional.</summary>

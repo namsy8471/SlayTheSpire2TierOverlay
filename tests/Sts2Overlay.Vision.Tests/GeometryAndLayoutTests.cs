@@ -55,6 +55,31 @@ public class GeometryAndLayoutTests
         Assert.All(slots, s => Assert.Equal((0.8f, 1.0f), (s.SmallScale, s.HoverScale)));
     }
 
+    [Theory]
+    [InlineData(3, new float[] { 620, 960, 1300 })]
+    [InlineData(5, new float[] { 280, 620, 960, 1300, 1640 })]
+    public void Choose_a_card_layout_matches_game_formula(int n, float[] xs)
+    {
+        // NChooseACardSelectionScreen: _cardXSpacing 340, CardRow offset_top 60.
+        SlotLayout[] slots = ScreenLayouts.Choice(n);
+        Assert.Equal(xs, slots.Select(s => s.CenterX));
+        Assert.All(slots, s => Assert.Equal((600f, CardSlotKind.Choice), (s.CenterY, s.Kind)));
+    }
+
+    [Fact]
+    public void Grid_layout_matches_card_grid_scene()
+    {
+        // card_grid.tscn + NCardGrid: 5 columns from x 375, step 280; one row centred at y 460, else rows at 328.8, 706.4.
+        SlotLayout[] one = ScreenLayouts.Grid(twoRows: false);
+        Assert.Equal(new float[] { 375, 655, 935, 1215, 1495 }, one.Select(s => s.CenterX));
+        Assert.All(one, s => Assert.Equal(460f, s.CenterY));
+        SlotLayout[] two = ScreenLayouts.Grid(twoRows: true);
+        Assert.Equal(10, two.Length);
+        Assert.Equal(328.8f, two[0].CenterY, 3);
+        Assert.Equal(706.4f, two[5].CenterY, 3);
+        Assert.All(two, s => Assert.Equal(CardSlotKind.Grid, s.Kind));
+    }
+
     [Fact]
     public void Reward_layout_spread_zero_stacks_cards_in_the_middle()
     {

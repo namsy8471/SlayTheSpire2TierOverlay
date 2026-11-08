@@ -49,7 +49,7 @@ public static class ShopPriceRules
     /// </summary>
     public static bool IsPlausible(int price, CardSlotKind kind, string? rarity = null, IReadOnlyList<double>? factors = null)
     {
-        if (kind == CardSlotKind.Reward || price <= 0) return false;
+        if (!kind.IsShop() || price <= 0) return false;
         bool colorless = kind == CardSlotKind.ShopColorless;
         IEnumerable<string> rarities = BasePrice(rarity, colorless) != null ? [rarity!]
             : colorless ? ["uncommon", "rare"] : ["common", "uncommon", "rare"];

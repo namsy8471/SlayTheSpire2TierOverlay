@@ -66,6 +66,44 @@ public class RealDataTests
         }
     }
 
+    [LocalDataFact("reward_20261108_231431_403.png")]
+    public void Real_event_grid_pick_one_of_five()
+    {
+        // Brain Leech "share knowledge": 5 cards in a one-row card grid (NSimpleCardSelectScreen).
+        var rec = new CardRecognizer(Db.Value);
+        ScreenFrame frame = ImageLoader.Load(Path.Combine(TestPaths.CapturesDir, "reward_20261108_231431_403.png"));
+        string[] expected = ["CARD.FORGOTTEN_RITUAL", "CARD.TREMBLE", "CARD.ARMAMENTS", "CARD.INFERNO", "CARD.BLOOD_WALL"];
+        foreach (ScreenFrame f in new[] { frame, Upscale2(frame) })
+        {
+            ScreenRecognition r = rec.Recognize(f, new RecognitionHints("CHARACTER.IRONCLAD"));
+            Assert.Equal(ScreenKind.CardGrid, r.Kind);
+            Assert.Equal(expected, r.Cards.Select(c => c.CardId));
+            Assert.All(r.Cards, c => Assert.False(c.Upgraded));
+        }
+    }
+
+    [LocalDataFact("shop_20261108_202815_079.png")]
+    public void Real_choose_a_card_row_in_combat()
+    {
+        // NChooseACardSelectionScreen with a Skip button: Setup Strike, Whirlwind, Thrash.
+        var rec = new CardRecognizer(Db.Value);
+        ScreenFrame frame = ImageLoader.Load(Path.Combine(TestPaths.CapturesDir, "shop_20261108_202815_079.png"));
+        ScreenRecognition r = rec.Recognize(frame, new RecognitionHints("CHARACTER.IRONCLAD"));
+        Assert.Equal(ScreenKind.CardChoice, r.Kind);
+        Assert.Equal(["CARD.SETUP_STRIKE", "CARD.WHIRLWIND", "CARD.THRASH"], r.Cards.Select(c => c.CardId));
+    }
+
+    [LocalDataFact("reward_20261108_201828_703.png")]
+    public void Fading_in_reward_row_is_not_taken_for_a_choose_a_card_row()
+    {
+        // Opening tween: the reward cards sit where a settled choose-a-card row would be along x; only y tells.
+        var rec = new CardRecognizer(Db.Value);
+        ScreenFrame frame = ImageLoader.Load(Path.Combine(TestPaths.CapturesDir, "reward_20261108_201828_703.png"));
+        ScreenRecognition r = rec.Recognize(frame, new RecognitionHints("CHARACTER.IRONCLAD"));
+        Assert.Equal(ScreenKind.RewardCardSelect, r.Kind);
+        Assert.Equal(["CARD.STONE_ARMOR", "CARD.UNRELENTING", "CARD.MOLTEN_FIST"], r.Cards.Select(c => c.CardId));
+    }
+
     /// <summary>Nearest-neighbour x2, standing in for a native 4K capture.</summary>
     private static ScreenFrame Upscale2(ScreenFrame f)
     {

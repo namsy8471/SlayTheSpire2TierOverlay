@@ -8,6 +8,10 @@ public enum ScreenKind
     Reward,
     Shop,
     Other,
+    /// <summary>"Pick 1 of N" row opened by a relic, potion or card (same banner as the reward screen).</summary>
+    Choice,
+    /// <summary>A card grid: an event offer or the player's own cards (see <see cref="CardGridFilter"/>).</summary>
+    Grid,
 }
 
 /// <summary>One card found on screen.</summary>
@@ -21,7 +25,7 @@ public enum ScreenKind
 public sealed record RecognizedCard(CardRef Card, PixelRect ScreenBounds, double Confidence, int? Price = null, bool? Unaffordable = null, bool OnSale = false,
     PixelRect? PriceBounds = null);
 
-/// <param name="ScreenKind">Reward / Shop / Other. Other clears the badges.</param>
+/// <param name="ScreenKind">Reward / Shop / Choice / Grid / Other. Other clears the badges.</param>
 /// <param name="Cards">Cards left to right (shop: row by row). Empty for Other.</param>
 public sealed record RecognitionResult(ScreenKind ScreenKind, IReadOnlyList<RecognizedCard> Cards)
 {
