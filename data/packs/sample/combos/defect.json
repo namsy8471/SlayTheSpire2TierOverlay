@@ -1,0 +1,11 @@
+// 형식 샘플: 배열 형태. character는 항목마다 적습니다.
+// ({ "character": ..., "combos": [...] } 형태도 됩니다.) 값은 자리표시자입니다.
+[
+  {
+    "character": "CHARACTER.DEFECT",
+    "cards": ["CARD.DEFRAGMENT", "CARD.GLACIER"],
+    "name": "샘플 콤보",
+    "why": "형식 샘플용 설명",
+    "w": 6
+  }
+]

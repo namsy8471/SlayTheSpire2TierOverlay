@@ -1,0 +1,7 @@
+{
+  "character": "CHARACTER.DEFECT",
+  "combos": [
+    { "cards": ["CARD.GLACIER", "CARD.DEFRAGMENT"], "name": "test-frost-focus", "w": 8 },
+    { "cards": ["CARD.BALL_LIGHTNING", "CARD.STORM", "CARD.TEMPEST"], "name": "test-lightning", "w": 6 }
+  ]
+}

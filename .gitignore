@@ -31,3 +31,9 @@ user_overrides.json
 # OS
 Thumbs.db
 .DS_Store
+
+# Local tooling
+*.swp
+.claude/
+lib/
+data/catalog/

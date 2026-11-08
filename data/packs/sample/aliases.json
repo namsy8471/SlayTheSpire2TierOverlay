@@ -1,0 +1,4 @@
+// 옛 ID → 현재 ID. 왼쪽 ID는 형식을 보여 주는 가짜입니다.
+{
+  "CARD.SAMPLE_OLD_HOLOGRAM": "CARD.HOLOGRAM"
+}

@@ -1,0 +1,12 @@
+// 형식 샘플: 기본값과 다른 값만 적습니다. 적지 않은 값은 Weights 기본값을 그대로 씁니다.
+// 값은 자리표시자(placeholder)입니다.
+{
+  "tierValue": { "S": 82 },          // 사전은 병합: A~D는 기본값 유지
+  "skip": { "margin": 1.0 },         // 중첩 객체도 병합: t0, lambdaSize 등은 기본값 유지
+  "targets": {
+    // "default"는 그대로 두고 디펙트 전용 목표치를 추가
+    "CHARACTER.DEFECT": {
+      "1": { "frontload": 3.0, "aoe": 1.0, "block": 2.5, "scaling": 1.0, "draw": 1.0 },
+    },
+  },
+}
