@@ -17,7 +17,7 @@ using VisionBench;
 //   VisionBench price-occlude [--prices file] [--upscale 2] [--dark x] [--no-rarity x]   paints a "hand" (or a dark
 //                         panel) over parts of each price: unknown is fine, wrong is not
 //   VisionBench price-glyphs [--prices file] [--upscale 2]     derive the price digit templates from labelled shops
-//   VisionBench preview   [png ...] [--captures dir] [--out dir]   badges drawn where the overlay would put them
+//   VisionBench preview   [png ...] [--captures dir] [--out dir] [--skip on]   badges + recommendation marks drawn where the overlay would put them
 //                         (4K/150 % and FHD/100 %), with the debug card/price outlines
 //   VisionBench removal   --labels file [--captures dir]   card-removal probe vs hand labels at FHD, 1440p and 2x (4K)
 //
@@ -258,7 +258,7 @@ void PreviewCommand()
     List<string> files = positional.Count > 0 ? positional : PickPreviewCaptures(rec,
         opts.GetValueOrDefault("captures") ?? Path.Combine(repo, "data", "local", "vision-robust", "frozen2", "captures"));
     var tiers = Preview.LoadTiers(Path.Combine(repo, "data", "packs", "v0.107.1", "tiers"));
-    Console.WriteLine(Preview.Run(files, rec, Upscale, tiers, outDir, Console.WriteLine));
+    Console.WriteLine(Preview.Run(files, rec, Upscale, tiers, outDir, Console.WriteLine, skip: opts.GetValueOrDefault("skip") == "on"));
 }
 
 static List<string> PickPreviewCaptures(CardRecognizer rec, string dir)
