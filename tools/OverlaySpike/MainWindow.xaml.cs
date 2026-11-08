@@ -65,8 +65,75 @@ public partial class MainWindow : Window
         var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         timer.Tick += (_, _) => Tick();
         timer.Start();
+
+        // Auto-capture: watch godot.log; after a combat win or entering a shop, take a burst of
+        // screenshots so the reward / shop screen gets captured without the user pressing anything.
+        var logTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+        logTimer.Tick += (_, _) => PollLog();
+        logTimer.Start();
+
         UpdateModeText();
         Log("started");
+    }
+
+    // ---- auto-capture -------------------------------------------------------------------------
+
+    private static readonly string GameLogPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SlayTheSpire2", "logs", "godot.log");
+
+    private long _logPos = -1;          // -1 = start at the current end (ignore old lines)
+    private string _logCarry = "";      // partial last line between polls
+    private int _burstLeft;             // shots remaining in the current burst
+    private string _burstTag = "";
+    private DateTime _nextShot;
+    private byte[]? _lastThumb;         // to skip near-identical frames
+
+    private void PollLog()
+    {
+        try
+        {
+            // FileShare.ReadWrite: the game keeps the file open for writing.
+            using var fs = new FileStream(GameLogPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            if (_logPos < 0 || fs.Length < _logPos) _logPos = fs.Length; // first run, or game restarted (log rotated)
+            if (fs.Length > _logPos)
+            {
+                fs.Seek(_logPos, SeekOrigin.Begin);
+                using var reader = new StreamReader(fs);
+                string chunk = _logCarry + reader.ReadToEnd();
+                _logPos = fs.Length;
+                int lastNl = chunk.LastIndexOf('\n');
+                _logCarry = lastNl >= 0 ? chunk[(lastNl + 1)..] : chunk;
+                if (lastNl >= 0)
+                {
+                    foreach (string line in chunk[..lastNl].Split('\n')) OnLogLine(line);
+                }
+            }
+        }
+        catch (IOException) { /* game not running / log missing */ }
+
+        if (_burstLeft > 0 && DateTime.Now >= _nextShot)
+        {
+            _burstLeft--;
+            _nextShot = DateTime.Now.AddSeconds(2);
+            CaptureGame(hidePanel: false, tag: _burstTag, skipIfSame: true);
+        }
+    }
+
+    private void OnLogLine(string line)
+    {
+        if (line.Contains("has won against encounter")) StartBurst("reward", line);
+        else if (line.Contains("Preloading 'Merchant Room'")) StartBurst("shop", line);
+    }
+
+    private void StartBurst(string tag, string line)
+    {
+        // 25 shots x 2 s = 50 s window; near-identical frames are skipped, so disk use stays small.
+        _burstTag = tag;
+        _burstLeft = 25;
+        _nextShot = DateTime.Now.AddSeconds(1.5);
+        _lastThumb = null;
+        Log($"burst {tag}: {line.Trim()}");
+        CaptureText.Text = $"자동 캡처 시작 ({tag})";
     }
 
     private void Tick()
@@ -95,7 +162,7 @@ public partial class MainWindow : Window
         {
             if (wParam.ToInt32() == HOTKEY_CLICKTHROUGH) ToggleClickThrough();
             else if (wParam.ToInt32() == HOTKEY_QUIT) Close();
-            else if (wParam.ToInt32() == HOTKEY_CAPTURE) CaptureGame();
+            else if (wParam.ToInt32() == HOTKEY_CAPTURE) CaptureGame(hidePanel: true, tag: "manual", skipIfSame: false);
             handled = true;
         }
         return IntPtr.Zero;
@@ -117,7 +184,7 @@ public partial class MainWindow : Window
     /// implements fullscreen. If the PNG comes out black, we need Windows.Graphics.Capture instead.
     /// We hide our own panel for the shot so it doesn't cover the cards.
     /// </summary>
-    private void CaptureGame()
+    private void CaptureGame(bool hidePanel, string tag, bool skipIfSame)
     {
         try
         {
@@ -127,26 +194,42 @@ public partial class MainWindow : Window
                 CaptureText.Text = "게임 창을 찾지 못함";
                 return;
             }
+            // Only capture while the game is in front (otherwise we'd save the desktop / other apps).
+            if (GetForegroundWindow() != game.MainWindowHandle && !hidePanel) return;
+
             GetWindowRect(game.MainWindowHandle, out RECT r);
             int w = r.Right - r.Left, h = r.Bottom - r.Top;
 
-            Visibility = Visibility.Hidden;
-            Dispatcher.Invoke(() => { }, DispatcherPriority.Render); // let the hide render first
-            Thread.Sleep(80);
+            if (hidePanel)
+            {
+                Visibility = Visibility.Hidden;
+                Dispatcher.Invoke(() => { }, DispatcherPriority.Render); // let the hide render first
+                Thread.Sleep(80);
+            }
 
             using var bmp = new System.Drawing.Bitmap(w, h);
             using (var g = System.Drawing.Graphics.FromImage(bmp))
             {
                 g.CopyFromScreen(r.Left, r.Top, 0, 0, new System.Drawing.Size(w, h));
             }
-            Visibility = Visibility.Visible;
+            if (hidePanel) Visibility = Visibility.Visible;
+
+            // Tiny 16x16 grayscale thumbnail: if it barely changed since the last shot, skip saving.
+            byte[] thumb = Thumbnail(bmp);
+            if (skipIfSame && _lastThumb is not null && MeanDiff(thumb, _lastThumb) < 3) return;
+            _lastThumb = thumb;
+
+            // Save at most 1920 px wide: card art is drawn at ~250x190 game pixels, so half of 4K
+            // keeps full art detail while cutting file size ~4x.
+            int outW = Math.Min(w, 1920), outH = (int)Math.Round(h * (outW / (double)w));
+            using var scaled = new System.Drawing.Bitmap(bmp, outW, outH);
 
             string dir = Path.Combine(Path.GetDirectoryName(_logPath)!, "captures");
             Directory.CreateDirectory(dir);
-            string file = Path.Combine(dir, $"cap_{DateTime.Now:yyyyMMdd_HHmmss}.png");
-            bmp.Save(file, System.Drawing.Imaging.ImageFormat.Png);
+            string file = Path.Combine(dir, $"{tag}_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png");
+            scaled.Save(file, System.Drawing.Imaging.ImageFormat.Png);
 
-            CaptureText.Text = $"캡처 저장: {Path.GetFileName(file)} ({w}x{h})";
+            CaptureText.Text = $"캡처 저장: {Path.GetFileName(file)} ({w}x{h} → {outW}x{outH})";
             Log($"capture {file} {w}x{h}");
         }
         catch (Exception ex)
@@ -155,6 +238,26 @@ public partial class MainWindow : Window
             CaptureText.Text = "캡처 실패: " + ex.Message;
             Log("capture failed: " + ex);
         }
+    }
+
+    private static byte[] Thumbnail(System.Drawing.Bitmap src)
+    {
+        using var t = new System.Drawing.Bitmap(src, 16, 16);
+        var bytes = new byte[256];
+        for (int y = 0; y < 16; y++)
+        for (int x = 0; x < 16; x++)
+        {
+            var c = t.GetPixel(x, y);
+            bytes[y * 16 + x] = (byte)((c.R * 3 + c.G * 6 + c.B) / 10);
+        }
+        return bytes;
+    }
+
+    private static double MeanDiff(byte[] a, byte[] b)
+    {
+        double sum = 0;
+        for (int i = 0; i < a.Length; i++) sum += Math.Abs(a[i] - b[i]);
+        return sum / a.Length;
     }
 
     private void UpdateModeText() =>
