@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
+  <assemblyIdentity version="1.0.0.0" name="Sts2Overlay.App" />
+
+  <!--
+    DPI awareness (why this matters for an overlay):
+    - A DPI-UNAWARE process is lied to by Windows: on a 4K monitor at 150 % it sees a 2561x1440 "virtual" screen and
+      its windows are bitmap-stretched. GetWindowRect of the game would return scaled numbers and a screen capture
+      would be blurry or offset.
+    - PER-MONITOR V2 means "I handle DPI myself": every Win32 coordinate we read (GetWindowRect, GetClientRect,
+      BitBlt source) is in real PHYSICAL pixels, and WPF re-scales its windows when they move between monitors
+      with different DPI (WM_DPICHANGED). We convert physical px -> WPF device-independent pixels (DIPs) ourselves
+      using the monitor's DPI (see Interop/Dpi.cs).
+    The older <dpiAware> line is the fallback understood by Windows versions before 1607.
+  -->
+  <application xmlns="urn:schemas-microsoft-com:asm.v3">
+    <windowsSettings>
+      <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true/PM</dpiAware>
+      <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2, PerMonitor</dpiAwareness>
+    </windowsSettings>
+  </application>
+
+  <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
+    <application>
+      <!-- Windows 10 / 11 -->
+      <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}" />
+    </application>
+  </compatibility>
+</assembly>

@@ -1,0 +1,448 @@
+<Window x:Class="Sts2Overlay.App.Views.PanelWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:Sts2Overlay.App.ViewModels"
+        Title="STS2 티어 패널"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        Topmost="True" ShowInTaskbar="False" ShowActivated="False" ResizeMode="NoResize"
+        SizeToContent="WidthAndHeight"
+        FontFamily="{StaticResource UiFont}" FontSize="13" Foreground="{StaticResource TextMain}"
+        TextOptions.TextFormattingMode="Display"
+        UseLayoutRounding="True">
+  <Window.Resources>
+    <!-- Tab header buttons (radio buttons styled as tabs; SelectedTab picks the page) -->
+    <Style x:Key="TabButton" TargetType="RadioButton">
+      <Setter Property="Foreground" Value="{StaticResource TextDim}" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="RadioButton">
+            <Border x:Name="Bd" Background="Transparent" BorderThickness="0,0,0,2" BorderBrush="Transparent" Padding="0,6,0,5">
+              <ContentPresenter HorizontalAlignment="Center" />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Gold}" />
+                <Setter Property="Foreground" Value="{StaticResource TextMain}" />
+              </Trigger>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Bd" Property="Background" Value="#14FFFFFF" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="FlatButton" TargetType="Button">
+      <Setter Property="Foreground" Value="{StaticResource TextMain}" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="Bd" Background="#22FFFFFF" CornerRadius="5" Padding="8,2">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Bd" Property="Background" Value="#44FFFFFF" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="Dim" TargetType="TextBlock">
+      <Setter Property="Foreground" Value="{StaticResource TextDim}" />
+      <Setter Property="FontSize" Value="11.5" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <Style x:Key="Heading" TargetType="TextBlock">
+      <Setter Property="Foreground" Value="{StaticResource TextDim}" />
+      <Setter Property="FontSize" Value="11.5" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Margin" Value="0,10,0,4" />
+    </Style>
+
+    <Style x:Key="Empty" TargetType="TextBlock">
+      <Setter Property="Foreground" Value="{StaticResource TextDim}" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="Margin" Value="2,14,2,14" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="TextAlignment" Value="Center" />
+    </Style>
+
+    <!-- Reason chip (green = helps, red = hurts) -->
+    <DataTemplate x:Key="ChipTemplate" DataType="{x:Type vm:ChipVm}">
+      <Border x:Name="Bd" CornerRadius="8" Padding="6,1,6,2" Margin="0,3,4,0" Background="{StaticResource ChipPos}">
+        <TextBlock Text="{Binding Text}" FontSize="11" Foreground="White" />
+      </Border>
+      <DataTemplate.Triggers>
+        <DataTrigger Binding="{Binding Positive}" Value="False">
+          <Setter TargetName="Bd" Property="Background" Value="{StaticResource ChipNeg}" />
+        </DataTrigger>
+      </DataTemplate.Triggers>
+    </DataTemplate>
+
+    <ItemsPanelTemplate x:Key="WrapPanelTemplate">
+      <WrapPanel />
+    </ItemsPanelTemplate>
+
+    <!-- Small tier tile -->
+    <Style x:Key="TierTile" TargetType="Border">
+      <Setter Property="CornerRadius" Value="5" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- One offer row: card / skip / removal -->
+    <DataTemplate x:Key="OfferRowTemplate" DataType="{x:Type vm:OfferRowVm}">
+      <Border x:Name="Bd" Margin="0,0,0,6" Padding="8,6,8,7" CornerRadius="7" Background="{StaticResource RowBg}" BorderThickness="1.5" BorderBrush="Transparent">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+          </Grid.RowDefinitions>
+
+          <Border Grid.RowSpan="2" Width="34" Height="34" Style="{StaticResource TierTile}" Margin="0,0,9,0"
+                  Background="{Binding TierText, Converter={StaticResource TierBrush}}">
+            <TextBlock Text="{Binding TierText}" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Foreground="{Binding TierText, Converter={StaticResource TierBrush}, ConverterParameter=fg}" />
+          </Border>
+
+          <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+            <Path Data="{StaticResource CrownGeometry}" Fill="{StaticResource Gold}" Width="15" Height="13" Stretch="Uniform" Margin="0,0,5,0"
+                  Visibility="{Binding IsBest, Converter={StaticResource BoolVis}}" />
+            <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="Bold" VerticalAlignment="Center" />
+            <Border Background="{StaticResource EstimateBg}" CornerRadius="4" Padding="4,0,4,1" Margin="6,0,0,0" VerticalAlignment="Center"
+                    Visibility="{Binding IsEstimate, Converter={StaticResource BoolVis}}">
+              <TextBlock Text="추정" FontSize="10.5" FontWeight="Bold" Foreground="White" />
+            </Border>
+            <Border Background="#1F58D68D" BorderBrush="{StaticResource UpgradeFg}" BorderThickness="1" CornerRadius="4" Padding="4,0,4,1" Margin="6,0,0,0" VerticalAlignment="Center"
+                    Visibility="{Binding IsUpgraded, Converter={StaticResource BoolVis}}">
+              <TextBlock Text="강화" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource UpgradeFg}" />
+            </Border>
+            <TextBlock Text="{Binding PriceText}" FontSize="12" Foreground="{StaticResource Gold}" Margin="8,0,0,0" VerticalAlignment="Center"
+                       Visibility="{Binding PriceText, Converter={StaticResource BoolVis}}" />
+          </StackPanel>
+
+          <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding SubText}" Style="{StaticResource Dim}" Margin="0,1,0,0" />
+
+          <StackPanel Grid.RowSpan="2" Grid.Column="2" VerticalAlignment="Center" Margin="8,0,0,0">
+            <TextBlock Text="{Binding ScoreText}" FontSize="20" FontWeight="Bold" HorizontalAlignment="Right" />
+            <Border Width="70" Height="5" CornerRadius="2.5" Background="#30FFFFFF" HorizontalAlignment="Right" Margin="0,2,0,0">
+              <Border Width="{Binding BarWidth}" CornerRadius="2.5" Background="{Binding TierText, Converter={StaticResource TierBrush}}" HorizontalAlignment="Left" />
+            </Border>
+          </StackPanel>
+
+          <ItemsControl Grid.Row="2" Grid.ColumnSpan="3" ItemsSource="{Binding Chips}" ItemTemplate="{StaticResource ChipTemplate}"
+                        ItemsPanel="{StaticResource WrapPanelTemplate}" Margin="43,2,0,0" />
+        </Grid>
+      </Border>
+      <DataTemplate.Triggers>
+        <DataTrigger Binding="{Binding IsBest}" Value="True">
+          <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Gold}" />
+          <Setter TargetName="Bd" Property="Background" Value="#2EF1C40F" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Unaffordable}" Value="True">
+          <Setter TargetName="Bd" Property="Opacity" Value="0.5" />
+        </DataTrigger>
+      </DataTemplate.Triggers>
+    </DataTemplate>
+  </Window.Resources>
+
+  <Grid>
+    <!-- UI 배율 / monitor DPI scale: WPF already applies Windows' DPI scaling, so we only add the remainder (Views/UiScale.cs). -->
+    <Grid.LayoutTransform>
+      <ScaleTransform ScaleX="{Binding UiScale}" ScaleY="{Binding UiScale}" />
+    </Grid.LayoutTransform>
+
+    <Border Width="400" CornerRadius="10" Background="{Binding PanelBackground}" BorderBrush="#40FFFFFF" BorderThickness="1">
+      <StackPanel>
+        <!-- Header: drag handle -->
+        <Grid x:Name="Header" Background="#01000000" Cursor="SizeAll" MouseLeftButtonDown="Header_MouseLeftButtonDown" Margin="12,8,8,6">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <StackPanel>
+            <TextBlock Text="STS2 티어" FontSize="15" FontWeight="Bold" Foreground="{StaticResource Gold}" />
+            <TextBlock Text="{Binding RunText}" Style="{StaticResource Dim}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,6,0">
+            <Border Background="#7D3C98" CornerRadius="4" Padding="5,1" Margin="0,0,4,0" Visibility="{Binding IsDemo, Converter={StaticResource BoolVis}}">
+              <TextBlock Text="데모" FontSize="11" FontWeight="Bold" />
+            </Border>
+            <Border Background="#B9770E" CornerRadius="4" Padding="5,1" Visibility="{Binding ClickThrough, Converter={StaticResource BoolVis}}">
+              <TextBlock Text="클릭 통과" FontSize="11" FontWeight="Bold" />
+            </Border>
+          </StackPanel>
+          <Button Grid.Column="2" Style="{StaticResource FlatButton}" Command="{Binding ToggleCollapseCommand}" VerticalAlignment="Center" ToolTip="접기/펼치기">
+            <TextBlock FontSize="12">
+              <TextBlock.Style>
+                <Style TargetType="TextBlock">
+                  <Setter Property="Text" Value="▾ 접기" />
+                  <Style.Triggers>
+                    <DataTrigger Binding="{Binding IsCollapsed}" Value="True">
+                      <Setter Property="Text" Value="▸ 펼치기" />
+                    </DataTrigger>
+                  </Style.Triggers>
+                </Style>
+              </TextBlock.Style>
+            </TextBlock>
+          </Button>
+        </Grid>
+
+        <!-- Body -->
+        <StackPanel Visibility="{Binding IsCollapsed, Converter={StaticResource BoolVis}, ConverterParameter=!}">
+          <UniformGrid Columns="4" Margin="8,0,8,0">
+            <RadioButton Style="{StaticResource TabButton}" GroupName="Tabs" Content="추천"
+                         IsChecked="{Binding SelectedTab, Converter={StaticResource EnumMatch}, ConverterParameter=Offer}" />
+            <RadioButton Style="{StaticResource TabButton}" GroupName="Tabs" Content="덱"
+                         IsChecked="{Binding SelectedTab, Converter={StaticResource EnumMatch}, ConverterParameter=Deck}" />
+            <RadioButton Style="{StaticResource TabButton}" GroupName="Tabs" Content="빌드"
+                         IsChecked="{Binding SelectedTab, Converter={StaticResource EnumMatch}, ConverterParameter=Build}" />
+            <RadioButton Style="{StaticResource TabButton}" GroupName="Tabs" Content="경로"
+                         IsChecked="{Binding SelectedTab, Converter={StaticResource EnumMatch}, ConverterParameter=Path}" />
+          </UniformGrid>
+          <Border Height="1" Background="#26FFFFFF" Margin="8,0,8,0" />
+
+          <ScrollViewer MaxHeight="620" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="10,8,6,4" Padding="0,0,4,0">
+            <!--
+              Each page is an outer Border (Visibility from the ROOT view model's SelectedTab) wrapping an inner
+              StackPanel whose DataContext is the section (Offer/Deck/...). If both bindings sat on one element, the
+              Visibility binding would look for SelectedTab on the section object, fail silently, and every page would show.
+            -->
+            <Grid>
+              <!-- 추천 -->
+              <Border Visibility="{Binding SelectedTab, Converter={StaticResource EnumMatch}, ConverterParameter=Offer}">
+              <StackPanel DataContext="{Binding Offer}">
+                <TextBlock Style="{StaticResource Empty}" Text="보상 또는 상점 화면이 열리면 자동으로 표시됩니다.&#x0a;(Ctrl+F10: 지금 인식)"
+                           Visibility="{Binding HasContent, Converter={StaticResource BoolVis}, ConverterParameter=!}" />
+                <StackPanel Visibility="{Binding HasContent, Converter={StaticResource BoolVis}}">
+                  <StackPanel.Style>
+                    <Style TargetType="StackPanel">
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsStale}" Value="True">
+                          <Setter Property="Opacity" Value="0.55" />
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </StackPanel.Style>
+                  <DockPanel Margin="0,0,0,4">
+                    <Border DockPanel.Dock="Right" CornerRadius="9" Padding="8,1,8,2" VerticalAlignment="Center">
+                      <Border.Style>
+                        <Style TargetType="Border">
+                          <Setter Property="Background" Value="#3A4A66" />
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding ConfidenceKind}" Value="Sure">
+                              <Setter Property="Background" Value="#2E7D4F" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding ConfidenceKind}" Value="Close">
+                              <Setter Property="Background" Value="#B9770E" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding ConfidenceKind}" Value="Estimate">
+                              <Setter Property="Background" Value="#7D3C98" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding ConfidenceText}" Value="">
+                              <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </Border.Style>
+                      <TextBlock Text="{Binding ConfidenceText}" FontSize="11.5" FontWeight="Bold" />
+                    </Border>
+                    <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="Bold" VerticalAlignment="Center" />
+                  </DockPanel>
+                  <TextBlock Text="화면이 닫힘 · 마지막 결과" Style="{StaticResource Dim}" Margin="0,0,0,4"
+                             Visibility="{Binding IsStale, Converter={StaticResource BoolVis}}" />
+                  <TextBlock Text="{Binding FlipHint}" Style="{StaticResource Dim}" Margin="0,0,0,6"
+                             Visibility="{Binding FlipHint, Converter={StaticResource BoolVis}}" />
+                  <ItemsControl ItemsSource="{Binding Rows}" ItemTemplate="{StaticResource OfferRowTemplate}" />
+                  <TextBlock Text="{Binding Footer}" TextWrapping="Wrap" FontWeight="SemiBold" Foreground="{StaticResource Gold}" Margin="2,2,0,4"
+                             Visibility="{Binding Footer, Converter={StaticResource BoolVis}}" />
+                </StackPanel>
+              </StackPanel>
+              </Border>
+
+              <!-- 덱 -->
+              <Border Visibility="{Binding SelectedTab, Converter={StaticResource EnumMatch}, ConverterParameter=Deck}">
+              <StackPanel DataContext="{Binding Deck}">
+                <TextBlock Style="{StaticResource Empty}" Text="런 정보 없음&#x0a;세이브 파일을 읽으면 표시됩니다."
+                           Visibility="{Binding HasContent, Converter={StaticResource BoolVis}, ConverterParameter=!}" />
+                <StackPanel Visibility="{Binding HasContent, Converter={StaticResource BoolVis}}">
+                  <TextBlock Text="{Binding Summary}" FontSize="14" FontWeight="Bold" />
+                  <TextBlock Text="역할 공급 / 목표" Style="{StaticResource Heading}" />
+                  <ItemsControl ItemsSource="{Binding Roles}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate DataType="{x:Type vm:RoleBarVm}">
+                        <Grid Margin="0,1,0,1">
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="64" />
+                            <ColumnDefinition Width="150" />
+                            <ColumnDefinition Width="*" />
+                          </Grid.ColumnDefinitions>
+                          <TextBlock Text="{Binding Label}" FontSize="12" VerticalAlignment="Center" />
+                          <Border Grid.Column="1" Height="7" CornerRadius="3.5" Background="#30FFFFFF" VerticalAlignment="Center">
+                            <Border x:Name="Fill" Width="{Binding BarWidth}" CornerRadius="3.5" Background="#3498DB" HorizontalAlignment="Left" />
+                          </Border>
+                          <TextBlock Grid.Column="2" Text="{Binding ValueText}" Style="{StaticResource Dim}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                        </Grid>
+                        <DataTemplate.Triggers>
+                          <DataTrigger Binding="{Binding IsWeak}" Value="True">
+                            <Setter TargetName="Fill" Property="Background" Value="#E74C3C" />
+                          </DataTrigger>
+                        </DataTemplate.Triggers>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <ItemsControl ItemsSource="{Binding Groups}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate DataType="{x:Type vm:DeckGroupVm}">
+                        <StackPanel>
+                          <TextBlock Text="{Binding Title}" Style="{StaticResource Heading}" />
+                          <ItemsControl ItemsSource="{Binding Cards}">
+                            <ItemsControl.ItemTemplate>
+                              <DataTemplate DataType="{x:Type vm:DeckCardVm}">
+                                <Grid Margin="0,1,0,1">
+                                  <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                  </Grid.ColumnDefinitions>
+                                  <Border Width="22" Height="22" Style="{StaticResource TierTile}" Margin="0,0,8,0"
+                                          Background="{Binding TierText, Converter={StaticResource TierBrush}}">
+                                    <TextBlock Text="{Binding TierText}" FontSize="12.5" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               Foreground="{Binding TierText, Converter={StaticResource TierBrush}, ConverterParameter=fg}" />
+                                  </Border>
+                                  <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center" />
+                                  <TextBlock Grid.Column="2" Text="{Binding UpgradeText}" Foreground="{StaticResource UpgradeFg}" FontSize="12" Margin="6,0,0,0" VerticalAlignment="Center" />
+                                  <TextBlock Grid.Column="3" Text="{Binding CountText}" FontWeight="Bold" Margin="8,0,2,0" VerticalAlignment="Center" />
+                                </Grid>
+                              </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                          </ItemsControl>
+                        </StackPanel>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </StackPanel>
+              </Border>
+
+              <!-- 빌드 -->
+              <Border Visibility="{Binding SelectedTab, Converter={StaticResource EnumMatch}, ConverterParameter=Build}">
+              <StackPanel DataContext="{Binding Build}">
+                <TextBlock Style="{StaticResource Empty}" Text="런 정보 없음 또는 이 캐릭터의 아키타입 데이터가 없습니다."
+                           Visibility="{Binding HasContent, Converter={StaticResource BoolVis}, ConverterParameter=!}" />
+                <StackPanel Visibility="{Binding HasContent, Converter={StaticResource BoolVis}}">
+                  <TextBlock Text="{Binding Summary}" FontSize="14" FontWeight="Bold" TextWrapping="Wrap" Margin="0,0,0,6" />
+                  <ItemsControl ItemsSource="{Binding Archetypes}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate DataType="{x:Type vm:ArchetypeVm}">
+                        <Border x:Name="Bd" Margin="0,0,0,6" Padding="9,7" CornerRadius="7" Background="{StaticResource RowBg}" BorderThickness="1.5" BorderBrush="Transparent">
+                          <StackPanel>
+                            <DockPanel>
+                              <TextBlock DockPanel.Dock="Right" Text="{Binding StageText}" Foreground="#F39C12" FontSize="13" VerticalAlignment="Center" />
+                              <Ellipse Width="10" Height="10" Fill="{Binding Color}" Margin="0,0,7,0" VerticalAlignment="Center" />
+                              <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="Bold" VerticalAlignment="Center" />
+                              <Border Background="#33F1C40F" BorderBrush="{StaticResource Gold}" BorderThickness="1" CornerRadius="4" Padding="4,0,4,1" Margin="7,0,0,0" VerticalAlignment="Center"
+                                      HorizontalAlignment="Left" Visibility="{Binding IsPrimary, Converter={StaticResource BoolVis}}">
+                                <TextBlock Text="현재 방향" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Gold}" />
+                              </Border>
+                            </DockPanel>
+                            <TextBlock Text="{Binding CommitText}" Style="{StaticResource Dim}" Margin="0,3,0,3" />
+                            <Border Height="7" CornerRadius="3.5" Background="#30FFFFFF" Width="356" HorizontalAlignment="Left">
+                              <Border Width="{Binding CompletionBarWidth}" CornerRadius="3.5" Background="{Binding Color}" HorizontalAlignment="Left" />
+                            </Border>
+                            <TextBlock Text="{Binding ProbabilityText}" FontSize="12" Margin="0,5,0,0" TextWrapping="Wrap"
+                                       Visibility="{Binding ProbabilityText, Converter={StaticResource BoolVis}}" />
+                            <TextBlock Text="{Binding MissingText}" Style="{StaticResource Dim}" Margin="0,3,0,0"
+                                       Visibility="{Binding MissingText, Converter={StaticResource BoolVis}}" />
+                            <TextBlock Text="{Binding NeedsText}" Style="{StaticResource Dim}" Margin="0,2,0,0"
+                                       Visibility="{Binding NeedsText, Converter={StaticResource BoolVis}}" />
+                          </StackPanel>
+                        </Border>
+                        <DataTemplate.Triggers>
+                          <DataTrigger Binding="{Binding IsPrimary}" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="#66F1C40F" />
+                          </DataTrigger>
+                        </DataTemplate.Triggers>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </StackPanel>
+              </Border>
+
+              <!-- 경로 -->
+              <Border Visibility="{Binding SelectedTab, Converter={StaticResource EnumMatch}, ConverterParameter=Path}">
+              <StackPanel DataContext="{Binding Path}">
+                <TextBlock Style="{StaticResource Empty}" Text="경로 추천 준비 중&#x0a;지도 정보가 연결되면 표시됩니다."
+                           Visibility="{Binding HasContent, Converter={StaticResource BoolVis}, ConverterParameter=!}" />
+                <StackPanel Visibility="{Binding HasContent, Converter={StaticResource BoolVis}}">
+                  <TextBlock Text="{Binding NextStep}" FontSize="14" FontWeight="Bold" Margin="0,0,0,6" TextWrapping="Wrap"
+                             Visibility="{Binding NextStep, Converter={StaticResource BoolVis}}" />
+                  <ItemsControl ItemsSource="{Binding Options}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate DataType="{x:Type vm:PathOptionVm}">
+                        <Border x:Name="Bd" Margin="0,0,0,6" Padding="9,7" CornerRadius="7" Background="{StaticResource RowBg}" BorderThickness="1.5" BorderBrush="Transparent">
+                          <StackPanel>
+                            <DockPanel>
+                              <TextBlock DockPanel.Dock="Right" Text="{Binding ScoreText}" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" />
+                              <Border Background="#3A4A66" CornerRadius="4" Padding="6,0,6,1" VerticalAlignment="Center" HorizontalAlignment="Left">
+                                <TextBlock Text="{Binding Label}" FontWeight="Bold" />
+                              </Border>
+                            </DockPanel>
+                            <TextBlock Text="{Binding Summary}" FontSize="12.5" TextWrapping="Wrap" Margin="0,4,0,0" />
+                            <ItemsControl ItemsSource="{Binding Chips}" ItemsPanel="{StaticResource WrapPanelTemplate}">
+                              <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                  <Border CornerRadius="8" Padding="6,1,6,2" Margin="0,4,4,0" Background="#33FFFFFF">
+                                    <TextBlock Text="{Binding}" FontSize="11" />
+                                  </Border>
+                                </DataTemplate>
+                              </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                          </StackPanel>
+                        </Border>
+                        <DataTemplate.Triggers>
+                          <DataTrigger Binding="{Binding IsRecommended}" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Gold}" />
+                          </DataTrigger>
+                        </DataTemplate.Triggers>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <TextBlock Text="{Binding Note}" Style="{StaticResource Dim}" Visibility="{Binding Note, Converter={StaticResource BoolVis}}" />
+                </StackPanel>
+              </StackPanel>
+              </Border>
+            </Grid>
+          </ScrollViewer>
+
+          <TextBlock Text="{Binding MessageText}" Style="{StaticResource Dim}" Foreground="#F5B041" Margin="12,2,12,2"
+                     Visibility="{Binding MessageText, Converter={StaticResource BoolVis}}" />
+          <Border Height="1" Background="#26FFFFFF" Margin="8,4,8,0" />
+          <StackPanel Margin="12,4,12,8">
+            <TextBlock Style="{StaticResource Dim}">
+              <Run Text="{Binding StatusText, Mode=OneWay}" /><Run Text=" · " /><Run Text="{Binding PackText, Mode=OneWay}" /><Run Text=" · " /><Run Text="{Binding UiScaleText, Mode=OneWay}" />
+            </TextBlock>
+            <TextBlock Style="{StaticResource Dim}" Text="Ctrl+F7 클릭 통과 · F8 숨기기 · F9 캡처 · F10 인식" Opacity="0.8" />
+          </StackPanel>
+        </StackPanel>
+      </StackPanel>
+    </Border>
+  </Grid>
+</Window>
