@@ -1,0 +1,80 @@
+using Sts2Overlay.Core.Model;
+
+namespace Sts2Overlay.Core.Data;
+
+/// <summary>
+/// The full curated data set the engine runs on: tiers, archetypes, combos, weights and (optionally) the local catalog.
+/// Build one with <see cref="DataPackLoader"/> or the object initializer (tests).
+/// </summary>
+public sealed class DataPack
+{
+    public const string Colorless = "COLORLESS";
+
+    public Weights Weights { get; init; } = new();
+
+    /// <summary>Tier packs keyed by <see cref="TierPack.Character"/>.</summary>
+    public IReadOnlyDictionary<string, TierPack> Tiers { get; init; } = new Dictionary<string, TierPack>(StringComparer.Ordinal);
+
+    public IReadOnlyList<Archetype> Archetypes { get; init; } = [];
+    public IReadOnlyList<Combo> Combos { get; init; } = [];
+    public CardCatalog? Catalog { get; init; }
+
+    /// <summary>Old id → current id (e.g. ids renamed by the game's RunHistoryV8ToV9 migration).</summary>
+    public IReadOnlyDictionary<string, string> IdAliases { get; init; } = new Dictionary<string, string>(StringComparer.Ordinal);
+
+    private Dictionary<string, CatalogCard>? _catalogIndex;
+
+    /// <summary>Resolves aliases.</summary>
+    public string Canonical(string cardId) => IdAliases.TryGetValue(cardId, out var to) ? to : cardId;
+
+    /// <summary>
+    /// Tier entry for a card: the character's pack first, then <see cref="Colorless"/>, then any other pack.
+    /// Returns null when the card is unrated.
+    /// </summary>
+    public CardTierEntry? FindTier(string character, string cardId)
+    {
+        var id = Canonical(cardId);
+        if (Tiers.TryGetValue(character, out var own) && own.Cards.TryGetValue(id, out var e)) return e;
+        if (Tiers.TryGetValue(Colorless, out var cl) && cl.Cards.TryGetValue(id, out e)) return e;
+        foreach (var pack in Tiers.Values)
+        {
+            if (pack.Cards.TryGetValue(id, out e)) return e;
+        }
+        return null;
+    }
+
+    public CatalogCard? FindCatalog(string cardId)
+    {
+        if (Catalog is null) return null;
+        _catalogIndex ??= Catalog.Cards.GroupBy(c => c.Id, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+        return _catalogIndex.TryGetValue(Canonical(cardId), out var c) ? c : null;
+    }
+
+    /// <summary>Card type from the catalog, else the tier entry, else a heuristic on the id. Null when unknown.</summary>
+    public string? CardType(string character, string cardId)
+    {
+        var t = FindCatalog(cardId)?.Type ?? FindTier(character, cardId)?.Type;
+        if (t is not null) return t.ToLowerInvariant();
+        return CardIdHeuristics.IsBasicStrike(cardId) ? CardTypes.Attack
+            : CardIdHeuristics.IsBasicDefend(cardId) ? CardTypes.Skill
+            : null;
+    }
+
+    /// <summary>Card rarity from the catalog, else the tier entry. Null when unknown.</summary>
+    public string? CardRarity(string character, string cardId)
+        => (FindCatalog(cardId)?.Rarity ?? FindTier(character, cardId)?.Rarity)?.ToLowerInvariant();
+
+    public IEnumerable<Archetype> ArchetypesFor(string character)
+        => Archetypes.Where(a => string.Equals(a.Character, character, StringComparison.Ordinal));
+
+    public IEnumerable<Combo> CombosFor(string character)
+        => Combos.Where(c => c.Character is null || string.Equals(c.Character, character, StringComparison.Ordinal));
+}
+
+/// <summary>Id-based fallbacks used before a catalog exists.</summary>
+public static class CardIdHeuristics
+{
+    public static bool IsBasicStrike(string id) => id.StartsWith("CARD.STRIKE_", StringComparison.Ordinal);
+    public static bool IsBasicDefend(string id) => id.StartsWith("CARD.DEFEND_", StringComparison.Ordinal);
+    public static bool IsBasicStrikeOrDefend(string id) => IsBasicStrike(id) || IsBasicDefend(id);
+}
