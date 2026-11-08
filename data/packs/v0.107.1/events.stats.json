@@ -1,0 +1,1949 @@
+// 상위 플레이어(OP.GG 주간 상위 100) A10 솔로 바닐라 v0.107+ 런에서 잰 이벤트·고대 선택률 (초안)
+// events.<이벤트>.<페이지>: k = 기록된 선택지 수(중립 1/k), options.<선택지>.choiceRate = 그 페이지에 도달한 방문 중 고른 비율 (플레이어 균형, 1인 10% 상한)
+// pickRate = 고대에서 이 선택지가 제시됐을 때 고른 비율 (보통 3개 중 1개 → 중립 0.333)
+// 넣는 기준(점수에 연속값으로 섞으므로 방향이 안정해야 함): n≥30, eff_n≥20, 플레이어 200회 재표본에서 중립(1/k, 고대는 1/3)보다 높음/낮음이 80% 이상 유지 (dirBoot). bandBoot = 등급 구간 유지율(참고). 나머지는 공식 그대로
+// 출처: opgg-top-a10-2026-11. 근거 표: README.md, 전체 수치: event_options.json / ancients.json
+{
+ "version": 1,
+ "source": "opgg-top-a10-2026-11",
+ "events": {
+  "ABYSSAL_BATHS": {
+   "INITIAL": {
+    "k": 2,
+    "options": {
+     "ABSTAIN": {
+      "choiceRate": 0.648,
+      "n": 254,
+      "players": 17,
+      "dirBoot": 0.95,
+      "bandBoot": 0.645,
+      "basis": "good"
+     },
+     "IMMERSE": {
+      "choiceRate": 0.351,
+      "n": 254,
+      "players": 17,
+      "dirBoot": 0.95,
+      "bandBoot": 0.645,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "AMALGAMATOR": {
+   "INITIAL": {
+    "k": 2,
+    "options": {
+     "COMBINE_DEFENDS": {
+      "choiceRate": 0.298,
+      "n": 206,
+      "players": 16,
+      "dirBoot": 1.0,
+      "bandBoot": 0.89,
+      "basis": "good"
+     },
+     "COMBINE_STRIKES": {
+      "choiceRate": 0.702,
+      "n": 206,
+      "players": 16,
+      "dirBoot": 1.0,
+      "bandBoot": 0.89,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "AROMA_OF_CHAOS": {
+   "INITIAL": {
+    "k": 2,
+    "options": {
+     "LET_GO": {
+      "choiceRate": 0.662,
+      "n": 214,
+      "players": 20,
+      "dirBoot": 0.945,
+      "bandBoot": 0.715,
+      "basis": "good"
+     },
+     "MAINTAIN_CONTROL": {
+      "choiceRate": 0.338,
+      "n": 214,
+      "players": 20,
+      "dirBoot": 0.945,
+      "bandBoot": 0.715,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "BATTLEWORN_DUMMY": {
+   "INITIAL": {
+    "k": 3,
+    "options": {
+     "SETTING_1": {
+      "choiceRate": 0.076,
+      "n": 277,
+      "players": 18,
+      "dirBoot": 1.0,
+      "bandBoot": 1.0,
+      "basis": "good"
+     },
+     "SETTING_2": {
+      "choiceRate": 0.611,
+      "n": 277,
+      "players": 18,
+      "dirBoot": 0.995,
+      "bandBoot": 0.555,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "BRAIN_LEECH": {
+   "INITIAL": {
+    "k": 2,
+    "options": {
+     "RIP": {
+      "choiceRate": 0.583,
+      "n": 678,
+      "players": 20,
+      "dirBoot": 0.87,
+      "bandBoot": 0.64,
+      "basis": "good",
+      "byAct": {
+       "2": 0.611
+      }
+     },
+     "SHARE_KNOWLEDGE": {
+      "choiceRate": 0.417,
+      "n": 678,
+      "players": 20,
+      "dirBoot": 0.87,
+      "bandBoot": 0.64,
+      "basis": "good",
+      "byAct": {
+       "2": 0.389
+      }
+     }
+    }
+   }
+  },
+  "BUGSLAYER": {
+   "INITIAL": {
+    "k": 2,
+    "options": {
+     "EXTERMINATION": {
+      "choiceRate": 0.562,
+      "n": 271,
+      "players": 18,
+      "dirBoot": 0.81,
+      "bandBoot": 0.745,
+      "basis": "good"
+     },
+     "SQUASH": {
+      "choiceRate": 0.438,
+      "n": 271,
+      "players": 18,
+      "dirBoot": 0.81,
+      "bandBoot": 0.745,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "BYRDONIS_NEST": {
+   "INITIAL": {
+    "k": 2,
+    "options": {
+     "EAT": {
+      "choiceRate": 0.717,
+      "n": 216,
+      "players": 18,
+      "dirBoot": 1.0,
+      "bandBoot": 0.935,
+      "basis": "good"
+     },
+     "TAKE": {
+      "choiceRate": 0.283,
+      "n": 216,
+      "players": 18,
+      "dirBoot": 1.0,
+      "bandBoot": 0.935,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "COLORFUL_PHILOSOPHERS": {
+   "INITIAL": {
+    "k": 5,
+    "options": {
+     "DEFECT": {
+      "choiceRate": 0.173,
+      "n": 293,
+      "players": 18,
+      "dirBoot": 0.82,
+      "bandBoot": 0.82,
+      "basis": "good"
+     },
+     "IRONCLAD": {
+      "choiceRate": 0.312,
+      "n": 293,
+      "players": 18,
+      "dirBoot": 1.0,
+      "bandBoot": 0.995,
+      "basis": "good"
+     },
+     "NECROBINDER": {
+      "choiceRate": 0.131,
+      "n": 293,
+      "players": 18,
+      "dirBoot": 0.985,
+      "bandBoot": 0.985,
+      "basis": "good"
+     },
+     "REGENT": {
+      "choiceRate": 0.127,
+      "n": 293,
+      "players": 18,
+      "dirBoot": 0.975,
+      "bandBoot": 0.975,
+      "basis": "good"
+     },
+     "SILENT": {
+      "choiceRate": 0.256,
+      "n": 293,
+      "players": 18,
+      "dirBoot": 0.99,
+      "bandBoot": 0.99,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "COLOSSAL_FLOWER": {
+   "INITIAL": {
+    "k": 2,
+    "options": {
+     "EXTRACT_CURRENT_PRIZE_1": {
+      "choiceRate": 0.349,
+      "n": 249,
+      "players": 19,
+      "dirBoot": 0.955,
+      "bandBoot": 0.7,
+      "basis": "good"
+     },
+     "REACH_DEEPER_1": {
+      "choiceRate": 0.65,
+      "n": 249,
+      "players": 19,
+      "dirBoot": 0.955,
+      "bandBoot": 0.7,
+      "basis": "good"
+     }
+    }
+   },
+   "REACH_DEEPER_1": {
+    "k": 2,
+    "options": {
+     "EXTRACT_CURRENT_PRIZE_2": {
+      "choiceRate": 0.028,
+      "n": 156,
+      "players": 16,
+      "dirBoot": 1.0,
+      "bandBoot": 1.0,
+      "basis": "good"
+     },
+     "REACH_DEEPER_2": {
+      "choiceRate": 0.972,
+      "n": 156,
+      "players": 16,
+      "dirBoot": 1.0,
+      "bandBoot": 1.0,
+      "basis": "good"
+     }
+    }
+   },
+   "REACH_DEEPER_2": {
+    "k": 2,
+    "options": {
+     "EXTRACT_INSTEAD": {
+      "choiceRate": 0.344,
+      "n": 153,
+      "players": 16,
+      "dirBoot": 0.94,
+      "bandBoot": 0.655,
+      "basis": "good"
+     },
+     "POLLINOUS_CORE": {
+      "choiceRate": 0.656,
+      "n": 153,
+      "players": 16,
+      "dirBoot": 0.94,
+      "bandBoot": 0.655,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "DENSE_VEGETATION": {
+   "INITIAL": {
+    "k": 2,
+    "options": {
+     "REST": {
+      "choiceRate": 0.433,
+      "n": 214,
+      "players": 19,
+      "dirBoot": 0.855,
+      "bandBoot": 0.75,
+      "basis": "good"
+     },
+     "TRUDGE_ON": {
+      "choiceRate": 0.567,
+      "n": 214,
+      "players": 19,
+      "dirBoot": 0.855,
+      "bandBoot": 0.75,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "DOLL_ROOM": {
+   "INITIAL": {
+    "k": 3,
+    "options": {
+     "EXAMINE": {
+      "choiceRate": 0.139,
+      "n": 260,
+      "players": 19,
+      "dirBoot": 1.0,
+      "bandBoot": 0.86,
+      "basis": "good"
+     },
+     "TAKE_SOME_TIME": {
+      "choiceRate": 0.521,
+      "n": 260,
+      "players": 19,
+      "dirBoot": 0.965,
+      "bandBoot": 0.7,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "DROWNING_BEACON": {
+   "INITIAL": {
+    "k": 2,
+    "options": {
+     "BOTTLE": {
+      "choiceRate": 0.386,
+      "n": 254,
+      "players": 17,
+      "dirBoot": 0.915,
+      "bandBoot": 0.49,
+      "basis": "good"
+     },
+     "CLIMB": {
+      "choiceRate": 0.614,
+      "n": 254,
+      "players": 17,
+      "dirBoot": 0.915,
+      "bandBoot": 0.49,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "FIELD_OF_MAN_SIZED_HOLES": {
+   "INITIAL": {
+    "k": 2,
+    "options": {
+     "ENTER_YOUR_HOLE": {
+      "choiceRate": 0.619,
+      "n": 273,
+      "players": 19,
+      "dirBoot": 0.94,
+      "bandBoot": 0.585,
+      "basis": "good"
+     },
+     "RESIST": {
+      "choiceRate": 0.381,
+      "n": 273,
+      "players": 19,
+      "dirBoot": 0.94,
+      "bandBoot": 0.585,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "GRAVE_OF_THE_FORGOTTEN": {
+   "INITIAL": {
+    "k": 2,
+    "options": {
+     "ACCEPT": {
+      "choiceRate": 0.432,
+      "n": 270,
+      "players": 19,
+      "dirBoot": 0.81,
+      "bandBoot": 0.71,
+      "basis": "good"
+     },
+     "CONFRONT": {
+      "choiceRate": 0.568,
+      "n": 270,
+      "players": 19,
+      "dirBoot": 0.81,
+      "bandBoot": 0.71,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "HUNGRY_FOR_MUSHROOMS": {
+   "INITIAL": {
+    "k": 2,
+    "options": {
+     "BIG_MUSHROOM": {
+      "choiceRate": 0.274,
+      "n": 315,
+      "players": 18,
+      "dirBoot": 1.0,
+      "bandBoot": 0.955,
+      "basis": "good"
+     },
+     "FRAGRANT_MUSHROOM": {
+      "choiceRate": 0.726,
+      "n": 315,
+      "players": 18,
+      "dirBoot": 1.0,
+      "bandBoot": 0.955,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "INFESTED_AUTOMATON": {
+   "INITIAL": {
+    "k": 2,
+    "options": {
+     "STUDY": {
+      "choiceRate": 0.609,
+      "n": 259,
+      "players": 19,
+      "dirBoot": 0.965,
+      "bandBoot": 0.57,
+      "basis": "good"
+     },
+     "TOUCH_CORE": {
+      "choiceRate": 0.391,
+      "n": 259,
+      "players": 19,
+      "dirBoot": 0.965,
+      "bandBoot": 0.57,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "JUNGLE_MAZE_ADVENTURE": {
+   "INITIAL": {
+    "k": 2,
+    "options": {
+     "JOIN_FORCES": {
+      "choiceRate": 0.678,
+      "n": 226,
+      "players": 19,
+      "dirBoot": 0.995,
+      "bandBoot": 0.81,
+      "basis": "good"
+     },
+     "SOLO_QUEST": {
+      "choiceRate": 0.322,
+      "n": 226,
+      "players": 19,
+      "dirBoot": 0.995,
+      "bandBoot": 0.81,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "LOST_WISP": {
+   "INITIAL": {
+    "k": 2,
+    "options": {
+     "CLAIM": {
+      "choiceRate": 0.316,
+      "n": 267,
+      "players": 18,
+      "dirBoot": 0.985,
+      "bandBoot": 0.77,
+      "basis": "good"
+     },
+     "SEARCH": {
+      "choiceRate": 0.684,
+      "n": 267,
+      "players": 18,
+      "dirBoot": 0.985,
+      "bandBoot": 0.77,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "PUNCH_OFF": {
+   "INITIAL": {
+    "k": 2,
+    "options": {
+     "I_CAN_TAKE_THEM": {
+      "choiceRate": 0.715,
+      "n": 89,
+      "players": 15,
+      "dirBoot": 1.0,
+      "bandBoot": 0.95,
+      "basis": "good"
+     },
+     "NAB": {
+      "choiceRate": 0.285,
+      "n": 89,
+      "players": 15,
+      "dirBoot": 1.0,
+      "bandBoot": 0.95,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "RANWID_THE_ELDER": {
+   "INITIAL": {
+    "k": 3,
+    "options": {
+     "GOLD": {
+      "choiceRate": 0.221,
+      "n": 348,
+      "players": 17,
+      "dirBoot": 1.0,
+      "bandBoot": 0.685,
+      "basis": "good",
+      "byAct": {
+       "2": 0.168
+      }
+     },
+     "RELIC": {
+      "choiceRate": 0.422,
+      "n": 348,
+      "players": 17,
+      "dirBoot": 0.995,
+      "bandBoot": 0.74,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "REFLECTIONS": {
+   "INITIAL": {
+    "k": 2,
+    "options": {
+     "SHATTER": {
+      "choiceRate": 0.274,
+      "n": 269,
+      "players": 18,
+      "dirBoot": 1.0,
+      "bandBoot": 0.815,
+      "basis": "good"
+     },
+     "TOUCH_A_MIRROR": {
+      "choiceRate": 0.726,
+      "n": 269,
+      "players": 18,
+      "dirBoot": 1.0,
+      "bandBoot": 0.815,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "ROOM_FULL_OF_CHEESE": {
+   "INITIAL": {
+    "k": 2,
+    "options": {
+     "GORGE": {
+      "choiceRate": 0.57,
+      "n": 752,
+      "players": 22,
+      "dirBoot": 0.81,
+      "bandBoot": 0.63,
+      "basis": "good"
+     },
+     "SEARCH": {
+      "choiceRate": 0.43,
+      "n": 752,
+      "players": 22,
+      "dirBoot": 0.81,
+      "bandBoot": 0.63,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "ROUND_TEA_PARTY": {
+   "INITIAL": {
+    "k": 2,
+    "options": {
+     "ENJOY_TEA": {
+      "choiceRate": 0.138,
+      "n": 317,
+      "players": 20,
+      "dirBoot": 1.0,
+      "bandBoot": 0.89,
+      "basis": "good"
+     },
+     "PICK_FIGHT": {
+      "choiceRate": 0.862,
+      "n": 317,
+      "players": 20,
+      "dirBoot": 1.0,
+      "bandBoot": 0.89,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "SAPPHIRE_SEED": {
+   "INITIAL": {
+    "k": 2,
+    "options": {
+     "EAT": {
+      "choiceRate": 0.435,
+      "n": 232,
+      "players": 21,
+      "dirBoot": 0.8,
+      "bandBoot": 0.555,
+      "basis": "good"
+     },
+     "PLANT": {
+      "choiceRate": 0.565,
+      "n": 232,
+      "players": 21,
+      "dirBoot": 0.8,
+      "bandBoot": 0.555,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "SELF_HELP_BOOK": {
+   "INITIAL": {
+    "k": 3,
+    "options": {
+     "READ_ENTIRE_BOOK": {
+      "choiceRate": 0.454,
+      "n": 927,
+      "players": 20,
+      "dirBoot": 1.0,
+      "bandBoot": 0.955,
+      "basis": "good",
+      "byAct": {
+       "1": 0.286,
+       "3": 0.749
+      }
+     },
+     "READ_PASSAGE": {
+      "choiceRate": 0.191,
+      "n": 927,
+      "players": 20,
+      "dirBoot": 1.0,
+      "bandBoot": 0.645,
+      "basis": "good",
+      "byAct": {
+       "1": 0.253
+      }
+     }
+    }
+   }
+  },
+  "SPIRALING_WHIRLPOOL": {
+   "INITIAL": {
+    "k": 2,
+    "options": {
+     "DRINK": {
+      "choiceRate": 0.363,
+      "n": 259,
+      "players": 16,
+      "dirBoot": 0.885,
+      "bandBoot": 0.595,
+      "basis": "good"
+     },
+     "OBSERVE": {
+      "choiceRate": 0.637,
+      "n": 259,
+      "players": 16,
+      "dirBoot": 0.885,
+      "bandBoot": 0.595,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "SPIRIT_GRAFTER": {
+   "INITIAL": {
+    "k": 2,
+    "options": {
+     "LET_IT_IN": {
+      "choiceRate": 0.345,
+      "n": 247,
+      "players": 16,
+      "dirBoot": 0.96,
+      "bandBoot": 0.715,
+      "basis": "good"
+     },
+     "REJECTION": {
+      "choiceRate": 0.655,
+      "n": 247,
+      "players": 16,
+      "dirBoot": 0.96,
+      "bandBoot": 0.715,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "STONE_OF_ALL_TIME": {
+   "INITIAL": {
+    "k": 2,
+    "options": {
+     "LIFT": {
+      "choiceRate": 0.594,
+      "n": 215,
+      "players": 16,
+      "dirBoot": 0.99,
+      "bandBoot": 0.53,
+      "basis": "good"
+     },
+     "PUSH": {
+      "choiceRate": 0.406,
+      "n": 215,
+      "players": 16,
+      "dirBoot": 0.99,
+      "bandBoot": 0.53,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "SUNKEN_STATUE": {
+   "INITIAL": {
+    "k": 2,
+    "options": {
+     "DIVE_INTO_WATER": {
+      "choiceRate": 0.359,
+      "n": 441,
+      "players": 19,
+      "dirBoot": 0.985,
+      "bandBoot": 0.72,
+      "basis": "good"
+     },
+     "GRAB_SWORD": {
+      "choiceRate": 0.641,
+      "n": 441,
+      "players": 19,
+      "dirBoot": 0.985,
+      "bandBoot": 0.72,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "SUNKEN_TREASURY": {
+   "INITIAL": {
+    "k": 2,
+    "options": {
+     "FIRST_CHEST": {
+      "choiceRate": 0.618,
+      "n": 252,
+      "players": 18,
+      "dirBoot": 0.92,
+      "bandBoot": 0.585,
+      "basis": "good"
+     },
+     "SECOND_CHEST": {
+      "choiceRate": 0.383,
+      "n": 252,
+      "players": 18,
+      "dirBoot": 0.92,
+      "bandBoot": 0.585,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "SYMBIOTE": {
+   "INITIAL": {
+    "k": 2,
+    "options": {
+     "APPROACH": {
+      "choiceRate": 0.319,
+      "n": 520,
+      "players": 20,
+      "dirBoot": 1.0,
+      "bandBoot": 0.985,
+      "basis": "good"
+     },
+     "KILL_WITH_FIRE": {
+      "choiceRate": 0.681,
+      "n": 520,
+      "players": 20,
+      "dirBoot": 1.0,
+      "bandBoot": 0.985,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "TABLET_OF_TRUTH": {
+   "INITIAL": {
+    "k": 2,
+    "options": {
+     "DECIPHER_1": {
+      "choiceRate": 0.318,
+      "n": 231,
+      "players": 15,
+      "dirBoot": 0.975,
+      "bandBoot": 0.685,
+      "basis": "good"
+     },
+     "SMASH": {
+      "choiceRate": 0.682,
+      "n": 231,
+      "players": 15,
+      "dirBoot": 0.975,
+      "bandBoot": 0.685,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "THE_LANTERN_KEY": {
+   "INITIAL": {
+    "k": 2,
+    "options": {
+     "KEEP_THE_KEY": {
+      "choiceRate": 0.422,
+      "n": 282,
+      "players": 19,
+      "dirBoot": 0.84,
+      "bandBoot": 0.565,
+      "basis": "good"
+     },
+     "RETURN_THE_KEY": {
+      "choiceRate": 0.578,
+      "n": 282,
+      "players": 19,
+      "dirBoot": 0.84,
+      "bandBoot": 0.565,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "THE_LEGENDS_WERE_TRUE": {
+   "INITIAL": {
+    "k": 2,
+    "options": {
+     "NAB_THE_MAP": {
+      "choiceRate": 0.89,
+      "n": 431,
+      "players": 19,
+      "dirBoot": 1.0,
+      "bandBoot": 0.985,
+      "basis": "good"
+     },
+     "SLOWLY_FIND_AN_EXIT": {
+      "choiceRate": 0.11,
+      "n": 431,
+      "players": 19,
+      "dirBoot": 1.0,
+      "bandBoot": 0.985,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "THIS_OR_THAT": {
+   "INITIAL": {
+    "k": 2,
+    "options": {
+     "ORNATE": {
+      "choiceRate": 0.685,
+      "n": 950,
+      "players": 20,
+      "dirBoot": 0.99,
+      "bandBoot": 0.73,
+      "basis": "good"
+     },
+     "PLAIN": {
+      "choiceRate": 0.315,
+      "n": 950,
+      "players": 20,
+      "dirBoot": 0.99,
+      "bandBoot": 0.73,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "TINKER_TIME": {
+   "CHOOSE_CARD_TYPE": {
+    "k": 3,
+    "options": {
+     "ATTACK": {
+      "choiceRate": 0.152,
+      "n": 314,
+      "players": 17,
+      "dirBoot": 1.0,
+      "bandBoot": 0.91,
+      "basis": "good"
+     },
+     "POWER": {
+      "choiceRate": 0.397,
+      "n": 314,
+      "players": 17,
+      "dirBoot": 0.97,
+      "bandBoot": 0.575,
+      "basis": "good"
+     },
+     "SKILL": {
+      "choiceRate": 0.451,
+      "n": 314,
+      "players": 17,
+      "dirBoot": 1.0,
+      "bandBoot": 0.94,
+      "basis": "good"
+     }
+    }
+   },
+   "CHOOSE_RIDER": {
+    "k": 9,
+    "options": {
+     "CHOKING": {
+      "choiceRate": 0.024,
+      "n": 314,
+      "players": 17,
+      "dirBoot": 1.0,
+      "bandBoot": 1.0,
+      "basis": "good"
+     },
+     "CURIOUS": {
+      "choiceRate": 0.155,
+      "n": 314,
+      "players": 17,
+      "dirBoot": 0.855,
+      "bandBoot": 0.875,
+      "basis": "good"
+     },
+     "ENERGIZED": {
+      "choiceRate": 0.176,
+      "n": 314,
+      "players": 17,
+      "dirBoot": 0.99,
+      "bandBoot": 0.81,
+      "basis": "good"
+     },
+     "EXPERTISE": {
+      "choiceRate": 0.189,
+      "n": 314,
+      "players": 17,
+      "dirBoot": 0.995,
+      "bandBoot": 0.62,
+      "basis": "good"
+     },
+     "IMPROVEMENT": {
+      "choiceRate": 0.053,
+      "n": 314,
+      "players": 17,
+      "dirBoot": 1.0,
+      "bandBoot": 1.0,
+      "basis": "good"
+     },
+     "SAPPING": {
+      "choiceRate": 0.059,
+      "n": 314,
+      "players": 17,
+      "dirBoot": 0.965,
+      "bandBoot": 1.0,
+      "basis": "good"
+     },
+     "VIOLENCE": {
+      "choiceRate": 0.069,
+      "n": 314,
+      "players": 17,
+      "dirBoot": 0.945,
+      "bandBoot": 1.0,
+      "basis": "good"
+     },
+     "WISDOM": {
+      "choiceRate": 0.184,
+      "n": 314,
+      "players": 17,
+      "dirBoot": 0.975,
+      "bandBoot": 0.665,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "TRASH_HEAP": {
+   "INITIAL": {
+    "k": 2,
+    "options": {
+     "DIVE_IN": {
+      "choiceRate": 0.608,
+      "n": 239,
+      "players": 17,
+      "dirBoot": 0.96,
+      "bandBoot": 0.61,
+      "basis": "good"
+     },
+     "GRAB": {
+      "choiceRate": 0.392,
+      "n": 239,
+      "players": 17,
+      "dirBoot": 0.965,
+      "bandBoot": 0.61,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "TRIAL": {
+   "INITIAL": {
+    "k": 2,
+    "options": {
+     "ACCEPT": {
+      "choiceRate": 0.974,
+      "n": 269,
+      "players": 18,
+      "dirBoot": 1.0,
+      "bandBoot": 1.0,
+      "basis": "good"
+     },
+     "REJECT": {
+      "choiceRate": 0.026,
+      "n": 269,
+      "players": 18,
+      "dirBoot": 1.0,
+      "bandBoot": 1.0,
+      "basis": "good"
+     }
+    }
+   },
+   "MERCHANT": {
+    "k": 2,
+    "options": {
+     "GUILTY": {
+      "choiceRate": 0.62,
+      "n": 92,
+      "players": 13,
+      "dirBoot": 0.925,
+      "bandBoot": 0.585,
+      "basis": "good"
+     },
+     "INNOCENT": {
+      "choiceRate": 0.381,
+      "n": 92,
+      "players": 13,
+      "dirBoot": 0.94,
+      "bandBoot": 0.565,
+      "basis": "good"
+     }
+    }
+   },
+   "NOBLE": {
+    "k": 2,
+    "options": {
+     "GUILTY": {
+      "choiceRate": 0.748,
+      "n": 88,
+      "players": 14,
+      "dirBoot": 1.0,
+      "bandBoot": 0.735,
+      "basis": "good"
+     },
+     "INNOCENT": {
+      "choiceRate": 0.253,
+      "n": 88,
+      "players": 14,
+      "dirBoot": 1.0,
+      "bandBoot": 0.735,
+      "basis": "good"
+     }
+    }
+   },
+   "NONDESCRIPT": {
+    "k": 2,
+    "options": {
+     "GUILTY": {
+      "choiceRate": 0.282,
+      "n": 89,
+      "players": 16,
+      "dirBoot": 0.99,
+      "bandBoot": 0.75,
+      "basis": "good"
+     },
+     "INNOCENT": {
+      "choiceRate": 0.718,
+      "n": 89,
+      "players": 16,
+      "dirBoot": 0.99,
+      "bandBoot": 0.75,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "UNREST_SITE": {
+   "INITIAL": {
+    "k": 2,
+    "options": {
+     "KILL": {
+      "choiceRate": 0.721,
+      "n": 122,
+      "players": 14,
+      "dirBoot": 1.0,
+      "bandBoot": 0.795,
+      "basis": "good"
+     },
+     "REST": {
+      "choiceRate": 0.279,
+      "n": 122,
+      "players": 14,
+      "dirBoot": 1.0,
+      "bandBoot": 0.795,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "WAR_HISTORIAN_REPY": {
+   "INITIAL": {
+    "k": 2,
+    "options": {
+     "UNLOCK_CAGE": {
+      "choiceRate": 0.934,
+      "n": 94,
+      "players": 16,
+      "dirBoot": 1.0,
+      "bandBoot": 0.99,
+      "basis": "good"
+     },
+     "UNLOCK_CHEST": {
+      "choiceRate": 0.081,
+      "n": 94,
+      "players": 16,
+      "dirBoot": 1.0,
+      "bandBoot": 0.96,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "WATERLOGGED_SCRIPTORIUM": {
+   "INITIAL": {
+    "k": 3,
+    "options": {
+     "PRICKLY_SPONGE": {
+      "choiceRate": 0.551,
+      "n": 176,
+      "players": 16,
+      "dirBoot": 0.99,
+      "bandBoot": 0.69,
+      "basis": "good"
+     },
+     "TENTACLE_QUILL": {
+      "choiceRate": 0.158,
+      "n": 176,
+      "players": 16,
+      "dirBoot": 1.0,
+      "bandBoot": 0.885,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "WELCOME_TO_WONGOS": {
+   "INITIAL": {
+    "k": 4,
+    "options": {
+     "BARGAIN_BIN": {
+      "choiceRate": 0.528,
+      "n": 194,
+      "players": 18,
+      "dirBoot": 1.0,
+      "bandBoot": 0.835,
+      "basis": "good"
+     },
+     "LEAVE": {
+      "choiceRate": 0.0,
+      "n": 194,
+      "players": 18,
+      "dirBoot": 1.0,
+      "bandBoot": 1.0,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "WELLSPRING": {
+   "INITIAL": {
+    "k": 2,
+    "options": {
+     "BATHE": {
+      "choiceRate": 0.946,
+      "n": 216,
+      "players": 17,
+      "dirBoot": 1.0,
+      "bandBoot": 0.995,
+      "basis": "good"
+     },
+     "BOTTLE": {
+      "choiceRate": 0.054,
+      "n": 216,
+      "players": 17,
+      "dirBoot": 1.0,
+      "bandBoot": 0.995,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "WHISPERING_HOLLOW": {
+   "INITIAL": {
+    "k": 2,
+    "options": {
+     "GOLD": {
+      "choiceRate": 0.129,
+      "n": 181,
+      "players": 16,
+      "dirBoot": 1.0,
+      "bandBoot": 0.95,
+      "basis": "good"
+     },
+     "HUG": {
+      "choiceRate": 0.871,
+      "n": 181,
+      "players": 16,
+      "dirBoot": 1.0,
+      "bandBoot": 0.95,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "WOOD_CARVINGS": {
+   "INITIAL": {
+    "k": 3,
+    "options": {
+     "BIRD": {
+      "choiceRate": 0.437,
+      "n": 198,
+      "players": 19,
+      "dirBoot": 0.905,
+      "bandBoot": 0.66,
+      "basis": "good"
+     },
+     "TORUS": {
+      "choiceRate": 0.247,
+      "n": 198,
+      "players": 19,
+      "dirBoot": 0.85,
+      "bandBoot": 0.68,
+      "basis": "good"
+     }
+    }
+   }
+  },
+  "ZEN_WEAVER": {
+   "INITIAL": {
+    "k": 3,
+    "options": {
+     "ARACHNID_ACUPUNCTURE": {
+      "choiceRate": 0.481,
+      "n": 187,
+      "players": 19,
+      "dirBoot": 0.995,
+      "bandBoot": 0.8,
+      "basis": "good"
+     },
+     "BREATHING_TECHNIQUES": {
+      "choiceRate": 0.075,
+      "n": 187,
+      "players": 19,
+      "dirBoot": 1.0,
+      "bandBoot": 1.0,
+      "basis": "good"
+     },
+     "EMOTIONAL_AWARENESS": {
+      "choiceRate": 0.444,
+      "n": 187,
+      "players": 19,
+      "dirBoot": 0.935,
+      "bandBoot": 0.76,
+      "basis": "good"
+     }
+    }
+   }
+  }
+ },
+ "ancients": {
+  "DARV": {
+   "ASTROLABE": {
+    "pickRate": 0.483,
+    "offered": 143,
+    "players": 17,
+    "dirBoot": 1.0,
+    "bandBoot": 0.89,
+    "basis": "good"
+   },
+   "ECTOPLASM": {
+    "pickRate": 0.089,
+    "offered": 78,
+    "players": 15,
+    "dirBoot": 1.0,
+    "bandBoot": 0.98,
+    "basis": "good"
+   },
+   "PANDORAS_BOX": {
+    "pickRate": 0.512,
+    "offered": 137,
+    "players": 19,
+    "dirBoot": 1.0,
+    "bandBoot": 0.885,
+    "basis": "good"
+   },
+   "PHILOSOPHERS_STONE": {
+    "pickRate": 0.257,
+    "offered": 62,
+    "players": 14,
+    "dirBoot": 0.835,
+    "bandBoot": 0.715,
+    "basis": "good"
+   },
+   "RUNIC_PYRAMID": {
+    "pickRate": 0.573,
+    "offered": 140,
+    "players": 15,
+    "dirBoot": 0.995,
+    "bandBoot": 0.61,
+    "basis": "good"
+   },
+   "SNECKO_EYE": {
+    "pickRate": 0.14,
+    "offered": 130,
+    "players": 16,
+    "dirBoot": 1.0,
+    "bandBoot": 0.985,
+    "basis": "good"
+   },
+   "SOZU": {
+    "pickRate": 0.213,
+    "offered": 67,
+    "players": 16,
+    "dirBoot": 0.955,
+    "bandBoot": 0.555,
+    "basis": "good"
+   },
+   "VELVET_CHOKER": {
+    "pickRate": 0.128,
+    "offered": 76,
+    "players": 12,
+    "dirBoot": 0.995,
+    "bandBoot": 0.915,
+    "basis": "good"
+   }
+  },
+  "NEOW": {
+   "ARCANE_SCROLL": {
+    "pickRate": 0.48,
+    "offered": 372,
+    "players": 19,
+    "dirBoot": 0.995,
+    "bandBoot": 0.875,
+    "basis": "good"
+   },
+   "BOOMING_CONCH": {
+    "pickRate": 0.257,
+    "offered": 439,
+    "players": 18,
+    "dirBoot": 0.855,
+    "bandBoot": 0.805,
+    "basis": "good"
+   },
+   "CURSED_PEARL": {
+    "pickRate": 0.53,
+    "offered": 382,
+    "players": 19,
+    "dirBoot": 0.975,
+    "bandBoot": 0.69,
+    "basis": "good"
+   },
+   "FISHING_ROD": {
+    "pickRate": 0.244,
+    "offered": 455,
+    "players": 20,
+    "dirBoot": 0.865,
+    "bandBoot": 0.765,
+    "basis": "good"
+   },
+   "GOLDEN_PEARL": {
+    "pickRate": 0.422,
+    "offered": 400,
+    "players": 20,
+    "dirBoot": 0.885,
+    "bandBoot": 0.56,
+    "basis": "good"
+   },
+   "KALEIDOSCOPE": {
+    "pickRate": 0.385,
+    "offered": 416,
+    "players": 19,
+    "dirBoot": 0.81,
+    "bandBoot": 0.685,
+    "basis": "good"
+   },
+   "LAVA_ROCK": {
+    "pickRate": 0.137,
+    "offered": 217,
+    "players": 17,
+    "dirBoot": 1.0,
+    "bandBoot": 0.96,
+    "basis": "good"
+   },
+   "LEAD_PAPERWEIGHT": {
+    "pickRate": 0.487,
+    "offered": 437,
+    "players": 19,
+    "dirBoot": 1.0,
+    "bandBoot": 0.935,
+    "basis": "good"
+   },
+   "LEAFY_POULTICE": {
+    "pickRate": 0.552,
+    "offered": 348,
+    "players": 20,
+    "dirBoot": 0.985,
+    "bandBoot": 0.67,
+    "basis": "good"
+   },
+   "LOST_COFFER": {
+    "pickRate": 0.151,
+    "offered": 415,
+    "players": 20,
+    "dirBoot": 1.0,
+    "bandBoot": 0.98,
+    "basis": "good"
+   },
+   "NEOWS_SACRIFICE": {
+    "pickRate": 0.201,
+    "offered": 181,
+    "players": 10,
+    "dirBoot": 0.99,
+    "bandBoot": 0.455,
+    "basis": "good"
+   },
+   "NEOWS_TALISMAN": {
+    "pickRate": 0.174,
+    "offered": 217,
+    "players": 18,
+    "dirBoot": 0.99,
+    "bandBoot": 0.685,
+    "basis": "good"
+   },
+   "NEOWS_TORMENT": {
+    "pickRate": 0.137,
+    "offered": 425,
+    "players": 20,
+    "dirBoot": 1.0,
+    "bandBoot": 0.9,
+    "basis": "good"
+   },
+   "NEW_LEAF": {
+    "pickRate": 0.404,
+    "offered": 369,
+    "players": 20,
+    "dirBoot": 0.945,
+    "bandBoot": 0.555,
+    "basis": "good"
+   },
+   "NUTRITIOUS_OYSTER": {
+    "pickRate": 0.1,
+    "offered": 235,
+    "players": 18,
+    "dirBoot": 1.0,
+    "bandBoot": 0.99,
+    "basis": "good"
+   },
+   "PHIAL_HOLSTER": {
+    "pickRate": 0.129,
+    "offered": 429,
+    "players": 19,
+    "dirBoot": 1.0,
+    "bandBoot": 0.995,
+    "basis": "good"
+   },
+   "POMANDER": {
+    "pickRate": 0.237,
+    "offered": 230,
+    "players": 17,
+    "dirBoot": 0.92,
+    "bandBoot": 0.71,
+    "basis": "good"
+   },
+   "PRECISE_SCISSORS": {
+    "pickRate": 0.215,
+    "offered": 388,
+    "players": 19,
+    "dirBoot": 0.97,
+    "bandBoot": 0.615,
+    "basis": "good"
+   },
+   "SCROLL_BOXES": {
+    "pickRate": 0.222,
+    "offered": 457,
+    "players": 20,
+    "dirBoot": 1.0,
+    "bandBoot": 0.77,
+    "basis": "good"
+   },
+   "SILKEN_TRESS": {
+    "pickRate": 0.769,
+    "offered": 395,
+    "players": 18,
+    "dirBoot": 1.0,
+    "bandBoot": 0.74,
+    "basis": "good"
+   },
+   "SILVER_CRUCIBLE": {
+    "pickRate": 0.503,
+    "offered": 362,
+    "players": 18,
+    "dirBoot": 0.97,
+    "bandBoot": 0.77,
+    "basis": "good"
+   },
+   "SMALL_CAPSULE": {
+    "pickRate": 0.477,
+    "offered": 191,
+    "players": 17,
+    "dirBoot": 0.975,
+    "bandBoot": 0.83,
+    "basis": "good"
+   },
+   "STONE_HUMIDIFIER": {
+    "pickRate": 0.095,
+    "offered": 195,
+    "players": 16,
+    "dirBoot": 1.0,
+    "bandBoot": 1.0,
+    "basis": "good"
+   },
+   "WINGED_BOOTS": {
+    "pickRate": 0.229,
+    "offered": 393,
+    "players": 20,
+    "dirBoot": 0.96,
+    "bandBoot": 0.63,
+    "basis": "good"
+   }
+  },
+  "NONUPEIPE": {
+   "BEAUTIFUL_BRACELET": {
+    "pickRate": 0.237,
+    "offered": 216,
+    "players": 16,
+    "dirBoot": 1.0,
+    "bandBoot": 0.865,
+    "basis": "good"
+   },
+   "BLESSED_ANTLER": {
+    "pickRate": 0.234,
+    "offered": 220,
+    "players": 16,
+    "dirBoot": 0.93,
+    "bandBoot": 0.705,
+    "basis": "good"
+   },
+   "BRILLIANT_SCARF": {
+    "pickRate": 0.399,
+    "offered": 199,
+    "players": 18,
+    "dirBoot": 0.845,
+    "bandBoot": 0.5,
+    "basis": "good"
+   },
+   "DELICATE_FROND": {
+    "pickRate": 0.195,
+    "offered": 213,
+    "players": 16,
+    "dirBoot": 1.0,
+    "bandBoot": 0.535,
+    "basis": "good"
+   },
+   "DIAMOND_DIADEM": {
+    "pickRate": 0.425,
+    "offered": 202,
+    "players": 15,
+    "dirBoot": 0.885,
+    "bandBoot": 0.615,
+    "basis": "good"
+   },
+   "FUR_COAT": {
+    "pickRate": 0.172,
+    "offered": 213,
+    "players": 17,
+    "dirBoot": 0.99,
+    "bandBoot": 0.71,
+    "basis": "good"
+   },
+   "GLITTER": {
+    "pickRate": 0.476,
+    "offered": 207,
+    "players": 18,
+    "dirBoot": 0.965,
+    "bandBoot": 0.76,
+    "basis": "good"
+   },
+   "LOOMING_FRUIT": {
+    "pickRate": 0.276,
+    "offered": 187,
+    "players": 17,
+    "dirBoot": 0.91,
+    "bandBoot": 0.96,
+    "basis": "good"
+   },
+   "SIGNET_RING": {
+    "pickRate": 0.552,
+    "offered": 207,
+    "players": 19,
+    "dirBoot": 0.995,
+    "bandBoot": 0.7,
+    "basis": "good"
+   }
+  },
+  "OROBAS": {
+   "ARCHAIC_TOOTH": {
+    "pickRate": 0.499,
+    "offered": 375,
+    "players": 18,
+    "dirBoot": 1.0,
+    "bandBoot": 0.975,
+    "basis": "good"
+   },
+   "DRIFTWOOD": {
+    "pickRate": 0.103,
+    "offered": 223,
+    "players": 17,
+    "dirBoot": 1.0,
+    "bandBoot": 0.995,
+    "basis": "good"
+   },
+   "ELECTRIC_SHRYMP": {
+    "pickRate": 0.442,
+    "offered": 240,
+    "players": 17,
+    "dirBoot": 0.985,
+    "bandBoot": 0.8,
+    "basis": "good"
+   },
+   "GLASS_EYE": {
+    "pickRate": 0.249,
+    "offered": 226,
+    "players": 19,
+    "dirBoot": 0.995,
+    "bandBoot": 0.9,
+    "basis": "good"
+   },
+   "IRONCLAD": {
+    "pickRate": 0.534,
+    "offered": 33,
+    "players": 11,
+    "dirBoot": 0.96,
+    "bandBoot": 0.63,
+    "basis": "good"
+   },
+   "PRISMATIC_GEM": {
+    "pickRate": 0.63,
+    "offered": 64,
+    "players": 14,
+    "dirBoot": 1.0,
+    "bandBoot": 0.58,
+    "basis": "good"
+   },
+   "RADIANT_PEARL": {
+    "pickRate": 0.244,
+    "offered": 228,
+    "players": 18,
+    "dirBoot": 0.99,
+    "bandBoot": 0.8,
+    "basis": "good"
+   },
+   "REGENT": {
+    "pickRate": 0.098,
+    "offered": 34,
+    "players": 12,
+    "dirBoot": 1.0,
+    "bandBoot": 0.975,
+    "basis": "good"
+   },
+   "SILENT": {
+    "pickRate": 0.188,
+    "offered": 32,
+    "players": 14,
+    "dirBoot": 0.95,
+    "bandBoot": 0.61,
+    "basis": "all"
+   }
+  },
+  "PAEL": {
+   "PAELS_BLOOD": {
+    "pickRate": 0.452,
+    "offered": 269,
+    "players": 18,
+    "dirBoot": 0.95,
+    "bandBoot": 0.72,
+    "basis": "good"
+   },
+   "PAELS_CLAW": {
+    "pickRate": 0.245,
+    "offered": 188,
+    "players": 16,
+    "dirBoot": 0.97,
+    "bandBoot": 0.895,
+    "basis": "good"
+   },
+   "PAELS_EYE": {
+    "pickRate": 0.161,
+    "offered": 272,
+    "players": 19,
+    "dirBoot": 0.995,
+    "bandBoot": 0.845,
+    "basis": "good"
+   },
+   "PAELS_FLESH": {
+    "pickRate": 0.434,
+    "offered": 258,
+    "players": 19,
+    "dirBoot": 0.91,
+    "bandBoot": 0.63,
+    "basis": "good"
+   },
+   "PAELS_HORN": {
+    "pickRate": 0.267,
+    "offered": 271,
+    "players": 18,
+    "dirBoot": 0.985,
+    "bandBoot": 0.96,
+    "basis": "good"
+   },
+   "PAELS_TEARS": {
+    "pickRate": 0.463,
+    "offered": 259,
+    "players": 20,
+    "dirBoot": 0.96,
+    "bandBoot": 0.71,
+    "basis": "good"
+   },
+   "PAELS_TOOTH": {
+    "pickRate": 0.229,
+    "offered": 221,
+    "players": 18,
+    "dirBoot": 0.975,
+    "bandBoot": 0.705,
+    "basis": "good"
+   },
+   "PAELS_WING": {
+    "pickRate": 0.44,
+    "offered": 259,
+    "players": 18,
+    "dirBoot": 0.925,
+    "bandBoot": 0.655,
+    "basis": "good"
+   }
+  },
+  "TANX": {
+   "CLAWS": {
+    "pickRate": 0.186,
+    "offered": 203,
+    "players": 18,
+    "dirBoot": 1.0,
+    "bandBoot": 0.73,
+    "basis": "good"
+   },
+   "IRON_CLUB": {
+    "pickRate": 0.454,
+    "offered": 195,
+    "players": 16,
+    "dirBoot": 0.985,
+    "bandBoot": 0.85,
+    "basis": "good"
+   },
+   "SAI": {
+    "pickRate": 0.515,
+    "offered": 203,
+    "players": 16,
+    "dirBoot": 0.99,
+    "bandBoot": 0.89,
+    "basis": "good"
+   },
+   "SPIKED_GAUNTLETS": {
+    "pickRate": 0.174,
+    "offered": 217,
+    "players": 18,
+    "dirBoot": 1.0,
+    "bandBoot": 0.75,
+    "basis": "good"
+   },
+   "TANXS_WHISTLE": {
+    "pickRate": 0.158,
+    "offered": 192,
+    "players": 18,
+    "dirBoot": 1.0,
+    "bandBoot": 0.9,
+    "basis": "good"
+   },
+   "THROWING_AXE": {
+    "pickRate": 0.404,
+    "offered": 207,
+    "players": 16,
+    "dirBoot": 0.905,
+    "bandBoot": 0.61,
+    "basis": "good"
+   },
+   "TRI_BOOMERANG": {
+    "pickRate": 0.387,
+    "offered": 186,
+    "players": 17,
+    "dirBoot": 0.975,
+    "bandBoot": 0.61,
+    "basis": "good"
+   }
+  },
+  "TEZCATARA": {
+   "BIIIG_HUG": {
+    "pickRate": 0.166,
+    "offered": 254,
+    "players": 19,
+    "dirBoot": 1.0,
+    "bandBoot": 0.76,
+    "basis": "good"
+   },
+   "NUTRITIOUS_SOUP": {
+    "pickRate": 0.425,
+    "offered": 230,
+    "players": 18,
+    "dirBoot": 0.93,
+    "bandBoot": 0.63,
+    "basis": "good"
+   },
+   "SEAL_OF_GOLD": {
+    "pickRate": 0.232,
+    "offered": 188,
+    "players": 18,
+    "dirBoot": 0.87,
+    "bandBoot": 0.59,
+    "basis": "good"
+   },
+   "STORYBOOK": {
+    "pickRate": 0.228,
+    "offered": 267,
+    "players": 19,
+    "dirBoot": 0.975,
+    "bandBoot": 0.68,
+    "basis": "good"
+   },
+   "TOASTY_MITTENS": {
+    "pickRate": 0.246,
+    "offered": 251,
+    "players": 17,
+    "dirBoot": 0.945,
+    "bandBoot": 0.685,
+    "basis": "good"
+   },
+   "TOY_BOX": {
+    "pickRate": 0.129,
+    "offered": 180,
+    "players": 17,
+    "dirBoot": 1.0,
+    "bandBoot": 0.995,
+    "basis": "good"
+   },
+   "VERY_HOT_COCOA": {
+    "pickRate": 0.559,
+    "offered": 262,
+    "players": 17,
+    "dirBoot": 1.0,
+    "bandBoot": 0.78,
+    "basis": "good"
+   },
+   "YUMMY_COOKIE": {
+    "pickRate": 0.624,
+    "offered": 280,
+    "players": 20,
+    "dirBoot": 1.0,
+    "bandBoot": 0.7,
+    "basis": "good"
+   }
+  },
+  "VAKUU": {
+   "BLOOD_SOAKED_ROSE": {
+    "pickRate": 0.224,
+    "offered": 201,
+    "players": 17,
+    "dirBoot": 0.98,
+    "bandBoot": 0.67,
+    "basis": "good"
+   },
+   "CHOICES_PARADOX": {
+    "pickRate": 0.419,
+    "offered": 168,
+    "players": 16,
+    "dirBoot": 0.845,
+    "bandBoot": 0.57,
+    "basis": "good"
+   },
+   "FIDDLE": {
+    "pickRate": 0.231,
+    "offered": 234,
+    "players": 17,
+    "dirBoot": 0.995,
+    "bandBoot": 0.74,
+    "basis": "good"
+   },
+   "JEWELED_MASK": {
+    "pickRate": 0.65,
+    "offered": 170,
+    "players": 17,
+    "dirBoot": 1.0,
+    "bandBoot": 0.76,
+    "basis": "good"
+   },
+   "LORDS_PARASOL": {
+    "pickRate": 0.215,
+    "offered": 157,
+    "players": 17,
+    "dirBoot": 0.945,
+    "bandBoot": 0.545,
+    "basis": "good"
+   },
+   "MUSIC_BOX": {
+    "pickRate": 0.379,
+    "offered": 158,
+    "players": 18,
+    "dirBoot": 0.805,
+    "bandBoot": 0.55,
+    "basis": "good"
+   }
+  }
+ }
+}
