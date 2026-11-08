@@ -448,6 +448,15 @@ public sealed class RelicFitWeights
     public double MinMultiplier { get; set; } = 0.5;
     public double MaxMultiplier { get; set; } = 1.5;
 
+    /// <summary>
+    /// A measured lift L counts as L^FitExponent (0.5: 2.17 → 1.47, 0.43 → 0.66). Many builds × relics were tested at an 80%
+    /// stability bar, so some entries are noise; the data's own notes advise a mild multiplier. [추정]
+    /// </summary>
+    public double FitExponent { get; set; } = 0.5;
+
+    /// <summary>A core-held / no-core split rate is used only when it rests on at least this many decisions (same bar as nIn).</summary>
+    public int MinSplitDecisions { get; set; } = 30;
+
     /// <summary>Builds below this commit are ignored (same lean threshold as the core priority, 0.15).</summary>
     public double MinCommit { get; set; } = 0.15;
 }

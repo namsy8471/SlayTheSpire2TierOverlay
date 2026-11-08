@@ -10,7 +10,7 @@ namespace Sts2Overlay.Core.Scoring;
 /// <c>relics.json</c>); the same number every deck gets.</item>
 /// <item><b>fit</b> = base × (m − 1), where m is how much more (or less) top players took the relic in the builds this deck
 /// leans toward: for each build with commit c ≥ <see cref="RelicFitWeights.MinCommit"/>,
-/// r = rate in that build ÷ rate in the character's other runs (<c>relic-fit.json</c>; core-held / no-core rate when measured),
+/// r = (measured lift: <c>relic-fit.json</c> fitRatio, core-held / no-core adjusted when measured)^<see cref="RelicFitWeights.FitExponent"/>,
 /// else r = 1 + <see cref="RelicFitWeights.KeyRelicBonus"/> × w for the build's ranker-chosen key relics, else r = 1.
 /// m = clamp(1 + Σ c·(r − 1) / max(1, Σ c), min, max).</item>
 /// </list>
@@ -68,12 +68,12 @@ public sealed class RelicScorer(DataPack pack, Events.EventWeights? eventWeights
     /// <summary>r for one build: measured rate ratio, else the key-relic weight, else null (no evidence).</summary>
     private (double Ratio, string Detail)? Ratio(Archetypes.ArchetypeStatus s, string relicId)
     {
-        if (Pack.RelicFit?.Get(s.Archetype.Id, relicId) is { Use: true } stat && stat.PickRateOut > 0)
+        if (Pack.RelicFit?.Get(s.Archetype.Id, relicId) is { Use: true } stat
+            && stat.Lift(s.CoreSecured, W.MinSplitDecisions, out var split) is { } lift)
         {
-            var coreHeld = s.OwnedCore > 0;
-            var rate = stat.RateFor(coreHeld);
-            var ratio = Math.Clamp(rate / stat.PickRateOut, W.MinMultiplier, W.MaxMultiplier);
-            var situation = (coreHeld ? stat.PickRateCoreHeld : stat.PickRateNoCore) is null ? "" : coreHeld ? " (코어 보유 시)" : " (코어 없을 때)";
+            var ratio = Math.Clamp(Math.Pow(lift, W.FitExponent), W.MinMultiplier, W.MaxMultiplier);
+            var situation = !split ? "" : s.CoreSecured ? " (코어 보유 시)" : " (코어 없을 때)";
+            var rate = split ? (s.CoreSecured ? stat.PickRateCoreHeld : stat.PickRateNoCore) ?? stat.PickRateIn : stat.PickRateIn;
             return (ratio, $"랭커 선택률 {rate:P0}{situation} vs 다른 빌드 {stat.PickRateOut:P0}");
         }
         foreach (var k in s.Archetype.KeyRelics)

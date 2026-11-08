@@ -22,7 +22,7 @@ public class RelicScorerTests
     private static DeckProfile Profile(DataPack pack, params (string Id, double Commit, int Core)[] builds) => new()
     {
         Archetypes = builds.OrderByDescending(b => b.Commit)
-            .Select(b => new ArchetypeStatus { Archetype = pack.Archetypes.Single(a => a.Id == b.Id), Commit = b.Commit, OwnedCore = b.Core })
+            .Select(b => new ArchetypeStatus { Archetype = pack.Archetypes.Single(a => a.Id == b.Id), Commit = b.Commit, OwnedCore = b.Core, CoreTarget = 1 })
             .ToArray(),
     };
 
@@ -69,21 +69,49 @@ public class RelicScorerTests
     }
 
     [Fact]
-    public void MeasuredFit_UsesTheCoreHeldRate_AndOverridesTheKeyRelic()
+    public void MeasuredFit_UsesTheSquareRootOfTheFitRatio_AndOverridesTheKeyRelic()
     {
         var fit = DataPackLoader.LoadRelicFit("""
         { "archetypes": { "t.orb": {
-            "RELIC.T_ORB_RELIC": { "use": true, "pickRateIn": 0.50, "pickRateOut": 0.40, "pickRateCoreHeld": 0.60, "pickRateNoCore": 0.30 },
-            "RELIC.T_PLAIN":     { "use": true, "pickRateIn": 0.10, "pickRateOut": 0.50 } } } }
+            "RELIC.T_ORB_RELIC": { "use": true, "fitRatio": 1.96, "pickRateIn": 0.50, "pickRateOut": 0.40 },
+            "RELIC.T_PLAIN":     { "use": true, "fitRatio": 0.49, "pickRateIn": 0.10, "pickRateOut": 0.50 } } } }
         """);
         var pack = Pack(fit);
         var scorer = new RelicScorer(pack);
 
-        Assert.Equal(Rare * 1.5, scorer.Score(Profile(pack, (Orb, 1.0, 1)), OrbRelic, "rare", null).Total, 9);   // 0.60/0.40
-        Assert.Equal(Rare * 0.75, scorer.Score(Profile(pack, (Orb, 1.0, 0)), OrbRelic, "rare", null).Total, 9);  // 0.30/0.40
+        Assert.Equal(Rare * 1.4, scorer.Score(Profile(pack, (Orb, 1.0, 1)), OrbRelic, "rare", null).Total, 9);   // √1.96 (not the key relic's 1.5)
         var misfit = scorer.Score(Profile(pack, (Orb, 1.0, 1)), Plain, "rare", null);
-        Assert.Equal(Rare * 0.5, misfit.Total, 9);                                                              // 0.2 → clamp 0.5
+        Assert.Equal(Rare * 0.7, misfit.Total, 9);                                                              // √0.49
         Assert.Equal(ScoringLabels.RelicMisfit, misfit.Value.Components.Single(c => c.Key == ComponentKeys.RelicFit).Label);
+    }
+
+    [Fact]
+    public void MeasuredFit_WithoutFitRatio_UsesTheRateRatio_AndClamps()
+    {
+        var fit = DataPackLoader.LoadRelicFit("""
+        { "archetypes": { "t.orb": { "RELIC.T_PLAIN": { "use": true, "pickRateIn": 0.9, "pickRateOut": 0.1 } } } }
+        """);
+        var pack = Pack(fit);
+        Assert.Equal(Rare * 1.5, new RelicScorer(pack).Score(Profile(pack, (Orb, 1.0, 1)), Plain, "rare", null).Total, 9);  // √9 = 3 → 1.5
+    }
+
+    [Fact]
+    public void CoreSplit_IsUsedOnlyWithEnoughDecisions()
+    {
+        var fit = DataPackLoader.LoadRelicFit("""
+        { "archetypes": { "t.orb": {
+            "RELIC.T_ORB_RELIC": { "use": true, "fitRatio": 1.0, "pickRateIn": 0.4,
+                                   "pickRateCoreHeld": 0.64, "nCoreHeld": 30, "pickRateNoCore": 0.1, "nNoCore": 29 } } } }
+        """);
+        var pack = Pack(fit);
+        var scorer = new RelicScorer(pack);
+        var held = scorer.Score(Profile(pack, (Orb, 1.0, 1)), OrbRelic, "rare", null);
+        Assert.Equal(Rare * Math.Sqrt(1.6), held.Total, 9);                                                     // 1.0 × 0.64/0.4
+        Assert.Contains("코어 보유 시", held.Value.Components.Single(c => c.Key == ComponentKeys.RelicFit).Detail);
+        // No core yet: the no-core rate rests on 29 decisions (< 30) → plain fitRatio 1.0, no fit component.
+        var none = scorer.Score(Profile(pack, (Orb, 1.0, 0)), OrbRelic, "rare", null);
+        Assert.Equal(Rare, none.Total, 9);
+        Assert.Single(none.Value.Components);
     }
 
     [Fact]

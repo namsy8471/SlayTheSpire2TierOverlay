@@ -175,6 +175,8 @@ ID는 게임 모델 ID 그대로입니다. 게임이 ID를 바꾼 경우(예: `R
 | `events.measuredScale` | 숫자 ≥ 0 | 20 | 선택률이 무작위보다 1.0 높을 때의 점수. 지금 공식 값의 폭(변화 16~28, 유물 13~24)과 비슷하게 둠 | 이벤트 |
 | `relicFit.keyRelicBonus` | 숫자 ≥ 0 | 0.5 | `relic-fit.json` 항목이 없을 때, 빌드의 `keyRelics`(랭커 승리 덱 근거) 유물 가치를 `1 + 값 × w`배로 봄. 배율 자체는 [추정] | §10.1 |
 | `relicFit.minMultiplier` / `maxMultiplier` | 숫자 | 0.5 / 1.5 | 빌드 적합 배율의 범위 | §10.1 |
+| `relicFit.fitExponent` | 숫자 ≥ 0 | 0.5 | `relic-fit.json`의 배율 L을 L^값으로 완만하게 씀 [추정] | §10.1 |
+| `relicFit.minSplitDecisions` | 정수 | 30 | core 보유/미보유로 나눈 비율을 쓰는 최소 결정 수(`nIn` 기준과 같음) | §10.1 |
 | `relicFit.minCommit` | 0..1 | 0.15 | 이보다 낮은 commit의 빌드는 유물 적합도에 쓰지 않음(코어 우선의 `leanMin`과 같은 값) | §10.1 |
 | `events.*` (그 밖) | | `EventWeights` 기본값 | 이벤트 효과 점수(`goldValue`, `maxHpFactor`, `relicTier`, `cursePenalty` 등). 지금까지 코드 상수였고 이제 `weights.json`에서 덮어쓸 수 있음 [추정] | 이벤트 |
 
@@ -427,22 +429,26 @@ v0.107.1 캐릭터 풀 크기 (싱글플레이): 모든 캐릭터가 일반 20 /
 
 ```jsonc
 { "version": 1, "source": "opgg-top-a10-2026-11",
-  "archetypes": { "ironclad.strength": {
-    "RELIC.VAJRA": { "use": true, "pickRateIn": 0.62, "pickRateOut": 0.41, "pickRateCoreHeld": 0.70, "pickRateNoCore": 0.55 } } } }
+  "archetypes": { "silent.poison": {
+    "RELIC.SNECKO_SKULL": { "use": true, "fitRatio": 2.17, "pickRateIn": 0.72, "pickRateOut": 0.31, "nIn": 38,
+                            "pickRateCoreHeld": 0.8, "nCoreHeld": 30, "pickRateNoCore": 0.6, "nNoCore": 8 } } } }
 ```
 
 | 필드 | 타입 | 의미 |
 |---|---|---|
 | `archetypes.<빌드 id>.<RELIC.X>.use` | bool (필수) | `false` = 빌드 안팎 차이가 불안정 → 이 항목을 쓰지 않음 |
-| `….pickRateIn` / `pickRateOut` | 0..1 | 그 빌드 런 / 같은 캐릭터의 다른 런에서 제시됐을 때 가져간 비율(상점 구매·고대 선택) |
-| `….pickRateCoreHeld` / `pickRateNoCore` | 0..1 또는 없음 | 결정 시점 덱에 그 빌드의 core 카드가 있었을 때 / 없었을 때의 비율(잴 수 있을 때만) |
-| 그 밖 (`nIn`, `eff_n`, `players`, `dirBoot`, `presenceLift` …) | | 근거 자료 |
+| `….fitRatio` | > 0 또는 없음 | (in ÷ out) ÷ (같은 신호의 모든 유물의 in ÷ out). 빌드가 유물을 전반적으로 더 사는 경향을 뺀 그 유물만의 차이. 없으면 in ÷ out |
+| `….pickRateIn` / `pickRateOut` | 0..1 | 결정 시점 덱이 그 빌드로 기울었을 때 / 같은 캐릭터의 다른 빌드로 기울었을 때 가져간 비율(상점 구매·고대 선택) |
+| `….pickRateCoreHeld` / `pickRateNoCore`, `nCoreHeld` / `nNoCore` | 0..1, 정수 | 그 빌드로 기운 결정을 core 확보(coreTarget 충족) 여부로 나눈 비율과 결정 수 |
+| 그 밖 (`signal`, `basis`, `nIn`, `eff_n`, `players`, `dirBoot`, `presenceLift` …) | | 근거 자료 |
+
+팩의 파일에는 `use: true` 항목만 넣습니다. 시험한 전체 항목과 방법은 `docs/research/v2-stats/relic-fit.md`, `relic-fit.all.json`에 있습니다.
 
 유물 점수(`RelicScorer`, 상점·고대·이벤트 공통):
 
 - **기본** = 희귀도 값 × `relics.json` 배수(§10). 모든 덱에 같음.
 - **빌드 적합** = 기본 × (m − 1). commit이 `relicFit.minCommit` 이상인 빌드마다 r을 정합니다.
-  - `relic-fit.json`에 `use: true` 항목이 있으면 r = (덱의 core 보유 여부에 맞는 비율, 없으면 `pickRateIn`) ÷ `pickRateOut`, 0.5..1.5로 자름.
+  - `relic-fit.json`에 `use: true` 항목이 있으면 L = `fitRatio`(없으면 in ÷ out). 덱의 core 확보 여부에 맞는 비율이 결정 `relicFit.minSplitDecisions`(30)회 이상이면 L × (그 비율 ÷ `pickRateIn`). r = clamp(L^`relicFit.fitExponent`, 0.5, 1.5). 지수 0.5는 2.17 → 1.47, 0.43 → 0.66으로 완만하게 만듭니다(빌드 24개 × 유물 150개를 80% 기준으로 시험해 일부는 우연일 수 있음).
   - 없으면 그 빌드의 `keyRelics`에 있는 유물은 r = 1 + `relicFit.keyRelicBonus` × w.
   - 둘 다 없으면 r = 1(근거 없음).
   - m = clamp(1 + Σ commit × (r − 1) / max(1, Σ commit), `minMultiplier`, `maxMultiplier`).

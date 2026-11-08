@@ -7,10 +7,10 @@ namespace Sts2Overlay.Core.Data;
 /// held a core card of the build.
 /// <code>
 /// { "version": 1, "source": "opgg-top-a10-2026-11",
-///   "archetypes": { "ironclad.strength": { "RELIC.VAJRA": { "use": true, "pickRateIn": 0.62, "pickRateOut": 0.41,
-///                                                          "pickRateCoreHeld": 0.70, "pickRateNoCore": 0.55 } } } }
+///   "archetypes": { "silent.poison": { "RELIC.SNECKO_SKULL": { "use": true, "fitRatio": 2.17, "pickRateIn": 0.72,
+///                                                           "pickRateOut": 0.31, "nIn": 38, "pickRateCoreHeld": 0.8, "nCoreHeld": 30 } } } }
 /// </code>
-/// Every other field (n, eff_n, players, bootstrap shares, presence lift) is evidence only.
+/// Every other field (signal, basis, eff_n, players, bootstrap shares, presence lift) is evidence only.
 /// </summary>
 public sealed class RelicFit
 {
@@ -38,6 +38,19 @@ public sealed class RelicFitStat
     /// <summary>Take rate when offered, in the same character's other runs.</summary>
     public double PickRateOut { get; set; }
 
+    /// <summary>
+    /// (<see cref="PickRateIn"/> ÷ <see cref="PickRateOut"/>) ÷ the same ratio over all relics of the same signal: the relic's own
+    /// in-build lift with the build's general buying tendency taken out. Null = use the plain rate ratio.
+    /// </summary>
+    public double? FitRatio { get; set; }
+
+    /// <summary>In-build decisions behind <see cref="PickRateIn"/>.</summary>
+    public int? NIn { get; set; }
+
+    /// <summary>Decisions behind <see cref="PickRateCoreHeld"/> / <see cref="PickRateNoCore"/>.</summary>
+    public int? NCoreHeld { get; set; }
+    public int? NNoCore { get; set; }
+
     /// <summary>Take rate when the deck already held a core card of this build (null = not measured).</summary>
     public double? PickRateCoreHeld { get; set; }
 
@@ -45,8 +58,21 @@ public sealed class RelicFitStat
     public double? PickRateNoCore { get; set; }
 
     /// <summary>
-    /// The in-build rate for the deck's situation: <see cref="PickRateCoreHeld"/> / <see cref="PickRateNoCore"/> when measured,
-    /// else <see cref="PickRateIn"/>.
+    /// The in-build lift: <see cref="FitRatio"/> (else <see cref="PickRateIn"/> ÷ <see cref="PickRateOut"/>), and, when the
+    /// deck's core situation was measured on at least <paramref name="minSplit"/> decisions, scaled by that situation's rate ÷
+    /// <see cref="PickRateIn"/>. Null when there is no usable ratio.
     /// </summary>
-    public double RateFor(bool coreHeld) => (coreHeld ? PickRateCoreHeld : PickRateNoCore) ?? PickRateIn;
+    public double? Lift(bool coreHeld, int minSplit, out bool split)
+    {
+        split = false;
+        double? lift = FitRatio ?? (PickRateOut > 0 ? PickRateIn / PickRateOut : null);
+        if (lift is not { } l || !double.IsFinite(l) || l <= 0) return null;
+        var (rate, n) = coreHeld ? (PickRateCoreHeld, NCoreHeld) : (PickRateNoCore, NNoCore);
+        if (rate is { } r && n >= minSplit && PickRateIn > 0)
+        {
+            split = true;
+            l *= r / PickRateIn;
+        }
+        return l > 0 ? l : null;
+    }
 }
