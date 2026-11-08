@@ -15,6 +15,18 @@ public static class ShopPricing
     public const int RarePrice = 150;
     public const double ColorlessFactor = 1.15;
 
+    /// <summary>
+    /// Merchant relic base price (RelicModel.MerchantCost, v0.107.1): common 175, uncommon 225, rare 275, shop 200;
+    /// unknown rarity counts as uncommon. The game adds ±15 % jitter and relic discounts, ignored here.
+    /// </summary>
+    public static int RelicBasePrice(string? rarity) => rarity?.ToLowerInvariant() switch
+    {
+        "common" => 175,
+        "rare" => 275,
+        "shop" => 200,
+        _ => 225,
+    };
+
     /// <summary>Base price for a card of the given rarity; unknown rarity counts as uncommon (the middle price).</summary>
     public static int BasePrice(string? rarity, bool colorless)
     {
@@ -48,10 +60,20 @@ public static class ShopPricing
     /// (a misread, or a stale frame) is ignored and the tracked gold kept.
     /// </summary>
     public static int EffectiveGold(int trackedGold, IEnumerable<ShopCardOffer> cards, out bool corrected)
+        => EffectiveGold(trackedGold, cards.Select(c => (c.Price, c.PriceKnown, c.AffordableOnScreen)), out corrected);
+
+    /// <summary><see cref="EffectiveGold(int, IEnumerable{ShopCardOffer}, out bool)"/> over every priced item on screen (cards and relics).</summary>
+    public static int EffectiveGold(int trackedGold, ShopOffer offer, out bool corrected)
+        => EffectiveGold(trackedGold,
+            offer.Cards.Select(c => (c.Price, c.PriceKnown, c.AffordableOnScreen))
+                .Concat(offer.Relics.Select(r => (r.Price, r.PriceKnown, r.AffordableOnScreen))),
+            out corrected);
+
+    private static int EffectiveGold(int trackedGold, IEnumerable<(int Price, bool PriceKnown, bool? AffordableOnScreen)> labels, out bool corrected)
     {
         var tracked = Math.Max(0, trackedGold);
         int lo = 0, hi = int.MaxValue;
-        foreach (var c in cards)
+        foreach (var c in labels)
         {
             if (!c.PriceKnown || c.AffordableOnScreen is not bool affordable) continue;
             if (affordable) lo = Math.Max(lo, c.Price);

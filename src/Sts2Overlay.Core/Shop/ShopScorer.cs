@@ -5,7 +5,8 @@ using Sts2Overlay.Core.Scoring;
 namespace Sts2Overlay.Core.Shop;
 
 /// <summary>
-/// PLAN §7.3: cards ranked by (score − skip) / price, card removal as a candidate, best affordable bundle.
+/// PLAN §7.3: cards ranked by (score − skip) / price, relics by their deck-aware value / price, card removal as a
+/// candidate, best affordable bundle.
 /// Unread prices are estimated from rarity (<see cref="ShopPricing"/>); gold is checked against the price colours.
 /// </summary>
 public sealed class ShopScorer(DataPack pack)
@@ -17,7 +18,7 @@ public sealed class ShopScorer(DataPack pack)
 
     public ShopEvaluation Evaluate(RunState state, DeckProfile profile, ShopOffer offer)
     {
-        var gold = ShopPricing.EffectiveGold(state.Gold, offer.Cards, out var goldCorrected);
+        var gold = ShopPricing.EffectiveGold(state.Gold, offer, out var goldCorrected);
         var skip = new SkipScorer(Pack).Score(state, profile);
         var scorer = new CardScorer(Pack);
         var items = new List<ShopItemEvaluation>();
@@ -41,6 +42,8 @@ public sealed class ShopScorer(DataPack pack)
                 OnSale = sale.OnSale,
             });
         }
+
+        foreach (var sale in offer.Relics) items.Add(RelicItem(profile, sale, gold));
 
         var removal = RemovalItem(state, offer, gold);
         if (removal is not null) items.Add(removal);
@@ -73,7 +76,6 @@ public sealed class ShopScorer(DataPack pack)
     /// Value of a relic on sale: its rarity value (<see cref="Events.EventWeights.RelicTier"/>, the same scale event relics
     /// use), times <see cref="RelicStats.ValueMultiplier"/> when <c>relics.json</c> has a stable buy rate for it
     /// (rate ÷ the shop median, clamped to 0.5–1.5; purchases are gold-limited, so the rate is only read relative to the median).
-    /// The shop screen reader does not read relics yet, so <see cref="Evaluate"/> has no relic item; this is the value it will use.
     /// </summary>
     /// <param name="relicId"><c>RELIC.X</c>.</param>
     /// <param name="rarity"><c>common</c>/<c>uncommon</c>/<c>rare</c>/<c>shop</c>; null = <see cref="Events.EventWeights.RelicDefault"/>.</param>
@@ -113,6 +115,27 @@ public sealed class ShopScorer(DataPack pack)
         var strike = state.Deck.Select(d => d.Id).FirstOrDefault(CardIdHeuristics.IsBasicStrike);
         var defend = state.Deck.Select(d => d.Id).FirstOrDefault(CardIdHeuristics.IsBasicDefend);
         return strike ?? defend;
+    }
+
+    /// <summary>
+    /// A relic on the rug as a shop item. Its value is <see cref="ScoreRelic"/> as is (relic_base + relic_fit): unlike a
+    /// card, a relic does not dilute the deck, so there is no skip baseline to subtract.
+    /// </summary>
+    private ShopItemEvaluation RelicItem(DeckProfile profile, ShopRelicOffer sale, int gold)
+    {
+        var rarity = sale.Rarity?.ToLowerInvariant();
+        var eval = ScoreRelic(profile, sale.RelicId, rarity);
+        var price = sale.PriceKnown ? sale.Price : ShopPricing.RelicBasePrice(rarity);
+        return new ShopItemEvaluation
+        {
+            Kind = ShopItemKind.Relic,
+            RelicId = sale.RelicId,
+            Price = price,
+            Value = eval.Value,
+            RelicEvaluation = eval,
+            Affordable = sale.PriceKnown && sale.AffordableOnScreen is bool onScreen ? onScreen : price <= gold,
+            PriceEstimated = !sale.PriceKnown,
+        };
     }
 
     private ShopItemEvaluation? RemovalItem(RunState state, ShopOffer offer, int gold)

@@ -176,4 +176,70 @@ public class ShopScorerTests
         Assert.Equal(w.RelicTier["uncommon"], RelicScorer(null).RelicValue("RELIC.TEST_TENT", "uncommon"));
         Assert.Equal(w.RelicDefault, RelicScorer(null).RelicValue("RELIC.TEST_TENT", null));
     }
+
+    // ---- Relics on the merchant's rug as shop items ----
+
+    private static ShopOffer RelicOffer(params ShopRelicOffer[] relics) => new([]) { Relics = relics };
+
+    [Fact]
+    public void RelicItem_ValueIsScoreRelic_WithoutSkipBaseline()
+    {
+        var state = State(deck: [Blocker, OrbCore], gold: 500);
+        var profile = new DeckProfile();
+        var r = Evaluate(state, RelicOffer(new ShopRelicOffer("RELIC.TEST_TENT", "Uncommon", 230)), profile);
+        var item = Assert.Single(r.Items);
+        Assert.Equal(ShopItemKind.Relic, item.Kind);
+        Assert.Equal("RELIC.TEST_TENT", item.RelicId);
+        Assert.Null(item.Card);
+        var expected = new ShopScorer(Pack).ScoreRelic(profile, "RELIC.TEST_TENT", "uncommon");
+        Assert.NotNull(item.RelicEvaluation);
+        Assert.Equal(expected.Total, item.Value.Total, 9);
+        Assert.Equal(expected.Value.Components.Select(c => c.Key), item.Value.Components.Select(c => c.Key));
+        Assert.Equal(0, item.Value.ValueOf(ComponentKeys.SkipRelative));
+        Assert.Equal(230, item.Price);
+        Assert.False(item.PriceEstimated);
+        Assert.Equal(item.Value.Total / 230, item.ValuePerGold, 9);
+    }
+
+    [Theory]
+    [InlineData("Common", 175)]
+    [InlineData("Uncommon", 225)]
+    [InlineData("Rare", 275)]
+    [InlineData("Shop", 200)]
+    [InlineData(null, 225)]
+    public void RelicItem_UnreadPrice_IsEstimatedFromRarity(string? rarity, int expected)
+    {
+        var r = Evaluate(State(deck: [Blocker], gold: 1000), RelicOffer(new ShopRelicOffer("RELIC.TEST_RUG", rarity, 0, PriceKnown: false)));
+        var item = Assert.Single(r.Items);
+        Assert.Equal(expected, item.Price);
+        Assert.True(item.PriceEstimated);
+        Assert.True(item.Affordable);
+    }
+
+    [Fact]
+    public void RelicItem_RedLabel_IsUnaffordable_AndBoundsTheGold()
+    {
+        // The save still says 500 gold, but the game drew the relic's 210 in red: the player has at most 209.
+        var r = Evaluate(State(deck: [Blocker], gold: 500), RelicOffer(new ShopRelicOffer("RELIC.TEST_RUG", "Shop", 210, AffordableOnScreen: false)));
+        Assert.True(r.GoldCorrectedByScreen);
+        Assert.Equal(209, r.Gold);
+        var item = Assert.Single(r.Items);
+        Assert.False(item.Affordable);
+        Assert.Empty(r.RecommendedPurchase);
+    }
+
+    [Fact]
+    public void Bundle_IncludesRelicsAndCards()
+    {
+        // Star is worth 35 for 150 gold; a rare relic is worth the rare tier value (20 by default) for 275.
+        var offer = new ShopOffer([new ShopCardOffer(Parse(Star), 150)]) { Relics = [new ShopRelicOffer("RELIC.NOT_LISTED", "Rare", 275)] };
+        var both = Evaluate(State(act: 1, deck: [Blocker], gold: 425), offer);
+        Assert.Equal(2, both.RecommendedPurchase.Count);
+        Assert.Contains(both.RecommendedPurchase, i => i.Kind == ShopItemKind.Relic && i.RelicId == "RELIC.NOT_LISTED");
+        Assert.Equal(0, both.GoldLeft);
+
+        var one = Evaluate(State(act: 1, deck: [Blocker], gold: 300), offer);
+        Assert.Equal(new[] { Star }, one.RecommendedPurchase.Select(i => i.Card!.Value.Id));
+        Assert.Equal(new[] { ShopItemKind.Card, ShopItemKind.Relic }, one.Items.Select(i => i.Kind)); // 35/150 > 20/275
+    }
 }

@@ -25,10 +25,22 @@ public enum ScreenKind
 public sealed record RecognizedCard(CardRef Card, PixelRect ScreenBounds, double Confidence, int? Price = null, bool? Unaffordable = null, bool OnSale = false,
     PixelRect? PriceBounds = null);
 
+/// <summary>One relic for sale on the merchant's rug (identified from its icon; bought or covered slots are left out).</summary>
+/// <param name="RelicId"><c>RELIC.X</c>.</param>
+/// <param name="Rarity">Catalog rarity (Common / Uncommon / Rare / Shop).</param>
+/// <param name="ScreenBounds">The icon square, physical SCREEN pixels.</param>
+/// <param name="Confidence">0..1 icon match (masked NCC).</param>
+/// <param name="Price">Gold price when the label was read clearly, else null.</param>
+/// <param name="Unaffordable">True when the price is drawn red, false when cream, null when unknown.</param>
+public sealed record RecognizedShopRelic(string RelicId, string? Rarity, PixelRect ScreenBounds, double Confidence, int? Price = null, bool? Unaffordable = null);
+
 /// <param name="ScreenKind">Reward / Shop / Choice / Grid / Other. Other clears the badges.</param>
 /// <param name="Cards">Cards left to right (shop: row by row). Empty for Other.</param>
 public sealed record RecognitionResult(ScreenKind ScreenKind, IReadOnlyList<RecognizedCard> Cards)
 {
+    /// <summary>Shop: the relics on the merchant's rug still for sale, left to right. Empty elsewhere.</summary>
+    public IReadOnlyList<RecognizedShopRelic> Relics { get; init; } = [];
+
     /// <summary>Shop: the card-removal service coin (physical SCREEN pixels) when it is visible and still for sale, else null.</summary>
     public PixelRect? RemovalService { get; init; }
 
