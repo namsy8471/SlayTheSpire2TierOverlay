@@ -3,7 +3,7 @@ using Sts2Overlay.Core.Model;
 
 namespace Sts2Overlay.Core.Scoring;
 
-/// <summary>A short Korean reason shown under a card, e.g. <c>광역 부족 +24</c>.</summary>
+/// <summary>A short reason shown under a card in the overlay language, e.g. <c>광역 부족 +24</c> / <c>Lacks AoE +24</c>.</summary>
 public sealed record ReasonChip(string Key, string Label, double Value);
 
 /// <summary>

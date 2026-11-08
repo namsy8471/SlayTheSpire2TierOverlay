@@ -1,6 +1,7 @@
 using System.Globalization;
 using Sts2Overlay.Core.Archetypes;
 using Sts2Overlay.Core.Data;
+using Sts2Overlay.Core.Localization;
 using Sts2Overlay.Core.Model;
 using Sts2Overlay.Core.Shop;
 
@@ -126,7 +127,7 @@ public sealed class RecommendationEngine(DataPack pack)
     }
 
     /// <summary>
-    /// One Korean line naming the component that separates the top two candidates most, phrased as
+    /// One line (current overlay language) naming the component that separates the top two candidates most, phrased as
     /// "what would have to change for the order to flip".
     /// </summary>
     internal static string FlipHint(ScoreBreakdown first, bool firstIsSkip, ScoreBreakdown second, bool secondIsSkip)
@@ -136,8 +137,10 @@ public sealed class RecommendationEngine(DataPack pack)
             var card = firstIsSkip ? second : first;
             var reason = card.TopReasons(1).FirstOrDefault();
             return reason is null
-                ? "스킵과 점수가 거의 같습니다. 덱 크기가 조금만 달라도 순위가 바뀝니다."
-                : $"스킵과 점수가 거의 같습니다. '{reason.Label}' 요소가 조금만 달라도 순위가 바뀝니다.";
+                ? Loc.T("스킵과 점수가 거의 같습니다. 덱 크기가 조금만 달라도 순위가 바뀝니다.",
+                    "Nearly tied with Skip. A slightly different deck size would flip the order.")
+                : Loc.T($"스킵과 점수가 거의 같습니다. '{reason.Label}' 요소가 조금만 달라도 순위가 바뀝니다.",
+                    $"Nearly tied with Skip. A small change in '{reason.Label}' would flip the order.");
         }
 
         var keys = first.Components.Concat(second.Components).Select(c => c.Key).Distinct(StringComparer.Ordinal).ToList();
@@ -145,7 +148,8 @@ public sealed class RecommendationEngine(DataPack pack)
         var diff = first.ValueOf(key) - second.ValueOf(key);
         if (Math.Abs(diff) < 0.05)
         {
-            return "두 카드의 점수 구성이 같습니다. 덱 상황이 조금만 달라져도 순위가 바뀝니다.";
+            return Loc.T("두 카드의 점수 구성이 같습니다. 덱 상황이 조금만 달라져도 순위가 바뀝니다.",
+                "Both cards score alike. A small change in the deck would flip the order.");
         }
         var leaderIsFirst = diff > 0;
         var leader = leaderIsFirst ? first : second;
@@ -154,24 +158,28 @@ public sealed class RecommendationEngine(DataPack pack)
 
         switch (key)
         {
-            case ComponentKeys.Need when ScoringLabels.RoleFromNeedLabel(component.Label) is { } role:
+            // The need component carries its dominant role key (ScoreComponent.Role); never parse it back from the label text.
+            case ComponentKeys.Need when component.Role is { } role:
                 var roleName = ScoringLabels.Role(role);
                 return leaderIsFirst
-                    ? $"덱에 {roleName} 카드가 더 있으면 순위가 바뀝니다."
-                    : $"덱의 {roleName} 공급이 조금만 더 부족하면 순위가 바뀝니다.";
+                    ? Loc.T($"덱에 {roleName} 카드가 더 있으면 순위가 바뀝니다.", $"More {roleName} cards in the deck would flip the order.")
+                    : Loc.T($"덱의 {roleName} 공급이 조금만 더 부족하면 순위가 바뀝니다.", $"Slightly less {roleName} in the deck would flip the order.");
             case ComponentKeys.CorePriority or ComponentKeys.CoreMissing:
-                return "빌드의 코어 카드를 이미 갖고 있었다면 순위가 바뀝니다.";
+                return Loc.T("빌드의 코어 카드를 이미 갖고 있었다면 순위가 바뀝니다.", "Already owning the build's core card would flip the order.");
             case ComponentKeys.Build or ComponentKeys.Combo when diff > 0:
-                return "빌드 몰입도가 더 낮았다면 순위가 바뀝니다.";
+                return Loc.T("빌드 몰입도가 더 낮았다면 순위가 바뀝니다.", "A lower build commitment would flip the order.");
             case ComponentKeys.Build or ComponentKeys.Combo:
-                return "빌드 몰입도가 조금만 더 높아지면 순위가 바뀝니다.";
+                return Loc.T("빌드 몰입도가 조금만 더 높아지면 순위가 바뀝니다.", "A slightly higher build commitment would flip the order.");
             case ComponentKeys.Base when diff > 0:
-                return "기본 티어 차이로 앞섭니다. 2위의 덱 시너지가 조금만 커지면 순위가 바뀝니다.";
+                return Loc.T("기본 티어 차이로 앞섭니다. 2위의 덱 시너지가 조금만 커지면 순위가 바뀝니다.",
+                    "Ahead on base tier. Slightly more deck synergy for #2 would flip the order.");
             case ComponentKeys.Base:
-                return "2위가 기본 티어는 더 높습니다. 덱 상황이 조금만 달라져도 순위가 바뀝니다.";
+                return Loc.T("2위가 기본 티어는 더 높습니다. 덱 상황이 조금만 달라져도 순위가 바뀝니다.",
+                    "#2 has the higher base tier. A small change in the deck would flip the order.");
             default:
                 var d = Math.Abs(diff).ToString("0.#", CultureInfo.InvariantCulture);
-                return $"'{component.Label}' 차이({d}점)로 순위가 갈렸습니다. 이 요소가 조금만 달라도 순위가 바뀝니다.";
+                return Loc.T($"'{component.Label}' 차이({d}점)로 순위가 갈렸습니다. 이 요소가 조금만 달라도 순위가 바뀝니다.",
+                    $"'{component.Label}' ({d} pts) decided the order. A small change in it would flip the order.");
         }
     }
 }
