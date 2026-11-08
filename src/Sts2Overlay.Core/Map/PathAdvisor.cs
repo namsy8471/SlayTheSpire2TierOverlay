@@ -1,4 +1,5 @@
 using Sts2Overlay.Core.Data;
+using Sts2Overlay.Core.Localization;
 using Sts2Overlay.Core.Model;
 using Sts2Overlay.Core.Scoring;
 
@@ -155,36 +156,42 @@ public sealed class PathAdvisor
     {
         var chips = new List<string>();
 
-        chips.Add(o.Elites > 0 ? $"엘리트 {o.Elites}" : "엘리트 없음");
+        chips.Add(o.Elites > 0 ? Loc.T($"엘리트 {o.Elites}", $"Elites {o.Elites}") : Loc.T("엘리트 없음", "No Elites"));
 
         var restBeforeBoss = o.Types.Count >= 2 && o.Types[^1] == MapNodeType.Boss && o.Types[^2] == MapNodeType.RestSite;
-        if (o.Rests > 0) chips.Add(restBeforeBoss ? $"휴식처 {o.Rests} (보스 전 휴식 있음)" : $"휴식처 {o.Rests}");
-        else chips.Add("휴식처 없음");
+        if (o.Rests > 0)
+        {
+            chips.Add(restBeforeBoss
+                ? Loc.T($"휴식처 {o.Rests} (보스 전 휴식 있음)", $"Rest Sites {o.Rests} (Rest before Boss)")
+                : Loc.T($"휴식처 {o.Rests}", $"Rest Sites {o.Rests}"));
+        }
+        else chips.Add(Loc.T("휴식처 없음", "No Rest Sites"));
 
         var shops = o.CountOf(MapNodeType.Shop);
         if (shops > 0)
         {
-            chips.Add(o.ShopPurchases > 0 ? $"상점 {shops} (골드 활용)" : $"상점 {shops}");
+            chips.Add(o.ShopPurchases > 0 ? Loc.T($"상점 {shops} (골드 활용)", $"Shops {shops} (spend Gold)") : Loc.T($"상점 {shops}", $"Shops {shops}"));
         }
         var treasures = o.CountOf(MapNodeType.Treasure);
-        if (treasures > 0) chips.Add($"보물 {treasures}");
+        if (treasures > 0) chips.Add(Loc.T($"보물 {treasures}", $"Treasure {treasures}"));
         var events = o.CountOf(MapNodeType.Unknown);
         if (events > 0) chips.Add($"? {events}");
 
-        chips.Add($"보스 도착 HP 예상 {Math.Round(o.ExpectedBossHp * 100):0}%");
+        var bossHp = Math.Round(o.ExpectedBossHp * 100);
+        chips.Add(Loc.T($"보스 도착 HP 예상 {bossHp:0}%", $"Est. HP at Boss {bossHp:0}%"));
 
         var hp = state.HpRatio;
-        if (hp < p.LowHpThreshold && o.Fights == stats.MinFights) chips.Add("HP 낮음: 전투 적은 길");
-        if (hp >= p.EliteHpThreshold && o.Elites > 0 && o.Elites == stats.MaxElites) chips.Add("HP 충분: 엘리트로 유물");
+        if (hp < p.LowHpThreshold && o.Fights == stats.MinFights) chips.Add(Loc.T("HP 낮음: 전투 적은 길", "Low HP: fewer fights"));
+        if (hp >= p.EliteHpThreshold && o.Elites > 0 && o.Elites == stats.MaxElites) chips.Add(Loc.T("HP 충분: 엘리트로 유물", "HP to spare: Elites for Relics"));
         if (strength < 0.35 && hp >= p.LowHpThreshold && o.CountOf(MapNodeType.Monster) == stats.MaxMonsters && stats.MaxMonsters > 0)
         {
-            chips.Add("덱 약함: 카드 보상 많은 길");
+            chips.Add(Loc.T("덱 약함: 카드 보상 많은 길", "Weak deck: more card rewards"));
         }
-        if (isTop && stats.CapBinds) chips.Add("HP 고려: 엘리트 수 제한");
-        if (!inCap) chips.Add("HP 대비 엘리트 많음");
+        if (isTop && stats.CapBinds) chips.Add(Loc.T("HP 고려: 엘리트 수 제한", "HP check: Elites capped"));
+        if (!inCap) chips.Add(Loc.T("HP 대비 엘리트 많음", "Many Elites for your HP"));
 
-        if (o.Risks.Contains(PathRisks.EliteChain)) chips.Add("위험: 엘리트 연속");
-        if (o.Risks.Contains(PathRisks.EliteNoRest)) chips.Add("위험: 휴식 없이 엘리트");
+        if (o.Risks.Contains(PathRisks.EliteChain)) chips.Add(Loc.T("위험: 엘리트 연속", "Risk: back-to-back Elites"));
+        if (o.Risks.Contains(PathRisks.EliteNoRest)) chips.Add(Loc.T("위험: 휴식 없이 엘리트", "Risk: Elite without Rest"));
         return chips;
     }
 }
