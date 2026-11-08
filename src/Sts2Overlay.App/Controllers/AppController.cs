@@ -46,6 +46,7 @@ public sealed partial class AppController : IDisposable
 
     private RecommendationEngine _engine;
     private CardInfoProvider _cards;
+    private CardTextProvider _cardText = CardTextProvider.Empty;
 
     /// <summary>Card portraits for the panel rows (thumbnail + hover); rebuilt when data/local is regenerated.</summary>
     private CardArtProvider _art = CardArtProvider.ForLocalData();
@@ -83,6 +84,7 @@ public sealed partial class AppController : IDisposable
         _packDir = packDir;
         CatalogPath = catalogPath;
         (_engine, _cards) = LoadPack(packDir, catalogPath, vm);
+        _cardText = CardTextProvider.ForLocalData(_engine.Pack, packDir);
         InitForecastReview(packDir, catalogPath); // forecast + run review (AppController.ForecastReview.cs)
         InitMapOverlay(); // marks on the game's map (AppController.MapOverlay.cs)
         InitEvents(packDir); // event option advice (AppController.Events.cs)
@@ -636,7 +638,7 @@ public sealed partial class AppController : IDisposable
         {
             var rarity = _cards.Rarity(run.Character, id);
             return new BuildCardVm(_cards.Name(id), role, rarity is null ? null : CardInfoProvider.RarityKorean(rarity),
-                TierOf(run, id)?.ToString() ?? "?", owned, ArtOf(id));
+                TierOf(run, id)?.ToString() ?? "?", owned, ArtOf(id), _cardText.For(id));
         }
 
         var items = report.Statuses.Take(5).Select(st =>
@@ -877,6 +879,7 @@ public sealed partial class AppController : IDisposable
     public void ReloadPack()
     {
         (_engine, _cards) = LoadPack(_packDir, CatalogPath, _vm);
+        _cardText = CardTextProvider.ForLocalData(_engine.Pack, _packDir);
         _engineVersion++;
         RefreshRunViews(_snapshot.Run);
         ReloadForecastReview(); // AppController.ForecastReview.cs
