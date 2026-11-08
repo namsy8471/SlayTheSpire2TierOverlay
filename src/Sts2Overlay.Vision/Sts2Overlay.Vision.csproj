@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Screen recognition for the overlay (no game mod): classify the current frame (card reward / shop / other),
+    locate the offered cards and identify them by matching their artwork against a local art database.
+    Game images are never part of the repo: the art database is built on the user's PC from files extracted
+    with tools/PckTool into data/local/ (gitignored).
+  -->
+  <PropertyGroup>
+    <RootNamespace>Sts2Overlay.Vision</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- MIT licensed. Used only to decode WebP card art (database build) and PNG captures (bench/tests). -->
+    <PackageReference Include="SkiaSharp" Version="3.119.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Sts2Overlay.Vision.Tests" />
+    <InternalsVisibleTo Include="VisionBench" />
+  </ItemGroup>
+</Project>

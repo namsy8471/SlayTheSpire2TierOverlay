@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Regression bench for Sts2Overlay.Vision: runs the recogniser over real captures and scores it against the
+    run save (map_point_history card_choices) and an optional manual labels file. Also hosts the art-database
+    build command and a few diagnostics (replaces the M0 tools/VisionSpike prototype).
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Sts2Overlay.Vision\Sts2Overlay.Vision.csproj" />
+  </ItemGroup>
+</Project>
