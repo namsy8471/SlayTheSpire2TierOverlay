@@ -19,7 +19,9 @@ data/packs/<팩 이름 또는 게임 버전>/
 ├─ archetypes/*.json     아키타입 목록
 ├─ combos/*.json         콤보 목록
 ├─ aliases.json          (선택) 옛 ID → 현재 ID
-└─ catalog.json          (선택) 카드 카탈로그. 보통 넘겨받음 (아래 참고)
+├─ catalog.json          (선택) 카드 카탈로그. 보통 넘겨받음 (아래 참고)
+├─ events.stats.json     (선택) 이벤트·고대 선택지를 상위 플레이어가 고른 비율 (§10)
+└─ relics.json           (선택) 유물을 상위 플레이어가 사거나 고른 비율 (§11)
 
 data/catalog/cards.v0.107.1.json   커밋된 이름 없는 카드 카탈로그 (§8)
 ```
@@ -27,7 +29,8 @@ data/catalog/cards.v0.107.1.json   커밋된 이름 없는 카드 카탈로그 (
 - 모든 부분이 선택입니다. 없는 파일은 기본값(`weights.json`) 또는 빈 목록이 됩니다.
 - 하위 폴더에서는 `*.json` 파일만 읽고, 파일 이름의 사전순으로 읽습니다. 파일 이름 자체에는 의미가 없습니다(캐릭터는 파일 내용으로 정합니다).
 - 카탈로그 우선순위: `LoadDirectory(dir, catalog)`로 넘긴 객체 → `LoadDirectory(dir, catalogPath: "data/catalog/cards.v0.107.1.json")`로 넘긴 파일 → 폴더의 `catalog.json`. 파일 하나만 읽을 때는 `DataPackLoader.LoadCatalogFile(path)`를 씁니다(레포 기준 경로는 `DataPackLoader.DefaultCatalogRelativePath`).
-- 계획만 있고 아직 로더가 읽지 않는 파일: `manifest.json`(PLAN §6.6), `relics.json`(v2), `user_overrides.json`, `data/schema/*.schema.json`.
+- `events.stats.json`·`relics.json`이 없으면 `DataPack.EventStats`·`RelicStats`가 null이고, 이벤트·유물 점수는 파일이 없던 때와 똑같습니다.
+- 계획만 있고 아직 로더가 읽지 않는 파일: `manifest.json`(PLAN §6.6), `user_overrides.json`, `data/schema/*.schema.json`.
 
 ## 2. 공통 규칙
 
@@ -70,8 +73,8 @@ ID는 게임 모델 ID 그대로입니다. 게임이 ID를 바꾼 경우(예: `R
 | JSON 값 종류 | 동작 | 예 |
 |---|---|---|
 | 숫자·문자열 | 적은 값으로 교체 | `"wArch": 30` |
-| 중첩 객체 (`skip`, `shop`, `completion`, `cardOdds`, `cardOdds.eliteReward`, `cardOdds.pity` 등) | **병합**: 적은 속성만 바뀌고 나머지는 기본값 유지 | `"skip": { "margin": 1 }` → `t0`, `lambdaSize` 유지 |
-| 사전 (`tierValue`, `targets`, `urgency`, `idealDeckSize`, `skip.t0`, `skip.basicPickBias`, `completion.poolSize`, `shop.cardPrice`, `shop.characterCardSlots`, `shop.colorlessCardSlots`) | **키 단위 병합**: 적은 키의 값만 교체(값이 사전이면 그 값 전체를 교체), 나머지 키 유지 | `"tierValue": { "S": 90 }` → A~D 유지 |
+| 중첩 객체 (`skip`, `shop`, `completion`, `cardOdds`, `cardOdds.eliteReward`, `cardOdds.pity`, `events` 등) | **병합**: 적은 속성만 바뀌고 나머지는 기본값 유지 | `"skip": { "margin": 1 }` → `t0`, `lambdaSize` 유지 |
+| 사전 (`tierValue`, `targets`, `urgency`, `idealDeckSize`, `skip.t0`, `skip.basicPickBias`, `completion.poolSize`, `shop.cardPrice`, `shop.characterCardSlots`, `shop.colorlessCardSlots`, `events.maxHpFactor`, `events.relicTier`) | **키 단위 병합**: 적은 키의 값만 교체(값이 사전이면 그 값 전체를 교체), 나머지 키 유지 | `"tierValue": { "S": 90 }` → A~D 유지 |
 | 배열 (`weakRoles`) | 통째로 교체 | `"weakRoles": ["block"]` |
 
 예: `"targets": { "CHARACTER.DEFECT": { "1": { ... } } }`는 `"default"`를 그대로 두고 디펙트 목표치를 추가합니다. 반대로 `"urgency": { "2": { "block": 2 } }`는 2막의 역할별 사전 전체를 `{ "block": 2 }`로 바꿉니다(1·3막은 유지).
@@ -161,6 +164,9 @@ ID는 게임 모델 ID 그대로입니다. 게임이 ID를 바꾼 경우(예: `R
 | `completion.supportWeight` | 숫자 | 56 | 완성도 %에서 enabler·support 카드 가중치(참고 사이트 `rec`) | §7.5 |
 | `completion.poolSize` | `{희귀도: 정수}` | common20 uncommon35 rare25 | 카탈로그가 없을 때 캐릭터 풀 크기 (v0.107.1 카탈로그의 캐릭터별 싱글플레이 수) | §7.5 |
 | `completion.cardsPerReward` | 정수 | 3 | 카드 보상 한 번의 카드 수 | §7.5 |
+| `events.measuredBlend` | 0..1 | 0.5 | `events.stats.json`의 측정 선택률을 이벤트 점수에 섞는 비율. 0이면 효과 공식만 씀(파일이 없을 때와 같음). 식은 §10 | 이벤트 |
+| `events.measuredScale` | 숫자 ≥ 0 | 20 | 선택률이 무작위보다 1.0 높을 때의 점수. 지금 공식 값의 폭(변화 16~28, 유물 13~24)과 비슷하게 둠 | 이벤트 |
+| `events.*` (그 밖) | | `EventWeights` 기본값 | 이벤트 효과 점수(`goldValue`, `maxHpFactor`, `relicTier`, `cursePenalty` 등). 지금까지 코드 상수였고 이제 `weights.json`에서 덮어쓸 수 있음 [추정] | 이벤트 |
 
 역할 이름(`Roles`): `frontload`, `aoe`, `block`, `scaling`, `draw`, `energy`, `exhaust_fodder`.
 
@@ -256,6 +262,7 @@ ID는 게임 모델 ID 그대로입니다. 게임이 ID를 바꾼 경우(예: `R
 | `needs` | `[{tag?, role?, min}]` | `[]` | 요구 조건. `role`은 역할 공급과, `tag`는 덱의 `provides` 축 개수와 비교. `min` 기본 1 |
 | `desc` | 문자열 | null | 한 줄 설명 (한국어) |
 | `guideHeroCard` | 카드 ID | null | 빌드 모음 탭의 대표 카드 |
+| `onTheme` | 카드 ID 배열 | (없음) | 빌드에 전념한 덱에서 다른 덱보다 확실히 자주 보이지만 어느 역할 목록에도 없는 카드(lift ≥ 1.5, 멤버 덱 보유 5명 이상, 재표본 80% 이상). **데이터만 있음: 점수 반영은 빌드 밖 감점 면제 PR에서 들어옵니다.** 지금 로더는 이 필드를 무시합니다 |
 
 한 카드를 여러 역할에 적으면 core → payoff → enabler → support 순으로 처음 나온 역할 하나로만 셉니다.
 
@@ -367,7 +374,9 @@ v0.107.1 캐릭터 풀 크기 (싱글플레이): 모든 캐릭터가 일반 20 /
 | 티어 항목 | `roles` 값이 0..1 밖, `confidence`가 0..1 밖, `dupFactor`가 0..3 밖, `cycle`이 0..1 밖, `upgradedDelta`가 유한수가 아님, `actTier` 막 < 1, `cost` < 0 |
 | 아키타입 | id 없음, **id 중복**, 카드 0장, `fullWeight` ≤ 0, `commitThreshold`가 (0, 1] 밖, `coreTarget` < 1, `essentialTarget` < 0, `roleWeight` 음수, 유물 `w` 음수, `needs`에 `tag`와 `role`이 모두 없음, `min` 음수 |
 | 콤보 | 서로 다른 카드가 2장 미만 |
-| 가중치 | `unknownConfidence`·`commitThreshold`·`hybridMargin`·`weakThreshold`·`skip.lowConfidence`가 0..1 밖, `completion.cardsPerReward` < 1, `poolSize` 값 ≤ 0, `cardOdds.*`의 `rare`/`uncommon`/`rareHighAscension`이 0..1 밖, `rareMultiplierHighAscension`이 0..1 밖, `pity`의 `start`/`cap`이 -1..1 밖이거나 `start > cap`, `pity` step이나 강화 확률이 0..1 밖, `shop.cardPrice` 값 ≤ 0, `priceJitterMin`이 0 이하이거나 `priceJitterMax`보다 큼, `colorlessPriceMultiplier` ≤ 0, `saleMultiplier`가 0..1 밖, `corePriority.bonus`·`starterBonus` 음수, `skip.basicPickBias` 값·`skip.lowConfidenceStep` 음수, `skip.basicShareFull`이 (0, 1] 밖, `leanMin`·`weakFactor`·`noCoreFactor`·`noCoreMaxUnlock`·`noCoreUnlockByAct`·`subBeforeEssential` 값이 0..1 밖, `leanFull`이 (0, 1] 밖, `essentialTarget`·`rewardsPerFloor` 음수, `floorsPerAct`·`runActs` < 1 |
+| `events.stats.json` | 선택률·`byAct` 값이 0..1 밖, `k` < 1, `byAct` 막 < 1 |
+| `relics.json` | 유물 ID가 `RELIC.X`가 아님, `use` 없음(참/거짓 필수), `pickRate`가 0..1 밖, `tier`가 S..D나 null이 아님, `signal`이 `shop`이나 `ancient:<ID>`가 아님, `shopMedianPickRate`·`ancientNeutralPickRate`가 (0, 1] 밖 |
+| 가중치 | `unknownConfidence`·`commitThreshold`·`hybridMargin`·`weakThreshold`·`skip.lowConfidence`가 0..1 밖, `completion.cardsPerReward` < 1, `poolSize` 값 ≤ 0, `cardOdds.*`의 `rare`/`uncommon`/`rareHighAscension`이 0..1 밖, `rareMultiplierHighAscension`이 0..1 밖, `pity`의 `start`/`cap`이 -1..1 밖이거나 `start > cap`, `pity` step이나 강화 확률이 0..1 밖, `shop.cardPrice` 값 ≤ 0, `priceJitterMin`이 0 이하이거나 `priceJitterMax`보다 큼, `colorlessPriceMultiplier` ≤ 0, `saleMultiplier`가 0..1 밖, `corePriority.bonus`·`starterBonus` 음수, `skip.basicPickBias` 값·`skip.lowConfidenceStep` 음수, `skip.basicShareFull`이 (0, 1] 밖, `leanMin`·`weakFactor`·`noCoreFactor`·`noCoreMaxUnlock`·`noCoreUnlockByAct`·`subBeforeEssential` 값이 0..1 밖, `leanFull`이 (0, 1] 밖, `essentialTarget`·`rewardsPerFloor` 음수, `floorsPerAct`·`runActs` < 1, `events.measuredBlend`가 0..1 밖, `events.measuredScale` 음수 |
 
 **경고(Warning)**: 데이터가 덜 채워졌을 가능성이 큽니다.
 
@@ -379,3 +388,46 @@ v0.107.1 캐릭터 풀 크기 (싱글플레이): 모든 캐릭터가 일반 20 /
 | 별칭 | 데이터가 현재 ID 대신 옛 ID(별칭 키)를 씀, 별칭 연쇄 |
 | 카탈로그 | (카탈로그가 있을 때) 티어·아키타입·콤보·별칭 대상 카드 ID가 카탈로그에 없음 |
 | 가중치 | `tierValue`에 빠진 티어, 출처별 `rare + uncommon`이 1 초과, `corePriority.leanFull < leanMin`, `starterBonus > bonus`, `noCoreFactor`에 core·알 수 없는 역할 키 |
+
+## 10. `events.stats.json` (측정 선택률, 선택)
+
+상위 플레이어가 이벤트·고대에서 각 선택지를 고른 비율입니다(v2: OP.GG 랭커 A10 바닐라 솔로, 근거 [`docs/research/v2-stats/events.md`](research/v2-stats/events.md)). `EventScorer`가 효과 공식 점수에 섞습니다. 파일이 없으면 점수는 공식 그대로입니다.
+
+```jsonc
+{ "version": 1, "source": "opgg-top-a10-2026-11",
+  "events":   { "ABYSSAL_BATHS": { "INITIAL": { "k": 2, "options": { "ABSTAIN": { "choiceRate": 0.648, "byAct": { "3": 0.7 } } } } } },
+  "ancients": { "NEOW": { "LEAD_PAPERWEIGHT": { "pickRate": 0.62 } } } }
+```
+
+| 필드 | 타입 | 의미 |
+|---|---|---|
+| `events.<이벤트>.<페이지>.k` | 정수 ≥ 1 | 표본에서 그 페이지에 보인 선택지 수. 무작위로 고르면 `1/k` |
+| `events.<이벤트>.<페이지>.options.<선택지>.choiceRate` | 0..1 | 그 페이지에서 이 선택지를 고른 비율 |
+| `…options.<선택지>.byAct` | `{막: 0..1}` | 그 막의 비율이 전체와 안정적으로 다를 때만 적음. 그 막에서만 `choiceRate` 대신 씀 |
+| `ancients.<고대>.<선택지>.pickRate` | 0..1 | 이 선택지가 제시됐을 때 고른 비율 |
+| 그 밖 (`n`, `players`, `dirBoot`, `bandBoot`, `basis` …) | | 근거 자료. 실행 중에는 읽지 않음 |
+
+- 키는 `events.json`의 선택지 키 `<이벤트>.pages.<페이지>.options.<선택지>`를 세 단계로 나눈 것입니다. 고대 선택지는 `<고대>.pages.INITIAL.options.<선택지>`(`NeowOptions`와 같은 이름, 유물 ID에서 `RELIC.`을 뺀 것)로 찾습니다.
+- 점수: 보이는 페이지의 선택지마다 `점수 = 공식 + events.measuredBlend × events.measuredScale × (비율 − 무작위 비율)`. 무작위 비율은 이벤트 `1/k`, 고대 `1/제시된 선택지 수`(모르면 3). 항목이 없는 선택지는 공식 값 그대로이고, 다음 페이지 미리보기에는 섞지 않습니다. 설명에 "상위 플레이어 72% 선택"이 붙습니다.
+
+## 11. `relics.json` (측정 유물 선택률, 선택)
+
+유물은 원래 희귀도 값(`events.relicTier`)으로만 평가합니다. 이 파일은 상점 구매율과 고대 선택률로 그 값을 조정합니다(엘리트·보물·보스 보상 유물은 99.9% 가져가서 선택 신호가 없어 항목이 없습니다).
+
+```jsonc
+{ "version": 1, "source": "opgg-top-a10-2026-11", "shopMedianPickRate": 0.327, "ancientNeutralPickRate": 0.333,
+  "relics": { "RELIC.MINIATURE_TENT": { "signal": "shop", "use": true, "pickRate": 0.645, "tier": "A" } } }
+```
+
+| 필드 | 타입 | 의미 |
+|---|---|---|
+| `shopMedianPickRate` | (0, 1] | 상점 유물 구매율의 중앙값. 구매는 골드에 묶여 있어 상점 비율은 이 값에 대한 비로만 씀 |
+| `ancientNeutralPickRate` | (0, 1] | 고대에서 무작위로 고를 때의 비율(1/3) |
+| `relics.<RELIC.X>.signal` | `shop` 또는 `ancient:<고대>` | 비율을 어디서 쟀는지 |
+| `….use` | bool (필수) | 실행 중에 쓸지. `false` = 불확실 → 희귀도 값 유지 |
+| `….pickRate` | 0..1 | 구매율 또는 선택률 |
+| `….tier` | S..D 또는 null | 등급 구간이 안정할 때만 적은 참고 표시. 점수에는 쓰지 않음 |
+| 그 밖 (`n`, `eff_n`, `players`, `bandBoot`, `presenceLift` …) | | 근거 자료 |
+
+- 유물 값 = 희귀도 값 × `clamp(pickRate / 기준, 0.5, 1.5)` (`use: true`일 때만). 기준은 `signal: "shop"`이면 `shopMedianPickRate`, 아니면 `ancientNeutralPickRate`.
+- 쓰는 곳: `EventScorer`가 ID를 아는 유물을 줄 때(`relic` 효과, 고대 선택지), `ShopScorer.RelicValue`. 상점 화면 인식기가 아직 유물을 읽지 않아 상점 추천 목록에는 유물 항목이 없습니다. `RelicValue`는 그 항목이 생기면 쓸 값입니다.

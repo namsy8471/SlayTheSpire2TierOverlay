@@ -1,192 +1,178 @@
-# 사일런트 빌드 카드 근거
+# 사일런트 빌드 카드 근거 (v2)
 
-`data/packs/v0.107.1/archetypes/silent.json`의 카드 목록이 어디서 왔는지 정리한 문서입니다. 모든 카드는 상위 플레이어가 실제로 이긴 덱에서 뽑았고, 직접 판단이나 익명 커뮤니티 글은 출처로 쓰지 않았습니다.
+`data/packs/v0.107.1/archetypes/silent.json`의 카드 목록 근거입니다. v1(OP.GG 315판)보다 표본이 훨씬 큰 상위 플레이어 전체 기록으로 다시 판정했습니다. 모든 카드는 상위 플레이어가 실제로 이긴 덱에서 나왔고, 직접 판단이나 익명 커뮤니티 글은 출처로 쓰지 않았습니다.
 
-## 출처
+## 표본
 
-1. **주 출처: OP.GG** 사일런트 주간 최단 승리 상위 100(2026-11-02~08)과, 목록에 오른 모든 플레이어의 최근 승리. 바닐라, A10, 싱글만. v0.107.1 46판 + v0.111.0 48판 = **94판·41명**. 그 이전 빌드(v0.103.2·v0.105.1) 7판은 뺐습니다. 런은 `https://op.gg/slay-the-spire2/history/<runId>` 형식으로 인용합니다.
-   - **OP.GG 랭킹 1위 플레이어**(솔로 787판·승률 64.4%·최고 연승 44)는 사일런트 13승, 전부 v0.107.1입니다. 표의 "1위 플레이어 덱" 열은 그의 멤버 덱 중 그 카드를 든 덱 수입니다.
-2. **보조 출처: Baalorlord** A10 사일런트 승리 덱 5개(최고 연승 4, 2026-10-14~11-05): https://baalorlord.tv/runs/1792001030 , https://baalorlord.tv/runs/1793132909 , https://baalorlord.tv/runs/1793816244 , https://baalorlord.tv/runs/1793821221 , https://baalorlord.tv/runs/1793902215 . 그의 글 "In Defense of 2-Cost Cards"(https://sts2.untapped.gg/articles/in-defense-of-2-cost-cards)도 참고했습니다. 표의 "Baalorlord" 열은 5덱 중 그 카드를 든 덱 수입니다.
-3. **참고만: Spire Codex A10 Lift.** 이 문서의 어떤 판정도 이것만으로 정하지 않았습니다.
-
-베타에서 바뀐 카드(†, `changed_in_beta`: ACCELERANT, BLADE_OF_INK, ECHOING_SLASH, EXPERTISE, FLICK_FLACK, HAZE, MIRAGE, OUTBREAK, SCARE, TRACKING, WELL_LAID_PLANS 등)는 v0.107.1 판 46개만으로 계산했습니다. 나머지 카드는 두 버전을 합쳤습니다.
+- OP.GG 캐릭터별 주간 최단 승리 상위 100(2026-11-02~08)에 오른 플레이어 171명 전원의 **전체** 기록에서, A10·일반 모드·싱글·바닐라(게임플레이 모드 없음)·v0.107~v0.111 사일런트 승리 **888판·77명**(v0.107.x 350판).
+- 판정은 **좋은 플레이어**(A10 v0.107+ 5승 이상, 1막을 넘긴 판 기준 승률 25% 이상) **19명·482판**(v0.107.x 202판)으로 했고, 전체 플레이어 수치를 함께 적었습니다. OP.GG 랭킹 1위 플레이어의 사일런트 승리는 79판입니다.
+- 런 인용: `https://op.gg/slay-the-spire2/history/<id>`. 플레이어 이름·프로필 주소는 적지 않습니다.
+- 베타에서 바뀐 카드(†)는 v0.107.x 판만으로 판단했습니다.
 
 ## 방법
 
-- **덱**: 최종 덱의 서로 다른 카드 집합. 강화·인챈트는 같은 카드로, 시작·저주·상태이상·토큰·퀘스트 카드는 제외.
-- **빌드 멤버십(누락 보정)**: 축(POISON·SHIV·DISCARD)별로 티어 태그가 그 축을 공급·소비·요구하는 사일런트 카드를 후보로 두고, 남은 후보 기준 lift가 2.0 미만인 카드를 하나씩 빼서 "시그니처 카드"를 정했습니다. 카드 X를 평가할 때는 **X를 뺀 시그니처 카드 2장 이상**을 든 덱을 멤버로 봅니다(자기 점유율을 스스로 올리지 못하게).
-  - 중독: ACCELERANT, BOUNCING_FLASK, BUBBLE_BUBBLE, CORROSIVE_WAVE, DEADLY_POISON, MIRAGE, NOXIOUS_FUMES, OUTBREAK, POISONED_STAB, SNAKEBITE
-  - 단도: ACCURACY, BLADE_DANCE, BLADE_OF_INK, CLOAK_AND_DAGGER, FAN_OF_KNIVES, FINISHER, HIDDEN_DAGGERS, INFINITE_BLADES, KNIFE_TRAP, LEADING_STRIKE, PHANTOM_BLADES, UP_MY_SLEEVE
-  - 교활·버리기: DAGGER_THROW, FLICK_FLACK, HAND_TRICK, HAZE, MASTER_PLANNER, MEMENTO_MORI, PREPARED, REFLEX, RICOCHET, SHADOW_STEP, STORM_OF_STEEL, TACTICIAN, UNTOUCHABLE
-- **점유율** = 멤버 덱 중 그 카드를 든 비율, **lift** = 점유율 ÷ 비멤버 덱 점유율(비멤버 0%면 ∞), **빌드 내 픽/제시** = 멤버 덱 런의 카드 보상 화면(일반·엘리트·보스·미지)에서 집은 횟수/나온 횟수. 상점은 픽 표시가 없어 뺐습니다. 전체 평균 픽률은 21%입니다.
-- **빌드 인정**: 멤버 덱 ≥6판, ≥4명, 한 사람이 절반 이하.
-- **카드 인정**: ≥3명, lift ≥1.5, 그리고 점유율 ≥25% 또는 (점유율 ≥15%이고 빌드 내 ≥5번 제시 중 ≥50% 픽). lift 1.5~1.6은 **경계**로 표시했습니다.
-- **보조 출처 구제**: OP.GG 기준에 못 미친 카드라도 Baalorlord 사일런트 덱의 ≥50%(3/5 이상)에 있고, 카드 자체가 그 빌드의 축에 작용하며, OP.GG lift ≥1.0이면 core가 아닌 역할로 넣을 수 있습니다.
-- **core**: 인정된 고급·희귀 카드 중 그 빌드의 엔진(축을 공급하거나 키우는 파워)이고 점유율 ≥40%·≥4명. 최대 3장. 일반·고대·이벤트 카드는 core 불가. 없으면 비웁니다.
-- **나머지 역할**: 축 공급 = enabler, 축 소비·마무리 = payoff, 그 밖에 인정된 카드 = support. 범용 카드라도 lift 기준을 통과하면 support로 넣었습니다.
+- **빌드 멤버십**(v1과 같은 방식): 티어 태그가 그 축(POISON·SHIV·DISCARD)을 공급·소비·요구하는 사일런트 카드를 후보로 두고, 남은 후보 기준 lift(원시)가 2.0 미만인 카드를 하나씩 빼서 시그니처 카드를 정했습니다(좋은 플레이어 승리 덱). 카드 X를 평가할 때는 X를 뺀 시그니처 카드 2장 이상을 든 덱을 멤버로 봅니다.
+  - silent.poison: ACCELERANT, BOUNCING_FLASK, BUBBLE_BUBBLE, CORROSIVE_WAVE, DEADLY_POISON, HAZE, MIRAGE, NOXIOUS_FUMES, OUTBREAK, POISONED_STAB, SNAKEBITE
+  - silent.shiv: ACCURACY, BLADE_DANCE, BLADE_OF_INK, CLOAK_AND_DAGGER, ENVENOM, FAN_OF_KNIVES, FINISHER, HIDDEN_DAGGERS, INFINITE_BLADES, KNIFE_TRAP, LEADING_STRIKE, PHANTOM_BLADES, STORM_OF_STEEL, UP_MY_SLEEVE
+  - silent.sly_discard: DAGGER_THROW, FLICK_FLACK, HAND_TRICK, HAZE, MASTER_PLANNER, MEMENTO_MORI, REFLEX, RICOCHET, TACTICIAN, UNTOUCHABLE
+  - silent.draw_burst: CORROSIVE_WAVE, MURDER, REFLEX, SPEEDSTER
+  - cand.weak: SCARE, SUCKER_PUNCH, TRACKING
+- **플레이어 균형**: 모든 점유율·픽률은 플레이어별 비율을 가중 평균했고, 한 사람의 가중치는 전체의 10%로 제한했습니다. 원시 값도 같이 적었습니다. **lift** = 멤버 덱 균형 점유율 ÷ 비멤버 덱 균형 점유율.
+- **부트스트랩**: 플레이어를 복원 추출해 200번 다시 계산하고, 판정이 80% 이상에서 유지되면 채택, 20% 이하이면 기각했습니다. 그 사이일 때, 좋은 플레이어 중 그 카드를 쓴 사람이 10명 미만(표본이 얇음)이면 전체 플레이어 결과가 안정적일 때만 그것을 따랐고, 그 밖에는 **불확실**로 보고 v1 값을 유지했습니다.
+- **빌드 인정**: 멤버 덱 25판 이상·6명 이상·한 사람 50% 이하(랭킹 1위 플레이어 빌드는 그의 승리 15판 이상).
+- **카드 인정**: 5명 이상, lift 1.5 이상, 균형 점유율 25% 이상(또는 15% 이상이면서 빌드 내 10번 이상 제시 중 균형 픽률 50% 이상). 픽/제시는 전투 뒤 카드 보상 화면만 셉니다(상점·이벤트 화면 제외, 공용 card_stats와 같은 분류).
+- **core**: 인정된 고급·희귀 카드 중 그 축 태그를 가진 **파워**(카드 자체가 빌드 엔진)이고 균형 점유율 40% 이상·5명 이상. 최대 3장. 없으면 비웁니다.
+- **keyRelics**: 효과가 그 빌드 축에 작용하는 유물만 후보로 두고(v1 목록 + 예전에 있던 축 유물), 멤버 덱 lift 1.5 이상·5명 이상·부트스트랩 80%로 판정했습니다. 축과 무관한 유물은 숫자를 넘어도 넣지 않았습니다(단도 빌드는 비멤버 덱이 18%뿐이라 범용 유물 수십 개가 숫자상 lift를 넘음).
+- **fullWeight**(v1 규칙): 멤버 덱 commit 균형 중앙값이 0.7 미만이거나 비멤버 중앙값이 0.5 초과일 때만, 멤버 중앙값이 약 0.85가 되도록 0.5 단위로 조정.
+- **coreTarget / essentialTarget**: 멤버 승리 덱이 가진 서로 다른 core 카드 수, enabler·payoff 카드 수의 균형 중앙값. 부트스트랩 80% 이상일 때만 적었습니다(coreTarget은 2 이상일 때만).
 
 ## silent.poison (중독)
 
-- 표본: 멤버 덱 **31판·22명**(v0.107.1 18 / v0.111.0 13), 한 사람 최대 19%, 랭킹 1위 플레이어 6판. 빌드 인정.
-- core: NOXIOUS_FUMES(이전 core 유지), **ACCELERANT†**(payoff → core). BOUNCING_FLASK는 core → enabler(36%, 기준 40% 미달).
-- 두 core를 함께 든 덱 5/31이라 `coreTarget`은 기본값 1. `fullWeight` 4.0 유지(멤버 commit 중앙값 1.00→1.00, 비멤버 0.38→0.18).
-- `keyRelics`: SNECKO_SKULL(멤버 13%, lift 1.4, 3명), TWISTED_FUNNEL(26%, lift 2.3, 8명) 유지.
+- 표본: 좋은 플레이어 멤버 덱 **189판·17명**(한 사람 최대 20%, OP.GG 랭킹 1위 플레이어 29판, 빌드 인정 부트스트랩 100%). 전체 플레이어 306판·49명. 버전: v0.107.x 59, v0.108.x 6, v0.109.x 21, v0.110.x 18, v0.111.x 85
+- core: v1 NOXIOUS_FUMES, ACCELERANT† → **v2 NOXIOUS_FUMES**
+- enabler: v1 SNAKEBITE, BOUNCING_FLASK, DEADLY_POISON → **v2 SNAKEBITE, HAZE†, BOUNCING_FLASK, DEADLY_POISON**
+- payoff: v1 MIRAGE†, BUBBLE_BUBBLE → **v2 ACCELERANT†, BUBBLE_BUBBLE(불확실)**
+- support: v1 BLUR, LEG_SWEEP, REFLEX, UNTOUCHABLE, TRACKING† → **v2 없음**
+- fullWeight 4.0 → 3.0 (멤버 commit 균형 중앙값: v1 목록 0.85 / 새 목록 4.0에서 0.66 / 최종 0.88; 비멤버 0.25 → 0.17; 전체 플레이어 최종 0.87/0.00).
+- coreTarget: core 보유 중앙값 1(두 장 이상 보유 0%) → 기본값 1(미설정). essentialTarget: enabler·payoff 보유 중앙값 2(부트스트랩 90%; 전체 플레이어 2, 100%) → **2**.
 
-| 카드 | 역할 | 점유율(멤버) | 비멤버 | lift | 플레이어 | 빌드 내 픽/제시 | 1위 플레이어 덱 | Baalorlord | 통과 기준 |
+| 카드 | v2 역할 | v1 역할 | 점유율(균형) | 비멤버 | lift | 플레이어 | 빌드 내 픽/제시(균형) | 카드 기준 통과 | core 통과 | 전체 플레이어: 점유율·lift·명·통과 | 1위 덱 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| NOXIOUS_FUMES | core | core | 50% (74/159, 원시 47%) | 23% | 2.13 | 16 | 59/107 (60%) | 100% | 90% | 52%·2.81·43명·100% | 10/28 |
+| SNAKEBITE | enabler | enabler | 41% (71/169, 원시 42%) | 14% | 2.93 | 14 | 74/318 (22%) | 100% | - | 38%·4.29·33명·100% | 6/27 |
+| HAZE† | enabler | - | 32% (20/50, 원시 40%) | 9% | 3.56 | 5 | 11/28 (31%) | 50% | - | 37%·4.28·11명·92% | 10/25 |
+| BOUNCING_FLASK | enabler | enabler | 31% (58/179, 원시 32%) | 6% | 5.32 | 13 | 51/122 (42%) | 94% | - | 28%·6.19·26명·80% | 10/27 |
+| DEADLY_POISON | enabler | enabler | 30% (54/177, 원시 31%) | 7% | 4.02 | 12 | 45/347 (13%) | 86% | - | 32%·5.14·31명·98% | 13/26 |
+| ACCELERANT† | payoff | core | 31% (22/57, 원시 39%) | 12% | 2.62 | 6 | 16/28 (62%) | 66% | 16% | 32%·7.03·14명·96% | 11/28 |
+| BUBBLE_BUBBLE | payoff (불확실) | payoff | 24% (44/186, 원시 24%) | 1% | 19.53 | 12 | 31/93 (34%) | 44% | - | 25%·18.29·29명·56% | 5/29 |
+| BLUR | (제거) | support | 39% (74/189, 원시 39%) | 32% | 1.19 | 13 | 68/117 (62%) | 8% | - | 39%·1.32·31명·9% | 9/29 |
+| LEG_SWEEP | (제거) | support | 33% (60/189, 원시 32%) | 30% | 1.10 | 14 | 57/126 (45%) | 2% | - | 34%·1.14·33명·1% | 7/29 |
+| UNTOUCHABLE | (제거) | support | 27% (53/189, 원시 28%) | 21% | 1.29 | 11 | 50/342 (15%) | 6% | - | 28%·1.61·24명·52% | 15/29 |
+| TRACKING† | (제거) | support | 26% (14/59, 원시 24%) | 12% | 2.21 | 4 | 15/25 (38%) | 27% | - | 16%·0.88·8명·0% | 7/29 |
+| REFLEX | (제거) | support | 23% (47/189, 원시 25%) | 24% | 0.97 | 12 | 33/107 (27%) | 1% | - | 23%·1.35·27명·6% | 14/29 |
+| MIRAGE† | (제거) | payoff | 9% (7/59, 원시 12%) | 0% | ∞ | 4 | 4/34 (10%) | 0% | - | 22%·51.07·13명·36% | 4/29 |
+
+판정: NOXIOUS_FUMES core 통과(좋은 플레이어, 부트스트랩 90%); SNAKEBITE 카드 기준 통과(좋은 플레이어, 부트스트랩 100%); HAZE† 새로 추가(전체 플레이어; 좋은 플레이어 표본이 얇고(<10명) 불안정, 부트스트랩 92%); BOUNCING_FLASK 카드 기준 통과(좋은 플레이어, 부트스트랩 94%); DEADLY_POISON 카드 기준 통과(좋은 플레이어, 부트스트랩 86%); ACCELERANT† 카드 기준 통과(전체 플레이어; 좋은 플레이어 표본이 얇고(<10명) 불안정, 부트스트랩 96%); core 탈락(좋은 플레이어, core 통과 16%); BUBBLE_BUBBLE 불확실(좋은 44%, 전체 56%) → v1 유지; BLUR 제거(좋은 플레이어, 카드 기준 통과 8%); LEG_SWEEP 제거(좋은 플레이어, 카드 기준 통과 2%); UNTOUCHABLE 제거(좋은 플레이어, 카드 기준 통과 6%); TRACKING† 제거(전체 플레이어; 좋은 플레이어 표본이 얇고(<10명) 불안정, 카드 기준 통과 0%); REFLEX 제거(좋은 플레이어, 카드 기준 통과 1%); MIRAGE† 제거(좋은 플레이어, 카드 기준 통과 0%).
+
+유물:
+
+| 유물 | v2 | v1 | 점유율(멤버, 균형) | 비멤버 | lift | 플레이어 | 부트스트랩 | 전체 플레이어 lift·명·부트스트랩 | w |
 |---|---|---|---|---|---|---|---|---|---|
-| NOXIOUS_FUMES | core | 52% (14/27) | 19% | 2.7 | 13 | 12/29 | 2/6 | 2/5 | 점유율≥25% |
-| ACCELERANT† | core | 41% (7/17) | 3% | 11.9 | 4 | 5/10 | 4/6 | 1/5 | 점유율≥25% / 15%+픽≥50% |
-| SNAKEBITE | enabler | 40% (10/25) | 13% | 3.1 | 9 | 12/44 | 2/5 | 3/5 | 점유율≥25% |
-| BOUNCING_FLASK | enabler | 36% (10/28) | 5% | 7.9 | 10 | 10/25 | 1/6 | 1/5 | 점유율≥25% |
-| DEADLY_POISON | enabler | 29% (9/31) | 6% | 4.6 | 8 | 12/67 | 2/6 | 0/5 | 점유율≥25% |
-| MIRAGE† | payoff | 33% (6/18) | 0% | ∞ | 5 | 6/15 | 2/6 | 0/5 | 점유율≥25% |
-| BUBBLE_BUBBLE | payoff | 26% (8/31) | 0% | ∞ | 8 | 5/21 | 1/6 | 1/5 | 점유율≥25% |
-| BLUR | support | 45% (14/31) | 22% | 2.0 | 10 | 17/33 | 4/6 | 3/5 | 점유율≥25% / 15%+픽≥50% |
-| LEG_SWEEP | support | 42% (13/31) | 21% | 2.0 | 12 | 14/29 | 1/6 | 2/5 | 점유율≥25% |
-| REFLEX | support | 26% (8/31) | 16% | 1.63 | 6 | 6/19 | 3/6 | 0/5 | 점유율≥25% |
-| UNTOUCHABLE | support | 26% (8/31) | 13% | 2.0 | 8 | 7/62 | 1/6 | 0/5 | 점유율≥25% |
-| TRACKING† | support | 22% (4/18) | 14% | 1.56 | 3 | 4/7 | 2/6 | 0/5 | 15%+픽≥50% (경계: lift 1.5~1.6) |
+| SNECKO_SKULL | 유지(불확실) | 있음 | 30% (58/189) | 23% | 1.29 | 12 | 26% | 1.79·26명·86% | 0.7 |
+| TWISTED_FUNNEL | 유지(불확실) | 있음 | 15% (28/189) | 12% | 1.31 | 10 | 30% | 1.44·24명·43% | 0.5 |
 
-대표 승리 덱: https://op.gg/slay-the-spire2/history/7306479 (v0.107.1, 두 core 모두), https://op.gg/slay-the-spire2/history/7176716 (v0.111.0, NOXIOUS_FUMES·BOUNCING_FLASK·SNAKEBITE), https://op.gg/slay-the-spire2/history/7279795 (v0.107.1), https://op.gg/slay-the-spire2/history/7085517 (랭킹 1위 플레이어, 두 core 모두). Baalorlord 중독 덱: https://baalorlord.tv/runs/1792001030 , https://baalorlord.tv/runs/1793816244 (둘 다 NOXIOUS_FUMES·SNAKEBITE).
+숫자 기준은 넘었지만 효과가 축과 무관해 넣지 않은 유물 4개: BELLOWS, ELECTRIC_SHRYMP, MOLTEN_EGG, YUMMY_COOKIE.
 
-제거한 카드:
-
-| 카드 | 이전 역할 | 점유율(멤버) | 비멤버 | lift | 플레이어 | 빌드 내 픽/제시 | 1위 플레이어 덱 | Baalorlord | 통과 기준 |
-|---|---|---|---|---|---|---|---|---|---|
-| POISONED_STAB | enabler | 17% (5/29) | 6% | 2.8 | 5 | 5/67 | 1/6 | 1/5 | 미달: 점유율<25%·픽<50% |
-| HAZE† | enabler | 17% (3/18) | 11% | 1.56 | 2 | 2/15 | 2/6 | 1/5 | 미달: 플레이어<3, 점유율<25%·픽<50% |
-| CORROSIVE_WAVE | enabler | 13% (4/30) | 5% | 2.8 | 3 | 3/12 | 2/6 | 0/5 | 미달: 점유율<15% |
-| ENVENOM | enabler | 23% (7/31) | 13% | 1.8 | 6 | 5/12 | 1/6 | 1/5 | 미달: 점유율<25%·픽<50% |
-| OUTBREAK† | payoff | 20% (3/15) | 10% | 2.1 | 3 | 1/10 | 1/5 | 1/5 | 미달: 점유율<25%·픽<50% |
-| MALAISE | support | 13% (4/31) | 8% | 1.63 | 3 | 6/10 | 2/6 | 1/5 | 미달: 점유율<15% |
-| PIERCING_WAIL | support | 48% (15/31) | 46% | 1.1 | 13 | 17/64 | 2/6 | 4/5 | 미달: lift<1.5 |
-| FOOTWORK | support | 58% (18/31) | 71% | 0.8 | 15 | 16/21 | 4/6 | 3/5 | 미달: lift<1.5 |
-
-- PIERCING_WAIL(Baalorlord 4/5)·FOOTWORK(3/5)은 보조 출처 50% 조건은 넘지만 카드 자체가 중독 축에 작용하지 않고, OP.GG lift도 1.1·0.8이라 구제하지 않았습니다. 둘 다 빌드와 상관없이 거의 모든 덱에 들어가는 범용 카드입니다.
-- Baalorlord 중독 덱 2개에 모두 있는 BURST는 그의 전체 사일런트 덱 기준 2/5(40%)라 구제 조건(≥50%) 미달이고, OP.GG 중독 멤버 덱에서도 10%(3/31)입니다.
+대표 승리 덱: https://op.gg/slay-the-spire2/history/7176716 (v0.111.0), https://op.gg/slay-the-spire2/history/7089416 (v0.111.0), https://op.gg/slay-the-spire2/history/6479296 (v0.107.1), https://op.gg/slay-the-spire2/history/6405508 (v0.107.1, OP.GG 랭킹 1위 플레이어)
 
 ## silent.shiv (단도)
 
-- 표본: 멤버 덱 **73판·34명**(v0.107.1 33 / v0.111.0 40), 한 사람 최대 12%, 랭킹 1위 플레이어 9판. 사일런트 최다 빌드.
-- core: ACCURACY, INFINITE_BLADES(이전 core 둘 다 유지). 둘 다 비멤버 덱에는 한 번도 없습니다.
-- 두 core를 함께 든 덱 22/73(30%)이라 `coreTarget` 기본값 1. `fullWeight` 4.0 유지(멤버 중앙값 1.00→1.00, 비멤버 0.13→0.19).
-- `keyRelics`: HELICAL_DART 삭제(멤버 1판·1명, lift 0.3). NINJA_SCROLL(8%, 비멤버 0%, 6명), KUNAI(11%, lift 2.3, 8명), SHURIKEN(10%, lift 2.0, 7명), ORNAMENTAL_FAN(33%, lift 2.3, 19명) 유지.
+- 표본: 좋은 플레이어 멤버 덱 **396판·18명**(한 사람 최대 19%, OP.GG 랭킹 1위 플레이어 54판, 빌드 인정 부트스트랩 100%). 전체 플레이어 752판·70명. 버전: v0.107.x 166, v0.108.x 16, v0.109.x 39, v0.110.x 28, v0.111.x 147
+- core: v1 ACCURACY, INFINITE_BLADES → **v2 ACCURACY, INFINITE_BLADES(불확실)**
+- enabler: v1 LEADING_STRIKE, BLADE_DANCE, CLOAK_AND_DAGGER, HIDDEN_DAGGERS, BLADE_OF_INK† → **v2 BLADE_DANCE, LEADING_STRIKE, CLOAK_AND_DAGGER, HIDDEN_DAGGERS, BLADE_OF_INK†**
+- payoff: v1 PHANTOM_BLADES, KNIFE_TRAP, FAN_OF_KNIVES, ENVENOM → **v2 PHANTOM_BLADES, KNIFE_TRAP, FAN_OF_KNIVES(불확실)**
+- support: v1 EXPOSE, DEFLECT, AFTERIMAGE, ESCAPE_PLAN, TRACKING† → **v2 EXPOSE(불확실), AFTERIMAGE(불확실)**
+- fullWeight 4.0 → 4.0 (멤버 commit 균형 중앙값: v1 목록 1.00 / 새 목록 4.0에서 1.00 / 최종 1.00; 비멤버 0.25 → 0.17; 전체 플레이어 최종 1.00/0.12).
+- coreTarget: core 보유 중앙값 1(두 장 이상 보유 28%) → 기본값 1(미설정). essentialTarget: enabler·payoff 보유 중앙값 3(부트스트랩 57%; 전체 플레이어 4, 94%) → 미설정(불확실).
 
-| 카드 | 역할 | 점유율(멤버) | 비멤버 | lift | 플레이어 | 빌드 내 픽/제시 | 1위 플레이어 덱 | Baalorlord | 통과 기준 |
+| 카드 | v2 역할 | v1 역할 | 점유율(균형) | 비멤버 | lift | 플레이어 | 빌드 내 픽/제시(균형) | 카드 기준 통과 | core 통과 | 전체 플레이어: 점유율·lift·명·통과 | 1위 덱 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| ACCURACY | core | core | 63% (249/391, 원시 64%) | 5% | 12.28 | 16 | 232/308 (75%) | 100% | 100% | 66%·17.04·61명·100% | 30/52 |
+| INFINITE_BLADES | core (불확실) | core | 40% (161/390, 원시 41%) | 9% | 4.21 | 15 | 122/272 (42%) | 100% | 49% | 46%·6.38·51명·100% | 18/53 |
+| BLADE_DANCE | enabler | enabler | 67% (255/386, 원시 66%) | 9% | 7.51 | 16 | 305/799 (40%) | 100% | - | 64%·5.68·60명·100% | 31/48 |
+| LEADING_STRIKE | enabler | enabler | 61% (240/381, 원시 63%) | 20% | 3.14 | 16 | 248/750 (32%) | 100% | - | 67%·3.59·56명·100% | 20/48 |
+| CLOAK_AND_DAGGER | enabler | enabler | 57% (220/387, 원시 57%) | 19% | 3.06 | 16 | 250/761 (33%) | 100% | - | 62%·4.95·55명·100% | 14/53 |
+| HIDDEN_DAGGERS | enabler | enabler | 43% (174/389, 원시 45%) | 20% | 2.17 | 15 | 164/252 (62%) | 87% | - | 48%·2.00·52명·96% | 12/52 |
+| BLADE_OF_INK† | enabler | enabler | 33% (53/161, 원시 33%) | 8% | 4.15 | 10 | 42/60 (69%) | 98% | - | 35%·5.70·31명·100% | 15/50 |
+| PHANTOM_BLADES | payoff | payoff | 39% (155/393, 원시 39%) | 2% | 17.95 | 15 | 112/260 (42%) | 100% | 42% | 44%·28.53·49명·100% | 8/52 |
+| KNIFE_TRAP | payoff | payoff | 28% (105/396, 원시 27%) | 0% | ∞ | 16 | 80/139 (55%) | 90% | - | 32%·∞·50명·100% | 10/54 |
+| FAN_OF_KNIVES | payoff (불확실) | payoff | 23% (83/394, 원시 21%) | 4% | 5.56 | 13 | 70/144 (49%) | 56% | 0% | 23%·8.30·42명·86% | 11/53 |
+| EXPOSE | support (불확실) | support | 42% (167/396, 원시 42%) | 33% | 1.27 | 14 | 158/290 (55%) | 24% | - | 44%·1.55·51명·50% | 15/54 |
+| AFTERIMAGE | support (불확실) | support | 31% (117/396, 원시 30%) | 20% | 1.54 | 15 | 110/146 (74%) | 52% | - | 34%·2.07·46명·97% | 14/54 |
+| DEFLECT | (제거) | support | 33% (136/396, 원시 34%) | 36% | 0.91 | 16 | 117/723 (17%) | 1% | - | 39%·0.82·49명·0% | 20/54 |
+| ESCAPE_PLAN | (제거) | support | 30% (119/396, 원시 30%) | 35% | 0.85 | 15 | 122/242 (48%) | 0% | - | 29%·0.80·45명·0% | 9/54 |
+| SERPENT_FORM | (미채택) | - | 27% (101/396, 원시 26%) | 16% | 1.73 | 16 | 81/179 (46%) | 60% | - | 22%·1.23·39명·7% | 7/54 |
+| ENVENOM | (제거) | payoff | 19% (69/393, 원시 18%) | 6% | 3.15 | 13 | 53/146 (35%) | 8% | 0% | 16%·2.89·33명·2% | 2/53 |
+| TRACKING† | (제거) | support | 16% (41/166, 원시 25%) | 7% | 2.25 | 6 | 39/59 (34%) | 14% | - | 20%·1.37·21명·28% | 18/54 |
+
+판정: ACCURACY core 통과(좋은 플레이어, 부트스트랩 100%); INFINITE_BLADES core 불확실(좋은 49%, 전체 93%) → v1 유지; BLADE_DANCE 카드 기준 통과(좋은 플레이어, 부트스트랩 100%); LEADING_STRIKE 카드 기준 통과(좋은 플레이어, 부트스트랩 100%); CLOAK_AND_DAGGER 카드 기준 통과(좋은 플레이어, 부트스트랩 100%); HIDDEN_DAGGERS 카드 기준 통과(좋은 플레이어, 부트스트랩 87%); BLADE_OF_INK† 카드 기준 통과(좋은 플레이어, 부트스트랩 98%); PHANTOM_BLADES 카드 기준 통과(좋은 플레이어, 100%); core 불확실(좋은 42%, 전체 86%) → v1 역할 유지; KNIFE_TRAP 카드 기준 통과(좋은 플레이어, 부트스트랩 90%); FAN_OF_KNIVES 불확실(좋은 56%, 전체 86%) → v1 유지; EXPOSE 불확실(좋은 24%, 전체 50%) → v1 유지; AFTERIMAGE 불확실(좋은 52%, 전체 97%) → v1 유지; DEFLECT 제거(좋은 플레이어, 카드 기준 통과 1%); ESCAPE_PLAN 제거(좋은 플레이어, 카드 기준 통과 0%); SERPENT_FORM 불확실(좋은 60%, 전체 7%) → 추가 안 함; ENVENOM 제거(좋은 플레이어, 카드 기준 통과 8%); TRACKING† 제거(좋은 플레이어, 카드 기준 통과 14%).
+
+유물:
+
+| 유물 | v2 | v1 | 점유율(멤버, 균형) | 비멤버 | lift | 플레이어 | 부트스트랩 | 전체 플레이어 lift·명·부트스트랩 | w |
 |---|---|---|---|---|---|---|---|---|---|
-| ACCURACY | core | 64% (47/73) | 0% | ∞ | 25 | 34/50 | 5/9 | 2/5 | 점유율≥25% / 15%+픽≥50% |
-| INFINITE_BLADES | core | 48% (35/73) | 0% | ∞ | 21 | 23/52 | 4/9 | 1/5 | 점유율≥25% |
-| LEADING_STRIKE | enabler | 75% (52/69) | 24% | 3.1 | 27 | 62/157 | 5/8 | 2/5 | 점유율≥25% |
-| BLADE_DANCE | enabler | 68% (48/71) | 9% | 7.8 | 23 | 63/165 | 6/8 | 1/5 | 점유율≥25% |
-| CLOAK_AND_DAGGER | enabler | 66% (48/73) | 10% | 6.9 | 28 | 65/156 | 2/9 | 2/5 | 점유율≥25% |
-| HIDDEN_DAGGERS | enabler | 56% (40/71) | 13% | 4.3 | 25 | 34/46 | 5/9 | 0/5 | 점유율≥25% / 15%+픽≥50% |
-| BLADE_OF_INK† | enabler | 36% (12/33) | 8% | 4.7 | 7 | 10/15 | 2/9 | 0/5 | 점유율≥25% / 15%+픽≥50% |
-| PHANTOM_BLADES | payoff | 40% (29/73) | 0% | ∞ | 23 | 25/51 | 1/9 | 1/5 | 점유율≥25% |
-| KNIFE_TRAP | payoff | 29% (21/73) | 0% | ∞ | 15 | 18/22 | 2/9 | 0/5 | 점유율≥25% / 15%+픽≥50% |
-| FAN_OF_KNIVES | payoff | 27% (20/73) | 0% | ∞ | 18 | 20/25 | 2/9 | 0/5 | 점유율≥25% / 15%+픽≥50% |
-| ENVENOM | payoff | 18% (13/73) | 10% | 1.9 | 10 | 12/22 | 2/9 | 1/5 | 15%+픽≥50% |
-| EXPOSE | support | 55% (40/73) | 19% | 2.9 | 25 | 38/58 | 4/9 | 0/5 | 점유율≥25% / 15%+픽≥50% |
-| DEFLECT | support | 44% (32/73) | 29% | 1.53 | 16 | 39/149 | 5/9 | 0/5 | 점유율≥25% (경계: lift 1.5~1.6) |
-| AFTERIMAGE | support | 38% (28/73) | 5% | 8.1 | 18 | 26/33 | 4/9 | 1/5 | 점유율≥25% / 15%+픽≥50% |
-| ESCAPE_PLAN | support | 26% (19/73) | 14% | 1.8 | 14 | 17/49 | 1/9 | 0/5 | 점유율≥25% |
-| TRACKING† | support | 21% (7/33) | 8% | 2.8 | 6 | 8/14 | 2/9 | 0/5 | 15%+픽≥50% |
+| NINJA_SCROLL | 유지 | 있음 | 7% (19/396) | 4% | 1.71 | 8 | 53% | 2.38·17명·87% (판정에 사용) | 0.5 |
+| HELICAL_DART | 추가 | - | 4% (16/396) | 0% | ∞ | 8 | 97% | 3.03·20명·82% | 0.5 |
+| KUNAI | 유지 | 있음 | 10% (41/396) | 2% | 6.06 | 13 | 99% | 6.48·31명·100% | 0.5 |
+| SHURIKEN | 유지 | 있음 | 13% (49/396) | 2% | 5.08 | 12 | 100% | 5.08·32명·100% | 0.5 |
+| ORNAMENTAL_FAN | 유지(불확실) | 있음 | 19% (75/396) | 13% | 1.46 | 16 | 42% | 1.78·43명·81% | 0.3 |
 
-대표 승리 덱: https://op.gg/slay-the-spire2/history/7299147 (v0.111.0, 두 core), https://op.gg/slay-the-spire2/history/7191806 (v0.107.1, 두 core), https://op.gg/slay-the-spire2/history/7135144 (v0.111.0, ACCURACY), https://op.gg/slay-the-spire2/history/7204766 (랭킹 1위 플레이어, ACCURACY). Baalorlord 단도 덱: https://baalorlord.tv/runs/1793821221 , https://baalorlord.tv/runs/1793132909 (둘 다 ACCURACY·CLOAK_AND_DAGGER).
+숫자 기준은 넘었지만 효과가 축과 무관해 넣지 않은 유물 34개: BLACK_STAR, BOWLER_HAT, BURNING_STICKS, CROSSBOW, CURSED_PEARL, DISTINGUISHED_CAPE, FAKE_ANCHOR, FAKE_STRIKE_DUMMY, GLITTER, GREMLIN_HORN, INTIMIDATING_HELMET, LEES_WAFFLE 등.
 
-제거한 카드:
-
-| 카드 | 이전 역할 | 점유율(멤버) | 비멤버 | lift | 플레이어 | 빌드 내 픽/제시 | 1위 플레이어 덱 | Baalorlord | 통과 기준 |
-|---|---|---|---|---|---|---|---|---|---|
-| UP_MY_SLEEVE | enabler | 24.7% (18/73) | 0% | ∞ | 14 | 13/45 | 2/9 | 0/5 | 미달: 점유율<25%·픽<50% |
-| STORM_OF_STEEL | enabler | 10% (7/73) | 14% | 0.7 | 7 | 5/25 | 1/9 | 0/5 | 미달: lift<1.5, 점유율<15% |
-| FINISHER | payoff | 20% (14/71) | 9% | 2.3 | 10 | 12/47 | 0/9 | 0/5 | 미달: 점유율<25%·픽<50% |
-
-- UP_MY_SLEEVE는 비멤버 덱에 없고 14명이 썼지만 점유율 24.7%(18/73)로 25%에 조금 못 미치고 빌드 내 픽률도 29%(13/45)라 기준 미달입니다.
-- STORM_OF_STEEL은 단도 덱에서 오히려 드뭅니다(lift 0.7).
-- 역할 변경: ENVENOM support → payoff(단도 타격을 소비하는 카드), HIDDEN_DAGGERS는 enabler 유지.
-- 추가: EXPOSE, DEFLECT(경계), ESCAPE_PLAN, TRACKING†(support).
+대표 승리 덱: https://op.gg/slay-the-spire2/history/3724911 (v0.107.0), https://op.gg/slay-the-spire2/history/6364114 (v0.107.1), https://op.gg/slay-the-spire2/history/5870874 (v0.111.0), https://op.gg/slay-the-spire2/history/6757188 (v0.107.1, OP.GG 랭킹 1위 플레이어)
 
 ## silent.sly_discard (교활·버리기)
 
-- 표본: 멤버 덱 **51판·27명**(v0.107.1 31 / v0.111.0 20), 한 사람 최대 22%, 랭킹 1위 플레이어 11판. 빌드 인정. 단 멤버 덱 중 단도와 겹치는 덱이 36판, 중독과 겹치는 덱이 17판으로, 대부분 다른 빌드 위에 얹힌 형태입니다.
-- **core 없음.** 이전 core TOOLS_OF_THE_TRADE(12%, lift 1.0)와 ACROBATICS(39%, lift 1.3)는 교활 덱이 아닌 덱에서도 같은 비율로 쓰여 카드 기준을 통과하지 못했습니다. 기준을 통과한 카드 중 점유율 40%를 넘는 고급·희귀 카드는 TACTICIAN(44%, 12명)과 WELL_LAID_PLANS†(45%, 6명)뿐인데, TACTICIAN은 버려질 때 쓰이는 1회성 교활 카드(축 소비)라 payoff, WELL_LAID_PLANS는 버리기 축 카드가 아니라 support입니다. 엔진 역할을 하는 파워가 없으므로 core를 비웠고, 이 빌드에는 "코어 먼저" 규칙이 적용되지 않습니다.
-- `guideHeroCard`: TOOLS_OF_THE_TRADE(제거됨) → PREPARED(인정된 카드 중 최다 보유, 62%).
-- `fullWeight` 4.5 → **3.0**: 새 목록으로 멤버 commit 중앙값이 0.60이라 기준(0.7) 미달. 3.0에서 멤버 0.90, 비멤버 0.17(이전 목록: 0.89 / 0.38).
-- `keyRelics`: TINGSHA(멤버 10%, lift 0.8), TOUGH_BANDAGES(4%, lift 0.6, 2명) 삭제. GAMBLING_CHIP(8%, lift 1.1, 3명) 유지.
-- `desc`: 엔진 없이 교활 카드만 모으면 안 된다는 문장은 데이터와 맞지 않아(상위 플레이어는 싼 버리기 카드로 굴림) 고쳤습니다.
+- 표본: 좋은 플레이어 멤버 덱 **214판·17명**(한 사람 최대 23%, OP.GG 랭킹 1위 플레이어 50판, 빌드 인정 부트스트랩 100%). 전체 플레이어 346판·50명. 버전: v0.107.x 97, v0.108.x 11, v0.109.x 20, v0.110.x 10, v0.111.x 76
+- core: v1 없음 → **v2 없음**
+- enabler: v1 PREPARED, DAGGER_THROW → **v2 PREPARED(불확실), ACROBATICS, DAGGER_THROW(불확실)**
+- payoff: v1 TACTICIAN, RICOCHET, REFLEX, UNTOUCHABLE, ABRASIVE → **v2 TACTICIAN, UNTOUCHABLE, REFLEX, RICOCHET**
+- support: v1 WELL_LAID_PLANS†, TRACKING† → **v2 TRACKING†(불확실)**
+- fullWeight 3.0 → 3.0 (멤버 commit 균형 중앙값: v1 목록 1.00 / 새 목록 3.0에서 0.98 / 최종 0.98; 비멤버 0.35 → 0.30; 전체 플레이어 최종 1.00/0.23).
+- coreTarget: core 보유 중앙값 0(두 장 이상 보유 0%) → 기본값 1(미설정). essentialTarget: enabler·payoff 보유 중앙값 3(부트스트랩 97%; 전체 플레이어 3, 98%) → **3**.
 
-| 카드 | 역할 | 점유율(멤버) | 비멤버 | lift | 플레이어 | 빌드 내 픽/제시 | 1위 플레이어 덱 | Baalorlord | 통과 기준 |
+| 카드 | v2 역할 | v1 역할 | 점유율(균형) | 비멤버 | lift | 플레이어 | 빌드 내 픽/제시(균형) | 카드 기준 통과 | core 통과 | 전체 플레이어: 점유율·lift·명·통과 | 1위 덱 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| PREPARED | enabler (불확실) | enabler | 69% (150/214, 원시 70%) | 46% | 1.51 | 17 | 180/415 (43%) | 52% | - | 71%·2.01·45명·99% | 41/50 |
+| ACROBATICS | enabler | - | 46% (95/214, 원시 44%) | 27% | 1.75 | 15 | 101/169 (62%) | 90% | - | 42%·2.03·38명·100% | 22/50 |
+| DAGGER_THROW | enabler (불확실) | enabler | 29% (53/198, 원시 27%) | 15% | 1.98 | 12 | 36/378 (12%) | 78% | - | 29%·3.03·30명·82% | 12/48 |
+| TACTICIAN | payoff | payoff | 44% (77/178, 원시 43%) | 21% | 2.11 | 14 | 73/135 (51%) | 100% | - | 40%·2.54·30명·100% | 19/42 |
+| UNTOUCHABLE | payoff | payoff | 35% (65/185, 원시 35%) | 17% | 1.98 | 11 | 65/363 (18%) | 86% | - | 35%·2.56·24명·97% | 18/41 |
+| REFLEX | payoff | payoff | 33% (71/187, 원시 38%) | 17% | 2.01 | 14 | 54/121 (41%) | 89% | - | 32%·2.81·31명·94% | 27/44 |
+| RICOCHET | payoff | payoff | 33% (63/185, 원시 34%) | 17% | 1.93 | 14 | 61/352 (16%) | 94% | - | 39%·2.62·32명·100% | 18/46 |
+| TRACKING† | support (불확실) | support | 28% (23/97, 원시 24%) | 9% | 3.10 | 6 | 19/29 (52%) | 58% | - | 22%·1.39·14명·28% | 12/50 |
+| WELL_LAID_PLANS† | (제거) | support | 46% (47/97, 원시 48%) | 35% | 1.31 | 9 | 28/70 (33%) | 18% | - | 33%·0.95·21명·1% | 30/50 |
+| HAZE† | (미채택) | - | 26% (22/86, 원시 26%) | 9% | 2.80 | 6 | 19/56 (24%) | 39% | - | 26%·3.06·12명·55% | 12/44 |
+| TOOLS_OF_THE_TRADE | (미채택) | - | 23% (52/214, 원시 24%) | 13% | 1.80 | 11 | 41/74 (50%) | 52% | 0% | 29%·2.30·30명·96% | 9/50 |
+| ABRASIVE | (제거) | payoff | 18% (38/214, 원시 18%) | 15% | 1.20 | 11 | 29/59 (48%) | 8% | 0% | 19%·1.61·26명·42% | 8/50 |
+
+판정: PREPARED 불확실(좋은 52%, 전체 99%) → v1 유지; ACROBATICS 새로 추가(좋은 플레이어, 부트스트랩 90%); DAGGER_THROW 불확실(좋은 78%, 전체 82%) → v1 유지; TACTICIAN 카드 기준 통과(좋은 플레이어, 부트스트랩 100%); UNTOUCHABLE 카드 기준 통과(좋은 플레이어, 부트스트랩 86%); REFLEX 카드 기준 통과(좋은 플레이어, 부트스트랩 89%); RICOCHET 카드 기준 통과(좋은 플레이어, 부트스트랩 94%); TRACKING† 불확실(좋은 58%, 전체 28%) → v1 유지; WELL_LAID_PLANS† 제거(좋은 플레이어, 카드 기준 통과 18%); HAZE† 불확실(좋은 39%, 전체 55%) → 추가 안 함; TOOLS_OF_THE_TRADE 불확실(좋은 52%, 전체 96%) → 추가 안 함; ABRASIVE 제거(좋은 플레이어, 카드 기준 통과 8%).
+
+유물:
+
+| 유물 | v2 | v1 | 점유율(멤버, 균형) | 비멤버 | lift | 플레이어 | 부트스트랩 | 전체 플레이어 lift·명·부트스트랩 | w |
 |---|---|---|---|---|---|---|---|---|---|
-| PREPARED | enabler | 62% (28/45) | 31% | 2.0 | 16 | 32/81 | 4/10 | 5/5 | 점유율≥25% |
-| DAGGER_THROW | enabler | 27% (12/45) | 12% | 2.2 | 8 | 7/87 | 4/9 | 0/5 | 점유율≥25% |
-| TACTICIAN | payoff | 44% (21/48) | 13% | 3.4 | 12 | 16/28 | 6/11 | 0/5 | 점유율≥25% / 15%+픽≥50% |
-| RICOCHET | payoff | 31% (15/48) | 15% | 2.1 | 11 | 14/93 | 4/11 | 1/5 | 점유율≥25% |
-| REFLEX | payoff | 31% (15/49) | 7% | 4.6 | 8 | 15/35 | 7/11 | 0/5 | 점유율≥25% |
-| UNTOUCHABLE | payoff | 29% (14/49) | 4% | 6.4 | 10 | 14/89 | 2/11 | 0/5 | 점유율≥25% |
-| ABRASIVE | payoff | 20% (10/51) | 12% | 1.69 | 7 | 11/17 | 3/11 | 0/5 | 15%+픽≥50% |
-| WELL_LAID_PLANS† | support | 45% (14/31) | 27% | 1.69 | 6 | 8/28 | 8/11 | 0/5 | 점유율≥25% |
-| TRACKING† | support | 23% (7/31) | 7% | 3.4 | 7 | 7/11 | 1/11 | 0/5 | 15%+픽≥50% |
+| TINGSHA | 미채택 | - | 11% (20/214) | 10% | 1.10 | 11 | 12% | 0.92·21명·0% | - |
+| TOUGH_BANDAGES | 추가 | - | 10% (18/214) | 4% | 2.19 | 10 | 86% | 1.33·17명·28% | 0.6 |
+| GAMBLING_CHIP | 삭제 | 있음 | 8% (15/214) | 7% | 1.13 | 9 | 14% | 0.98·17명·3% | - |
 
-대표 승리 덱: https://op.gg/slay-the-spire2/history/7169193 (v0.107.1, TACTICIAN·REFLEX·RICOCHET·ABRASIVE), https://op.gg/slay-the-spire2/history/7144897 (v0.107.1, REFLEX·RICOCHET·UNTOUCHABLE), https://op.gg/slay-the-spire2/history/7202942 (v0.111.0, TACTICIAN·RICOCHET), https://op.gg/slay-the-spire2/history/7085517 (랭킹 1위 플레이어). Baalorlord 버리기 덱: https://baalorlord.tv/runs/1793902215 .
+숫자 기준은 넘었지만 효과가 축과 무관해 넣지 않은 유물 5개: PANDORAS_BOX, RAZOR_TOOTH, RINGING_TRIANGLE, ROYAL_STAMP, SCROLL_BOXES.
 
-제거한 카드:
+대표 승리 덱: https://op.gg/slay-the-spire2/history/4682263 (v0.108.0), https://op.gg/slay-the-spire2/history/4110994 (v0.107.1), https://op.gg/slay-the-spire2/history/6234531 (v0.107.1), https://op.gg/slay-the-spire2/history/6669207 (v0.107.1, OP.GG 랭킹 1위 플레이어)
 
-| 카드 | 이전 역할 | 점유율(멤버) | 비멤버 | lift | 플레이어 | 빌드 내 픽/제시 | 1위 플레이어 덱 | Baalorlord | 통과 기준 |
-|---|---|---|---|---|---|---|---|---|---|
-| TOOLS_OF_THE_TRADE | core | 12% (6/51) | 12% | 1.0 | 5 | 6/14 | 2/11 | 0/5 | 미달: lift<1.5, 점유율<15% |
-| ACROBATICS | core | 39% (20/51) | 30% | 1.3 | 13 | 21/41 | 5/11 | 0/5 | 미달: lift<1.5 |
-| CALCULATED_GAMBLE | enabler | 39% (20/51) | 40% | 1.0 | 14 | 17/26 | 4/11 | 1/5 | 미달: lift<1.5 |
-| HIDDEN_DAGGERS | enabler | 43% (22/51) | 49% | 0.9 | 14 | 23/33 | 5/11 | 0/5 | 미달: lift<1.5 |
-| STORM_OF_STEEL | enabler | 16% (8/50) | 5% | 3.5 | 7 | 4/20 | 2/11 | 0/5 | 미달: 점유율<25%·픽<50% |
-| SHADOW_STEP | enabler | 14% (7/50) | 5% | 3.1 | 5 | 4/23 | 3/11 | 0/5 | 미달: 점유율<15% |
-| HAZE† | payoff | 19% (6/31) | 0% | ∞ | 4 | 4/20 | 3/11 | 1/5 | 미달: 점유율<25%·픽<50% |
-| MEMENTO_MORI | payoff | 8% (4/51) | 0% | ∞ | 4 | 3/55 | 1/11 | 0/5 | 미달: 점유율<15% |
-| FLICK_FLACK† | payoff | 19% (6/31) | 7% | 2.9 | 4 | 8/58 | 2/11 | 0/5 | 미달: 점유율<25%·픽<50% |
-| MASTER_PLANNER | support | 6% (3/50) | 2% | 2.6 | 3 | 3/17 | 0/10 | 0/5 | 미달: 점유율<15% |
-| HAND_TRICK | support | 20% (10/50) | 2% | 8.8 | 9 | 7/36 | 0/11 | 0/5 | 미달: 점유율<25%·픽<50% |
+## ACCELERANT† core 재검토 (v1 약점)
 
-- WELL_LAID_PLANS†는 멤버 덱 14판 중 8판이 랭킹 1위 플레이어 덱입니다(그를 빼면 6/20). 기준은 통과해 support로 넣었지만 근거가 한 사람에게 쏠려 있습니다.
-- CALCULATED_GAMBLE은 Baalorlord 버리기 덱에 3장 있지만 그의 사일런트 덱 기준 1/5라 구제 조건 미달이고, OP.GG lift 1.0입니다.
-- PREPARED는 Baalorlord 5/5와 OP.GG 기준 둘 다 통과했습니다. BACKFLIP(Baalorlord 4/5)은 버리기 축에 작용하지 않고 OP.GG lift 0.9라 넣지 않았습니다.
+- v1에서는 멤버 덱 7판 중 4판이 OP.GG 랭킹 1위 플레이어 덱이라 근거가 얇았습니다. v2(v0.107.x 판만): 좋은 플레이어 중독 멤버 덱 57판 중 22판(원시 39%, **균형 31%**), 6명, lift 2.62. OP.GG 랭킹 1위 플레이어는 자기 멤버 덱 28판 중 11판에 넣었고, 그를 빼면 30%·5명입니다.
+- 전체 플레이어: 33/98판, 균형 32%, 14명, lift 7.03, 카드 기준 통과 96%, core 통과 6%.
+- 결론: **core 탈락**(좋은 플레이어 core 통과 16%, 전체 6% — 둘 다 20% 미만이라 안정적으로 기각). 카드 기준은 좋은 플레이어로는 66%(쓴 사람 6명으로 표본이 얇음)라 전체 플레이어로 판정했고, 전체 플레이어 통과 96%라 **payoff**로 목록에 남겼습니다(v1 이전 역할과 같음). 중독 core는 NOXIOUS_FUMES 한 장입니다.
 
-## 삭제한 아키타입: silent.draw_burst (드로우 폭발)
+## 빌드 추가·삭제 검토
 
-상위 플레이어가 사실상 쓰지 않는 빌드라 삭제했습니다.
+- **silent.draw_burst(v1에서 삭제) — 다시 넣지 않음.** 시그니처 방식으로는 CORROSIVE_WAVE, MURDER, REFLEX, SPEEDSTER 중 2장 이상을 든 덱이 45판·10명으로 숫자 기준을 넘지만, 시그니처에 교활 카드 REFLEX가 들어 있어 멤버 덱 45판 중 35판이 교활 빌드 멤버이고 44판이 기존 빌드 멤버입니다. 드로우 보상 카드(SPEEDSTER·MURDER·CORROSIVE_WAVE) 2장 이상을 든 덱은 15판·8명뿐이라(빌드 기준 25판 미달) 별도 빌드가 아닙니다. 그 안에서도 부트스트랩 80%를 넘는 드로우 보상 카드가 없습니다(CORROSIVE_WAVE 통과 72%, SPEEDSTER 46%). 픽률도 낮습니다(좋은 플레이어 카드 보상 화면): SPEEDSTER 13/338, MURDER 16/175, CORROSIVE_WAVE 27/166.
+- **약화 빌드 — 추가 안 함.** SCARE, SUCKER_PUNCH, TRACKING 중 2장 이상: 22판·6명(빌드 인정 부트스트랩 38%). 기준 25판 미달.
+- **PINPOINT + POUNCE**: 둘 다 든 덱 좋은 플레이어 6판·5명(전체 11판·10명). 기준 미달.
+- **기존 빌드 밖의 덱**: 좋은 플레이어 승리 482판 중 세 빌드 어디에도 속하지 않는 덱은 5판(2명)뿐이라 모델에 없는 큰 빌드는 없습니다.
+- **랭킹 1위 플레이어 빌드**: 그의 사일런트 승리 79판 중 75판이 기존 세 빌드의 멤버 덱이고, 나머지 4판뿐이라 그만의 별도 빌드(15판 이상)는 없습니다.
+- **SERPENT_FORM**: 단도 멤버 덱에서 숫자 기준은 통과(27%, lift 1.73)하지만 부트스트랩 60%이고 전체 플레이어로는 lift 1.23라 추가하지 않았습니다.
 
-- 빌드를 정의하는 카드: SPEEDSTER는 94판 중 5판(전부 1장), 제시 65번 중 2번 픽(3%, 평균 21%). MURDER는 2판, 45번 중 1번 픽. 두 카드를 함께 든 덱은 0판. 랭킹 1위 플레이어는 SPEEDSTER를 10번 제시받아 한 번도 집지 않았습니다.
-- 드로우 보상 카드(SPEEDSTER·MURDER)와 다른 드로우 시그니처 카드 2장 이상을 함께 든 덱은 4판(4명)뿐이고, 그 4판과 SPEEDSTER·MURDER를 든 나머지 3판까지 7판 모두 단도·교활·중독 빌드의 멤버 덱입니다. 예: https://op.gg/slay-the-spire2/history/7189737 (단도 시그니처 8장에 SPEEDSTER 1장).
-- DRAW 축 멤버십(시그니처 2장 이상, 30판·18명)은 범용 드로우 카드 PREPARED·ACROBATICS가 만든 것이고, 거기서 기준을 통과한 카드도 드로우·교활·범용 카드뿐이며 드로우 보상 카드는 하나도 통과하지 못했습니다.
-- Baalorlord의 버리기 덱(https://baalorlord.tv/runs/1793902215)에 SPEEDSTER가 1장 있지만 1/5입니다.
+## 불확실 항목(v1 값 유지)
 
-이전 카드별 수치(DRAW 축 멤버 기준):
+- silent.poison: BUBBLE_BUBBLE(payoff, 카드 기준 통과 좋은 44%·전체 56%); 유물 SNECKO_SKULL, TWISTED_FUNNEL
+- silent.shiv: AFTERIMAGE(support, 카드 기준 통과 좋은 52%·전체 97%), EXPOSE(support, 카드 기준 통과 좋은 24%·전체 50%), FAN_OF_KNIVES(payoff, 카드 기준 통과 좋은 56%·전체 86%), INFINITE_BLADES(core, 카드 기준 통과 좋은 100%·전체 100%, core 좋은 49%·전체 93%); 추가 보류 SERPENT_FORM(카드 기준 통과 좋은 60%·전체 7%); 유물 ORNAMENTAL_FAN
+- silent.sly_discard: DAGGER_THROW(enabler, 카드 기준 통과 좋은 78%·전체 82%), PREPARED(enabler, 카드 기준 통과 좋은 52%·전체 99%), TRACKING†(support, 카드 기준 통과 좋은 58%·전체 28%); 추가 보류 HAZE†(카드 기준 통과 좋은 39%·전체 55%), TOOLS_OF_THE_TRADE(카드 기준 통과 좋은 52%·전체 96%)
 
-| 카드 | 이전 역할 | 점유율(멤버) | 비멤버 | lift | 플레이어 | 빌드 내 픽/제시 | 1위 플레이어 덱 | Baalorlord | 통과 기준 |
-|---|---|---|---|---|---|---|---|---|---|
-| SPEEDSTER | core | 10% (3/29) | 3% | 3.4 | 3 | 1/21 | 0/8 | 1/5 | 미달: 점유율<15% |
-| ACROBATICS | enabler | 62% (13/21) | 27% | 2.3 | 8 | 15/24 | 4/6 | 0/5 | 점유율≥25% / 15%+픽≥50% |
-| BACKFLIP | enabler | 73% (22/30) | 67% | 1.1 | 15 | 26/61 | 5/8 | 4/5 | 미달: lift<1.5 |
-| ADRENALINE | enabler | 37% (11/30) | 22% | 1.68 | 10 | 11/15 | 1/8 | 1/5 | 점유율≥25% / 15%+픽≥50% |
-| EXPERTISE† | enabler | 29% (5/17) | 14% | 2.1 | 4 | 6/14 | 1/6 | 2/5 | 점유율≥25% |
-| PREDATOR | enabler | 7% (2/30) | 8% | 0.9 | 2 | 1/62 | 0/8 | 0/5 | 미달: 플레이어<3, lift<1.5, 점유율<15% |
-| ESCAPE_PLAN | enabler | 30% (9/30) | 20% | 1.48 | 7 | 11/23 | 2/8 | 0/5 | 미달: lift<1.5 |
-| PREPARED | enabler | 81% (13/16) | 38% | 2.1 | 8 | 14/35 | 4/6 | 5/5 | 점유율≥25% |
-| MURDER | payoff | 3% (1/29) | 2% | 2.2 | 1 | 1/13 | 1/8 | 0/5 | 미달: 플레이어<3, 점유율<15% |
-| CORROSIVE_WAVE | payoff | 23% (7/30) | 0% | ∞ | 6 | 6/17 | 2/8 | 0/5 | 미달: 점유율<25%·픽<50% |
-| TOOLS_OF_THE_TRADE | support | 13% (4/30) | 11% | 1.2 | 4 | 4/13 | 1/8 | 0/5 | 미달: lift<1.5, 점유율<15% |
-| FOOTWORK | support | 63% (19/30) | 69% | 0.9 | 13 | 14/23 | 6/8 | 3/5 | 미달: lift<1.5 |
+## 한계
 
-## 새 빌드 검토(추가 없음)
-
-- **PINPOINT + POUNCE**: 둘 다 든 덱 4판·4명(랭킹 1위 플레이어 1판). 빌드 기준(≥6판) 미달.
-- **SERPENT_FORM 덱 묶음**(덱 군집 7판·7명): SERPENT_FORM은 20판·17명에 있지만 모든 빌드에서 lift ≤1.4인 범용 카드이고, 함께 나오는 카드도 교활 카드(TACTICIAN 55%, ABRASIVE)와 범용 카드라 별도 빌드로 보지 않았습니다.
-- **약화 빌드**: 약화 축 카드(LEG_SWEEP·MALAISE·SCARE·SUCKER_PUNCH·SUPPRESS·TRACKING) 2장 이상을 든 덱은 12판·10명이지만, 축을 소비하는 TRACKING†은 다른 약화 카드 2장 이상을 든 v0.107 덱 6판 중 2판(2명)에만 있어 카드 기준 미달이고, 나머지는 방어용 범용 카드 조합입니다. 엔진 카드가 없어 빌드로 보지 않았고, TRACKING†은 여러 빌드의 support로만 넣었습니다.
-- **랭킹 1위 플레이어 빌드**: 13승 모두 단도·중독·교활 중 하나 이상의 멤버 덱이라(대부분 교활을 단도나 중독 위에 얹음) 모델에 없는 그만의 빌드는 없습니다.
-
-## 출처 사이 충돌과 미해결
-
-- **Baalorlord 최다 카드가 OP.GG에서는 범용**: PREPARED(5/5)는 교활 빌드 enabler로 맞아떨어지지만, PIERCING_WAIL(4/5)·BACKFLIP(4/5)·FOOTWORK(3/5)·ECHOING_SLASH†(3/5)는 OP.GG에서 어느 빌드에서도 lift 1.5를 넘지 않고(또는 축과 무관) 빌드 목록에 넣지 않았습니다. 이 카드들의 가치는 티어 쪽에서 다룰 문제입니다.
-- **BOUNCING_FLASK vs DEADLY_POISON**: Baalorlord는 BOUNCING_FLASK가 낫다고 썼고, OP.GG도 BOUNCING_FLASK lift 7.9 > DEADLY_POISON 4.6입니다. 둘 다 enabler로 두었습니다(점유율은 BOUNCING_FLASK 36%, DEADLY_POISON 29%).
-- **ACCELERANT† core는 근거가 얇음**: 숫자 기준(41%, 4명)은 통과하지만 멤버 덱 7판 중 4판이 랭킹 1위 플레이어 덱이고(그를 빼면 3/11), 베타에서 바뀐 카드라 v0.107 판만으로 판단했습니다. 다음 데이터 갱신 때 다시 볼 대상입니다.
-- **INFINITE_BLADES core**: 48%로 core 기준(40%)은 넘지만, ACCURACY(빌드 내 픽 68%)가 더 우선입니다. `coreTarget` 1에서는 INFINITE_BLADES만 들어도 "코어 확보"가 됩니다.
-- **교활 빌드 core 없음**: TACTICIAN은 숫자만 보면 core 기준을 넘지만 엔진 카드가 아니라 비웠습니다. "코어 먼저" 안내가 필요하면 별도 결정이 필요합니다.
-- **Spire Codex A10 Lift(참고)**: TOOLS_OF_THE_TRADE는 A10 Lift +6.1로 전체 표본에서는 좋은 카드지만, OP.GG 상위 덱에서는 교활 덱이 아닌 덱에서도 같은 비율(12%)로 쓰여 교활 빌드 전용 카드가 아니었습니다. 판정에는 쓰지 않았습니다.
+- 승리 덱만으로 빌드와 카드를 정했습니다. 패배 기록은 좋은 플레이어 것만 있어 이 문서의 판정에는 쓰지 않았습니다.
+- 단도 빌드는 좋은 플레이어 승리의 82%가 멤버라, 비멤버 덱(대부분 중독 위주 덱)과 비교한 lift는 "단도 덱이 아닌 덱보다 얼마나 더 쓰나"를 뜻합니다.
+- 빌드끼리 겹칩니다(단도+교활 101판, 단도+중독 63판, 셋 다 60판). 한 덱이 여러 빌드의 멤버일 수 있습니다.
