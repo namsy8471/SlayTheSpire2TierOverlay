@@ -174,12 +174,14 @@ public partial class App : Application
         {
             if (!_hotkeys!.RegisterCtrl(vk, name, a)) failed.Add("Ctrl+" + name);
         }
+        Reg(HotkeyManager.VK_F6, "F6", () => _controller!.ToggleAlwaysOnTop());
         Reg(HotkeyManager.VK_F7, "F7", () => _controller!.ToggleClickThrough());
         Reg(HotkeyManager.VK_F8, "F8", () => _controller!.ToggleHidden());
         Reg(HotkeyManager.VK_F9, "F9", () => _controller!.SaveCapture());
         Reg(HotkeyManager.VK_F10, "F10", () => _controller!.RecognizeNow());
         Reg(HotkeyManager.VK_F11, "F11", () => _controller!.ToggleDebugOutlines());
-        if (failed.Count > 0) _controller!.ShowMessage($"단축키 등록 실패 (다른 프로그램이 사용 중): {string.Join(", ", failed)}");
+        if (failed.Count > 0) _controller!.ShowMessage($"단축키 등록 실패 (다른 프로그램이 사용 중): {string.Join(", ", failed)}"
+            + (System.Diagnostics.Process.GetProcessesByName("OverlaySpike").Length > 0 ? " · 예전 OverlaySpike를 닫아 주세요" : ""));
     }
 
     private void SetUpTray()
@@ -192,6 +194,7 @@ public partial class App : Application
         _tray.UiScaleRequested += s => _controller!.SetUiScale(s);
         _tray.DemoRequested += s => _controller!.SetDemo(s);
         _tray.DebugOutlinesRequested += () => _controller!.ToggleDebugOutlines();
+        _tray.AlwaysOnTopRequested += () => _controller!.ToggleAlwaysOnTop();
         _tray.ReloadPackRequested += () => _controller!.ReloadPack();
         _tray.OpenCapturesRequested += () =>
         {
@@ -211,6 +214,7 @@ public partial class App : Application
         var (scale, isAuto) = _controller.CurrentUiScale;
         _tray.SetState(_controller.UserHidden, _controller.Demo, scale, isAuto, "STS2 티어 오버레이 — " + _controller.StatusLine);
         _tray.SetDebugOutlines(_controller.DebugOutlines);
+        _tray.SetAlwaysOnTop(_controller.AlwaysOnTop);
     }
 
     private static void OpenShell(string path)

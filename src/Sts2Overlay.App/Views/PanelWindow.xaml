@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:Sts2Overlay.App.ViewModels"
+        xmlns:svc="clr-namespace:Sts2Overlay.App.Services"
         Title="STS2 티어 패널"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         Topmost="True" ShowInTaskbar="False" ShowActivated="False" ResizeMode="NoResize"
@@ -98,6 +99,19 @@
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
+    <!-- Card portrait: small thumbnail next to the name; hovering shows it large (the large image is decoded lazily) -->
+    <DataTemplate x:Key="CardThumbTemplate" DataType="{x:Type svc:CardArtVm}">
+      <Border CornerRadius="3" BorderBrush="#66FFFFFF" BorderThickness="1" Background="#40000000" Cursor="Help"
+              ToolTipService.InitialShowDelay="120" ToolTipService.ShowDuration="60000" ToolTipService.Placement="Left">
+        <Image Source="{Binding Thumb}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
+        <Border.ToolTip>
+          <ToolTip Padding="2" Background="#F0101318" BorderBrush="{StaticResource Gold}" BorderThickness="1.5">
+            <Image Source="{Binding Large}" Width="380" Height="289" RenderOptions.BitmapScalingMode="HighQuality" />
+          </ToolTip>
+        </Border.ToolTip>
+      </Border>
+    </DataTemplate>
+
     <!-- One offer row: card / skip / removal -->
     <DataTemplate x:Key="OfferRowTemplate" DataType="{x:Type vm:OfferRowVm}">
       <Border x:Name="Bd" Margin="0,0,0,6" Padding="8,6,8,7" CornerRadius="7" Background="{StaticResource RowBg}" BorderThickness="1.5" BorderBrush="Transparent">
@@ -113,11 +127,15 @@
             <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
 
-          <Border Grid.RowSpan="2" Width="34" Height="34" Style="{StaticResource TierTile}" Margin="0,0,9,0"
-                  Background="{Binding TierText, Converter={StaticResource TierBrush}}">
-            <TextBlock Text="{Binding TierText}" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"
-                       Foreground="{Binding TierText, Converter={StaticResource TierBrush}, ConverterParameter=fg}" />
-          </Border>
+          <StackPanel Grid.RowSpan="2" Orientation="Horizontal" Margin="0,0,9,0" VerticalAlignment="Center">
+            <Border Width="34" Height="34" Style="{StaticResource TierTile}"
+                    Background="{Binding TierText, Converter={StaticResource TierBrush}}">
+              <TextBlock Text="{Binding TierText}" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"
+                         Foreground="{Binding TierText, Converter={StaticResource TierBrush}, ConverterParameter=fg}" />
+            </Border>
+            <ContentControl Content="{Binding Art}" ContentTemplate="{StaticResource CardThumbTemplate}" Width="46" Height="35" Margin="6,0,0,0"
+                            Visibility="{Binding Art, Converter={StaticResource BoolVis}}" />
+          </StackPanel>
 
           <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
             <Path Data="{StaticResource CrownGeometry}" Fill="{StaticResource Gold}" Width="15" Height="13" Stretch="Uniform" Margin="0,0,5,0"
@@ -144,8 +162,8 @@
             </Border>
           </StackPanel>
 
-          <ItemsControl Grid.Row="2" Grid.ColumnSpan="3" ItemsSource="{Binding Chips}" ItemTemplate="{StaticResource ChipTemplate}"
-                        ItemsPanel="{StaticResource WrapPanelTemplate}" Margin="43,2,0,0" />
+          <ItemsControl Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" ItemsSource="{Binding Chips}" ItemTemplate="{StaticResource ChipTemplate}"
+                        ItemsPanel="{StaticResource WrapPanelTemplate}" Margin="0,2,0,0" />
         </Grid>
       </Border>
       <DataTemplate.Triggers>
@@ -335,11 +353,15 @@
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="Auto" />
                                   </Grid.ColumnDefinitions>
-                                  <Border Width="22" Height="22" Style="{StaticResource TierTile}" Margin="0,0,8,0"
-                                          Background="{Binding TierText, Converter={StaticResource TierBrush}}">
-                                    <TextBlock Text="{Binding TierText}" FontSize="12.5" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                               Foreground="{Binding TierText, Converter={StaticResource TierBrush}, ConverterParameter=fg}" />
-                                  </Border>
+                                  <StackPanel Orientation="Horizontal" Margin="0,0,8,0" VerticalAlignment="Center">
+                                    <Border Width="22" Height="22" Style="{StaticResource TierTile}"
+                                            Background="{Binding TierText, Converter={StaticResource TierBrush}}">
+                                      <TextBlock Text="{Binding TierText}" FontSize="12.5" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                 Foreground="{Binding TierText, Converter={StaticResource TierBrush}, ConverterParameter=fg}" />
+                                    </Border>
+                                    <ContentControl Content="{Binding Art}" ContentTemplate="{StaticResource CardThumbTemplate}" Width="29" Height="22" Margin="5,0,0,0"
+                                                    Visibility="{Binding Art, Converter={StaticResource BoolVis}}" />
+                                  </StackPanel>
                                   <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                     <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
                                     <!-- log-only rebuild: this card's copy / upgrade is a guess; the tooltip says why -->

@@ -46,6 +46,9 @@ public sealed partial class AppController : IDisposable
 
     private RecommendationEngine _engine;
     private CardInfoProvider _cards;
+
+    /// <summary>Card portraits for the panel rows (thumbnail + hover); rebuilt when data/local is regenerated.</summary>
+    private CardArtProvider _art = CardArtProvider.ForLocalData();
     private string _packDir;
     private int _engineVersion;
 
@@ -88,6 +91,7 @@ public sealed partial class AppController : IDisposable
         _pipeline.Recognized += r => _ui.BeginInvoke(() => ApplyRecognition(r));
         _pipeline.Status += s => _ui.BeginInvoke(() => ShowMessage(s));
 
+        _panel.KeepOnTop = settings.AlwaysOnTop;
         _topmostTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _topmostTimer.Tick += (_, _) => ReassertTopmost();
         _topmostTimer.Start();
@@ -268,20 +272,32 @@ public sealed partial class AppController : IDisposable
     private static bool IsOfferHint(ScreenHint h) => h is ScreenHint.RewardLikely or ScreenHint.ShopLikely;
 
     /// <summary>
-    /// Periodic capture runs while a reward/shop screen is likely. With no hint at all (tracker not wired / unsure)
-    /// it also runs while badges are shown, so they disappear once the recogniser reports another screen.
+    /// Periodic capture: fast (<see cref="AppSettings.RecognizeHz"/>) while a reward/shop screen is likely, and a slower
+    /// background watch (<see cref="AppSettings.IdleRecognizeHz"/>) otherwise, so a reward screen is found even when the
+    /// log hint comes late or never (the hint only speeds things up; nothing needs a key press). The pipeline only
+    /// captures while the game is the foreground window and skips recognition of visually unchanged frames, so the idle
+    /// watch costs about 5 ms of capture per tick at 4K.
     /// </summary>
     private void UpdateCadence()
     {
-        var on = IsOfferHint(_snapshot.Hint) || (_snapshot.Hint == ScreenHint.None && _badges.HasBadges);
-        var hz = Math.Clamp(_settings.RecognizeHz, 0.5, 10);
-        _pipeline.SetInterval(on ? TimeSpan.FromSeconds(1 / hz) : null);
+        var offer = IsOfferHint(_snapshot.Hint) || (_snapshot.Hint == ScreenHint.None && _badges.HasBadges);
+        var hz = offer ? Math.Clamp(_settings.RecognizeHz, 0.5, 10) : Math.Clamp(_settings.IdleRecognizeHz, 0, 10);
+        _pipeline.SetInterval(hz > 0 ? TimeSpan.FromSeconds(1 / hz) : null);
     }
 
     // ---- recognition → engine → UI ------------------------------------------------------------------
 
+    private ScreenKind? _loggedKind;
+
     private void ApplyRecognition(RecognitionResult r)
     {
+        // Periodic captures are only logged when they are slow; log every change of screen so a missed reward screen
+        // can be told apart from "the watch was not running" in app.log.
+        if (r.ScreenKind != _loggedKind)
+        {
+            AppLog.Info($"screen: {_loggedKind?.ToString() ?? "-"} -> {r.ScreenKind} ({r.Cards.Count} cards, hint {_snapshot.Hint})");
+            _loggedKind = r.ScreenKind;
+        }
         if (r.ScreenKind == ScreenKind.Other || r.Cards.Count == 0)
         {
             ClearBadges();
@@ -355,6 +371,7 @@ public sealed partial class AppController : IDisposable
                 IsUpgraded = e.Card.IsUpgraded,
                 SubText = sub,
                 Tip = _engine.Pack.FindTier(run.Character, e.Card.Id)?.Tip,
+                Art = ArtOf(e.Card.Id),
                 Chips = e.Chips.Select(c => Chip(c.Label, c.Value)).ToArray(),
             });
         }
@@ -417,6 +434,7 @@ public sealed partial class AppController : IDisposable
                 IsUpgraded = item.Card?.IsUpgraded ?? false,
                 Unaffordable = !item.Affordable,
                 PriceText = ShopPriceText(item),
+                Art = isCard ? ArtOf(item.Card!.Value.Id) : null,
                 SubText = sub,
                 Chips = (e?.Chips.Select(c => Chip(c.Label, c.Value)) ?? item.Value.TopReasons(3).Select(c => Chip(c.Label, c.Value))).ToArray(),
             };
@@ -519,7 +537,7 @@ public sealed partial class AppController : IDisposable
                         var upgraded = byId.Count(c => c.Upgrade > 0);
                         var upText = upgraded == 0 ? null : count == 1 ? "강화" : $"강화 {upgraded}";
                         string? doubt = _snapshot.Doubts?.CardReasons.GetValueOrDefault(byId.Key);
-                        return (Tier: tier, Vm: new DeckCardVm(tier?.ToString() ?? "?", _cards.Name(byId.Key), $"×{count}", upText, doubt));
+                        return (Tier: tier, Vm: new DeckCardVm(tier?.ToString() ?? "?", _cards.Name(byId.Key), $"×{count}", upText, doubt, ArtOf(byId.Key)));
                     })
                     .OrderBy(x => x.Tier is null ? 99 : (int)x.Tier)
                     .ThenBy(x => x.Vm.Name, StringComparer.CurrentCulture)
@@ -691,17 +709,25 @@ public sealed partial class AppController : IDisposable
     {
         var info = _tracker.Current;
         var show = !_userHidden && info is { CanShowOverlay: true };
+        // "항상 맨 앞" off: the panel is a normal window, so it may stay open while the game runs in the background.
+        var showPanel = show || (!_userHidden && !_settings.AlwaysOnTop && info is { IsMinimized: false });
         if (show)
         {
             if (!_badges.IsVisible) _badges.Show();
             _badges.SetLayerRect(info!.CaptureRect);
+        }
+        else if (_badges.IsVisible)
+        {
+            _badges.Hide();
+        }
+        if (showPanel)
+        {
             if (!_panel.IsVisible) _panel.Show();
             ReassertTopmost();
         }
-        else
+        else if (_panel.IsVisible)
         {
-            if (_panel.IsVisible) _panel.Hide();
-            if (_badges.IsVisible) _badges.Hide();
+            _panel.Hide();
         }
         StateChanged?.Invoke();
     }
@@ -711,7 +737,21 @@ public sealed partial class AppController : IDisposable
         if (!_panel.IsVisible && !_badges.IsVisible) return;
         // Badges first, then the panel, so the panel ends up above the badge layer.
         OverlayWindowHelper.AssertTopmost(_badges.Hwnd);
-        OverlayWindowHelper.AssertTopmost(_panel.Hwnd);
+        if (_settings.AlwaysOnTop) OverlayWindowHelper.AssertTopmost(_panel.Hwnd);
+    }
+
+    // ---- "항상 맨 앞에 표시" (tray / Ctrl+F6), persisted in settings.json ----
+
+    public bool AlwaysOnTop => _settings.AlwaysOnTop;
+
+    public void ToggleAlwaysOnTop()
+    {
+        _settings.AlwaysOnTop = !_settings.AlwaysOnTop;
+        SettingsStore.Save(AppPaths.SettingsFile, _settings);
+        _panel.KeepOnTop = _settings.AlwaysOnTop;
+        AppLog.Info($"always on top = {_settings.AlwaysOnTop}");
+        ShowMessage(_settings.AlwaysOnTop ? "항상 맨 앞에 표시 켜짐" : "항상 맨 앞에 표시 꺼짐: 패널이 일반 창처럼 다른 창 뒤로 갈 수 있습니다");
+        UpdateVisibility();
     }
 
     // ---- commands (hotkeys / tray) ------------------------------------------------------------------------
@@ -781,6 +821,7 @@ public sealed partial class AppController : IDisposable
     public void ApplyPreparedResources(string? catalogPath)
     {
         CatalogPath = catalogPath ?? CatalogPath;
+        _art = CardArtProvider.ForLocalData(); // new art + catalog for the panel thumbnails
         if (Demo is null)
         {
             var recognizer = IntegrationFactory.CreateRealRecognizer();
@@ -791,6 +832,8 @@ public sealed partial class AppController : IDisposable
         ShowMessage("게임 리소스를 준비했습니다 (카드 그림·이름)");
     }
     // ---- end local resources ----
+
+    private CardArtVm? ArtOf(string cardId) => _art.For(_engine.Pack.Canonical(cardId));
 
     public void ShowMessage(string text)
     {

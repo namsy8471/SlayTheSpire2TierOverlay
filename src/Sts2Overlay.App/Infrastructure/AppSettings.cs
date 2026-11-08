@@ -34,6 +34,9 @@ public sealed class AppSettings
     /// <summary>Capture/recognition rate while a reward or shop screen is likely.</summary>
     public double RecognizeHz { get; set; } = 3;
 
+    /// <summary>Background watch rate when no reward/shop screen is hinted by the log (0 = only on log hints).</summary>
+    public double IdleRecognizeHz { get; set; } = 1.5;
+
     /// <summary>
     /// How the game window is captured: "auto" (Windows.Graphics.Capture, falling back to GDI when it is unsupported or
     /// fails), "wgc" (same as auto) or "gdi" (always the slower GDI BitBlt). The active backend is logged.
@@ -45,6 +48,10 @@ public sealed class AppSettings
     /// end up in the frames we recognise. Side effect: they are also invisible to screenshots and streaming software.
     /// </summary>
     public bool HideOverlayFromCapture { get; set; } = true;
+
+    /// <summary>"항상 맨 앞에 표시": the panel stays above other windows (and is shown only while the game is in front).
+    /// Off: a normal window that stays open while the game runs and can be covered. Badges are always on top.</summary>
+    public bool AlwaysOnTop { get; set; } = true;
 
     /// <summary>Panel background opacity 0..1.</summary>
     public double PanelOpacity { get; set; } = 0.86;

@@ -16,7 +16,7 @@ public sealed class TrayIcon : IDisposable
     private readonly NotifyIcon _icon;
     private readonly IntPtr _hIcon;
     private readonly Icon _drawnIcon;
-    private readonly ToolStripMenuItem _demoReward, _demoShop, _demoOther, _demoOff, _toggle, _scaleAuto, _outlines;
+    private readonly ToolStripMenuItem _demoReward, _demoShop, _demoOther, _demoOff, _toggle, _scaleAuto, _outlines, _onTop;
     private readonly List<ToolStripMenuItem> _scaleItems = [];
 
     public TrayIcon()
@@ -44,11 +44,13 @@ public sealed class TrayIcon : IDisposable
         }
 
         _outlines = new ToolStripMenuItem("인식 영역 표시 (Ctrl+F11)", null, (_, _) => DebugOutlinesRequested?.Invoke());
+        _onTop = new ToolStripMenuItem("항상 맨 앞에 표시 (Ctrl+F6)", null, (_, _) => AlwaysOnTopRequested?.Invoke());
 
         var menu = new ContextMenuStrip();
         menu.Items.AddRange(
         [
             _toggle,
+            _onTop,
             scaleMenu,
             new ToolStripMenuItem("지금 인식 (Ctrl+F10)", null, (_, _) => RecognizeRequested?.Invoke()),
             new ToolStripMenuItem("캡처 저장 (Ctrl+F9)", null, (_, _) => SaveCaptureRequested?.Invoke()),
@@ -90,6 +92,10 @@ public sealed class TrayIcon : IDisposable
     public event Action? DebugOutlinesRequested;
 
     public void SetDebugOutlines(bool on) => _outlines.Checked = on;
+
+    public event Action? AlwaysOnTopRequested;
+
+    public void SetAlwaysOnTop(bool on) => _onTop.Checked = on;
 
     public void SetState(bool userHidden, DemoScreen? demo, double uiScale, bool uiScaleAuto, string tooltip)
     {
