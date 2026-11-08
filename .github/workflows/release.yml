@@ -147,14 +147,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
       # 이전 릴리스를 받아 두면 vpk pack이 델타 업데이트 패키지를 만듭니다. 첫 릴리스면 받을 게 없으니 넘어갑니다.
-      # [win]: Linux에서 돌지만 Windows 채널(releases.win.json)을 받습니다.
+      # Linux에서 돌므로 채널 기본값이 linux입니다. [win]만으로는 download의 채널이 바뀌지 않아 --channel win을 꼭 넘깁니다.
       - name: Download previous release (for deltas)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $extra = @()
           if ($env:PRERELEASE -eq 'true') { $extra += '--pre' }
-          dotnet vpk '[win]' download github --repoUrl $env:REPO_URL --outputDir releases --token $env:GITHUB_TOKEN @extra
+          dotnet vpk '[win]' download github --repoUrl $env:REPO_URL --channel win --outputDir releases --token $env:GITHUB_TOKEN @extra
           if ($LASTEXITCODE -ne 0) {
             Write-Host '::warning::No previous release downloaded (first release?). Packing without deltas.'
           }
@@ -165,7 +165,7 @@ jobs:
           $ver = $env:VERSION
           $pack = @('vpk', '[win]', 'pack', '--packId', 'namsy8471.Sts2Overlay', '--packVersion', $ver, '--packDir', 'publish',
             '--mainExe', 'Sts2Overlay.exe', '--packTitle', 'STS2 티어 오버레이', '--packAuthors', 'namsy8471',
-            '--icon', 'src/Sts2Overlay.App/Assets/Sts2Overlay.ico', '--runtime', 'win-x64', '--outputDir', 'releases')
+            '--icon', 'src/Sts2Overlay.App/Assets/Sts2Overlay.ico', '--runtime', 'win-x64', '--channel', 'win', '--outputDir', 'releases')
           dotnet @pack
           if ($LASTEXITCODE -ne 0) {
             # 안전망: 델타를 못 만들면 델타 없이 다시 묶습니다. 업데이트는 full 패키지로 받으므로 조금 더 받을 뿐 똑같이 됩니다.
@@ -198,7 +198,7 @@ jobs:
           $ver = $env:VERSION
           $extra = @()
           if ($env:PRERELEASE -eq 'true') { $extra += '--pre' }
-          dotnet vpk '[win]' upload github --repoUrl $env:REPO_URL --outputDir releases --publish `
+          dotnet vpk '[win]' upload github --repoUrl $env:REPO_URL --channel win --outputDir releases --publish `
             --tag "v$ver" --releaseName "STS2 티어 오버레이 v$ver" --targetCommitish '${{ github.sha }}' `
             --token $env:GITHUB_TOKEN @extra
           if ($LASTEXITCODE -ne 0) { exit 1 }
