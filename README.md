@@ -73,6 +73,12 @@ dotnet run --project tools/VisionBench -- bench
 dotnet run --project tools/RunHistoryAnalyzer -- replay "%APPDATA%\SlayTheSpire2\steam\<id>\profile1\saves\history" --pack data/packs/v0.107.1 --out data/local/replay.md
 ```
 
+빌드 완성 확률(몬테카를로) 보정 확인: 기록의 체크포인트마다 예측한 확률과 실제 마지막 덱을 비교합니다.
+
+```bash
+dotnet run --project tools/RunHistoryAnalyzer -c Release -- calibrate "%APPDATA%\SlayTheSpire2\steam\<id>\profile1\saves\history" --pack data/packs/v0.107.1 --sims 1000
+```
+
 ## 저작권
 
 게임 텍스트·이미지는 레포에 넣지 않습니다. 데이터는 게임 내부 ID(`CARD.BALL_LIGHTNING` 등)와 우리 주석만 담고, 이름이 들어간 카탈로그와 카드 그림은 사용자 PC에서만 생성합니다.
