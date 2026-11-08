@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using Sts2Overlay.App.Infrastructure;
 using Sts2Overlay.App.Integration;
 using Sts2Overlay.Resources;
+using Sts2Overlay.Core.Localization;
 
 namespace Sts2Overlay.App.Services;
 
@@ -23,30 +24,40 @@ public static class PrepareCommand
             // An explicit --game-dir must be right (no silent fallback); a stale settings.json value may fall back to Steam.
             if (options.GameDir is { } explicitDir && !new GameInstall(explicitDir).IsValid)
             {
-                Say($"--game-dir {explicitDir}: SlayTheSpire2.pck / data_sts2_windows_x86_64\\sts2.dll 이 없습니다.");
+                Say(Loc.T($"--game-dir {explicitDir}: SlayTheSpire2.pck / data_sts2_windows_x86_64\\sts2.dll 이 없습니다.",
+                    $"--game-dir {explicitDir}: SlayTheSpire2.pck / data_sts2_windows_x86_64\\sts2.dll not found."));
                 return 2;
             }
             var install = GameInstall.Locate(options.GameDir ?? settings.GameDir);
             if (install is null)
             {
-                Say("Slay the Spire 2 설치 폴더를 찾지 못했습니다. --game-dir <폴더> 또는 settings.json의 gameDir을 지정하세요.");
+                Say(Loc.T("Slay the Spire 2 설치 폴더를 찾지 못했습니다. --game-dir <폴더> 또는 settings.json의 gameDir을 지정하세요.",
+                    "Slay the Spire 2 install folder not found. Pass --game-dir <folder> or set gameDir in settings.json."));
                 return 2;
             }
 
             var game = InstalledGame.Detect(install);
-            Say($"게임: {game.VersionLabel} ({install.Directory})");
-            Say($"  release_info.json ↔ sts2.dll 해시: {game.AssemblyHashMatches switch { true => "일치", false => "불일치 (수정된 sts2.dll?)", null => "확인 불가" }}");
-            Say($"  지문: {game.Fingerprint}");
-            Say($"출력: {layout.LocalDir}");
+            Say(Loc.T($"게임: {game.VersionLabel} ({install.Directory})", $"Game: {game.VersionLabel} ({install.Directory})"));
+            var hash = game.AssemblyHashMatches switch
+            {
+                true => Loc.T("일치", "match"),
+                false => Loc.T("불일치 (수정된 sts2.dll?)", "mismatch (modified sts2.dll?)"),
+                null => Loc.T("확인 불가", "unknown"),
+            };
+            Say(Loc.T($"  release_info.json ↔ sts2.dll 해시: {hash}", $"  release_info.json ↔ sts2.dll hash: {hash}"));
+            Say(Loc.T($"  지문: {game.Fingerprint}", $"  Fingerprint: {game.Fingerprint}"));
+            Say(Loc.T($"출력: {layout.LocalDir}", $"Output: {layout.LocalDir}"));
 
             var preparer = new ResourcePreparer(layout);
             var check = preparer.Check(game);
             if (check.Need == PrepareNeed.UpToDate && !options.Force)
             {
-                Say($"이미 최신입니다 (manifest.json, {check.Manifest?.PreparedAtUtc.ToLocalTime():yyyy-MM-dd HH:mm} 준비). 다시 만들려면 --force");
+                var preparedAt = check.Manifest?.PreparedAtUtc.ToLocalTime();
+                Say(Loc.T($"이미 최신입니다 (manifest.json, {preparedAt:yyyy-MM-dd HH:mm} 준비). 다시 만들려면 --force",
+                    $"Already up to date (manifest.json, prepared {preparedAt:yyyy-MM-dd HH:mm}). Use --force to rebuild"));
                 return 0;
             }
-            Say($"준비 시작: {(options.Force ? "--force" : check.Reason)}");
+            Say(Loc.T($"준비 시작: {(options.Force ? "--force" : check.Reason)}", $"Preparing: {(options.Force ? "--force" : check.Reason)}"));
 
             // Print a line when the step changes or every 10 %, not for each of the ~900 textures.
             (string Step, int Bucket) last = ("", -1);
@@ -58,18 +69,21 @@ public static class PrepareCommand
                 last = (step, bucket);
                 Say($"  {p.Fraction * 100,3:0}%  {p.Text}");
             }));
-            Say($"완료: 카드 {manifest.CatalogCards}장, 그림 {manifest.CardArtFiles}개, 현지화 {manifest.LocalizationFiles}개 → {manifest.DurationSeconds:0.0}초");
+            Say(Loc.T($"완료: 카드 {manifest.CatalogCards}장, 그림 {manifest.CardArtFiles}개, 현지화 {manifest.LocalizationFiles}개 → {manifest.DurationSeconds:0.0}초",
+                $"Done: {manifest.CatalogCards} cards, {manifest.CardArtFiles} images, {manifest.LocalizationFiles} localization files → {manifest.DurationSeconds:0.0}s"));
 
             // Build the recogniser's art cache too, so the first reward screen after start-up is instant.
             var sw = Stopwatch.StartNew();
             var ok = IntegrationFactory.CreateRealRecognizer().Preload();
-            Say(ok ? $"인식용 그림 캐시 준비: {sw.Elapsed.TotalSeconds:0.0}초" : "인식용 그림 캐시를 만들지 못했습니다 (app.log 참고)");
+            Say(ok
+                ? Loc.T($"인식용 그림 캐시 준비: {sw.Elapsed.TotalSeconds:0.0}초", $"Recognition art cache ready: {sw.Elapsed.TotalSeconds:0.0}s")
+                : Loc.T("인식용 그림 캐시를 만들지 못했습니다 (app.log 참고)", "Could not build the recognition art cache (see app.log)"));
             return 0;
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             AppLog.Error("--prepare failed", ex);
-            Say($"실패: {ex.Message}");
+            Say(Loc.T($"실패: {ex.Message}", $"Failed: {ex.Message}"));
             return 1;
         }
     }

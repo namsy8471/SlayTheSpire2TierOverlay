@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:Sts2Overlay.App.ViewModels"
         xmlns:svc="clr-namespace:Sts2Overlay.App.Services"
-        Title="STS2 티어 패널"
+        Title="{Binding PanelTitle, Source={x:Static vm:UiText.Instance}}"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         Topmost="True" ShowInTaskbar="False" ShowActivated="False" ResizeMode="NoResize"
         SizeToContent="WidthAndHeight"
@@ -121,7 +121,7 @@
                   ToolTipService.InitialShowDelay="120" ToolTipService.ShowDuration="60000" ToolTipService.Placement="Left">
         <Border x:Name="Frame" Height="46" CornerRadius="3" BorderThickness="1" BorderBrush="#40FFFFFF" Background="#40000000">
           <Grid>
-            <TextBlock Text="그림 없음" FontSize="9.5" Foreground="{StaticResource TextDim}" HorizontalAlignment="Center" VerticalAlignment="Center"
+            <TextBlock Text="{Binding NoArt, Source={x:Static vm:UiText.Instance}}" FontSize="9.5" Foreground="{StaticResource TextDim}" HorizontalAlignment="Center" VerticalAlignment="Center"
                        Visibility="{Binding Art, Converter={StaticResource BoolVis}, ConverterParameter=!}" />
             <Image Source="{Binding Art.Thumb}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
             <Border CornerRadius="2" Padding="3,0,3,1" Margin="1" HorizontalAlignment="Left" VerticalAlignment="Top"
@@ -201,11 +201,11 @@
             <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="Bold" VerticalAlignment="Center" />
             <Border Background="{StaticResource EstimateBg}" CornerRadius="4" Padding="4,0,4,1" Margin="6,0,0,0" VerticalAlignment="Center"
                     Visibility="{Binding IsEstimate, Converter={StaticResource BoolVis}}">
-              <TextBlock Text="추정" FontSize="10.5" FontWeight="Bold" Foreground="White" />
+              <TextBlock Text="{Binding EstimateTag, Source={x:Static vm:UiText.Instance}}" FontSize="10.5" FontWeight="Bold" Foreground="White" />
             </Border>
             <Border Background="#1F58D68D" BorderBrush="{StaticResource UpgradeFg}" BorderThickness="1" CornerRadius="4" Padding="4,0,4,1" Margin="6,0,0,0" VerticalAlignment="Center"
                     Visibility="{Binding IsUpgraded, Converter={StaticResource BoolVis}}">
-              <TextBlock Text="강화" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource UpgradeFg}" />
+              <TextBlock Text="{Binding UpgradedTag, Source={x:Static vm:UiText.Instance}}" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource UpgradeFg}" />
             </Border>
             <TextBlock Text="{Binding PriceText}" FontSize="12" Foreground="{StaticResource Gold}" Margin="8,0,0,0" VerticalAlignment="Center"
                        Visibility="{Binding PriceText, Converter={StaticResource BoolVis}}" />
@@ -268,25 +268,25 @@
             <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
           <StackPanel>
-            <TextBlock Text="STS2 티어" FontSize="15" FontWeight="Bold" Foreground="{StaticResource Gold}" />
+            <TextBlock Text="{Binding PanelHeader, Source={x:Static vm:UiText.Instance}}" FontSize="15" FontWeight="Bold" Foreground="{StaticResource Gold}" />
             <TextBlock Text="{Binding RunText}" Style="{StaticResource Dim}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
           </StackPanel>
           <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,6,0">
             <Border Background="#7D3C98" CornerRadius="4" Padding="5,1" Margin="0,0,4,0" Visibility="{Binding IsDemo, Converter={StaticResource BoolVis}}">
-              <TextBlock Text="데모" FontSize="11" FontWeight="Bold" />
+              <TextBlock Text="{Binding DemoTag, Source={x:Static vm:UiText.Instance}}" FontSize="11" FontWeight="Bold" />
             </Border>
             <Border Background="#B9770E" CornerRadius="4" Padding="5,1" Visibility="{Binding ClickThrough, Converter={StaticResource BoolVis}}">
-              <TextBlock Text="클릭 통과" FontSize="11" FontWeight="Bold" />
+              <TextBlock Text="{Binding ClickThroughTag, Source={x:Static vm:UiText.Instance}}" FontSize="11" FontWeight="Bold" />
             </Border>
           </StackPanel>
-          <Button Grid.Column="2" Style="{StaticResource FlatButton}" Command="{Binding ToggleCollapseCommand}" VerticalAlignment="Center" ToolTip="접기/펼치기">
+          <Button Grid.Column="2" Style="{StaticResource FlatButton}" Command="{Binding ToggleCollapseCommand}" VerticalAlignment="Center" ToolTip="{Binding CollapseToolTip, Source={x:Static vm:UiText.Instance}}">
             <TextBlock FontSize="12">
               <TextBlock.Style>
                 <Style TargetType="TextBlock">
-                  <Setter Property="Text" Value="▾ 접기" />
+                  <Setter Property="Text" Value="{Binding Collapse, Source={x:Static vm:UiText.Instance}}" />
                   <Style.Triggers>
                     <DataTrigger Binding="{Binding IsCollapsed}" Value="True">
-                      <Setter Property="Text" Value="▸ 펼치기" />
+                      <Setter Property="Text" Value="{Binding Expand, Source={x:Static vm:UiText.Instance}}" />
                     </DataTrigger>
                   </Style.Triggers>
                 </Style>
@@ -301,24 +301,24 @@
           <Border DataContext="{Binding Review}" Visibility="{Binding ShowBanner, Converter={StaticResource BoolVis}}"
                   Margin="8,0,8,6" Padding="9,5" CornerRadius="7" Background="#2EF1C40F" BorderBrush="{StaticResource Gold}" BorderThickness="1">
             <DockPanel>
-              <Button DockPanel.Dock="Right" Style="{StaticResource FlatButton}" Margin="6,0,0,0" Content="닫기"
+              <Button DockPanel.Dock="Right" Style="{StaticResource FlatButton}" Margin="6,0,0,0" Content="{Binding Close, Source={x:Static vm:UiText.Instance}}"
                       Command="{Binding DataContext.DismissReviewCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
-              <Button DockPanel.Dock="Right" Style="{StaticResource FlatButton}" Content="보기"
+              <Button DockPanel.Dock="Right" Style="{StaticResource FlatButton}" Content="{Binding View, Source={x:Static vm:UiText.Instance}}"
                       Command="{Binding DataContext.ShowReviewCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
               <TextBlock Text="{Binding BannerText}" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap" />
             </DockPanel>
           </Border>
           <!-- ==== /run review banner ==== -->
           <UniformGrid Columns="5" Margin="8,0,8,0">
-            <RadioButton Style="{StaticResource TabButton}" GroupName="Tabs" Content="추천"
+            <RadioButton Style="{StaticResource TabButton}" GroupName="Tabs" Content="{Binding TabOffer, Source={x:Static vm:UiText.Instance}}"
                          IsChecked="{Binding SelectedTab, Converter={StaticResource EnumMatch}, ConverterParameter=Offer}" />
-            <RadioButton Style="{StaticResource TabButton}" GroupName="Tabs" Content="덱"
+            <RadioButton Style="{StaticResource TabButton}" GroupName="Tabs" Content="{Binding TabDeck, Source={x:Static vm:UiText.Instance}}"
                          IsChecked="{Binding SelectedTab, Converter={StaticResource EnumMatch}, ConverterParameter=Deck}" />
-            <RadioButton Style="{StaticResource TabButton}" GroupName="Tabs" Content="빌드"
+            <RadioButton Style="{StaticResource TabButton}" GroupName="Tabs" Content="{Binding TabBuild, Source={x:Static vm:UiText.Instance}}"
                          IsChecked="{Binding SelectedTab, Converter={StaticResource EnumMatch}, ConverterParameter=Build}" />
-            <RadioButton Style="{StaticResource TabButton}" GroupName="Tabs" Content="경로"
+            <RadioButton Style="{StaticResource TabButton}" GroupName="Tabs" Content="{Binding TabPath, Source={x:Static vm:UiText.Instance}}"
                          IsChecked="{Binding SelectedTab, Converter={StaticResource EnumMatch}, ConverterParameter=Path}" />
-            <RadioButton Style="{StaticResource TabButton}" GroupName="Tabs" Content="리뷰"
+            <RadioButton Style="{StaticResource TabButton}" GroupName="Tabs" Content="{Binding TabReview, Source={x:Static vm:UiText.Instance}}"
                          IsChecked="{Binding SelectedTab, Converter={StaticResource EnumMatch}, ConverterParameter=Review}" />
           </UniformGrid>
           <Border Height="1" Background="#26FFFFFF" Margin="8,0,8,0" />
@@ -333,7 +333,7 @@
               <!-- 추천 -->
               <Border Visibility="{Binding SelectedTab, Converter={StaticResource EnumMatch}, ConverterParameter=Offer}">
               <StackPanel DataContext="{Binding Offer}">
-                <TextBlock Style="{StaticResource Empty}" Text="보상 또는 상점 화면이 열리면 자동으로 표시됩니다.&#x0a;(Ctrl+F10: 지금 인식)"
+                <TextBlock Style="{StaticResource Empty}" Text="{Binding OfferEmpty, Source={x:Static vm:UiText.Instance}}"
                            Visibility="{Binding HasContent, Converter={StaticResource BoolVis}, ConverterParameter=!}" />
                 <StackPanel Visibility="{Binding HasContent, Converter={StaticResource BoolVis}}">
                   <StackPanel.Style>
@@ -370,7 +370,7 @@
                     </Border>
                     <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="Bold" VerticalAlignment="Center" />
                   </DockPanel>
-                  <TextBlock Text="화면이 닫힘 · 마지막 결과" Style="{StaticResource Dim}" Margin="0,0,0,4"
+                  <TextBlock Text="{Binding OfferStale, Source={x:Static vm:UiText.Instance}}" Style="{StaticResource Dim}" Margin="0,0,0,4"
                              Visibility="{Binding IsStale, Converter={StaticResource BoolVis}}" />
                   <TextBlock Text="{Binding FlipHint}" Style="{StaticResource Dim}" Margin="0,0,0,6"
                              Visibility="{Binding FlipHint, Converter={StaticResource BoolVis}}" />
@@ -389,11 +389,11 @@
               <!-- 덱 -->
               <Border Visibility="{Binding SelectedTab, Converter={StaticResource EnumMatch}, ConverterParameter=Deck}">
               <StackPanel DataContext="{Binding Deck}">
-                <TextBlock Style="{StaticResource Empty}" Text="런 정보 없음&#x0a;세이브 파일을 읽으면 표시됩니다."
+                <TextBlock Style="{StaticResource Empty}" Text="{Binding DeckEmpty, Source={x:Static vm:UiText.Instance}}"
                            Visibility="{Binding HasContent, Converter={StaticResource BoolVis}, ConverterParameter=!}" />
                 <StackPanel Visibility="{Binding HasContent, Converter={StaticResource BoolVis}}">
                   <TextBlock Text="{Binding Summary}" FontSize="14" FontWeight="Bold" />
-                  <TextBlock Text="역할 공급 / 목표" Style="{StaticResource Heading}" />
+                  <TextBlock Text="{Binding RoleSupplyHeading, Source={x:Static vm:UiText.Instance}}" Style="{StaticResource Heading}" />
                   <ItemsControl ItemsSource="{Binding Roles}">
                     <ItemsControl.ItemTemplate>
                       <DataTemplate DataType="{x:Type vm:RoleBarVm}">
@@ -489,7 +489,7 @@
               </StackPanel>
               <!-- ==== /build completion forecast ==== -->
               <StackPanel DataContext="{Binding Build}">
-                <TextBlock Style="{StaticResource Empty}" Text="런 정보 없음 또는 이 캐릭터의 아키타입 데이터가 없습니다."
+                <TextBlock Style="{StaticResource Empty}" Text="{Binding BuildEmpty, Source={x:Static vm:UiText.Instance}}"
                            Visibility="{Binding HasContent, Converter={StaticResource BoolVis}, ConverterParameter=!}" />
                 <StackPanel Visibility="{Binding HasContent, Converter={StaticResource BoolVis}}">
                   <TextBlock Text="{Binding Summary}" FontSize="14" FontWeight="Bold" TextWrapping="Wrap" Margin="0,0,0,6" />
@@ -504,7 +504,7 @@
                               <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="Bold" VerticalAlignment="Center" />
                               <Border Background="#33F1C40F" BorderBrush="{StaticResource Gold}" BorderThickness="1" CornerRadius="4" Padding="4,0,4,1" Margin="7,0,0,0" VerticalAlignment="Center"
                                       HorizontalAlignment="Left" Visibility="{Binding IsPrimary, Converter={StaticResource BoolVis}}">
-                                <TextBlock Text="현재 방향" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Gold}" />
+                                <TextBlock Text="{Binding CurrentDirectionTag, Source={x:Static vm:UiText.Instance}}" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource Gold}" />
                               </Border>
                             </DockPanel>
                             <TextBlock Text="{Binding CommitText}" Style="{StaticResource Dim}" Margin="0,3,0,3" />
@@ -519,7 +519,7 @@
                                        Visibility="{Binding NeedsText, Converter={StaticResource BoolVis}}" />
                             <!-- this build's cards: header toggles the tiles (open by default for the current direction only) -->
                             <Button Command="{Binding ToggleCardsCommand}" Margin="0,6,0,0" Cursor="Hand" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                                    Visibility="{Binding CardsSummaryText, Converter={StaticResource BoolVis}}" ToolTip="빌드 카드 보기/접기">
+                                    Visibility="{Binding CardsSummaryText, Converter={StaticResource BoolVis}}" ToolTip="{Binding BuildCardsToolTip, Source={x:Static vm:UiText.Instance}}">
                               <Button.Template>
                                 <ControlTemplate TargetType="Button">
                                   <Border x:Name="Bd" Background="#14FFFFFF" CornerRadius="4" Padding="6,2,6,3">
@@ -537,10 +537,10 @@
                                 <TextBlock FontSize="11.5" Foreground="{StaticResource TextDim}">
                                   <TextBlock.Style>
                                     <Style TargetType="TextBlock">
-                                      <Setter Property="Text" Value="▸ 빌드 카드 보기" />
+                                      <Setter Property="Text" Value="{Binding ShowBuildCards, Source={x:Static vm:UiText.Instance}}" />
                                       <Style.Triggers>
                                         <DataTrigger Binding="{Binding IsExpanded}" Value="True">
-                                          <Setter Property="Text" Value="▾ 빌드 카드 접기" />
+                                          <Setter Property="Text" Value="{Binding HideBuildCards, Source={x:Static vm:UiText.Instance}}" />
                                         </DataTrigger>
                                       </Style.Triggers>
                                     </Style>
@@ -580,7 +580,7 @@
               <!-- 경로 -->
               <Border Visibility="{Binding SelectedTab, Converter={StaticResource EnumMatch}, ConverterParameter=Path}">
               <StackPanel DataContext="{Binding Path}">
-                <TextBlock Style="{StaticResource Empty}" Text="경로 추천 준비 중&#x0a;지도 정보가 연결되면 표시됩니다."
+                <TextBlock Style="{StaticResource Empty}" Text="{Binding PathEmpty, Source={x:Static vm:UiText.Instance}}"
                            Visibility="{Binding HasContent, Converter={StaticResource BoolVis}, ConverterParameter=!}" />
                 <StackPanel Visibility="{Binding HasContent, Converter={StaticResource BoolVis}}">
                   <TextBlock Text="{Binding NextStep}" FontSize="14" FontWeight="Bold" Margin="0,0,0,6" TextWrapping="Wrap"
@@ -624,10 +624,10 @@
               <!-- ==== 리뷰 (m2/forecast-review) ==== -->
               <Border Visibility="{Binding SelectedTab, Converter={StaticResource EnumMatch}, ConverterParameter=Review}">
               <StackPanel DataContext="{Binding Review}">
-                <TextBlock Style="{StaticResource Empty}" Text="끝난 런이 없습니다.&#x0a;런이 끝나면 카드 선택을 추천과 비교한 리뷰가 표시됩니다."
+                <TextBlock Style="{StaticResource Empty}" Text="{Binding ReviewEmpty, Source={x:Static vm:UiText.Instance}}"
                            Visibility="{Binding HasContent, Converter={StaticResource BoolVis}, ConverterParameter=!}" />
                 <StackPanel Visibility="{Binding HasContent, Converter={StaticResource BoolVis}}">
-                  <TextBlock Text="지난 런 리뷰" Style="{StaticResource Heading}" Margin="0,0,0,2" />
+                  <TextBlock Text="{Binding ReviewHeading, Source={x:Static vm:UiText.Instance}}" Style="{StaticResource Heading}" Margin="0,0,0,2" />
                   <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="Bold" TextWrapping="Wrap" />
                   <TextBlock Text="{Binding AgreementText}" FontSize="12.5" TextWrapping="Wrap" Margin="0,6,0,3" />
                   <Border Height="7" CornerRadius="3.5" Background="#30FFFFFF" Width="356" HorizontalAlignment="Left">
@@ -637,7 +637,7 @@
                     <Ellipse Width="10" Height="10" Fill="{Binding BuildColor}" Margin="0,3,7,0" VerticalAlignment="Top" />
                     <TextBlock Text="{Binding BuildText}" TextWrapping="Wrap" FontSize="12.5" />
                   </DockPanel>
-                  <TextBlock Text="추천과 가장 크게 다른 선택" Style="{StaticResource Heading}"
+                  <TextBlock Text="{Binding DisagreementsHeading, Source={x:Static vm:UiText.Instance}}" Style="{StaticResource Heading}"
                              Visibility="{Binding HasDisagreements, Converter={StaticResource BoolVis}}" />
                   <ItemsControl ItemsSource="{Binding Disagreements}">
                     <ItemsControl.ItemTemplate>
@@ -676,7 +676,7 @@
             <TextBlock Style="{StaticResource Dim}">
               <Run Text="{Binding StatusText, Mode=OneWay}" /><Run Text=" · " /><Run Text="{Binding PackText, Mode=OneWay}" /><Run Text=" · " /><Run Text="{Binding UiScaleText, Mode=OneWay}" />
             </TextBlock>
-            <TextBlock Style="{StaticResource Dim}" Text="Ctrl+F7 클릭 통과 · F8 숨기기 · F9 캡처 · F10 인식" Opacity="0.8" />
+            <TextBlock Style="{StaticResource Dim}" Text="{Binding HotkeyHint, Source={x:Static vm:UiText.Instance}}" Opacity="0.8" />
           </StackPanel>
         </StackPanel>
       </StackPanel>

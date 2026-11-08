@@ -3,6 +3,7 @@ using System.Windows.Threading;
 using Sts2Overlay.App.Infrastructure;
 using Velopack;
 using Velopack.Sources;
+using Sts2Overlay.Core.Localization;
 
 namespace Sts2Overlay.App.Services;
 
@@ -102,12 +103,12 @@ public sealed class UpdateService : IDisposable
     {
         if (!IsInstalled)
         {
-            Message?.Invoke("설치된 버전이 아니라서 업데이트를 확인할 수 없습니다 (개발용 실행).");
+            Message?.Invoke(Loc.T("설치된 버전이 아니라서 업데이트를 확인할 수 없습니다 (개발용 실행).", "Not an installed build, so updates cannot be checked (dev run)."));
             return;
         }
         if (_ready is not null)
         {
-            Message?.Invoke($"새 버전 v{ReadyVersion} 준비됨 — 종료하면 적용됩니다.");
+            Message?.Invoke(Loc.T($"새 버전 v{ReadyVersion} 준비됨 — 종료하면 적용됩니다.", $"New version v{ReadyVersion} ready — applied when you exit."));
             return;
         }
         _ = CheckAsync(manual: true);
@@ -119,26 +120,26 @@ public sealed class UpdateService : IDisposable
         var now = DateTime.UtcNow;
         if (!_schedule.ShouldCheck(now, manual))
         {
-            if (manual) Message?.Invoke("방금 확인했습니다. 잠시 후 다시 시도해 주세요.");
+            if (manual) Message?.Invoke(Loc.T("방금 확인했습니다. 잠시 후 다시 시도해 주세요.", "Just checked. Please try again in a moment."));
             return;
         }
         _schedule.MarkChecked(now);
         _busy = true;
         try
         {
-            if (manual) Message?.Invoke("업데이트 확인 중…");
+            if (manual) Message?.Invoke(Loc.T("업데이트 확인 중…", "Checking for updates…"));
             AppLog.Info($"update: checking {_source}");
             // Off the UI thread: the check/download do file and network I/O. The awaits resume on the UI thread.
             var info = await Task.Run(() => _manager.CheckForUpdatesAsync());
             if (info is null)
             {
                 AppLog.Info($"update: up to date (v{CurrentVersion})");
-                if (manual) Message?.Invoke($"최신 버전입니다 (v{CurrentVersion}).");
+                if (manual) Message?.Invoke(Loc.T($"최신 버전입니다 (v{CurrentVersion}).", $"Up to date (v{CurrentVersion})."));
                 return;
             }
             var target = info.TargetFullRelease.Version.ToString();
             AppLog.Info($"update: v{target} available; downloading");
-            if (manual) Message?.Invoke($"새 버전 v{target} 내려받는 중…");
+            if (manual) Message?.Invoke(Loc.T($"새 버전 v{target} 내려받는 중…", $"Downloading v{target}…"));
             await Task.Run(() => _manager.DownloadUpdatesAsync(info));
             _ready = info;
             AppLog.Info($"update: v{target} downloaded; applied on exit or from the tray");
@@ -148,7 +149,7 @@ public sealed class UpdateService : IDisposable
         {
             // Offline, GitHub rate limit, a broken feed...: log only (the next periodic check tries again).
             AppLog.Warn($"update: check/download failed ({ex.GetType().Name}: {ex.Message})");
-            if (manual) Message?.Invoke("업데이트 확인 실패 (인터넷 연결 확인, 자세한 내용은 로그).");
+            if (manual) Message?.Invoke(Loc.T("업데이트 확인 실패 (인터넷 연결 확인, 자세한 내용은 로그).", "Update check failed (check your connection; details in the log)."));
         }
         finally
         {

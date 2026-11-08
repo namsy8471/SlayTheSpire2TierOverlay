@@ -116,7 +116,7 @@ public partial class EventMarkerWindow : Window
                 layer, dpi, ScaleMultiplier, s.IsBest ? 170 : 130);
             // The small pill is shorter than the "추천!" one: centre it on the button too.
             if (!s.IsBest) top += (EventMarkerLayout.PillHeight - 32) / 2 * scale;
-            return new EventMarkerVm(left, top, scale, s.IsBest, $"{s.Rank}위", s.ScoreText, s.Warning);
+            return new EventMarkerVm(left, top, scale, s.IsBest, UiText.Rank(s.Rank), s.ScoreText, s.Warning);
         }).ToArray();
     }
 }
