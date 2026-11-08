@@ -21,6 +21,9 @@ public enum RewardKind : byte
 
     /// <summary>The act 3 boss: the run ends, no card. Marks the "next boss" horizon in act 3.</summary>
     FinalBoss,
+
+    /// <summary>A "?" event (or transform) that adds one random character card without a choice.</summary>
+    EventCard,
 }
 
 /// <param name="Kind">What kind of reward.</param>
@@ -106,6 +109,18 @@ public sealed record ForecastOptions
 
     public int CardsPerReward { get; init; } = 3;
 
+    /// <summary>
+    /// Chance that a "?" event adds a random character card (events, transforms, ancients), measured per event visit
+    /// in the user's runs by <see cref="ForecastFit"/>. 0 turns it off.
+    /// </summary>
+    public double EventCardChance { get; init; } = ForecastFit.DefaultEventCardChance;
+
+    /// <summary>
+    /// Per act (index 0 = act 1): chance the run ends there (death or abandon), from the user's runs. Drives the
+    /// unconditional <see cref="ArchetypeForecast.EndOfRunAll"/>. Null → nobody dies (EndOfRunAll = EndOfRun).
+    /// </summary>
+    public IReadOnlyList<double>? ActDeathChance { get; init; } = ForecastFit.DefaultActDeathChance;
+
     public static ForecastOptions Default { get; } = new();
 }
 
@@ -140,6 +155,18 @@ public sealed record ArchetypeForecast
 
     /// <summary>Deck at the end of act 3 (before the final boss; it gives no card).</summary>
     public required HorizonOutcome EndOfRun { get; init; }
+
+    /// <summary>The deck when the run ends, deaths included (the run may stop in act 1, 2 or 3).</summary>
+    public required HorizonOutcome EndOfRunAll { get; init; }
+
+    /// <summary>
+    /// <see cref="EndOfRun"/>.PComplete mapped through the survivors' calibration curve: "if you reach the act 3 boss,
+    /// how often does a forecast like this come true". This is the number the panel shows.
+    /// </summary>
+    public double CalibratedIfSurvive { get; init; }
+
+    /// <summary><see cref="EndOfRunAll"/>.PComplete through the all-runs calibration curve (a run that ends before the build is complete counts as not completed).</summary>
+    public double CalibratedAll { get; init; }
 }
 
 /// <summary>Mean number of future reward chances per kind.</summary>

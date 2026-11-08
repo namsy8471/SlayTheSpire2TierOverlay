@@ -561,9 +561,9 @@ public sealed partial class AppController : IDisposable
         var items = report.Statuses.Take(5).Select(st =>
         {
             var a = st.Archetype;
-            var prob = report.CoreOfferProbability.TryGetValue(a.Id, out var p)
-                ? $"이번 막 남은 보상 {report.RemainingRewards}번 안에 핵심 카드가 나올 확률 {p:P0} [추정]"
-                : null;
+            // m2/forecast-calib: the old "핵심 카드가 나올 확률" line is replaced by the calibrated forecast line,
+            // filled in by ForecastReviewPresenter.WithForecast (AppController.ForecastReview.cs).
+            string? prob = null;
             var missing = st.MissingCards.Count == 0
                 ? null
                 : "필요: " + string.Join(", ", st.MissingCards.Take(5).Select(m =>

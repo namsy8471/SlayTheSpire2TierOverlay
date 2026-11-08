@@ -28,16 +28,22 @@ public sealed class ArchetypeForecaster
     private readonly ForecastCache _cache;
     private readonly RecommendationEngine _engine;
 
-    public ArchetypeForecaster(DataPack pack, ForecastCardPool? pool = null, int cacheCapacity = 32)
+    /// <param name="pack">Data pack (tiers, archetypes, weights).</param>
+    /// <param name="pool">Reward card pool; null → from the pack.</param>
+    /// <param name="cacheCapacity">Results kept in the LRU cache (0 = off).</param>
+    /// <param name="calibration">Raw → calibrated probability maps; null → <see cref="ForecastCalibration.Default"/>.</param>
+    public ArchetypeForecaster(DataPack pack, ForecastCardPool? pool = null, int cacheCapacity = 32, ForecastCalibration? calibration = null)
     {
         Pack = pack;
         Pool = pool ?? ForecastCardPool.FromPack(pack);
+        Calibration = calibration ?? ForecastCalibration.Default;
         _cache = new ForecastCache(cacheCapacity);
         _engine = new RecommendationEngine(pack);
     }
 
     public DataPack Pack { get; }
     public ForecastCardPool Pool { get; }
+    public ForecastCalibration Calibration { get; }
 
     /// <summary>Runs (or returns the cached) forecast for <paramref name="request"/>.</summary>
     public ForecastResult Forecast(ForecastRequest request, ForecastOptions? options = null, CancellationToken cancel = default)
@@ -73,7 +79,9 @@ public sealed class ArchetypeForecaster
         }
         sb.Append("|n:").Append(options.Simulations).Append("|p:").Append(options.Policy).Append("|z:").Append(options.PickNoise.ToString("0.###", inv))
           .Append("|b:").Append(options.ShopBuyChance.ToString("0.###", inv)).Append("|u:").Append(options.UnknownFightChance.ToString("0.###", inv))
-          .Append('/').Append(options.UnknownShopChance.ToString("0.###", inv)).Append("|c:").Append(options.CardsPerReward);
+          .Append('/').Append(options.UnknownShopChance.ToString("0.###", inv)).Append("|c:").Append(options.CardsPerReward)
+          .Append("|e:").Append(options.EventCardChance.ToString("0.####", inv)).Append("|h:")
+          .AppendJoin(',', (options.ActDeathChance ?? []).Select(h => h.ToString("0.####", inv)));
         if (options.Seed is { } seed) sb.Append("|s:").Append(seed);
         return sb.ToString();
     }
@@ -104,6 +112,8 @@ public sealed class ArchetypeForecaster
 
         var seed = options.Seed ?? StableSeed(key);
         var rng = new ForecastRng(unchecked((ulong)seed * 0x9E3779B97F4A7C15UL + 1));
+        // Deaths draw from their own stream, so turning the death model on or off leaves the "if you survive" numbers identical.
+        var deathRng = new ForecastRng(unchecked((ulong)seed * 0xD1B54A32D192ED03UL + 7));
         var start = SimState.Initial(model, state, Pack);
         var scheduler = new RewardScheduler(state, request.Map, options);
         var sims = Math.Max(1, options.Simulations);
@@ -113,6 +123,10 @@ public sealed class ArchetypeForecaster
 
         var nextBoss = new Accumulator(model);
         var end = new Accumulator(model);
+        var endAll = new Accumulator(model);
+        // Share of the current act still ahead: only that part of its death chance is left. [추정]
+        var deathFraction = (double)RewardScheduler.RemainingContentFloors(curAct, state.Floor)
+                            / RewardScheduler.TypicalActs[curAct - 1].ContentFloors;
         var events = new List<RewardEvent>(64);
         var sim = start.Clone();
         var offered = new int[Math.Max(1, options.CardsPerReward)];
@@ -141,14 +155,24 @@ public sealed class ArchetypeForecaster
 
             var offset = startOffset;
             var bossTaken = false;
-            foreach (var ev in events)
+            var deathAt = SampleDeath(ref deathRng, events, options, curAct, deathFraction);
+            for (var e = 0; e < events.Count; e++)
             {
+                var ev = events[e];
+                if (e == deathAt) endAll.Add(model, sim); // the run ends here; the conditional future keeps going
                 if (!bossTaken && (ev.Act > curAct || (ev.Act == curAct && ev.Kind is RewardKind.Boss or RewardKind.FinalBoss)))
                 {
                     nextBoss.Add(model, sim);
                     bossTaken = true;
                 }
                 if (ev.Kind == RewardKind.FinalBoss) continue;
+                if (ev.Kind == RewardKind.EventCard)
+                {
+                    // Event / transform card: one random character card, no choice (rarity like a normal reward slot). [추정]
+                    var card = RollEventCard(model, ref rng, scarcity, offered);
+                    if (card >= 0) Gain(model, sim, card, engineDeck);
+                    continue;
+                }
                 var bucket = ev.Kind == RewardKind.Shop ? 3 : ev.Kind == RewardKind.Boss ? 2 : ev.Kind == RewardKind.Elite ? 1 : 0;
                 untilEnd[bucket]++;
                 if (!bossTaken) untilBoss[bucket]++;
@@ -169,6 +193,7 @@ public sealed class ArchetypeForecaster
             }
             if (!bossTaken) nextBoss.Add(model, sim);
             end.Add(model, sim);
+            if (deathAt < 0 || deathAt >= events.Count) endAll.Add(model, sim);
         }
 
         var forecasts = new ArchetypeForecast[a];
@@ -176,21 +201,30 @@ public sealed class ArchetypeForecaster
         {
             var arch = model.Archetypes[i];
             var commitNow = start.Commit(model, i);
+            var complete = commitNow >= arch.Threshold - Epsilon;
+            var endOutcome = end.Outcome(i, sims);
+            var allOutcome = endAll.Outcome(i, sims);
+            var completion = start.CompletionPercent(model, i) / 100.0;
             forecasts[i] = new ArchetypeForecast
             {
                 Archetype = arch.Archetype,
                 CurrentCommit = commitNow,
-                CurrentCompletionPercent = start.CompletionPercent(model, i),
-                IsCompleteNow = commitNow >= arch.Threshold - Epsilon,
+                CurrentCompletionPercent = completion * 100.0,
+                IsCompleteNow = complete,
                 NextBoss = nextBoss.Outcome(i, sims),
-                EndOfRun = end.Outcome(i, sims),
+                EndOfRun = endOutcome,
+                EndOfRunAll = allOutcome,
+                // Already complete stays complete (removing a build card is rare); otherwise map raw → observed frequency.
+                CalibratedIfSurvive = complete ? 1.0 : Calibration.IfSurvive.Apply(endOutcome.PComplete, completion),
+                CalibratedAll = complete ? 1.0 : Calibration.All.Apply(allOutcome.PComplete, completion),
             };
         }
 
         return new ForecastResult
         {
             Archetypes = forecasts
-                .OrderByDescending(f => f.EndOfRun.PComplete)
+                .OrderByDescending(f => f.CalibratedIfSurvive)
+                .ThenByDescending(f => f.EndOfRun.PComplete)
                 .ThenByDescending(f => f.EndOfRun.PPrimary)
                 .ThenBy(f => f.Archetype.Id, StringComparer.Ordinal)
                 .ToArray(),
@@ -209,6 +243,43 @@ public sealed class ArchetypeForecaster
     }
 
     private static RewardCounts Counts(double[] c, int sims) => new(c[0] / sims, c[1] / sims, c[2] / sims, c[3] / sims);
+
+    /// <summary>
+    /// Index of the event before which the run ends (death or abandon), or −1 when it survives. Act k ends the run with
+    /// <see cref="ForecastOptions.ActDeathChance"/>[k] (the current act scaled by the share still ahead); the point inside
+    /// that act is uniform over its events, boss included.
+    /// </summary>
+    private static int SampleDeath(ref ForecastRng rng, List<RewardEvent> events, ForecastOptions options, int curAct, double fraction)
+    {
+        if (options.ActDeathChance is not { Count: > 0 } hazard || events.Count == 0) return -1;
+        for (var act = curAct; act <= RewardScheduler.LastAct; act++)
+        {
+            var h = act - 1 < hazard.Count ? hazard[act - 1] : 0;
+            if (act == curAct) h *= Math.Clamp(fraction, 0, 1);
+            if (rng.NextDouble() >= h) continue;
+
+            int first = -1, count = 0;
+            for (var i = 0; i < events.Count; i++)
+            {
+                if (events[i].Act != act) continue;
+                if (first < 0) first = i;
+                count++;
+            }
+            if (count == 0) continue;
+            return first + (count == 1 ? 0 : rng.NextInt(count));
+        }
+        return -1;
+    }
+
+    /// <summary>A random character card for an event/transform (normal-reward rarity odds, offset untouched).</summary>
+    private static int RollEventCard(CharacterModel m, ref ForecastRng rng, bool scarcity, int[] scratch)
+    {
+        var rare = scarcity ? ForecastOdds.NormalRareScarcity : ForecastOdds.NormalRare;
+        var t = rng.NextDouble();
+        var rarity = t < rare ? PoolRarity.Rare : t < rare + ForecastOdds.NormalUncommon ? PoolRarity.Uncommon : PoolRarity.Common;
+        var card = DrawDistinct(m.ByRarity(rarity), ref rng, scratch, 0);
+        return card >= 0 ? card : DrawDistinct(m.AnyCharacterCard, ref rng, scratch, 0);
+    }
 
     /// <summary>Unknown offset: run start → the reset value; later → 0 (roughly the average after a few non-rare cards). [추정]</summary>
     private static double GuessOffset(RunState state) => state.Floor <= 1 ? ForecastOdds.OffsetReset : 0.0;

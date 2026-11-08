@@ -16,6 +16,7 @@ public sealed partial class AppController
     private ArchetypeForecastService? _forecast;
     private RunReviewService? _reviews;
     private RunReview? _lastReview;
+    private ForecastResult? _lastForecast;
     private bool _hadRun;
 
     private void InitForecastReview(string packDir, string? catalogPath)
@@ -33,6 +34,8 @@ public sealed partial class AppController
     private void UpdateForecastReview(GameStateSnapshot snap)
     {
         var offset = (_source as GameStateAdapter)?.Tracked?.RarityPityOffset;
+        // RefreshRunViews just rebuilt the archetype list: put the last forecast line back until the new one arrives.
+        _vm.Build = ForecastReviewPresenter.WithForecast(_vm.Build, snap.Run is null ? null : _lastForecast);
         _forecast?.Request(snap.Run, snap.Map, offset);
 
         var hasRun = snap.Run is not null;
@@ -56,7 +59,9 @@ public sealed partial class AppController
 
     private void OnForecast(ForecastResult? result)
     {
+        _lastForecast = result;
         _vm.Forecast = ForecastReviewPresenter.Forecast(result);
+        _vm.Build = ForecastReviewPresenter.WithForecast(_vm.Build, result);
         if (result is { FromCache: false })
         {
             AppLog.Info($"forecast: {result.Simulations} sims in {result.ElapsedMs:0.0} ms, map {result.UsedMap}, offset {result.RarityOffsetUsed:0.###}");

@@ -10,7 +10,7 @@ using Sts2Overlay.Tools.RunHistoryAnalyzer;
 //
 //   dotnet run --project tools/RunHistoryAnalyzer -- replay <runs-dir|file.run>... [--pack <dir>] [--player <steamId>] [--out <file.md>] [--summary]
 //   dotnet run --project tools/RunHistoryAnalyzer -- stats  <runs-dir|file.run>... [--player <steamId>]
-//   dotnet run --project tools/RunHistoryAnalyzer -- calibrate <runs-dir>... --pack <dir> [--catalog <cards.json>] [--sims N] [--noise σ] [--policy greedy|engine]
+//   dotnet run --project tools/RunHistoryAnalyzer -- calibrate <runs-dir>... --pack <dir> [--catalog <cards.json>] [--sims N] [--noise σ] [--policy greedy|engine] [--emit]
 //
 // Run files live in %APPDATA%\SlayTheSpire2\steam\<steamid>\profile1\saves\history\.
 
@@ -31,6 +31,7 @@ internal static class Cli
         string? packDir = null, outFile = null, catalogFile = null;
         var sims = 1000;
         var noise = 0.0;
+        var emit = false;
         var policy = PickPolicy.Greedy;
         long? player = null;
         var summaryOnly = false;
@@ -43,6 +44,7 @@ internal static class Cli
                 case "--out": outFile = Next(args, ref i); break;
                 case "--player": player = long.Parse(Next(args, ref i), CultureInfo.InvariantCulture); break;
                 case "--summary": summaryOnly = true; break;
+                case "--emit": emit = true; break;
                 case "--catalog": catalogFile = Next(args, ref i); break;
                 case "--sims": sims = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture); break;
                 case "--noise": noise = double.Parse(Next(args, ref i), CultureInfo.InvariantCulture); break;
@@ -100,7 +102,7 @@ internal static class Cli
                 // In co-op "me" is the Steam id of the history folder (steam/<id>/profile1/...); without it LocalPlayer picks player 1.
                 var options = new ForecastOptions { Simulations = sims, PickNoise = noise, Policy = policy, Seed = 12345 };
                 var named = files.Zip(runs, (f, r) => (r, f, player ?? SteamIdFromPath(f))).ToArray();
-                Write(Calibration.Run(named, pack, pool, options), outFile);
+                Write(Calibration.Run(named, pack, pool, options, emit), outFile);
                 return 0;
             }
             default:
@@ -170,7 +172,7 @@ internal static class Cli
             RunHistoryAnalyzer
               replay <runs-dir|file.run>... [--pack <dir>] [--player <steamId>] [--out <file.md>] [--summary]
               stats  <runs-dir|file.run>... [--player <steamId>] [--out <file.md>]
-              calibrate <runs-dir>... --pack <dir> [--catalog <cards.json>] [--sims N] [--noise σ] [--policy greedy|engine] [--out <file.md>]
+              calibrate <runs-dir>... --pack <dir> [--catalog <cards.json>] [--sims N] [--noise σ] [--policy greedy|engine] [--emit] [--out <file.md>]
             """);
     }
 }

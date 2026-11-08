@@ -74,9 +74,11 @@ dotnet run --project tools/RunHistoryAnalyzer -- replay "%APPDATA%\SlayTheSpire2
 ```
 
 빌드 완성 확률(몬테카를로) 보정 확인: 기록의 체크포인트마다 예측한 확률과 실제 마지막 덱을 비교합니다.
+이벤트 카드 비율·막별 사망률·보정 곡선은 해당 런을 뺀 나머지 런으로 맞춥니다(leave-one-run-out). 협동 기록이 있으면 Steam 폴더를 모두 넘기세요.
+`--emit`은 모든 런으로 맞춘 기본값(`ForecastFit`, `ForecastCalibration.Default`에 붙여 넣을 값)을 출력합니다.
 
 ```bash
-dotnet run --project tools/RunHistoryAnalyzer -c Release -- calibrate "%APPDATA%\SlayTheSpire2\steam\<id>\profile1\saves\history" --pack data/packs/v0.107.1 --sims 1000
+dotnet run --project tools/RunHistoryAnalyzer -c Release -- calibrate "%APPDATA%\SlayTheSpire2\steam\<id>\profile1\saves\history" --pack data/packs/v0.107.1 --sims 1000 [--emit]
 ```
 
 ## 저작권
