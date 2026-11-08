@@ -20,6 +20,14 @@ switch (args.FirstOrDefault())
     case "match":
         Match(args[1], ParseRect(args[2]), args.ElementAtOrDefault(3) ?? defaultHashes);
         break;
+    case "calibrate":
+        // calibrate <capture> <x,y,w,h approx art box> <CARD.ID>: search position/scale that best fits the known card
+        Calibrate(args[1], ParseRect(args[2]), args[3], defaultArt);
+        break;
+    case "ncc":
+        // ncc <capture> <x,y,w,h art box> [pool,pool...]: rank cards by NCC inside the box
+        NccMatch(args[1], ParseRect(args[2]), args.ElementAtOrDefault(3), defaultArt);
+        break;
     case "selftest":
         SelfTest(defaultArt, args.ElementAtOrDefault(1) ?? defaultHashes);
         break;
@@ -85,6 +93,46 @@ static void SelfTest(string artDir, string hashFile)
         if (best == e.Id) ok++;
     }
     Console.WriteLine($"selftest: {ok}/{total} correct after resize+blur+darken");
+}
+
+static void Calibrate(string capture, Rectangle approx, string cardId, string artDir)
+{
+    using Image<Rgba32> img = Image.Load<Rgba32>(capture);
+    string file = Directory.EnumerateFiles(artDir, cardId[5..].ToLowerInvariant() + ".webp", SearchOption.AllDirectories)
+        .First(f => !f.Replace('\\', '/').Contains("/beta/"));
+    using Image<Rgba32> art = Image.Load<Rgba32>(file);
+    float[] reference = Ncc.InnerVector(art);
+
+    (float score, RectangleF box) best = (-1, default);
+    for (float scale = 0.85f; scale <= 1.15f; scale += 0.01f)
+    {
+        float w = approx.Width * scale, h = w * 190f / 250f; // keep the art box aspect ratio
+        for (int dy = -20; dy <= 20; dy += 2)
+        for (int dx = -20; dx <= 20; dx += 2)
+        {
+            var box = new RectangleF(approx.X + dx - (w - approx.Width) / 2, approx.Y + dy - (h - approx.Height) / 2, w, h);
+            float s = Ncc.Score(reference, Ncc.ScreenVector(img, box));
+            if (s > best.score) best = (s, box);
+        }
+    }
+    Console.WriteLine($"best NCC {best.score:F3} at box x={best.box.X:F1} y={best.box.Y:F1} w={best.box.Width:F1} h={best.box.Height:F1}");
+}
+
+static void NccMatch(string capture, Rectangle box, string? pools, string artDir)
+{
+    using Image<Rgba32> img = Image.Load<Rgba32>(capture);
+    float[] screen = Ncc.ScreenVector(img, box);
+    HashSet<string>? allowed = pools?.Split(',').ToHashSet(StringComparer.OrdinalIgnoreCase);
+    var results = new List<(string Id, float S)>();
+    foreach (string file in Directory.EnumerateFiles(artDir, "*.webp", SearchOption.AllDirectories))
+    {
+        string rel = Path.GetRelativePath(artDir, file).Replace('\\', '/');
+        if (rel.Contains("/beta/")) continue;
+        if (allowed != null && !allowed.Contains(rel.Split('/')[0])) continue;
+        using Image<Rgba32> art = Image.Load<Rgba32>(file);
+        results.Add(("CARD." + Path.GetFileNameWithoutExtension(file).ToUpperInvariant(), Ncc.Score(screen, Ncc.InnerVector(art))));
+    }
+    foreach (var r in results.OrderByDescending(r => r.S).Take(4)) Console.WriteLine($"{r.S:F3}  {r.Id}");
 }
 
 static List<(string Id, ulong H)> LoadDb(string hashFile) =>
