@@ -42,10 +42,18 @@ public sealed class Archetype
     public List<KeyRelic> KeyRelics { get; set; } = [];
     public List<ArchetypeNeed> Needs { get; set; } = [];
     public string? Desc { get; set; }
+
+    /// <summary>English <see cref="Desc"/>, from the pack's <c>text.eng.json</c> (<see cref="PackText"/>).</summary>
+    [JsonIgnore]
+    public string? DescEng { get; set; }
+
+    /// <summary><see cref="Desc"/> in the current overlay language.</summary>
+    [JsonIgnore]
+    public string? LocalDesc => Localization.Loc.IsEnglish ? DescEng ?? Desc : Desc;
     public string? GuideHeroCard { get; set; }
 
     [JsonIgnore]
-    public string DisplayName => Names.TryGetValue("kor", out var k) ? k : Names.Values.FirstOrDefault() ?? Id;
+    public string DisplayName => Localization.Loc.Pick(Names) ?? Id;
 
     /// <summary>Returns the archetype role of a card ("core", "enabler", "payoff", "support") or null.</summary>
     public string? RoleOf(string cardId)
@@ -110,4 +118,23 @@ public sealed class Combo
     public string Name { get; set; } = "";
     public string? Why { get; set; }
     public double W { get; set; } = 6;
+
+    /// <summary>English <see cref="Name"/> / <see cref="Why"/>, from the pack's <c>text.eng.json</c> (<see cref="PackText"/>).</summary>
+    [JsonIgnore]
+    public string? NameEng { get; set; }
+
+    [JsonIgnore]
+    public string? WhyEng { get; set; }
+
+    /// <summary><see cref="Name"/> in the current overlay language.</summary>
+    [JsonIgnore]
+    public string LocalName => Localization.Loc.IsEnglish ? NameEng ?? Name : Name;
+
+    /// <summary><see cref="Why"/> in the current overlay language.</summary>
+    [JsonIgnore]
+    public string? LocalWhy => Localization.Loc.IsEnglish ? WhyEng ?? Why : Why;
+
+    /// <summary>Key of this combo in <c>text.eng.json</c>: its card ids joined with "+", in file order.</summary>
+    [JsonIgnore]
+    public string TextKey => string.Join('+', Cards);
 }

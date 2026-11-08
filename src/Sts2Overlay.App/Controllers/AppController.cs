@@ -388,7 +388,7 @@ public sealed partial class AppController : IDisposable
                 IsEstimate = e.IsEstimate,
                 IsUpgraded = e.Card.IsUpgraded,
                 SubText = sub,
-                Tip = _engine.Pack.FindTier(run.Character, e.Card.Id)?.Tip,
+                Tip = _engine.Pack.FindTier(run.Character, e.Card.Id)?.LocalTip,
                 Art = ArtOf(e.Card.Id),
                 Chips = e.Chips.Select(c => Chip(c.Label, c.Value)).ToArray(),
             });

@@ -12,6 +12,7 @@ namespace Sts2Overlay.Core.Data;
 /// archetypes/*.json       array of Archetype
 /// combos/*.json           array of Combo
 /// aliases.json            (optional) { "OLD_ID": "NEW_ID" }
+/// text.eng.json           (optional) English for the Korean tips, combo names/reasons, archetype descriptions (PackText)
 /// catalog.json            (optional) CardCatalog; usually passed in instead (catalog / catalogPath)
 /// </code>
 /// JSON uses camelCase, allows comments and trailing commas, and tier letters as strings.
@@ -136,6 +137,12 @@ public static class DataPackLoader
         foreach (var path in JsonFiles(Path.Combine(directory, CombosDir)))
         {
             combos.AddRange(LoadFile(path, LoadCombos));
+        }
+
+        var textPath = Path.Combine(directory, PackText.EnglishFile);
+        if (File.Exists(textPath))
+        {
+            LoadFile(textPath, PackText.Parse).ApplyTo(tiers.Values, archetypes, combos);
         }
 
         var aliasesPath = Path.Combine(directory, AliasesFile);
