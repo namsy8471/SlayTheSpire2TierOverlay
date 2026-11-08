@@ -217,6 +217,21 @@ public class CorePriorityTests
     }
 
     [Fact]
+    public void StarterPart_StopsOnceAnyBuildIsCoreSecured_LeanPartStays()
+    {
+        var pack = LowCorePack();
+        var copies = new Dictionary<string, int>(StringComparer.Ordinal) { [PowerCore] = 1 };
+        // power build secured (owns PowerCore); orb far behind → orb core gets nothing in act 1
+        var behind = new DeckProfile { Copies = copies }.WithArchetypes(pack, (PowerArchetype, 0.6), (OrbArchetype, 0.1));
+        Assert.Equal(0, Score(pack, OrbCore, behind).Score.ValueOf(ComponentKeys.CorePriority), 9);
+        // near-hybrid second build: lean part only (15 × 0.5 / 0.4 → capped 15 at commit ≥ leanFull)
+        var hybrid = new DeckProfile { Copies = copies }.WithArchetypes(pack, (PowerArchetype, 0.6), (OrbArchetype, 0.5));
+        Assert.Equal(15, Score(pack, OrbCore, hybrid).Score.ValueOf(ComponentKeys.CorePriority), 9);
+        var hybridLow = new DeckProfile { Copies = copies }.WithArchetypes(pack, (PowerArchetype, 0.3), (OrbArchetype, 0.2));
+        Assert.Equal(15 * 0.2 / 0.4, Score(pack, OrbCore, hybridLow).Score.ValueOf(ComponentKeys.CorePriority), 9);
+    }
+
+    [Fact]
     public void WeakDeck_ScalesTheBonus()
     {
         var pack = LowCorePack();

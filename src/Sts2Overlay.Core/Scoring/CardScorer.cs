@@ -162,7 +162,14 @@ public sealed class CardScorer(DataPack pack)
             var topCommit = profile.Archetypes.Select(Commit).DefaultIfEmpty(0.0).Max();
             var weakFactor = profile.IsWeak ? Math.Clamp(Finite(cp.WeakFactor), 0.0, 1.0) : 1.0;
             var bonus = Math.Max(0.0, Finite(cp.Bonus));
-            var starter = act <= cp.StarterMaxAct ? Math.Clamp(Finite(cp.StarterBonus), 0.0, bonus) : 0.0;
+            // Starter part only while no build (with core cards) is core-secured: once the deck has a working build, other
+            // builds' cores get only the lean part (a near-hybrid second build still qualifies).
+            var anySecured = profile.Archetypes.Any(s =>
+            {
+                var c = ArchetypeDetector.CoreProgress(s.Archetype, Pack, profile.Copies);
+                return c.Target > 0 && c.Owned >= c.Target;
+            });
+            var starter = act <= cp.StarterMaxAct && !anySecured ? Math.Clamp(Finite(cp.StarterBonus), 0.0, bonus) : 0.0;
             foreach (var m in memberships.Where(m => m.Role == ArchetypeRoles.Core && m.Core.Owned < m.Core.Target))
             {
                 var leaning = m.Commit >= cp.LeanMin - Epsilon && m.Commit >= topCommit - w.HybridMargin - Epsilon;
@@ -343,6 +350,19 @@ public sealed class CardScorer(DataPack pack)
         var cap = Math.Clamp(Finite(cp.NoCoreMaxUnlock), 0.0, 1.0);
         if (s.CoreChance is { } p && double.IsFinite(p)) return Math.Clamp(cap - p, 0.0, cap);
         return Math.Clamp(Finite(Weights.ForAct(cp.NoCoreUnlockByAct, act, 0.0)), 0.0, cap);
+    }
+
+    /// <summary>
+    /// Build commit after the core gate: <c>commit × (floor + (1 − floor) × coreFactor)</c>, <c>floor = </c><see cref="SynergyUnlock"/>,
+    /// <c>coreFactor = min(1, ownedCore / coreTarget)</c> (1 for a build without core cards). Before a core it is at most
+    /// <c>noCoreMaxUnlock × commit</c>. Used by <see cref="SkipScorer"/> so skip follows the same "코어 먼저" rule as the cards.
+    /// </summary>
+    public static double GatedCommit(ArchetypeStatus s, DeckProfile profile, DataPack pack, int act)
+    {
+        var core = ArchetypeDetector.CoreProgress(s.Archetype, pack, profile.Copies);
+        var coreFactor = core.Target > 0 ? Math.Min(1.0, (double)core.Owned / core.Target) : 1.0;
+        var floor = coreFactor < 1.0 ? SynergyUnlock(s, act, pack.Weights) : 1.0;
+        return Commit(s) * (floor + (1 - floor) * coreFactor);
     }
 
     private bool CoreSecured(Archetype a, DeckProfile profile)
