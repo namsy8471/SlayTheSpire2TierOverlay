@@ -35,6 +35,39 @@ public partial class App : Application
         base.OnStartup(e);
         AppLog.Init(AppPaths.LogFile);
         AppLog.Info($"---- start {string.Join(' ', e.Args)} (exe {AppContext.BaseDirectory})");
+        var options = AppOptions.Parse(e.Args);
+
+        if (options.VerifyCapture)
+        {
+            var exitCode = 1;
+            try
+            {
+                exitCode = CaptureVerify.Run(options) == 0 ? 0 : 1;
+            }
+            catch (Exception ex)
+            {
+                AppLog.Error("capture verification failed", ex);
+                Console.Error.WriteLine(ex);
+            }
+            Shutdown(exitCode);
+            return;
+        }
+
+        if (options.BenchCapture)
+        {
+            // Measurement mode: no windows, no single-instance check (it may run next to the overlay).
+            try
+            {
+                CaptureBench.Run(options);
+            }
+            catch (Exception ex)
+            {
+                AppLog.Error("capture benchmark failed", ex);
+                Console.Error.WriteLine(ex);
+            }
+            Shutdown();
+            return;
+        }
 
         // ---- local resources: headless --prepare (no windows, no single-instance check) ----
         if (e.Args.Any(a => a.Equals("--prepare", StringComparison.OrdinalIgnoreCase)))
@@ -60,7 +93,6 @@ public partial class App : Application
         };
         AppDomain.CurrentDomain.UnhandledException += (_, args) => AppLog.Error("unhandled exception", args.ExceptionObject as Exception);
 
-        var options = AppOptions.Parse(e.Args);
         _settings = SettingsStore.Load(AppPaths.SettingsFile);
         var excludeFromCapture = _settings.HideOverlayFromCapture && !options.ShowInCapture;
         var packDir = AppPaths.ResolvePackDir(options.PackDir ?? _settings.PackDir);
@@ -74,7 +106,7 @@ public partial class App : Application
         };
 
         _tracker = new GameWindowTracker();
-        _pipeline = new CapturePipeline(() => _tracker.Current);
+        _pipeline = new CapturePipeline(() => _tracker.Current, _settings.CaptureBackend);
 
         var badges = new BadgeWindow(excludeFromCapture);
         _panel = new PanelWindow(_vm, _settings, excludeFromCapture);

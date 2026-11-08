@@ -14,7 +14,7 @@
 | `src/Sts2Overlay.GameState` | net10.0 | `current_run.save` 감시 + `godot.log` 꼬리 읽기 → 덱·HP·골드·맵·화면 힌트. 협동 손님(세이브 없음)은 로그로 재구성 |
 | `src/Sts2Overlay.Vision` | net10.0 | 캡처 화면에서 보상·상점 판별, 카드 상자 탐색, 카드 그림 NCC 매칭, 강화 판별 |
 | `src/Sts2Overlay.Resources` | net10.0 | 설치된 게임에서 로컬 리소스 자동 생성 (pck 추출, `sts2.dll` 카탈로그), 게임 버전·지문, 버전 경고 |
-| `src/Sts2Overlay.App` | net10.0-windows | WPF 오버레이: 게임 창 추적, GDI 캡처, 카드 위 배지, 패널(추천/덱/빌드/경로), 트레이, 단축키 |
+| `src/Sts2Overlay.App` | net10.0-windows10.0.22621.0 | WPF 오버레이: 게임 창 추적, 화면 캡처(Windows.Graphics.Capture, 안 되면 GDI), 카드 위 배지, 패널(추천/덱/빌드/경로), 트레이, 단축키 |
 | `tests/*` | | xUnit 테스트 (게임 파일이 필요한 테스트는 없으면 건너뜀) |
 | `tools/CatalogBuilder` | | `sts2.dll` 정적 분석 → 카드 카탈로그, 시작 덱 (수동 실행용) |
 | `tools/PckTool` | | `SlayTheSpire2.pck` 읽기 전용 추출 (카드 그림, 현지화, 수동 실행용) |
@@ -53,6 +53,7 @@ dotnet run --project src/Sts2Overlay.App
 - UI 배율: 게임 해상도에 맞춰 자동 (FHD 100%, 4K 150%). 트레이 메뉴 "UI 배율"에서 바꿀 수 있습니다.
 - 단축키: `Ctrl+F7` 패널 클릭 통과, `Ctrl+F8` 모두 숨기기, `Ctrl+F9` 캡처 저장, `Ctrl+F10` 지금 인식
 - 기록: `%LOCALAPPDATA%\Sts2Overlay\app.log`, 설정: `settings.json`
+- 캡처 방식: 기본은 Windows.Graphics.Capture(4K 한 장 약 4 ms). 지원되지 않거나 실패하면 GDI(약 50 ms)로 자동 전환합니다. `settings.json`의 `"captureBackend": "gdi"`로 GDI를 강제할 수 있고, 실제로 쓰인 방식은 app.log의 `capture backend` 줄에 남습니다.
 
 ## 빌드와 테스트
 
@@ -68,6 +69,16 @@ dotnet test SlayTheSpire2TierOverlay.sln
 
 ```bash
 dotnet run --project tools/StateProbe -- --once
+```
+
+캡처 속도 비교(GDI 대 WGC, 창을 띄우지 않음)와 정확도 검증(WGC 결과가 GDI·저장된 캡처와 픽셀 단위로 같은지, 인식 결과가 같은지, 크기 변경·창 닫힘 처리):
+
+```bash
+dotnet run --project src/Sts2Overlay.App -- --bench-capture 60
+```
+
+```bash
+dotnet run --project src/Sts2Overlay.App -- --verify-capture 16
 ```
 
 ```bash

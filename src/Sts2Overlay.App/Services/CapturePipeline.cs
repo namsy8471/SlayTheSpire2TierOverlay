@@ -1,7 +1,5 @@
 using System.Diagnostics;
 using System.IO;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using Sts2Overlay.App.Infrastructure;
 using Sts2Overlay.App.Integration;
 
@@ -14,11 +12,12 @@ namespace Sts2Overlay.App.Services;
 /// One dedicated thread does capture → recognise → (optional) save, strictly in sequence. That is what makes it
 /// safe to reuse the frame buffer: the next capture can't start while the recogniser still reads the previous one.
 /// The thread sleeps on an <see cref="AutoResetEvent"/>: with a timeout while periodic capture is on (3 Hz on likely
-/// reward/shop screens), forever when it's off, and it wakes early for hotkey requests.
+/// reward/shop screens), forever when it's off, and it wakes early for hotkey requests. Before sleeping forever it
+/// suspends the capturer, so a WGC session doesn't keep copying 4K frames while nobody asks for them.
 /// </summary>
 public sealed class CapturePipeline : IDisposable
 {
-    private readonly ScreenCapturer _capturer = new();
+    private readonly IFrameCapturer _capturer;
     private readonly Func<GameWindowInfo?> _target;
     private readonly AutoResetEvent _wake = new(false);
     private readonly Thread _thread;
@@ -32,9 +31,12 @@ public sealed class CapturePipeline : IDisposable
     private bool _lastHadResult;
     private long _lastRun;
 
-    public CapturePipeline(Func<GameWindowInfo?> target)
+    /// <param name="target">Current game window (read on the worker thread).</param>
+    /// <param name="captureBackend">The <c>captureBackend</c> setting: "auto" (null), "wgc" or "gdi".</param>
+    public CapturePipeline(Func<GameWindowInfo?> target, string? captureBackend = null)
     {
         _target = target;
+        _capturer = FrameCapturerFactory.Create(captureBackend);
         _thread = new Thread(Run) { IsBackground = true, Name = "CapturePipeline", Priority = ThreadPriority.BelowNormal };
         _thread.Start();
     }
@@ -83,6 +85,7 @@ public sealed class CapturePipeline : IDisposable
         while (!_stop)
         {
             var interval = Interlocked.Read(ref _intervalTicks);
+            if (interval == 0) SuspendCapturer();
             _wake.WaitOne(interval > 0 ? TimeSpan.FromTicks(interval) : Timeout.InfiniteTimeSpan);
             if (_stop) break;
 
@@ -104,6 +107,18 @@ public sealed class CapturePipeline : IDisposable
         }
     }
 
+    private void SuspendCapturer()
+    {
+        try
+        {
+            _capturer.Suspend();
+        }
+        catch (Exception ex)
+        {
+            AppLog.Warn($"capture suspend failed: {ex.Message}");
+        }
+    }
+
     private void Step(bool manual, bool save, bool periodic)
     {
         _lastRun = Stopwatch.GetTimestamp();
@@ -115,8 +130,9 @@ public sealed class CapturePipeline : IDisposable
         }
 
         var t0 = Stopwatch.GetTimestamp();
-        var frame = _capturer.Capture(info.CaptureRect);
+        var frame = _capturer.Capture(info);
         var captureMs = Stopwatch.GetElapsedTime(t0).TotalMilliseconds;
+        var timings = _capturer.LastTimings;
 
         if (save) SavePng(frame);
         if (!manual && !periodic) return;
@@ -134,24 +150,16 @@ public sealed class CapturePipeline : IDisposable
 
         if (manual || captureMs + recognizeMs > 250)
         {
-            AppLog.Info($"capture {frame.Width}x{frame.Height} {captureMs:0}ms, recognise {recognizeMs:0}ms → {result?.ScreenKind.ToString() ?? "null"} ({result?.Cards.Count ?? 0} cards){(manual ? " [manual]" : "")}");
+            AppLog.Info($"capture[{_capturer.Name}] {frame.Width}x{frame.Height} {captureMs:0}ms (acquire {timings.AcquireMs:0.0}, copy {timings.CopyMs:0.0}), recognise {recognizeMs:0}ms → {result?.ScreenKind.ToString() ?? "null"} ({result?.Cards.Count ?? 0} cards){(manual ? " [manual]" : "")}");
         }
         if (result is not null) Recognized?.Invoke(result);
     }
 
     private void SavePng(CapturedFrame frame)
     {
-        // Bgr32 = BGRA memory layout with the alpha byte ignored (GDI leaves it 0).
-        var bmp = BitmapSource.Create(frame.Width, frame.Height, 96, 96, PixelFormats.Bgr32, null, frame.Bgra, frame.Stride);
-        var encoder = new PngBitmapEncoder();
-        encoder.Frames.Add(BitmapFrame.Create(bmp));
-        Directory.CreateDirectory(AppPaths.CapturesDir);
         var file = Path.Combine(AppPaths.CapturesDir, $"manual_{frame.At:yyyyMMdd_HHmmss_fff}.png");
-        using (var fs = File.Create(file))
-        {
-            encoder.Save(fs);
-        }
-        AppLog.Info($"capture saved {file} ({frame.Width}x{frame.Height} @ {frame.ScreenRect})");
+        FramePng.Save(frame, file);
+        AppLog.Info($"capture saved {file} ({frame.Width}x{frame.Height} @ {frame.ScreenRect}, {_capturer.Name})");
         Status?.Invoke($"캡처 저장: {Path.GetFileName(file)} ({frame.Width}x{frame.Height})");
     }
 

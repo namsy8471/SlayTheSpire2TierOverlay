@@ -29,4 +29,5 @@ jobs:
         with:
           dotnet-version: 10.0.x
       - run: dotnet test tests/Sts2Overlay.Vision.Tests -c Release
+      - run: dotnet test tests/Sts2Overlay.App.Tests -c Release
       - run: dotnet build src/Sts2Overlay.App -c Release

@@ -35,6 +35,12 @@ public sealed class AppSettings
     public double RecognizeHz { get; set; } = 3;
 
     /// <summary>
+    /// How the game window is captured: "auto" (Windows.Graphics.Capture, falling back to GDI when it is unsupported or
+    /// fails), "wgc" (same as auto) or "gdi" (always the slower GDI BitBlt). The active backend is logged.
+    /// </summary>
+    public string CaptureBackend { get; set; } = "auto";
+
+    /// <summary>
     /// Excludes our own windows from screen capture (SetWindowDisplayAffinity WDA_EXCLUDEFROMCAPTURE), so the badges never
     /// end up in the frames we recognise. Side effect: they are also invisible to screenshots and streaming software.
     /// </summary>
