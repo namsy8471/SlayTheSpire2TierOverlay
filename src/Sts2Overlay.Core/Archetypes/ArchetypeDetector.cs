@@ -55,38 +55,106 @@ public static class ArchetypeDetector
     }
 
     /// <summary>
-    /// v1 approximation: P(at least one missing core/payoff card appears in the next <paramref name="remainingRewards"/> card rewards),
-    /// using per-slot rarity odds and pool sizes (catalog when available, else <see cref="CompletionWeights.PoolSize"/>).
+    /// P(at least one missing core/payoff card appears in the next <paramref name="remainingRewards"/> normal combat card rewards),
+    /// using the code-confirmed card reward rarity odds for the run's ascension (<see cref="CardOddsWeights.CardReward"/>) without a pity offset,
+    /// and pool sizes from the catalog (else <see cref="CompletionWeights.PoolSize"/>).
+    /// Same as <see cref="CoreOfferProbability(ArchetypeStatus, RunState, DataPack, int, OfferContext, double?)"/> with
+    /// <see cref="OfferContext.CardReward"/> and no pity offset.
+    /// </summary>
+    public static double CoreOfferProbability(ArchetypeStatus status, RunState state, DataPack pack, int remainingRewards)
+        => CoreOfferProbability(status, state, pack, remainingRewards, OfferContext.CardReward, pityOffset: null);
+
+    /// <summary>
+    /// P(at least one missing core/payoff card appears in the next <paramref name="remainingRewards"/> offers of <paramref name="context"/>),
+    /// each offer being <see cref="CompletionWeights.CardsPerReward"/> independently rolled cards.
     /// </summary>
     /// <remarks>
-    /// Per slot, a specific card <c>c</c> appears with <c>rarityOdds[rarity(c)] / poolSize(rarity(c))</c>; slots are treated as independent,
-    /// so the result is <c>1 − (1 − Σ p(c))^(cardsPerReward × N)</c>. Unknown rarity counts as <see cref="FallbackRarity"/>; a rarity absent
-    /// from <c>rarityOdds</c> (e.g. basic, ancient) never appears in rewards.
-    /// Returns 1.0 when no core/payoff card is missing (already complete), otherwise 0 for N ≤ 0. [추정]
+    /// <list type="bullet">
+    /// <item>Per card, rarity chances come from <see cref="CardOdds.Rarity"/> (source, ascension, pity offset). A specific missing card of rarity
+    /// <c>r</c> then appears with <c>1 / poolSize(r)</c>; pool sizes count the run character's catalog cards of that rarity that exist in this
+    /// game mode (<see cref="CardCatalog.PoolSizes"/>: multiplayer-only cards are left out of single player, single-player-only cards out of
+    /// multiplayer, cards hidden from the library are left out), else <see cref="CompletionWeights.PoolSize"/>.</item>
+    /// <item>A missing card that the catalog places outside the character's pool (colorless, event, ...) or excludes from this game mode
+    /// is never offered and counts 0. Unknown rarity counts as <see cref="FallbackRarity"/>; rarities a source never rolls (basic, ancient)
+    /// count 0.</item>
+    /// <item><paramref name="pityOffset"/> null: the plain table odds for every card, so the result is <c>1 − (1 − Σ p(c))^(cardsPerReward × N)</c>.
+    /// Otherwise the offset is tracked card by card as a distribution (it resets on a rare and rises by the pity step on any other card,
+    /// capped), starting from the given value.</item>
+    /// <item>Duplicates inside one offer, rerolls and the shop's fixed type slots are ignored. [추정: 근사]</item>
+    /// </list>
+    /// Returns 1.0 when no core/payoff card is missing (already complete), otherwise 0 for N ≤ 0.
     /// </remarks>
-    public static double CoreOfferProbability(ArchetypeStatus status, RunState state, DataPack pack, int remainingRewards)
+    public static double CoreOfferProbability(ArchetypeStatus status, RunState state, DataPack pack, int remainingRewards,
+        OfferContext context, double? pityOffset)
     {
         if (status.MissingCards.Count == 0) return 1.0;
         var completion = pack.Weights.Completion;
+        var odds = pack.Weights.CardOdds;
         var slots = (long)completion.CardsPerReward * remainingRewards;
         if (slots <= 0) return 0.0;
 
-        var poolSizes = CatalogPoolSizes(state, pack);
-        var perSlot = 0.0;
+        var poolSizes = pack.Catalog?.PoolSizes(state.Character, state.IsMultiplayer);
+        var missingByRarity = new Dictionary<string, int>(StringComparer.Ordinal);
         foreach (var missing in status.MissingCards)
         {
+            var known = pack.FindCatalog(missing.CardId);
+            if (known is not null
+                && (!string.Equals(known.PoolOwner, state.Character, StringComparison.Ordinal) || !known.IsAvailable(state.IsMultiplayer)))
+            {
+                continue;
+            }
             var rarity = missing.Rarity?.ToLowerInvariant() ?? FallbackRarity;
-            if (!completion.RarityOdds.TryGetValue(rarity, out var odds) || odds <= 0) continue;
+            missingByRarity[rarity] = missingByRarity.GetValueOrDefault(rarity) + 1;
+        }
+
+        // Fraction of each rarity's pool that is a wanted card.
+        var share = new Dictionary<string, double>(StringComparer.Ordinal);
+        foreach (var (rarity, count) in missingByRarity)
+        {
             var poolSize = poolSizes is not null && poolSizes.TryGetValue(rarity, out var n) && n > 0
                 ? n
                 : completion.PoolSize.TryGetValue(rarity, out var fallback) ? fallback : 0;
-            if (poolSize <= 0) continue;
-            perSlot += odds / poolSize;
+            if (poolSize > 0) share[rarity] = Math.Min(1.0, (double)count / poolSize);
+        }
+        if (share.Count == 0) return 0.0;
+
+        double HitChance(RarityChances ch) => share.Sum(kv => ch.For(kv.Key) * kv.Value);
+
+        if (pityOffset is null)
+        {
+            var perSlot = Math.Clamp(HitChance(CardOdds.Rarity(odds, context, state.Ascension)), 0.0, 1.0);
+            return Math.Clamp(1.0 - Math.Pow(1.0 - perSlot, slots), 0.0, 1.0);
         }
 
-        var none = Math.Clamp(1.0 - perSlot, 0.0, 1.0);
-        return Math.Clamp(1.0 - Math.Pow(none, slots), 0.0, 1.0);
+        // Distribution over pity offsets, conditioned on "no wanted card seen yet" (mass = P(no hit so far)).
+        var rareShare = share.GetValueOrDefault("rare");
+        var dist = new Dictionary<long, (double Offset, double Mass)> { [OffsetKey(pityOffset.Value)] = (pityOffset.Value, 1.0) };
+        for (long i = 0; i < slots; i++)
+        {
+            var next = new Dictionary<long, (double Offset, double Mass)>();
+            void Add(double offset, double mass)
+            {
+                if (mass <= 0) return;
+                var key = OffsetKey(offset);
+                next[key] = next.TryGetValue(key, out var cur) ? (cur.Offset, cur.Mass + mass) : (offset, mass);
+            }
+            foreach (var (offset, mass) in dist.Values)
+            {
+                var ch = CardOdds.Rarity(odds, context, state.Ascension, offset);
+                var hit = Math.Clamp(HitChance(ch), 0.0, 1.0);
+                var rareMiss = Math.Clamp(ch.Rare * (1.0 - rareShare), 0.0, 1.0 - hit);
+                var otherMiss = Math.Max(0.0, 1.0 - hit - rareMiss);
+                Add(CardOdds.NextPityOffset(odds, offset, rolledRare: true, state.Ascension), mass * rareMiss);
+                Add(CardOdds.NextPityOffset(odds, offset, rolledRare: false, state.Ascension), mass * otherMiss);
+            }
+            dist = next;
+            if (dist.Count == 0) break;
+        }
+        var noHit = dist.Values.Sum(v => v.Mass);
+        return Math.Clamp(1.0 - noHit, 0.0, 1.0);
     }
+
+    private static long OffsetKey(double offset) => (long)Math.Round(offset * 1_000_000);
 
     public static ArchetypeReport Report(RunState state, DataPack pack, int remainingRewards,
         IReadOnlyDictionary<string, double>? roleSupply = null, IReadOnlyDictionary<string, int>? provides = null)
@@ -221,16 +289,4 @@ public static class ArchetypeDetector
         ArchetypeRoles.Enabler => cards.Enabler,
         _ => cards.Support,
     };
-
-    /// <summary>Rarity → number of reward-eligible cards in the character's pool, or null without a catalog.</summary>
-    private static Dictionary<string, int>? CatalogPoolSizes(RunState state, DataPack pack)
-    {
-        if (pack.Catalog is null) return null;
-        return pack.Catalog.Cards
-            .Where(c => string.Equals(c.Pool, state.Character, StringComparison.Ordinal))
-            .Where(c => state.IsMultiplayer || !c.MultiplayerOnly)
-            .Where(c => c.Rarity is not null)
-            .GroupBy(c => c.Rarity!.ToLowerInvariant(), StringComparer.Ordinal)
-            .ToDictionary(g => g.Key, g => g.Count(), StringComparer.Ordinal);
-    }
 }

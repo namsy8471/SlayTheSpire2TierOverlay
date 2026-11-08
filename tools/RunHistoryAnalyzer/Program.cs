@@ -9,7 +9,7 @@ using Sts2Overlay.Tools.RunHistoryAnalyzer;
 // RunHistoryAnalyzer: replays .run history files through the recommendation engine and prints
 // a Korean Markdown report (agreement with your picks) or personal statistics.
 //
-//   dotnet run --project tools/RunHistoryAnalyzer -- replay <runs-dir|file.run>... [--pack <dir>] [--player <steamId>] [--out <file.md>] [--summary]
+//   dotnet run --project tools/RunHistoryAnalyzer -- replay <runs-dir|file.run>... [--pack <dir>] [--catalog <cards.json>] [--player <steamId>] [--out <file.md>] [--summary]
 //   dotnet run --project tools/RunHistoryAnalyzer -- stats  <runs-dir|file.run>... [--player <steamId>]
 //   dotnet run --project tools/RunHistoryAnalyzer -- validate <runs-dir|file.run>... --pack <dir> [--compare-pack <dir>] [--cv-pack <dir>]
 //        [--player <steamId>] [--tuned-until <unix>] [--all-players] [--k 5] [--chrono-test <games>] [--min-net 3] [--min-games 2] [--out <file.md>]
@@ -89,7 +89,7 @@ internal static class Cli
                 return 1;
             }
 
-            Write(TuneWeightsCommand.Run(files.Zip(runs).ToArray(), LoadPack(packDir), player, tunedUntil, allPlayers, lambdas.Count > 0 ? lambdas : [0.005], noZero), outFile);
+            Write(TuneWeightsCommand.Run(files.Zip(runs).ToArray(), LoadPack(packDir, catalogFile), player, tunedUntil, allPlayers, lambdas.Count > 0 ? lambdas : [0.005], noZero), outFile);
             return 0;
         }
 
@@ -103,7 +103,7 @@ internal static class Cli
 
             var options = new ValidateOptions
             {
-                Pack = LoadPack(packDir),
+                Pack = LoadPack(packDir, catalogFile),
                 PackName = Path.GetFileName(Path.TrimEndingDirectorySeparator(packDir)),
                 ComparePack = comparePackDir is null ? null : LoadPack(comparePackDir),
                 ComparePackName = comparePackDir is null ? "비교 팩" : Path.GetFileName(Path.TrimEndingDirectorySeparator(comparePackDir)),
@@ -124,7 +124,7 @@ internal static class Cli
         {
             case "replay":
             {
-                var pack = LoadPack(packDir);
+                var pack = LoadPack(packDir, catalogFile);
                 var analyzer = new ReplayAnalyzer(pack);
                 var replays = runs.Select(r => analyzer.Replay(r, player is { } p && r.FindPlayer(p) is not null ? p : null)).ToArray();
                 Write(ReplayReport.ToMarkdown(replays, includeDecisions: !summaryOnly), outFile);
@@ -154,7 +154,7 @@ internal static class Cli
             }
             case "calibrate":
             {
-                var pack = LoadPack(packDir);
+                var pack = LoadPack(packDir, catalogFile);
                 var catalogPath = catalogFile ?? FindCommittedCatalog();
                 var pool = catalogPath is not null ? ForecastCardPool.FromCatalogJson(File.ReadAllText(catalogPath)) : ForecastCardPool.FromPack(pack);
                 // In co-op "me" is the Steam id of the history folder (steam/<id>/profile1/...); without it LocalPlayer picks player 1.
@@ -169,14 +169,14 @@ internal static class Cli
         }
     }
 
-    private static DataPack LoadPack(string? dir)
+    private static DataPack LoadPack(string? dir, string? catalogPath = null)
     {
         if (dir is null)
         {
             Console.Error.WriteLine("경고: --pack 이 없어 빈 데이터 팩으로 실행합니다 (모든 카드가 미평가).");
-            return new DataPack();
+            return new DataPack { Catalog = catalogPath is null ? null : DataPackLoader.LoadCatalogFile(catalogPath) };
         }
-        var pack = DataPackLoader.LoadDirectory(dir);
+        var pack = DataPackLoader.LoadDirectory(dir, catalogPath: catalogPath);
         foreach (var issue in DataPackValidator.Validate(pack))
         {
             Console.Error.WriteLine($"[{issue.Severity}] {issue.Where}: {issue.Message}");
@@ -228,7 +228,7 @@ internal static class Cli
     {
         Console.Error.WriteLine("""
             RunHistoryAnalyzer
-              replay <runs-dir|file.run>... [--pack <dir>] [--player <steamId>] [--out <file.md>] [--summary]
+              replay <runs-dir|file.run>... [--pack <dir>] [--catalog <cards.json>] [--player <steamId>] [--out <file.md>] [--summary]
               stats  <runs-dir|file.run>... [--player <steamId>] [--out <file.md>]
               validate <runs-dir|file.run>... --pack <dir> [--compare-pack <dir>] [--cv-pack <dir>] [--player <steamId>]
                        [--tuned-until <unix>] [--all-players] [--k 5] [--chrono-test <games>] [--min-net 3] [--min-games 2] [--out <file.md>]

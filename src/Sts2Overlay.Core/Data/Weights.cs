@@ -99,6 +99,10 @@ public sealed class Weights
     [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
     public ShopWeights Shop { get; set; } = new();
 
+    // ---- Card generation odds (SPIKE §5, code-confirmed) ----
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+    public CardOddsWeights CardOdds { get; set; } = new();
+
     // ---- Archetype completion / probability (PLAN §7.5) ----
     [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
     public CompletionWeights Completion { get; set; } = new();
@@ -166,6 +170,7 @@ public sealed class SkipWeights
 
 public sealed class ShopWeights
 {
+    // Removal price: 75 + 25 × removals, ascension ≥ 6: 100 + 50 × removals. [코드 확인] SPIKE §5.
     public int RemovalBase { get; set; } = 75;
     public int RemovalStep { get; set; } = 25;
     public int RemovalBaseHighAscension { get; set; } = 100;
@@ -177,6 +182,39 @@ public sealed class ShopWeights
 
     /// <summary>Score-equivalent value of removing a basic Strike/Defend.</summary>
     public double BasicRemovalValue { get; set; } = 14;
+
+    /// <summary>Base card price per lower-case rarity before the random factor. [코드 확인] SPIKE §5.</summary>
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+    public Dictionary<string, int> CardPrice { get; set; } = new(StringComparer.Ordinal)
+    {
+        ["common"] = 50, ["uncommon"] = 75, ["rare"] = 150,
+    };
+
+    /// <summary>Colorless cards cost this multiple of the base price. [코드 확인]</summary>
+    public double ColorlessPriceMultiplier { get; set; } = 1.15;
+
+    /// <summary>Lower bound of the random price factor. [코드 확인]</summary>
+    public double PriceJitterMin { get; set; } = 0.95;
+
+    /// <summary>Upper bound of the random price factor. [코드 확인]</summary>
+    public double PriceJitterMax { get; set; } = 1.05;
+
+    /// <summary>Price factor of the one card on sale. [코드 확인]</summary>
+    public double SaleMultiplier { get; set; } = 0.5;
+
+    /// <summary>Character cards on offer per lower-case card type (2 attack, 2 skill, 1 power). [코드 확인]</summary>
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+    public Dictionary<string, int> CharacterCardSlots { get; set; } = new(StringComparer.Ordinal)
+    {
+        [CardTypes.Attack] = 2, [CardTypes.Skill] = 2, [CardTypes.Power] = 1,
+    };
+
+    /// <summary>Colorless cards on offer per lower-case rarity (1 uncommon, 1 rare). [코드 확인]</summary>
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+    public Dictionary<string, int> ColorlessCardSlots { get; set; } = new(StringComparer.Ordinal)
+    {
+        ["uncommon"] = 1, ["rare"] = 1,
+    };
 }
 
 public sealed class CompletionWeights
@@ -187,19 +225,73 @@ public sealed class CompletionWeights
     /// <summary>Completion % weight of enabler and support cards (reference site "rec" = 56).</summary>
     public double SupportWeight { get; set; } = 56;
 
-    /// <summary>Approximate rarity odds per reward slot. [추정] until confirmed from game code.</summary>
-    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
-    public Dictionary<string, double> RarityOdds { get; set; } = new(StringComparer.Ordinal)
-    {
-        ["common"] = 0.60, ["uncommon"] = 0.37, ["rare"] = 0.03,
-    };
-
-    /// <summary>Fallback pool size per rarity for one character when no catalog is loaded.</summary>
+    /// <summary>
+    /// Fallback pool size per rarity for one character when no catalog is loaded. Defaults are the per-character counts of the
+    /// v0.107.1 catalog in single player (every character: 20 common, 35 uncommon, 25 rare).
+    /// </summary>
     [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
     public Dictionary<string, int> PoolSize { get; set; } = new(StringComparer.Ordinal)
     {
-        ["common"] = 20, ["uncommon"] = 36, ["rare"] = 16,
+        ["common"] = 20, ["uncommon"] = 35, ["rare"] = 25,
     };
 
     public int CardsPerReward { get; set; } = 3;
+}
+
+/// <summary>
+/// How the game rolls card rarity and reward upgrades (<c>Odds/CardRarityOdds.cs</c>, v0.107.1). [코드 확인] SPIKE §5.
+/// Use <see cref="CardOdds"/> to evaluate them.
+/// </summary>
+public sealed class CardOddsWeights
+{
+    /// <summary>Ascension level from which the <c>*HighAscension</c> values apply (rare odds halved, smaller pity step and upgrade chance).</summary>
+    public int HighAscension { get; set; } = 7;
+
+    /// <summary>Multiplier for <see cref="SourceRarityOdds.Rare"/> at high ascension when a source has no explicit <see cref="SourceRarityOdds.RareHighAscension"/>.</summary>
+    public double RareMultiplierHighAscension { get; set; } = 0.5;
+
+    /// <summary>Normal combat card reward (also used for <see cref="Model.OfferContext.Event"/> offers).</summary>
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+    public SourceRarityOdds CardReward { get; set; } = new() { Rare = 0.03, Uncommon = 0.37, RareHighAscension = 0.0149 };
+
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+    public SourceRarityOdds EliteReward { get; set; } = new() { Rare = 0.10, Uncommon = 0.40, RareHighAscension = 0.05 };
+
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+    public SourceRarityOdds BossReward { get; set; } = new() { Rare = 1.0, Uncommon = 0.0, RareHighAscension = 1.0 };
+
+    /// <summary>Merchant character cards.</summary>
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+    public SourceRarityOdds Shop { get; set; } = new() { Rare = 0.09, Uncommon = 0.37, RareHighAscension = 0.045 };
+
+    /// <summary>Rare "pity" offset added to the rare threshold.</summary>
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+    public RarePityWeights Pity { get; set; } = new();
+
+    /// <summary>Chance per act that a non-rare reward card is upgraded: <c>act × value</c>. Shop cards are never upgraded.</summary>
+    public double UpgradeChancePerAct { get; set; } = 0.25;
+
+    public double UpgradeChancePerActHighAscension { get; set; } = 0.125;
+}
+
+/// <summary>Rarity odds of one card source. Common is the rest (1 − rare − uncommon).</summary>
+public sealed class SourceRarityOdds
+{
+    public double Rare { get; set; }
+    public double Uncommon { get; set; }
+
+    /// <summary>Rare odds at high ascension; null → <see cref="Rare"/> × <see cref="CardOddsWeights.RareMultiplierHighAscension"/>.</summary>
+    public double? RareHighAscension { get; set; }
+}
+
+/// <summary>
+/// Rare pity offset: starts at <see cref="Start"/>, rises by <see cref="Step"/> for every non-rare card rolled, is capped at
+/// <see cref="Cap"/> and resets to <see cref="Start"/> when a rare is rolled. The game rolls rare when <c>roll &lt; rare + offset</c>.
+/// </summary>
+public sealed class RarePityWeights
+{
+    public double Start { get; set; } = -0.05;
+    public double Step { get; set; } = 0.01;
+    public double StepHighAscension { get; set; } = 0.005;
+    public double Cap { get; set; } = 0.40;
 }

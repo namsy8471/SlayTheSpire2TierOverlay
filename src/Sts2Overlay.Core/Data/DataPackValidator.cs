@@ -213,11 +213,38 @@ public static partial class DataPackValidator
         if (!InRange(w.WeakThreshold, 0, 1)) error("weights.weakThreshold", "Must be within 0..1.");
         if (!InRange(w.Skip.LowConfidence, 0, 1)) error("weights.skip.lowConfidence", "Must be within 0..1.");
         if (w.Completion.CardsPerReward < 1) error("weights.completion.cardsPerReward", "Must be at least 1.");
-        foreach (var (rarity, odds) in w.Completion.RarityOdds)
+        var odds = w.CardOdds;
+        foreach (var (name, src) in new[]
+                 {
+                     ("cardReward", odds.CardReward), ("eliteReward", odds.EliteReward), ("bossReward", odds.BossReward), ("shop", odds.Shop),
+                 })
         {
-            if (!InRange(odds, 0, 1)) error($"weights.completion.rarityOdds.{rarity}", $"Odds {odds} are outside 0..1.");
+            var where = $"weights.cardOdds.{name}";
+            if (!InRange(src.Rare, 0, 1)) error($"{where}.rare", $"Odds {src.Rare} are outside 0..1.");
+            if (!InRange(src.Uncommon, 0, 1)) error($"{where}.uncommon", $"Odds {src.Uncommon} are outside 0..1.");
+            if (src.RareHighAscension is { } rh && !InRange(rh, 0, 1)) error($"{where}.rareHighAscension", $"Odds {rh} are outside 0..1.");
+            if (src.Rare + src.Uncommon > 1.0 + 1e-9) warn(where, "Rare + uncommon odds are more than 1.");
         }
-        if (w.Completion.RarityOdds.Values.Sum() > 1.0 + 1e-9) warn("weights.completion.rarityOdds", "Rarity odds sum to more than 1.");
+        if (!InRange(odds.RareMultiplierHighAscension, 0, 1)) error("weights.cardOdds.rareMultiplierHighAscension", "Must be within 0..1.");
+        if (!InRange(odds.Pity.Cap, -1, 1) || !InRange(odds.Pity.Start, -1, 1) || odds.Pity.Start > odds.Pity.Cap)
+        {
+            error("weights.cardOdds.pity", "start and cap must be within -1..1 with start ≤ cap.");
+        }
+        if (!InRange(odds.Pity.Step, 0, 1) || !InRange(odds.Pity.StepHighAscension, 0, 1)) error("weights.cardOdds.pity", "Steps must be within 0..1.");
+        if (!InRange(odds.UpgradeChancePerAct, 0, 1) || !InRange(odds.UpgradeChancePerActHighAscension, 0, 1))
+        {
+            error("weights.cardOdds.upgradeChancePerAct", "Upgrade chances must be within 0..1.");
+        }
+        foreach (var (rarity, price) in w.Shop.CardPrice)
+        {
+            if (price <= 0) error($"weights.shop.cardPrice.{rarity}", $"Price {price} must be > 0.");
+        }
+        if (!(w.Shop.PriceJitterMin > 0 && w.Shop.PriceJitterMin <= w.Shop.PriceJitterMax && double.IsFinite(w.Shop.PriceJitterMax)))
+        {
+            error("weights.shop.priceJitter", "Need 0 < priceJitterMin ≤ priceJitterMax.");
+        }
+        if (!(w.Shop.ColorlessPriceMultiplier > 0) || !double.IsFinite(w.Shop.ColorlessPriceMultiplier)) error("weights.shop.colorlessPriceMultiplier", "Must be > 0.");
+        if (!InRange(w.Shop.SaleMultiplier, 0, 1)) error("weights.shop.saleMultiplier", "Must be within 0..1.");
         foreach (var (rarity, size) in w.Completion.PoolSize)
         {
             if (size <= 0) error($"weights.completion.poolSize.{rarity}", $"Pool size {size} must be > 0.");
