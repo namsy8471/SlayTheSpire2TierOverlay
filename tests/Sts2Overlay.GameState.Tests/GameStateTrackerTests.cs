@@ -392,6 +392,11 @@ public class GameStateTrackerTests
         Assert.Equal(2, Count(run, "CARD.LEADING_STRIKE"));
         Assert.Equal(0, Count(run, "CARD.COOLHEADED"));
         Assert.Contains("RELIC.RING_OF_THE_SNAKE", run.State.Relics);
+        // The other player: character from the lobby line; no save, so no deck.
+        Assert.Equal(2, run.PlayerCount);
+        var partner = Assert.Single(run.Partners);
+        Assert.Equal((TestPaths.Me, "CHARACTER.DEFECT"), (partner.NetId, partner.Character));
+        Assert.Empty(partner.Deck);
 
         // How close is the log-only deck to the truth? Compare with the final deck in the run history.
         using JsonDocument history = JsonDocument.Parse(File.ReadAllText(Path.Combine(TestPaths.RunsDir, "1794060064.run")));

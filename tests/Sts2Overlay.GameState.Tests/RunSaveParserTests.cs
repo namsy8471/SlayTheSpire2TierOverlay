@@ -37,6 +37,23 @@ public class RunSaveParserTests
     }
 
     [Fact]
+    public void Coop_lists_the_other_players_with_their_decks()
+    {
+        ParsedSave s = RunSaveParser.Parse(CoopJson, TestPaths.Me);
+        PartnerPlayer partner = Assert.Single(s.Partners);
+        Assert.Equal(TestPaths.Friend, partner.NetId);
+        Assert.Equal("CHARACTER.SILENT", partner.Character);
+        Assert.Equal(["CARD.NEUTRALIZE"], partner.Deck.Select(c => c.Id));
+        Assert.Equal(["RELIC.RING_OF_THE_SNAKE"], partner.Relics);
+
+        ParsedSave friend = RunSaveParser.Parse(CoopJson, TestPaths.Friend);
+        Assert.Equal(["CARD.STRIKE_DEFECT", "CARD.ZAP", "CARD.CREATIVE_AI"], friend.Partners.Single().Deck.Select(c => c.Id));
+        Assert.Equal(1, friend.Partners.Single().Deck[1].Upgrade);
+
+        Assert.Empty(RunSaveParser.Parse(SingleJson, null).Partners);
+    }
+
+    [Fact]
     public void Coop_unknown_id_falls_back_to_first_player_and_says_so()
     {
         ParsedSave s = RunSaveParser.Parse(CoopJson, 42);

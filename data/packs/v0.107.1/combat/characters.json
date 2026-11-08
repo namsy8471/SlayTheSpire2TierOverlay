@@ -1,0 +1,50 @@
+{
+ "_note": "Generated from the decompiled v0.107.1 classes for the 3-turn training-dummy simulator; spec in README.md. Energy: CharacterModel.MaxEnergy; draw: CombatManager hand draw; orb slots: Defect.BaseOrbSlotCount.",
+ "characters": {
+  "CHARACTER.IRONCLAD": {
+   "energy": 3,
+   "draw": 5,
+   "orbSlots": 0,
+   "pool": "CARD_POOL.IRONCLAD_CARD_POOL",
+   "starterRelics": [
+    "RELIC.BURNING_BLOOD"
+   ]
+  },
+  "CHARACTER.SILENT": {
+   "energy": 3,
+   "draw": 5,
+   "orbSlots": 0,
+   "pool": "CARD_POOL.SILENT_CARD_POOL",
+   "starterRelics": [
+    "RELIC.RING_OF_THE_SNAKE"
+   ]
+  },
+  "CHARACTER.DEFECT": {
+   "energy": 3,
+   "draw": 5,
+   "orbSlots": 3,
+   "pool": "CARD_POOL.DEFECT_CARD_POOL",
+   "starterRelics": [
+    "RELIC.CRACKED_CORE"
+   ]
+  },
+  "CHARACTER.NECROBINDER": {
+   "energy": 3,
+   "draw": 5,
+   "orbSlots": 0,
+   "pool": "CARD_POOL.NECROBINDER_CARD_POOL",
+   "starterRelics": [
+    "RELIC.BOUND_PHYLACTERY"
+   ]
+  },
+  "CHARACTER.REGENT": {
+   "energy": 3,
+   "draw": 5,
+   "orbSlots": 0,
+   "pool": "CARD_POOL.REGENT_CARD_POOL",
+   "starterRelics": [
+    "RELIC.DIVINE_RIGHT"
+   ]
+  }
+ }
+}

@@ -192,7 +192,7 @@
   {
    "id": "EVENT.BATTLEWORN_DUMMY",
    "kind": "event",
-   "shared": false,
+   "shared": true,
    "acts": [
     "ACT.GLORY"
    ],
@@ -202,7 +202,7 @@
     "Setting2Hp": 150,
     "Setting3Hp": 300
    },
-   "notes": "IsShared=true. Dummy HP vars are scaled via ScaleHpForMultiplayer by player count/act index (base values shown). Encounter has a RanOutOfTime flag: if time runs out the DEFEAT page shows and NO reward is given (the limit value was not inspected). Encounter gives no standard rewards (ShouldGiveRewards=false); only the setting reward.",
+   "notes": "IsShared=true. Fight vs a dummy that never acts and has no block; TimeLimitPower 3 = 3 player turns, then it escapes (RanOutOfTime) and NO reward is given. Dummy HP vars are scaled by ScaleHpForMultiplayer (1 player: base; else base*players*1.1 in act 1, *1.2 later). No standard rewards (ShouldGiveRewards=false); only the setting reward.",
    "pages": [
     {
      "page": "INITIAL",
@@ -214,7 +214,15 @@
         {
          "type": "fight",
          "encounter": "ENCOUNTER.BATTLEWORN_DUMMY_EVENT_ENCOUNTER",
-         "rewards": "dummy HP 75; on win (before time runs out): one random potion offered from character+shared pool"
+         "dummyHp": "Setting1Hp",
+         "turnLimit": 3
+        },
+        {
+         "type": "potion",
+         "count": 1,
+         "how": "random",
+         "onWin": true,
+         "note": "one random potion from character+shared pool (Rewards rng)"
         }
        ],
        "next": null,
@@ -227,7 +235,15 @@
         {
          "type": "fight",
          "encounter": "ENCOUNTER.BATTLEWORN_DUMMY_EVENT_ENCOUNTER",
-         "rewards": "dummy HP 150; on win: upgrade 2 random upgradable deck cards"
+         "dummyHp": "Setting2Hp",
+         "turnLimit": 3
+        },
+        {
+         "type": "cardUpgrade",
+         "count": 2,
+         "how": "random",
+         "onWin": true,
+         "note": "2 random upgradable deck cards (event rng)"
         }
        ],
        "next": null,
@@ -240,7 +256,14 @@
         {
          "type": "fight",
          "encounter": "ENCOUNTER.BATTLEWORN_DUMMY_EVENT_ENCOUNTER",
-         "rewards": "dummy HP 300; on win: obtain next relic from front of the relic queue (tier not determined here)"
+         "dummyHp": "Setting3Hp",
+         "turnLimit": 3
+        },
+        {
+         "type": "relic",
+         "count": 1,
+         "onWin": true,
+         "note": "next relic from the front of the relic bag (rarity rolled C 50% / U 33% / R 17%)"
         }
        ],
        "next": null,

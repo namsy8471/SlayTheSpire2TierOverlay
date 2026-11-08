@@ -3,6 +3,7 @@ using Sts2Overlay.App.Integration;
 using Sts2Overlay.App.Services;
 using Sts2Overlay.App.ViewModels;
 using Sts2Overlay.App.Views;
+using Sts2Overlay.Core.Combat;
 using Sts2Overlay.Core.Events;
 using Sts2Overlay.Core.Scoring;
 using Sts2Overlay.GameState.Tracking;
@@ -35,6 +36,17 @@ public sealed partial class AppController
     /// <summary>The event evaluation on screen; null outside events.</summary>
     private EventEvaluation? _lastEvent;
 
+    /// <summary>3-turn damage simulator for the training dummy (null when the pack has no combat data).</summary>
+    private TurnSimulator? _combatSim;
+
+    /// <summary>The last finished dummy forecast and the deck key it was made for.</summary>
+    private DummyForecast? _dummy;
+
+    /// <summary>Deck key of the forecast running on a worker thread; null when none is running.</summary>
+    private string? _dummyPending;
+
+    private sealed record DummyForecast(string Key, DamageForecast Forecast, IReadOnlyList<string> Notes);
+
     private void InitEvents(string packDir)
     {
         EventCatalog catalog;
@@ -49,6 +61,18 @@ public sealed partial class AppController
             catalog = EventCatalog.Empty;
         }
         _eventScorer = new EventScorer(_engine.Pack, catalog);
+        try
+        {
+            _combatSim = CombatData.LoadPack(packDir) is { } combat ? new TurnSimulator(combat) : null;
+            AppLog.Info(_combatSim is null ? "combat: no combat data in the pack" : $"combat: {_combatSim.Data.CardCount} cards");
+        }
+        catch (Exception ex) when (ex is System.IO.IOException or System.IO.InvalidDataException or UnauthorizedAccessException)
+        {
+            AppLog.Error("combat: load failed", ex);
+            _combatSim = null;
+        }
+        _dummy = null;
+        _dummyPending = null;
         _eventText = EventTextProvider.ForLocalData();
         _eventScreens = new EventScreenTracker(catalog);
         _eventKey = null;
@@ -87,7 +111,10 @@ public sealed partial class AppController
         var match = _eventScreens?.Current;
         var page = match?.Page ?? CurrentPage(active);
         var keys = match?.Keys ?? (active.ChosenKeys.Count == 0 ? active.OptionKeys : null);
-        var key = $"{active.EventId}|{page}|{string.Join(",", keys ?? [])}|{run.Hp}/{run.MaxHp}|{run.Gold}|{run.Deck.Count}#{_engineVersion}";
+        var tracked = ((GameStateAdapter)_source!).Tracked!;
+        var context = EventContextFor(active.EventId, tracked, run);
+        var key = $"{active.EventId}|{page}|{string.Join(",", keys ?? [])}|{run.Hp}/{run.MaxHp}|{run.Gold}|{run.Deck.Count}"
+                  + $"|{context.PlayerCount}|{(context.Forecast is null ? "-" : _dummy?.Key)}#{_engineVersion}";
         if (key == _eventKey)
         {
             ShowEventMarkers(); // same options; the buttons may have moved
@@ -98,7 +125,7 @@ public sealed partial class AppController
         EventEvaluation? eval;
         try
         {
-            eval = _eventScorer.Evaluate(run, active.EventId, keys, page, active.PossibleKeys);
+            eval = _eventScorer.Evaluate(run, active.EventId, keys, page, active.PossibleKeys, context);
         }
         catch (Exception ex)
         {
@@ -115,6 +142,12 @@ public sealed partial class AppController
         _vm.Offer = EventOffer(eval, active, match);
         if (first) _vm.SelectedTab = PanelTab.Offer;
         AppLog.Info($"event {eval.Event.Id} page {eval.Page} ({active.Source}{(match is null ? "" : $", {match.Keys.Count} buttons on screen")}): best {eval.Best?.Option.Key ?? "-"}");
+        if (eval.Forecast is { } fc)
+        {
+            // Kept in the log so the predictions can be checked against how the fights went.
+            AppLog.Info($"dummy forecast: players {context.PlayerCount}, mean {fc.Mean:0.0}, per turn {string.Join("/", fc.MeanPerTurn.Select(t => t.ToString("0.0")))}, "
+                        + string.Join(", ", eval.Options.Where(o => o.DummyHp is not null).Select(o => $"{o.Option.Key} hp {o.DummyHp} P {o.WinChance:0.00}")));
+        }
         ShowEventMarkers();
     }
 
@@ -181,9 +214,11 @@ public sealed partial class AppController
             var warning = o.IsLethal ? "죽음 위험"
                 : o.Option.Key.EndsWith(EventSlots.LockedSuffix, StringComparison.Ordinal) ? "잠김"
                 : o.IsUnaffordable ? "골드 부족"
+                : o.WinChance < HardKill ? "처치 어려움"
                 : null;
+            var score = o.WinChance is { } w ? $"{Fmt(o.Total)} · 처치 {w * 100:0}%" : Fmt(o.Total);
             specs.Add(new EventMarkerSpec(new PixelRect(b.X + _eventOrigin.X, b.Y + _eventOrigin.Y, b.Width, b.Height),
-                o.Rank, o.IsBest, Fmt(o.Total), warning));
+                o.Rank, o.IsBest, score, warning));
         }
         markers.Show(specs);
     }
@@ -255,6 +290,9 @@ public sealed partial class AppController
                 _ => "보통",
             },
             ConfidenceKind = eval.Confidence.ToString(),
+            FlipHint = eval.Forecast is { } f ? ForecastText(f, eval.ForecastNotes)
+                : eval.Event.Id == DummyFight.EventId && _dummyPending is not null ? "예상 피해 계산 중…"
+                : null,
             Rows = rows,
             Footer = (eval.Best is { } best ? $"추천: {_eventText.OptionTitle(best.Option.Key)}" : "추천 없음")
                      + $" · 인식: {source}{options}",
@@ -271,7 +309,8 @@ public sealed partial class AppController
         {
             if (o.IsLethal) sub.Add("죽음 위험");
             if (o.IsUnaffordable) sub.Add(o.Option.Key.EndsWith(EventSlots.LockedSuffix, StringComparison.Ordinal) ? "잠김" : "골드 부족");
-            if (o.IsRandom) sub.Add("운 요소");
+            if (o.WinChance is { } w) sub.Add(w < HardKill ? $"처치 어려움 ({w * 100:0}%)" : $"처치 확률 {w * 100:0}%");
+            else if (o.IsRandom) sub.Add("운 요소");
             if (o.HasUnmodelled) sub.Add("일부 효과 미반영");
         }
         return new OfferRowVm
@@ -305,6 +344,97 @@ public sealed partial class AppController
     }
 
     private static string DisplayEffect(string text) => text.Length > 60 ? text[..57] + "…" : text;
+
+    // ---- training dummy: 3-turn damage forecast ----------------------------------------------------------------------
+
+    /// <summary>Below this kill chance an option is flagged "처치 어려움".</summary>
+    private const double HardKill = 0.5;
+
+    /// <summary>
+    /// "예상 피해 (자동 플레이, 포션 제외) · 1턴 18 · 2턴 20 · 3턴 19 · 합계 평균 57", then the notes on the next line. The
+    /// simulator plays well but not like a good player planning a combo, so the numbers lean low.
+    /// </summary>
+    private static string ForecastText(DamageForecast f, IReadOnlyList<string> notes)
+    {
+        var turns = string.Join(" · ", f.MeanPerTurn.Select((t, i) => $"{i + 1}턴 {t:0}"));
+        var line = $"예상 피해 (자동 플레이, 포션 제외) · {turns} · 합계 평균 {f.Mean:0}";
+        return notes.Count == 0 ? line : line + Environment.NewLine + string.Join(" · ", notes);
+    }
+
+    /// <summary>
+    /// Player count for every event; for the training dummy also the damage forecast. The forecast runs on a worker thread
+    /// (a few thousand simulated fights) and is cached by deck: until it is done the dummy's options are scored without it.
+    /// </summary>
+    private EventContext EventContextFor(string eventId, TrackedRun tracked, Core.Model.RunState run)
+    {
+        var players = Math.Max(1, tracked.PlayerCount);
+        if (eventId != DummyFight.EventId || _combatSim is not { } sim) return new EventContext { PlayerCount = players };
+        var key = DummyKey(tracked, run);
+        if (_dummy is { } d && d.Key == key) return new EventContext { PlayerCount = players, Forecast = d.Forecast, ForecastNotes = d.Notes };
+        if (_dummyPending != key)
+        {
+            _dummyPending = key;
+            Func<string, string> name = _cards.Name;
+            Task.Run(() => BuildDummyForecast(sim, tracked, run, key, name)).ContinueWith(t => _ui.BeginInvoke(() =>
+            {
+                if (_dummyPending != key) return; // the deck changed (or the pack reloaded) meanwhile
+                _dummyPending = null;
+                if (t.Exception is { } ex)
+                {
+                    AppLog.Error("dummy forecast failed", ex.GetBaseException());
+                    return;
+                }
+                _dummy = t.Result;
+                _eventKey = null;
+                if (_snapshot.Run is not null) UpdateEvent(_snapshot);
+            }), TaskScheduler.Default);
+        }
+        return new EventContext { PlayerCount = players };
+    }
+
+    private static string DummyKey(TrackedRun tracked, Core.Model.RunState run)
+    {
+        static string Deck(IEnumerable<Core.Model.DeckCard> cards)
+            => string.Join(",", cards.Select(c => $"{c.Id}+{c.Upgrade}{(c.EnchantmentId is null ? "" : $"/{c.EnchantmentId}{c.EnchantmentAmount}")}"));
+        var partners = string.Join(";", tracked.Partners.Select(p => $"{p.Character}:{Deck(p.Deck)}:{string.Join(",", p.Relics)}"));
+        return $"{tracked.PlayerCount}|{run.Character}|{Deck(run.Deck)}|{string.Join(",", run.Relics)}|{partners}";
+    }
+
+    /// <summary>
+    /// Everyone's damage together: mine, each partner's from their own deck when the save has it, else mine again (another
+    /// shuffle) with a note. Worker thread: touches no controller state.
+    /// </summary>
+    private static DummyForecast BuildDummyForecast(TurnSimulator sim, TrackedRun tracked, Core.Model.RunState run, string key, Func<string, string> cardName)
+    {
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        var mine = new SimPlayer { Character = run.Character, Deck = run.Deck, Relics = run.Relics };
+        var everyone = new List<SimPlayer> { mine };
+        var players = Math.Max(1, tracked.PlayerCount);
+        var assumed = 0;
+        for (var i = 1; i < players; i++)
+        {
+            var partner = i - 1 < tracked.Partners.Count ? tracked.Partners[i - 1] : null;
+            if (partner is { Deck.Count: > 0 })
+            {
+                everyone.Add(new SimPlayer { Character = partner.Character, Deck = partner.Deck, Relics = partner.Relics });
+            }
+            else
+            {
+                everyone.Add(mine); // simulated with that player's own seed, so not the same hands as mine
+                assumed++;
+            }
+        }
+        var forecast = DummyFight.Forecast(sim, everyone);
+
+        var notes = new List<string>();
+        if (assumed > 0) notes.Add($"동료 {assumed}명은 덱을 몰라 내 덱 피해로 가정");
+        if (tracked.DeckApproximate) notes.Add("덱 일부가 추정");
+        var cov = forecast.Coverage;
+        if (cov.UnknownCards.Count > 0) notes.Add($"효과 미반영: {string.Join(", ", cov.UnknownCards.Select(cardName))}");
+        if (cov.ApproxCards.Count > 0) notes.Add($"근사 계산 {cov.ApproxCards.Count}종");
+        AppLog.Info($"dummy forecast: {everyone.Count} player(s), {forecast.Samples} samples in {watch.ElapsedMilliseconds} ms");
+        return new DummyForecast(key, forecast, notes);
+    }
 
     private void ReloadEvents()
     {

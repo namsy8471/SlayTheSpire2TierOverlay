@@ -1,0 +1,1758 @@
+{
+ "_note": "Generated from the decompiled v0.107.1 classes for the 3-turn training-dummy simulator; spec in README.md.",
+ "_irrelevant": [
+  "RELIC.ALCHEMICAL_COFFER",
+  "RELIC.AMETHYST_AUBERGINE",
+  "RELIC.ANCHOR",
+  "RELIC.ARCANE_SCROLL",
+  "RELIC.ARCHAIC_TOOTH",
+  "RELIC.ASTROLABE",
+  "RELIC.BEATING_REMNANT",
+  "RELIC.BEAUTIFUL_BRACELET",
+  "RELIC.BELT_BUCKLE",
+  "RELIC.BING_BONG",
+  "RELIC.BLACK_BLOOD",
+  "RELIC.BLACK_STAR",
+  "RELIC.BLOOD_VIAL",
+  "RELIC.BONE_FLUTE",
+  "RELIC.BOOK_OF_FIVE_RINGS",
+  "RELIC.BOOK_REPAIR_KNIFE",
+  "RELIC.BOWLER_HAT",
+  "RELIC.BRONZE_SCALES",
+  "RELIC.BURNING_BLOOD",
+  "RELIC.BYRDPIP",
+  "RELIC.CALLING_BELL",
+  "RELIC.CAPTAINS_WHEEL",
+  "RELIC.CAULDRON",
+  "RELIC.CHOSEN_CHEESE",
+  "RELIC.CIRCLET",
+  "RELIC.CLAWS",
+  "RELIC.CLOAK_CLASP",
+  "RELIC.CURSED_PEARL",
+  "RELIC.DARKSTONE_PERIAPT",
+  "RELIC.DAUGHTER_OF_THE_WIND",
+  "RELIC.DEMON_TONGUE",
+  "RELIC.DEPRECATED_RELIC",
+  "RELIC.DIAMOND_DIADEM",
+  "RELIC.DINGY_RUG",
+  "RELIC.DISTINGUISHED_CAPE",
+  "RELIC.DOLLYS_MIRROR",
+  "RELIC.DRAGON_FRUIT",
+  "RELIC.DREAM_CATCHER",
+  "RELIC.DRIFTWOOD",
+  "RELIC.DUSTY_TOME",
+  "RELIC.ELECTRIC_SHRYMP",
+  "RELIC.EMPTY_CAGE",
+  "RELIC.ETERNAL_FEATHER",
+  "RELIC.FAKE_ANCHOR",
+  "RELIC.FAKE_BLOOD_VIAL",
+  "RELIC.FAKE_LEES_WAFFLE",
+  "RELIC.FAKE_MANGO",
+  "RELIC.FAKE_MERCHANTS_RUG",
+  "RELIC.FAKE_ORICHALCUM",
+  "RELIC.FISHING_ROD",
+  "RELIC.FRAGRANT_MUSHROOM",
+  "RELIC.FRESNEL_LENS",
+  "RELIC.FROZEN_EGG",
+  "RELIC.FUR_COAT",
+  "RELIC.GALACTIC_DUST",
+  "RELIC.GLASS_EYE",
+  "RELIC.GLITTER",
+  "RELIC.GNARLED_HAMMER",
+  "RELIC.GOLDEN_COMPASS",
+  "RELIC.GOLDEN_PEARL",
+  "RELIC.GORGET",
+  "RELIC.HEFTY_TABLET",
+  "RELIC.HELICAL_DART",
+  "RELIC.HORN_CLEAT",
+  "RELIC.INTIMIDATING_HELMET",
+  "RELIC.JEWELRY_BOX",
+  "RELIC.JUZU_BRACELET",
+  "RELIC.KALEIDOSCOPE",
+  "RELIC.KIFUDA",
+  "RELIC.KUNAI",
+  "RELIC.LARGE_CAPSULE",
+  "RELIC.LASTING_CANDY",
+  "RELIC.LAVA_LAMP",
+  "RELIC.LAVA_ROCK",
+  "RELIC.LEAD_PAPERWEIGHT",
+  "RELIC.LEAFY_POULTICE",
+  "RELIC.LEES_WAFFLE",
+  "RELIC.LIZARD_TAIL",
+  "RELIC.LOOMING_FRUIT",
+  "RELIC.LORDS_PARASOL",
+  "RELIC.LOST_COFFER",
+  "RELIC.LUCKY_FYSH",
+  "RELIC.MANGO",
+  "RELIC.MASSIVE_SCROLL",
+  "RELIC.MAW_BANK",
+  "RELIC.MEAL_TICKET",
+  "RELIC.MEAT_CLEAVER",
+  "RELIC.MEAT_ON_THE_BONE",
+  "RELIC.MEMBERSHIP_CARD",
+  "RELIC.MINIATURE_TENT",
+  "RELIC.MOLTEN_EGG",
+  "RELIC.NEOWS_BONES",
+  "RELIC.NEOWS_TALISMAN",
+  "RELIC.NEOWS_TORMENT",
+  "RELIC.NEW_LEAF",
+  "RELIC.NUTRITIOUS_OYSTER",
+  "RELIC.NUTRITIOUS_SOUP",
+  "RELIC.ODDLY_SMOOTH_STONE",
+  "RELIC.OLD_COIN",
+  "RELIC.ORICHALCUM",
+  "RELIC.ORNAMENTAL_FAN",
+  "RELIC.ORRERY",
+  "RELIC.PAELS_CLAW",
+  "RELIC.PAELS_GROWTH",
+  "RELIC.PAELS_HORN",
+  "RELIC.PAELS_LEGION",
+  "RELIC.PAELS_TOOTH",
+  "RELIC.PAELS_WING",
+  "RELIC.PANDORAS_BOX",
+  "RELIC.PANTOGRAPH",
+  "RELIC.PAPER_KRANE",
+  "RELIC.PEAR",
+  "RELIC.PERMAFROST",
+  "RELIC.PHIAL_HOLSTER",
+  "RELIC.PLANISPHERE",
+  "RELIC.POMANDER",
+  "RELIC.POTION_BELT",
+  "RELIC.PRAYER_WHEEL",
+  "RELIC.PRECARIOUS_SHEARS",
+  "RELIC.PRECISE_SCISSORS",
+  "RELIC.PRESERVED_FOG",
+  "RELIC.PUNCH_DAGGER",
+  "RELIC.RED_MASK",
+  "RELIC.REGALITE",
+  "RELIC.REGAL_PILLOW",
+  "RELIC.RIPPLE_BASIN",
+  "RELIC.ROYAL_STAMP",
+  "RELIC.SAI",
+  "RELIC.SAND_CASTLE",
+  "RELIC.SCROLL_BOXES",
+  "RELIC.SEA_GLASS",
+  "RELIC.SELF_FORMING_CLAY",
+  "RELIC.SERE_TALON",
+  "RELIC.SHOVEL",
+  "RELIC.SIGNET_RING",
+  "RELIC.SILKEN_TRESS",
+  "RELIC.SILVER_CRUCIBLE",
+  "RELIC.SMALL_CAPSULE",
+  "RELIC.STONE_CALENDAR",
+  "RELIC.STONE_HUMIDIFIER",
+  "RELIC.STORYBOOK",
+  "RELIC.STRAWBERRY",
+  "RELIC.STURDY_CLAMP",
+  "RELIC.SWORD_OF_STONE",
+  "RELIC.TANXS_WHISTLE",
+  "RELIC.THE_ABACUS",
+  "RELIC.THE_COURIER",
+  "RELIC.TINY_MAILBOX",
+  "RELIC.TOUCH_OF_OROBAS",
+  "RELIC.TOUGH_BANDAGES",
+  "RELIC.TOXIC_EGG",
+  "RELIC.TOY_BOX",
+  "RELIC.TRI_BOOMERANG",
+  "RELIC.TUNGSTEN_ROD",
+  "RELIC.TUNING_FORK",
+  "RELIC.UNDYING_SIGIL",
+  "RELIC.VAMBRACE",
+  "RELIC.WAR_HAMMER",
+  "RELIC.WAR_PAINT",
+  "RELIC.WHETSTONE",
+  "RELIC.WHITE_BEAST_STATUE",
+  "RELIC.WHITE_STAR",
+  "RELIC.WINGED_BOOTS",
+  "RELIC.WING_CHARM",
+  "RELIC.WONGOS_MYSTERY_TICKET",
+  "RELIC.WONGO_CUSTOMER_APPRECIATION_BADGE",
+  "RELIC.YUMMY_COOKIE"
+ ],
+ "relics": {
+  "RELIC.AKABEKO": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "vigor",
+     "n": 8
+    }
+   ],
+   "note": "Vigor 8 on turn 1: +8 per hit of the first attack card"
+  },
+  "RELIC.ART_OF_WAR": {
+   "model": "full",
+   "turnStart": [
+    {
+     "op": "energy",
+     "n": "1-min(1,attacksPlayedLastTurn)"
+    }
+   ],
+   "turns": [
+    2,
+    3
+   ],
+   "note": "+1 energy on turns 2+ if no Attack was played the previous turn"
+  },
+  "RELIC.BAG_OF_MARBLES": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "vulnerable",
+     "n": 1
+    }
+   ]
+  },
+  "RELIC.BAG_OF_PREPARATION": {
+   "model": "full",
+   "turnStart": [
+    {
+     "op": "draw",
+     "n": 2,
+     "handDraw": true
+    }
+   ],
+   "turns": [
+    1
+   ],
+   "note": "+2 to the turn-1 hand draw (ModifyHandDraw)"
+  },
+  "RELIC.BELLOWS": {
+   "model": "full",
+   "turnStart": [
+    {
+     "op": "upgradeCards",
+     "n": "all",
+     "from": "hand"
+    }
+   ],
+   "turns": [
+    1
+   ],
+   "note": "turn 1: upgrade every card in the opening hand (combat only)"
+  },
+  "RELIC.BIG_HAT": {
+   "model": "approx",
+   "turnStart": [
+    {
+     "op": "addCard",
+     "random": "class|any",
+     "n": 2,
+     "upgraded": false,
+     "to": "hand"
+    }
+   ],
+   "turns": [
+    1
+   ],
+   "note": "turn 1: 2 random class cards from the Ethereal-only subset (no such pool)"
+  },
+  "RELIC.BIG_MUSHROOM": {
+   "model": "approx",
+   "turnStart": [
+    {
+     "op": "draw",
+     "n": 2,
+     "handDraw": true
+    }
+   ],
+   "turns": [
+    2,
+    3
+   ],
+   "drawPerTurn": -2,
+   "note": "turn-1 hand draw 5->3; written as -2 every turn and +2 back on turns 2-3, both part of the hand draw (ModifyHandDraw)"
+  },
+  "RELIC.BIIIG_HUG": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "onShuffle",
+     "effects": [
+      {
+       "op": "addCard",
+       "card": "CARD.SOOT",
+       "n": 1,
+       "upgraded": false,
+       "to": "draw"
+      }
+     ]
+    }
+   ],
+   "note": "each shuffle adds a Soot status to the draw pile"
+  },
+  "RELIC.BLESSED_ANTLER": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "addCard",
+     "card": "CARD.DAZED",
+     "n": 3,
+     "upgraded": false,
+     "to": "draw"
+    }
+   ],
+   "energyPerTurn": 1,
+   "note": "Dazed shuffled into draw pile before the turn-1 hand draw"
+  },
+  "RELIC.BLOOD_SOAKED_ROSE": {
+   "model": "full",
+   "energyPerTurn": 1,
+   "note": "adds Enthralled curse to the deck on pickup (already in saved deck)"
+  },
+  "RELIC.BONE_TEA": {
+   "model": "full",
+   "turnStart": [
+    {
+     "op": "upgradeCards",
+     "n": "all",
+     "from": "hand"
+    }
+   ],
+   "turns": [
+    1
+   ],
+   "note": "next combat only (saved CombatsLeft, assumed active): upgrade the opening hand"
+  },
+  "RELIC.BOOKMARK": {
+   "model": "none",
+   "note": "end of turn: a random retained card costs 1 less until played (Retain only)"
+  },
+  "RELIC.BOOMING_CONCH": {
+   "model": "full",
+   "note": "Elite combats only (turn 1 +2 draw, +1 energy): never vs the dummy"
+  },
+  "RELIC.BOUND_PHYLACTERY": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "summon",
+     "n": 1
+    }
+   ],
+   "turnStart": [
+    {
+     "op": "summon",
+     "n": 1
+    }
+   ],
+   "turns": [
+    2,
+    3
+   ]
+  },
+  "RELIC.BREAD": {
+   "model": "full",
+   "turnStart": [
+    {
+     "op": "energy",
+     "n": -3
+    }
+   ],
+   "turns": [
+    1
+   ],
+   "energyPerTurn": 1,
+   "note": "turn 1: no +1 and lose 2 (net base-2); turns 2+: base+1"
+  },
+  "RELIC.BRILLIANT_SCARF": {
+   "model": "approx",
+   "combatStart": [
+    {
+     "op": "onPlay",
+     "effects": [
+      {
+       "op": "costMod",
+       "filter": "any",
+       "set": 0,
+       "duration": "next",
+       "count": 1
+      }
+     ],
+     "filter": "any",
+     "every": 4,
+     "resetEachTurn": true,
+     "limitPerTurn": 1
+    }
+   ],
+   "note": "5th card each turn costs 0 energy; its star cost (also 0 in game) is not covered"
+  },
+  "RELIC.BRIMSTONE": {
+   "model": "full",
+   "turnStart": [
+    {
+     "op": "strength",
+     "n": 2
+    }
+   ],
+   "note": "every turn incl. turn 1; enemies +1 Strength (irrelevant)"
+  },
+  "RELIC.BURNING_STICKS": {
+   "model": "none",
+   "ext": {
+    "onExhaust": [
+     {
+      "filter": "skill",
+      "oncePerCombat": true,
+      "effects": [
+       {
+        "op": "cloneToHand"
+       }
+      ]
+     }
+    ]
+   },
+   "note": "first Skill exhausted each combat: a copy of it is added to hand"
+  },
+  "RELIC.CANDELABRA": {
+   "model": "full",
+   "turnStart": [
+    {
+     "op": "energy",
+     "n": 2
+    }
+   ],
+   "turns": [
+    2
+   ]
+  },
+  "RELIC.CENTENNIAL_PUZZLE": {
+   "model": "approx",
+   "combatStart": [
+    {
+     "op": "onLoseHp",
+     "effects": [
+      {
+       "op": "draw",
+       "n": 3
+      }
+     ],
+     "limitPerTurn": 1
+    }
+   ],
+   "note": "draw 3 on first HP loss; once per COMBAT in game, the op allows once per turn"
+  },
+  "RELIC.CHANDELIER": {
+   "model": "full",
+   "turnStart": [
+    {
+     "op": "energy",
+     "n": 3
+    }
+   ],
+   "turns": [
+    3
+   ]
+  },
+  "RELIC.CHARONS_ASHES": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "onExhaust",
+     "effects": [
+      {
+       "op": "damage",
+       "n": 3
+      }
+     ]
+    }
+   ],
+   "note": "any exhaust: 3 to all enemies"
+  },
+  "RELIC.CHEMICAL_X": {
+   "model": "none",
+   "ext": {
+    "xBonus": 2
+   },
+   "note": "X-cost cards get X+2"
+  },
+  "RELIC.CHOICES_PARADOX": {
+   "model": "approx",
+   "turnStart": [
+    {
+     "op": "addCard",
+     "random": "class|any",
+     "n": 1,
+     "upgraded": false,
+     "to": "hand",
+     "choose": 5
+    }
+   ],
+   "turns": [
+    1
+   ],
+   "note": "turn 1: pick 1 of 5 class cards into hand; the card also gets Retain (not expressible)"
+  },
+  "RELIC.CRACKED_CORE": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "channel",
+     "orb": "lightning",
+     "n": 1
+    }
+   ]
+  },
+  "RELIC.CROSSBOW": {
+   "model": "full",
+   "turnStart": [
+    {
+     "op": "addCard",
+     "random": "class|attack",
+     "n": 1,
+     "upgraded": false,
+     "to": "hand",
+     "free": true
+    }
+   ],
+   "note": "every turn: a random Attack of your class to hand, free this turn"
+  },
+  "RELIC.DATA_DISK": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "focus",
+     "n": 1
+    }
+   ]
+  },
+  "RELIC.DELICATE_FROND": {
+   "model": "none",
+   "ext": {
+    "fillPotionSlots": true
+   },
+   "note": "combat start: fill empty potion slots with random potions"
+  },
+  "RELIC.DIVINE_DESTINY": {
+   "model": "full",
+   "turnStart": [
+    {
+     "op": "stars",
+     "n": 6
+    }
+   ],
+   "turns": [
+    1
+   ]
+  },
+  "RELIC.DIVINE_RIGHT": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "stars",
+     "n": 3
+    }
+   ]
+  },
+  "RELIC.ECTOPLASM": {
+   "model": "full",
+   "energyPerTurn": 1,
+   "note": "cannot gain gold"
+  },
+  "RELIC.EMBER_TEA": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "strength",
+     "n": 2
+    }
+   ],
+   "note": "only while CombatsLeft > 0 (saved; 5 combats)"
+  },
+  "RELIC.EMOTION_CHIP": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "onLoseHp",
+     "effects": [
+      {
+       "op": "nextTurn",
+       "effects": [
+        {
+         "op": "triggerOrbPassives",
+         "n": 1,
+         "which": "all"
+        }
+       ]
+      }
+     ],
+     "limitPerTurn": 1
+    }
+   ],
+   "note": "turn start: every orb passive triggers once if you lost HP last turn"
+  },
+  "RELIC.FAKE_HAPPY_FLOWER": {
+   "model": "approx",
+   "note": "+1 energy every 5th turn; saved TurnsSeen counter, 0 assumed -> never in turns 1-3"
+  },
+  "RELIC.FAKE_SNECKO_EYE": {
+   "model": "none",
+   "ext": {
+    "confused": true
+   },
+   "note": "Confused only (no extra draw): drawn cards get random cost 0-3 (no op; in ext)"
+  },
+  "RELIC.FAKE_STRIKE_DUMMY": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "attackBonus",
+     "n": 1,
+     "filter": "tag:Strike",
+     "duration": "combat"
+    }
+   ]
+  },
+  "RELIC.FAKE_VENERABLE_TEA_SET": {
+   "model": "approx",
+   "ext": {
+    "ifSavedFlag": "GainEnergyInNextCombat",
+    "turnStart": [
+     {
+      "op": "energy",
+      "n": 1
+     }
+    ],
+    "turns": [
+     1
+    ]
+   },
+   "note": "+1 energy turn 1 of the first combat after resting; saved flag, false assumed (in ext)"
+  },
+  "RELIC.FENCING_MANUAL": {
+   "model": "full",
+   "turnStart": [
+    {
+     "op": "forge",
+     "n": 10
+    }
+   ],
+   "turns": [
+    1
+   ]
+  },
+  "RELIC.FESTIVE_POPPER": {
+   "model": "full",
+   "turnStart": [
+    {
+     "op": "damage",
+     "n": 9
+    }
+   ],
+   "turns": [
+    1
+   ],
+   "note": "9 to all enemies"
+  },
+  "RELIC.FIDDLE": {
+   "model": "full",
+   "turnStart": [
+    {
+     "op": "noDraw"
+    }
+   ],
+   "drawPerTurn": 2,
+   "note": "+2 hand draw, every other draw during your turn is prevented"
+  },
+  "RELIC.FORGOTTEN_SOUL": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "onExhaust",
+     "effects": [
+      {
+       "op": "damage",
+       "n": 1
+      }
+     ]
+    }
+   ],
+   "note": "any exhaust: 1 to a random enemy"
+  },
+  "RELIC.FUNERARY_MASK": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "addCard",
+     "card": "CARD.SOUL",
+     "n": 3,
+     "upgraded": false,
+     "to": "draw"
+    }
+   ]
+  },
+  "RELIC.GAMBLING_CHIP": {
+   "model": "none",
+   "ext": {
+    "turnStart": [
+     {
+      "op": "mulligan"
+     }
+    ],
+    "turns": [
+     1
+    ]
+   },
+   "note": "turn 1: discard any cards and draw that many"
+  },
+  "RELIC.GAME_PIECE": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "onPlay",
+     "effects": [
+      {
+       "op": "draw",
+       "n": 1
+      }
+     ],
+     "filter": "power"
+    }
+   ]
+  },
+  "RELIC.GHOST_SEED": {
+   "model": "none",
+   "ext": {
+    "addKeyword": {
+     "filter": "basic Strike/Defend",
+     "keyword": "Ethereal"
+    }
+   },
+   "note": "basic Strikes/Defends become Ethereal (exhausted if left in hand)"
+  },
+  "RELIC.GIRYA": {
+   "model": "approx",
+   "combatStart": [],
+   "ext": {
+    "strengthFromSaved": "TimesLifted"
+   },
+   "note": "Strength = saved TimesLifted (0-3); 0 assumed (saved counter rule); in ext"
+  },
+  "RELIC.GOLD_PLATED_CABLES": {
+   "model": "approx",
+   "turnEnd": [
+    {
+     "op": "triggerOrbPassives",
+     "n": 1,
+     "which": "front"
+    }
+   ],
+   "note": "front orb's passive triggers 1 extra time; written at turn end (Plasma passive is at turn start)"
+  },
+  "RELIC.GREMLIN_HORN": {
+   "model": "full",
+   "note": "+1 energy, draw 1 when an enemy dies: never vs the dummy"
+  },
+  "RELIC.HAND_DRILL": {
+   "model": "full",
+   "note": "2 Vulnerable when you break an enemy's block: dummy has no block"
+  },
+  "RELIC.HAPPY_FLOWER": {
+   "model": "approx",
+   "turnStart": [
+    {
+     "op": "energy",
+     "n": 1
+    }
+   ],
+   "turns": [
+    3
+   ],
+   "note": "+1 energy every 3rd turn; saved TurnsSeen counter, 0 assumed -> turn 3"
+  },
+  "RELIC.HISTORY_COURSE": {
+   "model": "approx",
+   "turnStart": [
+    {
+     "op": "playFromDiscard",
+     "n": 1,
+     "filter": "attack|skill",
+     "pick": "random"
+    }
+   ],
+   "turns": [
+    2,
+    3
+   ],
+   "note": "turns 2+: replays a copy of the LAST Attack/Skill played last turn; op picks a random one"
+  },
+  "RELIC.ICE_CREAM": {
+   "model": "full",
+   "turnEnd": [
+    {
+     "op": "nextTurn",
+     "effects": [
+      {
+       "op": "energy",
+       "n": "energyLeft"
+      }
+     ]
+    }
+   ],
+   "note": "unspent energy carries over"
+  },
+  "RELIC.INFUSED_CORE": {
+   "model": "approx",
+   "turnStart": [
+    {
+     "op": "channel",
+     "orb": "lightning",
+     "n": 3
+    }
+   ],
+   "turns": [
+    1
+   ],
+   "ext": {
+    "orbValueBonus": {
+     "lightning": 1
+    }
+   },
+   "note": "also +1 to every Lightning orb value (no op; in ext)"
+  },
+  "RELIC.IRON_CLUB": {
+   "model": "approx",
+   "combatStart": [
+    {
+     "op": "onPlay",
+     "effects": [
+      {
+       "op": "draw",
+       "n": 1
+      }
+     ],
+     "filter": "any",
+     "every": 4
+    }
+   ],
+   "note": "every 4th card: draw 1; counter saved across combats (CardsPlayed), 0 assumed"
+  },
+  "RELIC.IVORY_TILE": {
+   "model": "approx",
+   "combatStart": [
+    {
+     "op": "onPlay",
+     "effects": [
+      {
+       "op": "energy",
+       "n": 1
+      }
+     ],
+     "filter": "CARD.BARRICADE|CARD.BLUDGEON|CARD.CORRUPTION|CARD.DEMON_FORM|CARD.HOWL_FROM_BEYOND|CARD.MANGLE|CARD.STOMP|CARD.ABRASIVE|CARD.BULLET_TIME|CARD.HAZE|CARD.MURDER|CARD.NIGHTMARE|CARD.PINPOINT|CARD.REFLEX|CARD.SERPENT_FORM|CARD.TACTICIAN|CARD.WRAITH_FORM|CARD.BOMBARDMENT|CARD.KINGLY_KICK|CARD.KNOCKOUT_BLOW|CARD.VOID_FORM|CARD.BANSHEES_CRY|CARD.BURY|CARD.DEMESNE|CARD.END_OF_DAYS|CARD.MELANCHOLY|CARD.REANIMATE|CARD.REAP|CARD.REAPER_FORM|CARD.SQUEEZE|CARD.CREATIVE_AI|CARD.ECHO_FORM|CARD.ICE_LANCE|CARD.METEOR_STRIKE|CARD.REFRACT|CARD.SUNDER|CARD.VOLTAIC|CARD.BEAT_DOWN|CARD.CALAMITY|CARD.ETERNAL_ARMOR|CARD.JACKPOT|CARD.KNOCKDOWN|CARD.ROLLING_BOULDER|CARD.RELAX|CARD.WHISTLE"
+    }
+   ],
+   "note": "+1 energy after a card that spent >= 3 energy; filter = catalog cost >= 3 (X-costs, cost changes ignored)"
+  },
+  "RELIC.JEWELED_MASK": {
+   "model": "approx",
+   "combatStart": [
+    {
+     "op": "fetch",
+     "filter": "power",
+     "n": 1,
+     "from": "draw"
+    },
+    {
+     "op": "costMod",
+     "filter": "hand",
+     "set": 0,
+     "duration": "turn",
+     "count": 1
+    }
+   ],
+   "note": "before turn-1 draw: a RANDOM Power from draw to hand, free this turn (fetch takes the best)"
+  },
+  "RELIC.JOSS_PAPER": {
+   "model": "approx",
+   "combatStart": [
+    {
+     "op": "onExhaust",
+     "effects": [
+      {
+       "op": "draw",
+       "n": 1
+      }
+     ],
+     "every": 5
+    }
+   ],
+   "note": "every 5 exhausts: draw 1; counter saved (0 assumed); Ethereal exhausts counted at end of turn"
+  },
+  "RELIC.KUSARIGAMA": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "onPlay",
+     "effects": [
+      {
+       "op": "damage",
+       "n": 6
+      }
+     ],
+     "filter": "attack",
+     "every": 3,
+     "resetEachTurn": true
+    }
+   ],
+   "note": "every 3rd Attack in a turn: 6 to a random enemy"
+  },
+  "RELIC.LANTERN": {
+   "model": "full",
+   "turnStart": [
+    {
+     "op": "energy",
+     "n": 1
+    }
+   ],
+   "turns": [
+    1
+   ]
+  },
+  "RELIC.LETTER_OPENER": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "onPlay",
+     "effects": [
+      {
+       "op": "damage",
+       "n": 5
+      }
+     ],
+     "filter": "skill",
+     "every": 3,
+     "resetEachTurn": true
+    }
+   ],
+   "note": "every 3rd Skill in a turn: 5 to all enemies"
+  },
+  "RELIC.LOST_WISP": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "onPlay",
+     "effects": [
+      {
+       "op": "damage",
+       "n": 8
+      }
+     ],
+     "filter": "power"
+    }
+   ],
+   "note": "8 to all enemies"
+  },
+  "RELIC.LUNAR_PASTRY": {
+   "model": "full",
+   "turnEnd": [
+    {
+     "op": "stars",
+     "n": 1
+    }
+   ]
+  },
+  "RELIC.MERCURY_HOURGLASS": {
+   "model": "full",
+   "turnStart": [
+    {
+     "op": "damage",
+     "n": 3
+    }
+   ],
+   "note": "3 to all enemies every turn start"
+  },
+  "RELIC.METRONOME": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "onChannel",
+     "effects": [
+      {
+       "op": "damage",
+       "n": 30
+      }
+     ],
+     "every": 7
+    }
+   ],
+   "note": "7th orb channeled: 30 to all enemies (once per combat; every-7 would refire at 14)"
+  },
+  "RELIC.MINIATURE_CANNON": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "attackBonus",
+     "n": 3,
+     "filter": "upgraded",
+     "duration": "combat"
+    }
+   ],
+   "note": "+3 per hit for attacks from upgraded cards"
+  },
+  "RELIC.MINI_REGENT": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "onStarsSpent",
+     "effects": [
+      {
+       "op": "strength",
+       "n": 1
+      }
+     ],
+     "limitPerTurn": 1
+    }
+   ],
+   "note": "first time you spend stars each turn: +1 Strength"
+  },
+  "RELIC.MR_STRUGGLES": {
+   "model": "full",
+   "turnStart": [
+    {
+     "op": "damage",
+     "n": "turn"
+    }
+   ],
+   "note": "damage = turn number to all enemies"
+  },
+  "RELIC.MUMMIFIED_HAND": {
+   "model": "approx",
+   "combatStart": [
+    {
+     "op": "onPlay",
+     "effects": [
+      {
+       "op": "costMod",
+       "filter": "hand",
+       "set": 0,
+       "duration": "turn",
+       "count": 1
+      }
+     ],
+     "filter": "power"
+    }
+   ],
+   "note": "playing a Power: a random costed card in hand is free this turn (sim picks the card)"
+  },
+  "RELIC.MUSIC_BOX": {
+   "model": "none",
+   "ext": {
+    "onPlay": [
+     {
+      "filter": "attack",
+      "limitPerTurn": 1,
+      "effects": [
+       {
+        "op": "cloneToHand",
+        "keyword": "Ethereal"
+       }
+      ]
+     }
+    ]
+   },
+   "note": "first Attack each turn: an Ethereal copy of THAT card to hand (copyInHand copies a hand card)"
+  },
+  "RELIC.MYSTIC_LIGHTER": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "attackBonus",
+     "n": 9,
+     "filter": "enchanted",
+     "duration": "combat"
+    }
+   ],
+   "note": "+9 per hit for attacks from enchanted cards"
+  },
+  "RELIC.NINJA_SCROLL": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "addCard",
+     "card": "CARD.SHIV",
+     "n": 3,
+     "upgraded": false,
+     "to": "hand"
+    }
+   ],
+   "note": "added to hand just before the turn-1 hand draw"
+  },
+  "RELIC.NUNCHAKU": {
+   "model": "approx",
+   "combatStart": [
+    {
+     "op": "onPlay",
+     "effects": [
+      {
+       "op": "energy",
+       "n": 1
+      }
+     ],
+     "filter": "attack",
+     "every": 10
+    }
+   ],
+   "note": "every 10th Attack: +1 energy; counter saved across combats (AttacksPlayed), 0 assumed"
+  },
+  "RELIC.ORANGE_DOUGH": {
+   "model": "full",
+   "turnStart": [
+    {
+     "op": "addCard",
+     "random": "colorless|any",
+     "n": 2,
+     "upgraded": false,
+     "to": "hand"
+    }
+   ],
+   "turns": [
+    1
+   ],
+   "note": "turn 1: 2 random colorless cards to hand"
+  },
+  "RELIC.PAELS_BLOOD": {
+   "model": "full",
+   "drawPerTurn": 1
+  },
+  "RELIC.PAELS_EYE": {
+   "model": "approx",
+   "note": "if you play no cards in a turn: exhaust hand, take an extra turn (once/combat); assumed unused"
+  },
+  "RELIC.PAELS_FLESH": {
+   "model": "full",
+   "turnStart": [
+    {
+     "op": "energy",
+     "n": 1
+    }
+   ],
+   "turns": [
+    3
+   ],
+   "note": "+1 max energy from turn 3 on"
+  },
+  "RELIC.PAELS_TEARS": {
+   "model": "full",
+   "turnEnd": [
+    {
+     "op": "nextTurn",
+     "effects": [
+      {
+       "op": "energy",
+       "n": "2*min(1,energyLeft)"
+      }
+     ]
+    }
+   ],
+   "note": "+2 energy next turn if you end a turn with unspent energy"
+  },
+  "RELIC.PAPER_PHROG": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "vulnerableBonus",
+     "n": 0.25
+    }
+   ],
+   "note": "enemy Vulnerable multiplier 1.5 -> 1.75"
+  },
+  "RELIC.PARRYING_SHIELD": {
+   "model": "approx",
+   "turnEnd": [
+    {
+     "op": "damage",
+     "n": "6*min(1,floor(block/10))"
+    }
+   ],
+   "note": "end of turn: 6 to a random enemy if block >= 10. Block is the sum of gainBlock amounts (no Dexterity), so it can trigger late."
+  },
+  "RELIC.PENDULUM": {
+   "model": "approx",
+   "turnStart": [
+    {
+     "op": "draw",
+     "n": 1
+    }
+   ],
+   "turns": [
+    3
+   ],
+   "note": "draw 1 every 3rd turn; saved TurnsSeen counter, 0 assumed -> turn 3"
+  },
+  "RELIC.PEN_NIB": {
+   "model": "approx",
+   "combatStart": [
+    {
+     "op": "onPlay",
+     "effects": [
+      {
+       "op": "damageMultiplier",
+       "n": 2,
+       "filter": "attack|osty",
+       "duration": "turn",
+       "limitPerTurn": 1
+      }
+     ],
+     "filter": "attack",
+     "every": 9
+    }
+   ],
+   "note": "10th Attack x2 (saved AttacksPlayed, 0 assumed); armed after the 9th, missed if the 10th is next turn"
+  },
+  "RELIC.PETRIFIED_TOAD": {
+   "model": "approx",
+   "turnStart": [
+    {
+     "op": "damage",
+     "n": 15
+    }
+   ],
+   "turns": [
+    1
+   ],
+   "note": "gives a Potion-Shaped Rock (15 dmg) each combat if a slot is free; assumed thrown turn 1"
+  },
+  "RELIC.PHILOSOPHERS_STONE": {
+   "model": "full",
+   "energyPerTurn": 1,
+   "note": "enemies also gain 1 Strength (irrelevant vs dummy)"
+  },
+  "RELIC.PHYLACTERY_UNBOUND": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "summon",
+     "n": 5
+    }
+   ],
+   "turnStart": [
+    {
+     "op": "summon",
+     "n": 2
+    }
+   ],
+   "note": "summon 2 at the start of every turn incl. turn 1"
+  },
+  "RELIC.POCKETWATCH": {
+   "model": "full",
+   "turnStart": [
+    {
+     "op": "draw",
+     "n": "3*(1-min(1,max(0,cardsPlayedLastTurn-3)))",
+     "handDraw": true
+    }
+   ],
+   "turns": [
+    2,
+    3
+   ],
+   "note": "turns 2+: +3 hand draw (ModifyHandDraw) if you played 3 or fewer cards the previous turn"
+  },
+  "RELIC.POLLINOUS_CORE": {
+   "model": "approx",
+   "note": "+2 hand draw every 4th turn; saved TurnsSeen counter, 0 assumed -> never in turns 1-3"
+  },
+  "RELIC.POWER_CELL": {
+   "model": "approx",
+   "combatStart": [
+    {
+     "op": "fetch",
+     "filter": "zeroCost",
+     "n": 2,
+     "from": "draw"
+    }
+   ],
+   "note": "before turn-1 draw: 2 RANDOM 0-cost cards from draw pile to hand (fetch takes the best)"
+  },
+  "RELIC.PRISMATIC_GEM": {
+   "model": "full",
+   "energyPerTurn": 1
+  },
+  "RELIC.PUMPKIN_CANDLE": {
+   "model": "full",
+   "energyPerTurn": 1,
+   "note": "only while KindleCount > 0 (saved; 5 combats per kindle)"
+  },
+  "RELIC.RADIANT_PEARL": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "addCard",
+     "card": "CARD.LUMINESCE",
+     "n": 1,
+     "upgraded": false,
+     "to": "hand"
+    }
+   ],
+   "note": "added to hand just before the turn-1 hand draw"
+  },
+  "RELIC.RAINBOW_RING": {
+   "model": "none",
+   "ext": {
+    "onPlay": [
+     {
+      "filter": "attack+skill+power played this turn",
+      "limitPerTurn": 1,
+      "effects": [
+       {
+        "op": "strength",
+        "n": 1
+       }
+      ]
+     }
+    ]
+   },
+   "note": "once per turn after playing an Attack, a Skill and a Power: +1 Strength (+1 Dex)"
+  },
+  "RELIC.RAZOR_TOOTH": {
+   "model": "none",
+   "ext": {
+    "upgradeOnPlay": [
+     "attack",
+     "skill"
+    ]
+   },
+   "note": "Attacks/Skills upgrade (for the combat) when played"
+  },
+  "RELIC.RED_SKULL": {
+   "model": "approx",
+   "ext": {
+    "ifHpAtMostPct": 50,
+    "combatStart": [
+     {
+      "op": "strength",
+      "n": 3
+     }
+    ]
+   },
+   "note": "+3 Strength while HP <= 50%; no HP variable (in ext)"
+  },
+  "RELIC.REPTILE_TRINKET": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "onPotionUsed",
+     "effects": [
+      {
+       "op": "tempStrength",
+       "n": 3
+      }
+     ]
+    }
+   ],
+   "note": "using a potion: +3 Strength this turn"
+  },
+  "RELIC.RINGING_TRIANGLE": {
+   "model": "full",
+   "turnEnd": [
+    {
+     "op": "retainHand"
+    }
+   ],
+   "turnEndTurns": [
+    1
+   ],
+   "note": "hand is not discarded at end of turn 1"
+  },
+  "RELIC.RING_OF_THE_DRAKE": {
+   "model": "full",
+   "turnStart": [
+    {
+     "op": "draw",
+     "n": 2,
+     "handDraw": true
+    }
+   ],
+   "turns": [
+    1,
+    2,
+    3
+   ],
+   "note": "+2 hand draw on turns 1-3 (ModifyHandDraw)"
+  },
+  "RELIC.RING_OF_THE_SNAKE": {
+   "model": "full",
+   "turnStart": [
+    {
+     "op": "draw",
+     "n": 2,
+     "handDraw": true
+    }
+   ],
+   "turns": [
+    1
+   ],
+   "note": "+2 to the turn-1 hand draw (ModifyHandDraw)"
+  },
+  "RELIC.ROYAL_POISON": {
+   "model": "full",
+   "turnStart": [
+    {
+     "op": "loseHp",
+     "n": 4
+    }
+   ],
+   "turns": [
+    1
+   ],
+   "note": "lose 4 HP at turn 1 start; no damage itself, feeds onLoseHp triggers"
+  },
+  "RELIC.RUINED_HELMET": {
+   "model": "none",
+   "ext": {
+    "firstStrengthGainMult": 2
+   },
+   "note": "first Strength gain each combat is doubled (onApply has no strength)"
+  },
+  "RELIC.RUNIC_CAPACITOR": {
+   "model": "full",
+   "turnStart": [
+    {
+     "op": "orbSlots",
+     "n": 3
+    }
+   ],
+   "turns": [
+    1
+   ]
+  },
+  "RELIC.RUNIC_PYRAMID": {
+   "model": "full",
+   "turnEnd": [
+    {
+     "op": "retainHand"
+    }
+   ],
+   "note": "hand is never discarded at end of turn"
+  },
+  "RELIC.SCREAMING_FLAGON": {
+   "model": "full",
+   "turnEnd": [
+    {
+     "op": "damage",
+     "n": "20*(1-min(1,handSize))"
+    }
+   ],
+   "note": "20 to all enemies if hand is empty at end of turn"
+  },
+  "RELIC.SEAL_OF_GOLD": {
+   "model": "approx",
+   "turnStart": [
+    {
+     "op": "energy",
+     "n": 1
+    }
+   ],
+   "note": "each turn start: if gold>=5, pay 5 gold for +1 energy; assumes enough gold"
+  },
+  "RELIC.SHURIKEN": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "onPlay",
+     "effects": [
+      {
+       "op": "strength",
+       "n": 1
+      }
+     ],
+     "filter": "attack",
+     "every": 3,
+     "resetEachTurn": true
+    }
+   ],
+   "note": "every 3rd Attack in a turn: +1 Strength"
+  },
+  "RELIC.SLING_OF_COURAGE": {
+   "model": "full",
+   "note": "Elite combats only (+2 Strength): never vs the dummy"
+  },
+  "RELIC.SNECKO_EYE": {
+   "model": "approx",
+   "drawPerTurn": 2,
+   "ext": {
+    "confused": true
+   },
+   "note": "Confused: each drawn card's cost becomes random 0-3 for the combat (no op; in ext)"
+  },
+  "RELIC.SNECKO_SKULL": {
+   "model": "none",
+   "ext": {
+    "poisonBonus": 1
+   },
+   "note": "+1 to every Poison application you make (onApply->poison would retrigger itself)"
+  },
+  "RELIC.SOZU": {
+   "model": "full",
+   "energyPerTurn": 1,
+   "note": "cannot gain potions"
+  },
+  "RELIC.SPARKLING_ROUGE": {
+   "model": "full",
+   "turnStart": [
+    {
+     "op": "strength",
+     "n": 1
+    }
+   ],
+   "turns": [
+    3
+   ],
+   "note": "+1 Str (+1 Dex) at start of turn 3"
+  },
+  "RELIC.SPIKED_GAUNTLETS": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "costMod",
+     "filter": "power",
+     "delta": 1,
+     "duration": "combat"
+    }
+   ],
+   "energyPerTurn": 1,
+   "note": "Power cards cost 1 more"
+  },
+  "RELIC.STONE_CRACKER": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "upgradeCards",
+     "n": 2,
+     "pick": "random",
+     "from": "draw"
+    }
+   ],
+   "note": "combat start: upgrade 2 random cards in the draw pile (combat only)"
+  },
+  "RELIC.STRIKE_DUMMY": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "attackBonus",
+     "n": 3,
+     "filter": "tag:Strike",
+     "duration": "combat"
+    }
+   ]
+  },
+  "RELIC.SWORD_OF_JADE": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "strength",
+     "n": 3
+    }
+   ]
+  },
+  "RELIC.SYMBIOTIC_VIRUS": {
+   "model": "full",
+   "turnStart": [
+    {
+     "op": "channel",
+     "orb": "dark",
+     "n": 1
+    }
+   ],
+   "turns": [
+    1
+   ]
+  },
+  "RELIC.TEA_OF_DISCOURTESY": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "addCard",
+     "card": "CARD.DAZED",
+     "n": 2,
+     "upgraded": false,
+     "to": "draw"
+    }
+   ],
+   "note": "only while CombatsLeft > 0 (saved; 1 combat)"
+  },
+  "RELIC.THE_BOOT": {
+   "model": "none",
+   "ext": {
+    "minAttackDamage": 5
+   },
+   "note": "attack hits that would deal 1-4 HP loss deal 5 instead"
+  },
+  "RELIC.THROWING_AXE": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "replayNext",
+     "filter": "any",
+     "n": 1
+    }
+   ],
+   "note": "first card each combat is played twice"
+  },
+  "RELIC.TINGSHA": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "onDiscard",
+     "effects": [
+      {
+       "op": "damage",
+       "n": 3
+      }
+     ]
+    }
+   ],
+   "note": "each card discarded by an effect: 3 to a random enemy"
+  },
+  "RELIC.TOASTY_MITTENS": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "perTurn",
+     "when": "start",
+     "effects": [
+      {
+       "op": "exhaustCards",
+       "n": 1,
+       "from": "draw"
+      },
+      {
+       "op": "strength",
+       "n": 1
+      }
+     ]
+    }
+   ],
+   "note": "before every hand draw incl. turn 1: exhaust top of draw pile (t1: first non-Innate), +1 Str"
+  },
+  "RELIC.TOOLBOX": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "addCard",
+     "random": "colorless|any",
+     "n": 1,
+     "upgraded": false,
+     "to": "hand",
+     "choose": 3
+    }
+   ],
+   "note": "before turn-1 draw: pick 1 of 3 random colorless cards into hand"
+  },
+  "RELIC.TWISTED_FUNNEL": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "poison",
+     "n": 4
+    }
+   ]
+  },
+  "RELIC.UNCEASING_TOP": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "onHandEmpty",
+     "effects": [
+      {
+       "op": "draw",
+       "n": 1
+      }
+     ]
+    }
+   ],
+   "note": "draw 1 whenever your hand becomes empty"
+  },
+  "RELIC.UNSETTLING_LAMP": {
+   "model": "none",
+   "ext": {
+    "doubleDebuffsOfFirstDebuffCard": true
+   },
+   "note": "first card each combat that debuffs an enemy has its debuffs (Vuln/Poison/Doom...) doubled"
+  },
+  "RELIC.VAJRA": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "strength",
+     "n": 1
+    }
+   ]
+  },
+  "RELIC.VELVET_CHOKER": {
+   "model": "approx",
+   "energyPerTurn": 1,
+   "ext": {
+    "maxCardsPerTurn": 6
+   },
+   "note": "cannot play more than 6 cards per turn (no relic op; in ext)"
+  },
+  "RELIC.VENERABLE_TEA_SET": {
+   "model": "approx",
+   "ext": {
+    "ifSavedFlag": "GainEnergyInNextCombat",
+    "turnStart": [
+     {
+      "op": "energy",
+      "n": 2
+     }
+    ],
+    "turns": [
+     1
+    ]
+   },
+   "note": "+2 energy turn 1 of the first combat after resting; saved flag, false assumed (in ext)"
+  },
+  "RELIC.VERY_HOT_COCOA": {
+   "model": "full",
+   "turnStart": [
+    {
+     "op": "energy",
+     "n": 4
+    }
+   ],
+   "turns": [
+    1
+   ]
+  },
+  "RELIC.VEXING_PUZZLEBOX": {
+   "model": "full",
+   "turnStart": [
+    {
+     "op": "addCard",
+     "random": "class|any",
+     "n": 1,
+     "upgraded": false,
+     "to": "hand",
+     "free": true
+    }
+   ],
+   "turns": [
+    1
+   ],
+   "note": "turn 1: a random class card to hand, free this turn"
+  },
+  "RELIC.VITRUVIAN_MINION": {
+   "model": "full",
+   "combatStart": [
+    {
+     "op": "damageMultiplier",
+     "n": 2,
+     "filter": "tag:Minion",
+     "duration": "combat"
+    }
+   ],
+   "note": "damage from Minion-tagged cards x2"
+  },
+  "RELIC.WHISPERING_EARRING": {
+   "model": "approx",
+   "energyPerTurn": 1,
+   "ext": {
+    "autoplayTurns": [
+     1
+    ]
+   },
+   "note": "turn 1 is auto-played: first playable card in hand, repeatedly (max 13); no op (in ext)"
+  }
+ }
+}

@@ -4,7 +4,7 @@ namespace Sts2Overlay.Core.Events;
 
 /// <summary>
 /// Evaluates the small amount formulas in <c>events.json</c>, e.g. <c>"floor(0.25*maxHp)"</c> or <c>"-gold"</c>.
-/// Grammar: numbers, identifiers, <c>+ - * /</c>, parentheses and the functions <c>floor ceil round abs min max</c>.
+/// Grammar: numbers, identifiers, <c>+ - * /</c>, parentheses and the functions <c>floor ceil round abs min max pow</c>.
 /// Identifiers are looked up case-insensitively in the variables passed in (run state + the event's <c>vars</c>).
 /// </summary>
 /// <remarks>
@@ -111,6 +111,7 @@ public static class EventFormula
                 while (_i < _s.Length && (char.IsLetterOrDigit(_s[_i]) || _s[_i] == '_' || _s[_i] == '.')) _i++;
                 var name = _s[start.._i];
                 if (Eat('(')) return Call(name);
+                if (vars.TryGetValue(name, out var direct)) return direct;
                 foreach (var kv in vars)
                 {
                     if (string.Equals(kv.Key, name, StringComparison.OrdinalIgnoreCase)) return kv.Value;
@@ -133,6 +134,7 @@ public static class EventFormula
                 "abs" when args.Count == 1 => Math.Abs(args[0]),
                 "min" when args.Count >= 1 => args.Min(),
                 "max" when args.Count >= 1 => args.Max(),
+                "pow" when args.Count == 2 => Math.Pow(args[0], args[1]),
                 _ => throw new FormatException($"unknown function {name}"),
             };
         }
