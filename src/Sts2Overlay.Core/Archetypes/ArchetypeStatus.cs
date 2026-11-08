@@ -44,6 +44,18 @@ public sealed record ArchetypeStatus
     /// <summary>The deck owns enough core cards (<see cref="OwnedCore"/> ≥ <see cref="CoreTarget"/>).</summary>
     public bool CoreSecured => OwnedCore >= CoreTarget;
 
+    /// <summary>
+    /// Chance that at least one missing core card is still offered in the rest of the run (normal card rewards + remaining boss
+    /// rewards, see <see cref="ArchetypeDetector.CoreChance"/>); null when not computed (no missing core, or a status built by hand).
+    /// </summary>
+    public double? CoreChance { get; init; }
+
+    /// <summary>Distinct essential (payoff + enabler) cards of this archetype in the deck.</summary>
+    public int OwnedEssential { get; init; }
+
+    /// <summary>Essential cards needed before support cards count fully (see <see cref="ArchetypeDetector.EssentialProgress"/>).</summary>
+    public int EssentialTarget { get; init; }
+
     public bool IsCommitted => Commit >= Archetype.CommitThreshold;
 }
 

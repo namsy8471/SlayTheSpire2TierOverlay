@@ -8,8 +8,9 @@ namespace Sts2Overlay.Core.Scoring;
 /// <summary>
 /// PLAN §7.1: score = base + build + combo + need + situation − dilution − duplicates,
 /// plus the DECK_COMPASS rules (requires gate, saturation, weakness-first build cap)
-/// and "core first" (<c>core_priority</c> for a leaning build's missing core card, <c>core_missing</c> for its other cards
-/// while that build owns no core card; see <see cref="CorePriorityWeights"/>).
+/// and "core first" (<c>core_priority</c> for a build's missing core card; <c>core_missing</c> = the synergy a non-core card loses
+/// while its build has no core, so before any core cards rank on their own strength; then essential before support synergy;
+/// see <see cref="CorePriorityWeights"/>).
 /// Every tunable comes from <see cref="DataPack.Weights"/>; the total is always the sum of the emitted components.
 /// </summary>
 public sealed class CardScorer(DataPack pack)
@@ -57,26 +58,38 @@ public sealed class CardScorer(DataPack pack)
         parts.Add(new ScoreComponent(ComponentKeys.Base, $"기본 {tier}", baseValue, baseDetail));
 
         // ---- archetype membership ----
-        // A non-core card of a build that owns no core card yet only counts NoCoreFactor of its role weight ("코어 먼저").
+        // 코어 먼저: a non-core card's value from build A is gated by A's core progress (Gate, 0 with no core by default);
+        // after a core, A's support cards count SubBeforeEssential until A owns its essential (payoff + enabler) target (Stage).
         var cp = w.CorePriority;
         var memberships = profile.Archetypes
             .Select(s =>
             {
                 var role = s.Archetype.RoleOf(id);
                 var core = ArchetypeDetector.CoreProgress(s.Archetype, Pack, profile.Copies);
-                var noCore = role is not null && role != ArchetypeRoles.Core && core.Target > 0 && core.Owned == 0;
-                var factor = noCore && cp.NoCoreFactor.TryGetValue(role!, out var f) ? Math.Clamp(Finite(f), 0.0, 1.0) : 1.0;
-                return (Status: s, Role: role, Weight: Finite(s.Archetype.WeightOf(id)), Commit: Commit(s), Core: core, Factor: factor);
+                var essential = ArchetypeDetector.EssentialProgress(s.Archetype, Pack, profile.Copies);
+                var coreFactor = core.Target > 0 ? Math.Min(1.0, (double)core.Owned / core.Target) : 1.0;
+                var gate = 1.0;
+                if (role is not null && role != ArchetypeRoles.Core && coreFactor < 1.0 && cp.NoCoreFactor.TryGetValue(role, out var f))
+                {
+                    var floor = Math.Max(Math.Clamp(Finite(f), 0.0, 1.0), SynergyUnlock(s, act, w));
+                    gate = floor + (1 - floor) * coreFactor;
+                }
+                var stage = role == ArchetypeRoles.Support && core.Owned > 0 && essential.Owned < essential.Target
+                    ? Math.Clamp(Finite(cp.SubBeforeEssential), 0.0, 1.0)
+                    : 1.0;
+                return new Membership(s, role, Finite(s.Archetype.WeightOf(id)), Commit(s), core, coreFactor, essential, gate, stage);
             })
             .Where(m => m.Weight > 0)
             .ToList();
 
         // ---- build ----
-        var buildRaw = w.WArch * memberships.Sum(m => m.Commit * m.Weight);
-        var buildRawNoCore = w.WArch * memberships.Sum(m => m.Commit * m.Weight * m.Factor);
+        // build = what the card would add with the build's core in place (support staged), core_missing = what the core gate takes away.
+        double Ungated(Membership m) => w.WArch * m.Commit * m.Weight * m.Stage;
+        var buildRaw = memberships.Sum(Ungated);
+        var buildRawGated = memberships.Sum(m => Ungated(m) * m.Gate);
         var buildCap = profile.IsWeak ? w.BuildCapWeak : w.BuildCap;
         var build = Finite(Math.Min(buildCap, buildRaw));
-        var coreMissing = Finite(Math.Min(0.0, Math.Min(buildCap, buildRawNoCore) - build));
+        var coreMissing = Finite(Math.Min(0.0, Math.Min(buildCap, buildRawGated) - build));
         string buildLabel = "빌드 시너지", buildDetail = "";
         if (memberships.Count > 0)
         {
@@ -85,15 +98,25 @@ public sealed class CardScorer(DataPack pack)
             buildLabel = $"{name} 시너지";
             buildDetail = $"{name} {top.Commit * 100:0}%"
                 + (buildRaw > buildCap + Epsilon ? $", 상한 {Num(buildCap)}" + (profile.IsWeak ? " (약점 우선)" : "") : "");
+            var staged = memberships.FirstOrDefault(m => m.Stage < 1.0);
+            if (staged.Status is not null)
+            {
+                buildDetail += $", 보조 시너지 {staged.Stage * 100:0}% (필수 시너지 {staged.Essential.Owned}/{staged.Essential.Target} 전)";
+            }
         }
         string? coreMissingDetail = null;
         if (coreMissing < -Epsilon)
         {
-            var worst = memberships.Where(m => m.Factor < 1.0).OrderByDescending(m => m.Commit * m.Weight * (1 - m.Factor)).First();
-            var missingCore = worst.Status.Archetype.Cards.Core.Select(Pack.Canonical).Distinct(StringComparer.Ordinal)
+            var worst = memberships.Where(m => m.Gate < 1.0).OrderByDescending(m => Ungated(m) * (1 - m.Gate)).First();
+            var missingCore = string.Join(", ", worst.Status.Archetype.Cards.Core.Select(Pack.Canonical).Distinct(StringComparer.Ordinal)
                 .Where(c => profile.Copies.GetValueOrDefault(c) == 0)
-                .Select(ShortId);
-            coreMissingDetail = $"{worst.Status.Archetype.DisplayName} 코어 먼저: {string.Join(", ", missingCore)}";
+                .Select(ShortId));
+            var name = worst.Status.Archetype.DisplayName;
+            coreMissingDetail = worst.Core.Owned == 0
+                ? (worst.Gate <= Epsilon
+                    ? $"{name} 코어 전: 개별 성능으로 평가 · 먼저 노릴 코어: {missingCore}"
+                    : $"{name} 코어 전: 시너지 {worst.Gate * 100:0}% 반영 · 먼저 노릴 코어: {missingCore}")
+                : $"{name} 코어 {worst.Core.Owned}/{worst.Core.Target}: 시너지 {worst.Gate * 100:0}% 반영 · 남은 코어: {missingCore}";
         }
 
         // ---- combo ----
@@ -130,36 +153,25 @@ public sealed class CardScorer(DataPack pack)
         }
 
         // ---- core priority ("코어 확보") ----
-        // Missing core card of a leaning build that is not core-secured; max over builds, never summed.
+        // Missing core card of a build that is not core-secured: early-act starter part + lean part (ramps with the build's commit,
+        // i.e. its non-core cards already owned), scaled by the share of the core target still missing; max over builds, never summed.
         double corePriority = 0;
         string? corePriorityDetail = null;
         if (!engineMissing)
         {
-            var commits = profile.Archetypes.Select(Commit).ToList();
-            var topCommit = commits.DefaultIfEmpty(0.0).Max();
-            var anyLeaning = commits.Any(c => c >= cp.LeanMin - Epsilon);
+            var topCommit = profile.Archetypes.Select(Commit).DefaultIfEmpty(0.0).Max();
             var weakFactor = profile.IsWeak ? Math.Clamp(Finite(cp.WeakFactor), 0.0, 1.0) : 1.0;
+            var bonus = Math.Max(0.0, Finite(cp.Bonus));
+            var starter = act <= cp.StarterMaxAct ? Math.Clamp(Finite(cp.StarterBonus), 0.0, bonus) : 0.0;
             foreach (var m in memberships.Where(m => m.Role == ArchetypeRoles.Core && m.Core.Owned < m.Core.Target))
             {
                 var leaning = m.Commit >= cp.LeanMin - Epsilon && m.Commit >= topCommit - w.HybridMargin - Epsilon;
-                double value;
-                string detail;
-                if (leaning)
-                {
-                    var ramp = cp.LeanFull > Epsilon ? Math.Clamp(m.Commit / cp.LeanFull, 0.0, 1.0) : 1.0;
-                    value = Finite(cp.Bonus) * ramp * weakFactor;
-                    detail = $"{m.Status.Archetype.DisplayName} 코어 {m.Core.Owned}/{m.Core.Target}장, 몰입 {m.Commit * 100:0}%";
-                }
-                else if (!anyLeaning && act <= cp.StarterMaxAct)
-                {
-                    value = Finite(cp.StarterBonus) * weakFactor;
-                    detail = $"{m.Status.Archetype.DisplayName} 코어 (초반 방향 잡기)";
-                }
-                else
-                {
-                    continue;
-                }
-                if (profile.IsWeak) detail += " (약점 우선 절반)";
+                var ramp = !leaning ? 0.0 : cp.LeanFull > Epsilon ? Math.Clamp(m.Commit / cp.LeanFull, 0.0, 1.0) : 1.0;
+                var value = (starter + (bonus - starter) * ramp) * (1 - m.CoreFactor) * weakFactor;
+                if (value <= Epsilon) continue;
+                var detail = $"{m.Status.Archetype.DisplayName} 코어 {m.Core.Owned}/{m.Core.Target}장"
+                    + (leaning ? $", 몰입 {m.Commit * 100:0}%" : " (초반 방향 잡기)");
+                if (profile.IsWeak) detail += $" (약점 우선 ×{Num(weakFactor)})";
                 if (value > corePriority + Epsilon)
                 {
                     corePriority = value;
@@ -190,13 +202,17 @@ public sealed class CardScorer(DataPack pack)
             lowHp = Finite(w.WNeed * profile.RoleGap.GetValueOrDefault(Roles.Block) * UrgencyOf(urgency, Roles.Block) * strength * w.Situation.LowHpBlockBoost);
         }
         double boss = 0;
-        if (context == OfferContext.BossReward && memberships.Count > 0 && !engineMissing)
+        var bossCommit = memberships.Select(m => m.Commit * m.Gate).DefaultIfEmpty(0.0).Max();
+        if (context == OfferContext.BossReward && !engineMissing)
         {
-            boss = Finite(w.Situation.BossRewardBuildBonus * memberships.Max(m => m.Commit));
+            boss = Finite(w.Situation.BossRewardBuildBonus * bossCommit);
         }
 
         // ---- off-build ----
-        var committed = profile.Archetypes.Where(s => Commit(s) >= w.CommitThreshold).ToList();
+        // Scorer only: a build without a secured core is never "committed" (no off-build penalty before the core).
+        var committed = profile.Archetypes
+            .Where(s => Commit(s) >= w.CommitThreshold && CoreSecured(s.Archetype, profile))
+            .ToList();
         double offBuild = 0;
         if (committed.Count > 0 && !committed.Any(s => s.Archetype.WeightOf(id) > 0) && need <= 0)
         {
@@ -264,8 +280,7 @@ public sealed class CardScorer(DataPack pack)
             Add(parts, ComponentKeys.Need, ScoringLabels.NeedLabel(dominant), need,
                 string.Join(", ", needParts.OrderByDescending(p => p.Value).Select(p => $"{ScoringLabels.Role(p.Role)} {Signed(p.Value)}")));
         }
-        Add(parts, ComponentKeys.Situation, ScoringLabels.BossReward, boss,
-            memberships.Count > 0 ? $"빌드 몰입 {memberships.Max(m => m.Commit) * 100:0}%" : null);
+        Add(parts, ComponentKeys.Situation, ScoringLabels.BossReward, boss, $"빌드 몰입 {bossCommit * 100:0}% (코어 반영)");
         Add(parts, ComponentKeys.Situation, ScoringLabels.LowHpBlock, lowHp, $"HP {state.HpRatio * 100:0}%");
         Add(parts, ComponentKeys.Saturation, ScoringLabels.Saturation, saturation, saturationDetail);
         Add(parts, ComponentKeys.PowerSaturation, ScoringLabels.PowerSaturation, powerSat, $"파워 {profile.PowerCount}장");
@@ -282,7 +297,58 @@ public sealed class CardScorer(DataPack pack)
             IsEstimate = estimate,
             IsRated = rated,
             Chips = breakdown.TopReasons(3).Select(c => new ReasonChip(c.Key, c.Label, c.Value)).ToArray(),
+            Synergy = memberships
+                .Select(m => new ArchetypeSynergy(m.Status.Archetype.Id, m.Role!,
+                    engineMissing ? 0.0 : Finite(Ungated(m) * m.Gate), engineMissing ? 0.0 : Finite(Ungated(m))))
+                .ToArray(),
+            BuildRoles = BuildRolesOf(profile, id),
         };
+    }
+
+    /// <summary>Most build roles shown per card.</summary>
+    public const int MaxBuildRoles = 2;
+
+    /// <summary>
+    /// Builds that list <paramref name="cardId"/> (canonical) with its role there — core, essential (payoff/enabler) or sub (support) —
+    /// ordered by the build's current commit (highest first, ties in profile order), at most <see cref="MaxBuildRoles"/>.
+    /// </summary>
+    public static IReadOnlyList<BuildRole> BuildRolesOf(DeckProfile profile, string cardId)
+        => profile.Archetypes
+            .Select((s, i) => (Status: s, Index: i, Role: s.Archetype.RoleOf(cardId)))
+            .Where(x => x.Role is not null)
+            .OrderByDescending(x => Commit(x.Status)).ThenBy(x => x.Index)
+            .Take(MaxBuildRoles)
+            .Select(x => new BuildRole(x.Status.Archetype.Id, x.Status.Archetype.DisplayName, x.Role switch
+            {
+                ArchetypeRoles.Core => BuildRoleKind.Core,
+                ArchetypeRoles.Payoff or ArchetypeRoles.Enabler => BuildRoleKind.Essential,
+                _ => BuildRoleKind.Sub,
+            }))
+            .ToArray();
+
+    /// <summary>One archetype that lists the scored card: core gate (<see cref="Gate"/>) and staged-synergy factor (<see cref="Stage"/>).</summary>
+    private readonly record struct Membership(
+        ArchetypeStatus Status, string? Role, double Weight, double Commit,
+        (int Owned, int Target) Core, double CoreFactor, (int Owned, int Target) Essential, double Gate, double Stage);
+
+    /// <summary>
+    /// Share of a non-core card's synergy that counts while <paramref name="s"/>'s build owns no core (before
+    /// <see cref="CorePriorityWeights.NoCoreFactor"/>): <c>clamp(noCoreMaxUnlock − CoreChance, 0, noCoreMaxUnlock)</c>, or the per-act
+    /// fallback when <see cref="ArchetypeStatus.CoreChance"/> is unknown. Depends only on how likely the core still is, never on how
+    /// many of the build's other cards the deck holds.
+    /// </summary>
+    public static double SynergyUnlock(ArchetypeStatus s, int act, Weights w)
+    {
+        var cp = w.CorePriority;
+        var cap = Math.Clamp(Finite(cp.NoCoreMaxUnlock), 0.0, 1.0);
+        if (s.CoreChance is { } p && double.IsFinite(p)) return Math.Clamp(cap - p, 0.0, cap);
+        return Math.Clamp(Finite(Weights.ForAct(cp.NoCoreUnlockByAct, act, 0.0)), 0.0, cap);
+    }
+
+    private bool CoreSecured(Archetype a, DeckProfile profile)
+    {
+        var core = ArchetypeDetector.CoreProgress(a, Pack, profile.Copies);
+        return core.Owned >= core.Target;
     }
 
     private static void Add(List<ScoreComponent> parts, string key, string label, double value, string? detail)

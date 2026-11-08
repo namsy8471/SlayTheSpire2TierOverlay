@@ -48,6 +48,7 @@ public static class ArchetypeDetector
 
         return pack.ArchetypesFor(state.Character)
             .Select(a => Evaluate(a, state.Character, pack, copies, relics, roleSupply, provides))
+            .Select(s => s.MissingCore.Count > 0 && !s.CoreSecured ? s with { CoreChance = CoreChance(s, state, pack) } : s)
             .OrderByDescending(s => s.Commit)
             .ThenByDescending(s => s.CompletionPercent)
             .ThenBy(s => s.Archetype.Id, StringComparer.Ordinal)
@@ -154,6 +155,39 @@ public static class ArchetypeDetector
         return Math.Clamp(1.0 - noHit, 0.0, 1.0);
     }
 
+    /// <summary>
+    /// P(at least one of <paramref name="status"/>'s missing core cards is offered in the rest of the run): the remaining normal card
+    /// rewards and the remaining boss rewards from <see cref="RemainingRunRewards"/>, each via
+    /// <see cref="CoreOfferProbability(ArchetypeStatus, RunState, DataPack, int, OfferContext, double?)"/> on the missing core only,
+    /// combined as independent chances. Elites, shops and events are left out (lower bound). [추정]
+    /// </summary>
+    public static double CoreChance(ArchetypeStatus status, RunState state, DataPack pack)
+    {
+        if (status.MissingCore.Count == 0) return 1.0;
+        var coreOnly = status with { MissingCards = status.MissingCore };
+        var (normal, bosses) = RemainingRunRewards(state, pack.Weights);
+        var pNormal = CoreOfferProbability(coreOnly, state, pack, normal, OfferContext.CardReward, pityOffset: null);
+        var pBoss = CoreOfferProbability(coreOnly, state, pack, bosses, OfferContext.BossReward, pityOffset: null);
+        return Math.Clamp(1.0 - (1.0 - pNormal) * (1.0 - pBoss), 0.0, 1.0);
+    }
+
+    /// <summary>
+    /// [추정] Card rewards left in the run: <c>round(floorsLeft × rewardsPerFloor)</c> normal rewards, where
+    /// <c>floorsLeft = floorsPerAct × runActs − max(floor, (act − 1) × floorsPerAct)</c>, and one boss reward per act not yet finished
+    /// (<see cref="CorePriorityWeights"/>).
+    /// </summary>
+    public static (int Normal, int Bosses) RemainingRunRewards(RunState state, Weights weights)
+    {
+        var cp = weights.CorePriority;
+        var perAct = Math.Max(1, cp.FloorsPerAct);
+        var acts = Math.Max(1, cp.RunActs);
+        var floor = Math.Max(state.Floor, (Math.Max(1, state.Act) - 1) * perAct);
+        var floorsLeft = Math.Max(0, perAct * acts - floor);
+        var normal = (int)Math.Round(floorsLeft * Math.Max(0.0, double.IsFinite(cp.RewardsPerFloor) ? cp.RewardsPerFloor : 0.0));
+        var bosses = Math.Max(0, acts - Math.Max(1, state.Act) + 1);
+        return (normal, bosses);
+    }
+
     private static long OffsetKey(double offset) => (long)Math.Round(offset * 1_000_000);
 
     public static ArchetypeReport Report(RunState state, DataPack pack, int remainingRewards,
@@ -247,6 +281,7 @@ public static class ArchetypeDetector
         }
 
         var core = CoreProgress(a, pack, copies);
+        var essential = EssentialProgress(a, pack, copies);
         var commit = a.FullWeight > 0 ? Math.Clamp(weightSum / a.FullWeight, 0.0, 1.0) : 0.0;
         var pct = totalCompletion > 0 ? Math.Clamp(ownedCompletion / totalCompletion * 100.0, 0.0, 100.0) : 0.0;
 
@@ -263,7 +298,31 @@ public static class ArchetypeDetector
             OwnedCore = core.Owned,
             CoreTarget = core.Target,
             MissingCore = missing.Where(m => m.Role == ArchetypeRoles.Core).ToList(),
+            OwnedEssential = essential.Owned,
+            EssentialTarget = essential.Target,
         };
+    }
+
+    /// <summary>
+    /// Distinct essential cards (first role payoff or enabler, see <see cref="Archetype.RoleOf"/>) of <paramref name="a"/> owned according to
+    /// <paramref name="copies"/>, and the target: <see cref="Archetype.EssentialTarget"/> or else
+    /// <see cref="CorePriorityWeights.EssentialTarget"/>, clamped to 0..number of distinct essential cards.
+    /// Shared by the detector and <see cref="Scoring.CardScorer"/> (staged synergy).
+    /// </summary>
+    public static (int Owned, int Target) EssentialProgress(Archetype a, DataPack pack, IReadOnlyDictionary<string, int> copies)
+    {
+        var essentials = EssentialCards(a, pack);
+        var owned = essentials.Count(id => copies.TryGetValue(id, out var n) && n > 0);
+        var target = Math.Clamp(a.EssentialTarget ?? pack.Weights.CorePriority.EssentialTarget, 0, essentials.Count);
+        return (owned, target);
+    }
+
+    /// <summary>Distinct canonical payoff + enabler cards of <paramref name="a"/> that are not also listed as core.</summary>
+    private static List<string> EssentialCards(Archetype a, DataPack pack)
+    {
+        var cores = a.Cards.Core.Select(pack.Canonical).ToHashSet(StringComparer.Ordinal);
+        return a.Cards.Payoff.Concat(a.Cards.Enabler).Select(pack.Canonical)
+            .Where(id => !cores.Contains(id)).Distinct(StringComparer.Ordinal).ToList();
     }
 
     /// <summary>

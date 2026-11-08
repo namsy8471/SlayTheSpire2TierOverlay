@@ -365,6 +365,7 @@ public sealed partial class AppController : IDisposable
             var sub = $"{e.Rank}위 · 데이터 신뢰도 {e.Confidence:P0}";
             if (r.Cards[i].Confidence < 0.8) sub += $" · 인식 {r.Cards[i].Confidence:P0}";
             if (!e.IsRated) sub += " · 미평가 카드";
+            if (ScoringLabels.BuildRoleText(e.BuildRoles) is { } buildRole) sub = buildRole + "\n" + sub;
             rows.Add(new OfferRowVm
             {
                 Name = _cards.Name(e.Card),
@@ -433,6 +434,7 @@ public sealed partial class AppController : IDisposable
             var score = e?.Total ?? item.Value.Total;
             var sub = $"구매 가치 {Fmt(item.Value.Total)} · 골드당 {item.ValuePerGold.ToString("0.00", CultureInfo.InvariantCulture)}";
             if (!item.Affordable) sub += " · 골드 부족";
+            if (e is not null && ScoringLabels.BuildRoleText(e.BuildRoles) is { } buildRole) sub = buildRole + "\n" + sub;
             return new OfferRowVm
             {
                 Name = isCard ? _cards.Name(item.Card!.Value) : $"카드 제거 ({(item.RemovalTarget is { } t ? _cards.Name(t) : "?")})",
@@ -615,13 +617,13 @@ public sealed partial class AppController : IDisposable
                 ? null
                 : "필요: " + string.Join(", ", st.MissingCards.Take(5).Select(m =>
                     $"{_cards.Name(m.CardId)}({RoleName(m.Role)}, {CardInfoProvider.RarityKorean(m.Rarity)})"));
-            // 코어 먼저: until the build owns its core card(s), name them first (the scorer pushes them as "코어 확보").
-            if (!st.CoreSecured && st.MissingCore.Count > 0 && st.Commit > 0)
-            {
-                missing = $"먼저 노릴 코어 ({st.OwnedCore}/{st.CoreTarget}): "
-                    + string.Join(", ", st.MissingCore.Take(3).Select(m => _cards.Name(m.CardId)))
-                    + (missing is null ? "" : "\n" + missing);
-            }
+            // 코어 먼저: before a core the scorer locks this build's synergy; after it, essentials (payoff + enabler) before support.
+            var cores = string.Join(", ", st.MissingCore.Take(3).Select(m => _cards.Name(m.CardId)));
+            var stage = st.CoreTarget == 0 || st.Commit <= 0 ? null
+                : st.OwnedCore == 0 ? $"코어 전: 시너지 점수 잠김 · 먼저 노릴 코어 {cores}"
+                : (st.EssentialTarget > 0 ? $"필수 시너지 {Math.Min(st.OwnedEssential, st.EssentialTarget)}/{st.EssentialTarget}" : "")
+                  + (st.CoreSecured ? "" : $" · 코어 {st.OwnedCore}/{st.CoreTarget}, 다음 코어 {cores}");
+            if (!string.IsNullOrWhiteSpace(stage)) missing = stage.TrimStart(' ', '·') + (missing is null ? "" : "\n" + missing);
             var needs = st.UnmetNeeds.Count == 0
                 ? null
                 : "조건 미충족: " + string.Join(", ", st.UnmetNeeds.Select(n =>
