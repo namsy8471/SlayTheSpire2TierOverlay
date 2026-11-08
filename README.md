@@ -22,6 +22,7 @@
 | `tools/VisionBench` | | 캡처 모음으로 인식 정확도 측정 (세이브의 `card_choices`로 자동 채점) |
 | `tools/StateProbe` | | 세이브·로그 추적 결과를 실시간 출력 |
 | `tools/RunHistoryAnalyzer` | | `.run` 기록을 엔진으로 리플레이해 "추천과 내 선택" 비교 |
+| `tools/PathStats` | | `.run` 기록에서 방 종류·막별 HP 손실, 골드, 휴식, 사망률을 재고 경로 가중치를 맞춘 뒤 이전 값과 백테스트 |
 
 ## 로컬 리소스 (자동)
 
@@ -82,6 +83,14 @@ dotnet run --project tools/RunHistoryAnalyzer -- replay "%APPDATA%\SlayTheSpire2
 ```bash
 dotnet run --project tools/RunHistoryAnalyzer -- validate "%APPDATA%\SlayTheSpire2\steam\<id>\profile1\saves\history" --pack data/packs/v0.107.1 --player <id> --tuned-until 1794134406 --all-players --out data/local/holdout/validate.md
 ```
+
+경로 가중치 측정·백테스트 (협동 런은 두 계정 폴더에 같은 런이 있어도 한 번만 셉니다):
+
+```bash
+dotnet run --project tools/PathStats -- "%APPDATA%\SlayTheSpire2\steam\<id>\profile1\saves\history" --pack data/packs/v0.107.1 --map tests/Sts2Overlay.Core.Tests/Map/Fixtures/map_act2.json
+```
+
+결과는 `data/local/path/`(stats.md, stats.json, backtest.md, backtest.json)에 생깁니다. 측정값은 `PathWeights`의 `[측정]` 주석에 표본 수와 함께 옮겨 둡니다.
 
 ## 저작권
 

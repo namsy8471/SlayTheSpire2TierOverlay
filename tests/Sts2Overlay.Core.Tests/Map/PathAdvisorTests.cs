@@ -104,13 +104,15 @@ public class PathAdvisorTests
     [Fact]
     public void GoldEarnedOnThePath_MakesALaterShopValuable()
     {
-        // 120 gold now (< 150 threshold): shop right away is poor, after two fights (+30) it can buy.
+        // Just short of the threshold now: shop right away is poor, after two fights (+2 × MonsterGold) it can buy.
+        var w = Pack.Weights.Path;
+        var gold = w.ShopGoldThreshold - 2 * w.MonsterGold;
         var map = new MapBuilder(4, 1, (0, 1))
             .Add(0, 1, MapNodeType.Monster, (0, 2))
             .Add(0, 2, MapNodeType.Monster, (0, 3))
             .Add(0, 3, MapNodeType.Shop, (0, 4))
             .Build();
-        var state = State(1.0, gold: 120, deck: [new DeckCard(new CardRef(TestPacks.OrbCore))]); // nothing to remove
+        var state = State(1.0, gold: gold, deck: [new DeckCard(new CardRef(TestPacks.OrbCore))]); // nothing to remove
         var advisor = new PathAdvisor(Pack);
 
         var later = advisor.ScorePath(state, map, [new(0, 1), new(0, 2), new(0, 3), map.Boss]);
