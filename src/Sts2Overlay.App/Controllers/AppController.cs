@@ -29,7 +29,7 @@ namespace Sts2Overlay.App.Controllers;
 /// Events from other threads are marshalled with <see cref="Dispatcher.BeginInvoke(Delegate, object[])"/> because WPF
 /// objects may only be touched by the thread that created them.
 /// </summary>
-public sealed class AppController : IDisposable
+public sealed partial class AppController : IDisposable
 {
     /// <summary>Stand-in when a card offer is recognised before the save tracker has produced a run.</summary>
     private static readonly RunState UnknownRun = new() { Character = "CHARACTER.UNKNOWN" };
@@ -79,6 +79,7 @@ public sealed class AppController : IDisposable
         _packDir = packDir;
         CatalogPath = catalogPath;
         (_engine, _cards) = LoadPack(packDir, catalogPath, vm);
+        InitForecastReview(packDir, catalogPath); // forecast + run review (AppController.ForecastReview.cs)
 
         _tracker.Changed += (_, _) => OnTrackerChanged();
         // The panel moved to a monitor with another DPI: the DPI part of the scale changed, ours must follow.
@@ -175,6 +176,7 @@ public sealed class AppController : IDisposable
         _snapshot = snap;
         _pipeline.CharacterHint = snap.Run?.Character;
         RefreshRunViews(snap.Run);
+        UpdateForecastReview(snap); // AppController.ForecastReview.cs
         if (Demo is null) RefreshPath(snap);
 
         var likely = IsOfferHint(snap.Hint);
@@ -723,6 +725,7 @@ public sealed class AppController : IDisposable
         (_engine, _cards) = LoadPack(_packDir, CatalogPath, _vm);
         _engineVersion++;
         RefreshRunViews(_snapshot.Run);
+        ReloadForecastReview(); // AppController.ForecastReview.cs
         if (_lastResult is not null) ApplyRecognition(_lastResult);
         ShowMessage("데이터 팩을 다시 읽었습니다");
         PackReloaded?.Invoke();
@@ -837,5 +840,6 @@ public sealed class AppController : IDisposable
         _messageTimer.Stop();
         _source.Changed -= OnSourceChanged;
         _source.Dispose();
+        DisposeForecastReview(); // AppController.ForecastReview.cs
     }
 }

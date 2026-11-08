@@ -1,5 +1,6 @@
 using System.Globalization;
 using Sts2Overlay.Core.Data;
+using Sts2Overlay.Core.Forecast;
 using Sts2Overlay.Core.History;
 using Sts2Overlay.Core.Replay;
 using Sts2Overlay.Core.Replay.Validation;
@@ -12,6 +13,7 @@ using Sts2Overlay.Tools.RunHistoryAnalyzer;
 //   dotnet run --project tools/RunHistoryAnalyzer -- stats  <runs-dir|file.run>... [--player <steamId>]
 //   dotnet run --project tools/RunHistoryAnalyzer -- validate <runs-dir|file.run>... --pack <dir> [--compare-pack <dir>] [--cv-pack <dir>]
 //        [--player <steamId>] [--tuned-until <unix>] [--all-players] [--k 5] [--chrono-test <games>] [--min-net 3] [--min-games 2] [--out <file.md>]
+//   dotnet run --project tools/RunHistoryAnalyzer -- calibrate <runs-dir>... --pack <dir> [--catalog <cards.json>] [--sims N] [--noise σ] [--policy greedy|engine]
 //
 // Run files live in %APPDATA%\SlayTheSpire2\steam\<steamid>\profile1\saves\history\.
 
@@ -31,6 +33,10 @@ internal static class Cli
         var inputs = new List<string>();
         string? packDir = null, outFile = null, comparePackDir = null, cvPackDir = null;
         long? player = null, tunedUntil = null;
+        string? catalogFile = null;
+        var sims = 1000;
+        var noise = 0.0;
+        var policy = PickPolicy.Greedy;
         var summaryOnly = false;
         var allPlayers = false;
         int k = 5, minNet = 3, minGames = 2;
@@ -52,6 +58,10 @@ internal static class Cli
                 case "--chrono-test": chronoTest = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture); break;
                 case "--min-net": minNet = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture); break;
                 case "--min-games": minGames = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture); break;
+                case "--catalog": catalogFile = Next(args, ref i); break;
+                case "--sims": sims = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture); break;
+                case "--noise": noise = double.Parse(Next(args, ref i), CultureInfo.InvariantCulture); break;
+                case "--policy": policy = Enum.Parse<PickPolicy>(Next(args, ref i), ignoreCase: true); break;
                 default: inputs.Add(args[i]); break;
             }
         }
@@ -123,6 +133,17 @@ internal static class Cli
                 Write(w.ToString(), outFile);
                 return 0;
             }
+            case "calibrate":
+            {
+                var pack = LoadPack(packDir);
+                var catalogPath = catalogFile ?? FindCommittedCatalog();
+                var pool = catalogPath is not null ? ForecastCardPool.FromCatalogJson(File.ReadAllText(catalogPath)) : ForecastCardPool.FromPack(pack);
+                // In co-op "me" is the Steam id of the history folder (steam/<id>/profile1/...); without it LocalPlayer picks player 1.
+                var options = new ForecastOptions { Simulations = sims, PickNoise = noise, Policy = policy, Seed = 12345 };
+                var named = files.Zip(runs, (f, r) => (r, f, player ?? SteamIdFromPath(f))).ToArray();
+                Write(Calibration.Run(named, pack, pool, options), outFile);
+                return 0;
+            }
             default:
                 PrintUsage();
                 return 1;
@@ -142,6 +163,25 @@ internal static class Cli
             Console.Error.WriteLine($"[{issue.Severity}] {issue.Where}: {issue.Message}");
         }
         return pack;
+    }
+
+    private static string? FindCommittedCatalog()
+    {
+        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
+        {
+            var candidate = Path.Combine(dir.FullName, "data", "catalog");
+            if (Directory.Exists(candidate)) return Directory.GetFiles(candidate, "cards.*.json").OrderDescending(StringComparer.Ordinal).FirstOrDefault();
+        }
+        return null;
+    }
+
+    private static long? SteamIdFromPath(string path)
+    {
+        foreach (var part in Path.GetFullPath(path).Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+        {
+            if (part.Length == 17 && long.TryParse(part, NumberStyles.None, CultureInfo.InvariantCulture, out var id)) return id;
+        }
+        return null;
     }
 
     private static List<string> ExpandInputs(IEnumerable<string> inputs)
@@ -173,6 +213,7 @@ internal static class Cli
               stats  <runs-dir|file.run>... [--player <steamId>] [--out <file.md>]
               validate <runs-dir|file.run>... --pack <dir> [--compare-pack <dir>] [--cv-pack <dir>] [--player <steamId>]
                        [--tuned-until <unix>] [--all-players] [--k 5] [--chrono-test <games>] [--min-net 3] [--min-games 2] [--out <file.md>]
+              calibrate <runs-dir>... --pack <dir> [--catalog <cards.json>] [--sims N] [--noise σ] [--policy greedy|engine] [--out <file.md>]
             """);
     }
 }
