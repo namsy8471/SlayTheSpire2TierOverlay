@@ -311,8 +311,8 @@ public class ArchetypeDetectorTests
         var p = Pack();
         var s = State(["CARD.C1"]);
         var st = Single(s, p);
-        // missing: C2 rare (0.03/16), P1 uncommon (0.37/36); 3 slots per reward
-        var perSlot = 0.03 / 16 + 0.37 / 36;
+        // missing: C2 rare (0.03/25), P1 uncommon (0.37/35); 3 slots per reward
+        var perSlot = 0.03 / 25 + 0.37 / 35;
         var expected = 1 - Math.Pow(1 - perSlot, 3 * 5);
         Assert.Equal(expected, ArchetypeDetector.CoreOfferProbability(st, s, p, 5), Precision);
     }
@@ -383,7 +383,7 @@ public class ArchetypeDetectorTests
             Archetype = Orbs(),
             MissingCards = [new MissingCard("CARD.Q", "core", null), new MissingCard("CARD.ANC", "core", "ancient")],
         };
-        Assert.Equal(1 - Math.Pow(1 - 0.37 / 36, 6), ArchetypeDetector.CoreOfferProbability(status, s, p, 2), Precision);
+        Assert.Equal(1 - Math.Pow(1 - 0.37 / 35, 6), ArchetypeDetector.CoreOfferProbability(status, s, p, 2), Precision);
     }
 
     [Fact]
@@ -391,7 +391,8 @@ public class ArchetypeDetectorTests
     {
         var w = new Weights();
         w.Completion.PoolSize["uncommon"] = 1;
-        w.Completion.RarityOdds["uncommon"] = 1;
+        w.CardOdds.CardReward.Rare = 0;
+        w.CardOdds.CardReward.Uncommon = 1;
         var status = new ArchetypeStatus
         {
             Archetype = Orbs(),

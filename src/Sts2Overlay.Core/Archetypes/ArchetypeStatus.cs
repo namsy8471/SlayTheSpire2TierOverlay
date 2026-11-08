@@ -43,7 +43,7 @@ public sealed record ArchetypeReport
     /// <summary>Top two archetypes are within <c>HybridMargin</c> and both non-zero.</summary>
     public bool IsHybrid { get; init; }
 
-    /// <summary>Archetype id → probability that at least one missing core/payoff card is offered in the next N rewards. [추정]</summary>
+    /// <summary>Archetype id → probability that at least one missing core/payoff card is offered in the next N normal card rewards (see <see cref="ArchetypeDetector.CoreOfferProbability(ArchetypeStatus, Model.RunState, DataPack, int)"/>).</summary>
     public IReadOnlyDictionary<string, double> CoreOfferProbability { get; init; } = new Dictionary<string, double>();
 
     public int RemainingRewards { get; init; }

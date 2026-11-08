@@ -12,7 +12,7 @@ namespace Sts2Overlay.Core.Data;
 /// archetypes/*.json       array of Archetype
 /// combos/*.json           array of Combo
 /// aliases.json            (optional) { "OLD_ID": "NEW_ID" }
-/// catalog.json            (optional) CardCatalog, usually generated locally
+/// catalog.json            (optional) CardCatalog; usually passed in instead (catalog / catalogPath)
 /// </code>
 /// JSON uses camelCase, allows comments and trailing commas, and tier letters as strings.
 /// </summary>
@@ -67,13 +67,20 @@ public static class DataPackLoader
         return o;
     }
 
+    /// <summary>Repository-relative path of the committed names-free catalog (<c>data/catalog/cards.v0.107.1.json</c>).</summary>
+    public static readonly string DefaultCatalogRelativePath = Path.Combine("data", "catalog", "cards.v0.107.1.json");
+
     /// <summary>
     /// Loads a pack directory. Every part is optional; missing parts become defaults (weights) or empty collections.
-    /// <paramref name="catalog"/>, when given, wins over a <c>catalog.json</c> in the directory.
+    /// Catalog precedence: <paramref name="catalog"/>, then the file at <paramref name="catalogPath"/>, then <c>catalog.json</c> in the directory.
     /// </summary>
+    /// <param name="directory">The pack directory.</param>
+    /// <param name="catalog">An already loaded catalog.</param>
+    /// <param name="catalogPath">A catalog file to load, e.g. <c>data/catalog/cards.v0.107.1.json</c> (see <see cref="LoadCatalogFile"/>).</param>
     /// <exception cref="DirectoryNotFoundException">The directory does not exist.</exception>
+    /// <exception cref="FileNotFoundException"><paramref name="catalogPath"/> is given but does not exist.</exception>
     /// <exception cref="InvalidDataException">A file is malformed or two tier files declare the same character.</exception>
-    public static DataPack LoadDirectory(string directory, CardCatalog? catalog = null)
+    public static DataPack LoadDirectory(string directory, CardCatalog? catalog = null, string? catalogPath = null)
     {
         if (!Directory.Exists(directory))
         {
@@ -117,10 +124,14 @@ public static class DataPackLoader
             ? LoadFile(aliasesPath, LoadAliases)
             : new Dictionary<string, string>(StringComparer.Ordinal);
 
-        var catalogPath = Path.Combine(directory, CatalogFile);
-        if (catalog is null && File.Exists(catalogPath))
+        if (catalog is null && catalogPath is not null)
         {
-            catalog = LoadFile(catalogPath, LoadCatalog);
+            catalog = LoadCatalogFile(catalogPath);
+        }
+        var packCatalogPath = Path.Combine(directory, CatalogFile);
+        if (catalog is null && File.Exists(packCatalogPath))
+        {
+            catalog = LoadFile(packCatalogPath, LoadCatalog);
         }
 
         return new DataPack
@@ -167,7 +178,23 @@ public static class DataPackLoader
         return list;
     }
 
+    /// <summary>
+    /// Parses a catalog as written (e.g. the real <c>cards.v0.107.1.json</c>: PascalCase type/rarity, <c>CARD_POOL.*</c> pools,
+    /// <c>multiplayer</c> string; or older dumps with <c>multiplayerOnly</c>). Unknown fields are ignored.
+    /// </summary>
     public static CardCatalog LoadCatalog(string json) => Deserialize<CardCatalog>(json, "catalog");
+
+    /// <summary>Loads a catalog file.</summary>
+    /// <exception cref="FileNotFoundException">The file does not exist.</exception>
+    /// <exception cref="InvalidDataException">The file is malformed; the message starts with the path.</exception>
+    public static CardCatalog LoadCatalogFile(string path)
+    {
+        if (!File.Exists(path))
+        {
+            throw new FileNotFoundException($"Catalog file not found: {path}", path);
+        }
+        return LoadFile(path, LoadCatalog);
+    }
 
     /// <summary><c>aliases.json</c>: an object mapping old ids to current ids.</summary>
     public static IReadOnlyDictionary<string, string> LoadAliases(string json)
