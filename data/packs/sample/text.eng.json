@@ -1,0 +1,18 @@
+// English for this pack's Korean tips, combo names/reasons and archetype descriptions (PackText).
+// Keys: card id / combo card ids joined with '+' in file order / archetype id. Tests check every Korean string has a twin here.
+{
+  "tips": {
+    "CARD.HOLOGRAM": "Placeholder tip"
+  },
+  "combos": {
+    "CARD.DEFRAGMENT+CARD.GLACIER": {
+      "name": "Sample combo",
+      "why": "Description for the format sample"
+    }
+  },
+  "archetypes": {
+    "defect.sample_orbs": {
+      "desc": "Description for the format sample"
+    }
+  }
+}
