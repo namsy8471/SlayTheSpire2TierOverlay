@@ -11,7 +11,7 @@ public readonly record struct MapMark(float X, float Y0);
 /// <param name="Score">Mean "ink" (0..60) at the fitted node positions; empty paper scores ~0.</param>
 /// <param name="Visible">Nodes whose fitted position is on screen and not under the game's own UI.</param>
 /// <param name="Matched">Of those, nodes with an icon at the fitted position.</param>
-/// <param name="Runner">Best score at a scroll at least half a row away (how ambiguous the fit is).</param>
+/// <param name="Runner">Best score among the other coarse peaks (diagnostic).</param>
 /// <param name="Paper">Brightness of the empty parchment (0..255).</param>
 /// <param name="Detail">Probe values for the log / bench.</param>
 public sealed record MapFit(bool IsMap, float Scroll, float Score, int Visible, int Matched, float Runner, float Paper, string Detail)
@@ -56,16 +56,20 @@ public sealed class MapScrollEstimator
     public const float MatchInk = 16f;
 
     /// <summary>Minimum mean ink of a fit to call the screen "the map".</summary>
-    public const float MinScore = 20f;
+    public const float MinScore = 14f;
+
+    /// <summary>Minimum visible nodes: any scroll of a real act map shows at least ~10 (start and boss rows included).</summary>
+    public const int MinVisible = 8;
+
+    /// <summary>Minimum icon boxes that must agree with the fit (see the fine step in <see cref="Estimate"/>).</summary>
+    public const int MinBoxes = 4;
 
     /// <summary>Minimum share of visible nodes that must be matched.</summary>
     public const float MinMatchedShare = 0.8f;
 
-    /// <summary>The best wrong offset must score at most this share of the best one (otherwise the fit is ambiguous).</summary>
-    public const float MaxRunnerShare = 0.75f;
-
     private readonly int[] _lumIntegral = new int[(GridW + 1) * (GridH + 1)];
     private readonly int[] _inkIntegral = new int[(GridW + 1) * (GridH + 1)];
+    private readonly byte[] _ink = new byte[GridW * GridH];
     private readonly byte[] _r = new byte[GridW * GridH], _g = new byte[GridW * GridH], _b = new byte[GridW * GridH];
 
     /// <summary>Design-space rectangles covered by the game's map UI (x, y, w, h).</summary>
@@ -95,33 +99,97 @@ public sealed class MapScrollEstimator
         if (paper - margin < 40) return MapFit.None(Inv($"no dark margin (paper {paper:F0}, margin {margin:F0})")) with { Paper = paper };
 
         int steps = (int)((maxScroll - minScroll) / Cell) + 1;
-        Span<float> scores = steps <= 4096 ? stackalloc float[steps] : new float[steps];
-        int best = -1;
+        float[] scores = new float[steps];
         for (int i = 0; i < steps; i++)
         {
             scores[i] = Score(marks, minScroll + i * Cell, out int visible, out _);
             if (visible < 5) scores[i] = 0;
-            if (best < 0 || scores[i] > scores[best]) best = i;
         }
-        if (best < 0 || scores[best] <= 0) return MapFit.None("no fit") with { Paper = paper };
 
-        // Sub-cell refinement: vertex of the parabola through the peak and its neighbours.
-        float scroll = minScroll + best * Cell;
-        if (best > 0 && best < steps - 1)
+        // Coarse peaks: the best few local maxima at least ~half a row (60 design px) apart. The highest peak is not
+        // always right: a scroll that leaves only a handful of nodes on screen can land them all on something inky
+        // (e.g. the big start-node art), so each peak is verified with the icon boxes below and the best VERIFIED one wins.
+        var peaks = new List<int>();
+        foreach (int i in Enumerable.Range(0, steps).Where(i => scores[i] > 0).OrderByDescending(i => scores[i]))
         {
-            float a = scores[best - 1], b = scores[best], c = scores[best + 1];
+            if (peaks.Count >= MaxPeaks) break;
+            if (peaks.All(p => Math.Abs(p - i) * Cell >= 60)) peaks.Add(i);
+        }
+        if (peaks.Count == 0) return MapFit.None("no fit") with { Paper = paper };
+
+        Candidate? best = null;
+        var candidates = peaks.Select(i => Verify(marks, scores, i, minScroll)).ToList();
+        foreach (Candidate c in candidates)
+            if (best is null || c.Beats(best)) best = c;
+        Candidate win = best!;
+
+        // Ambiguity: another verified candidate with nearly as many agreeing icons means we can't tell which is right.
+        bool ambiguous = candidates.Any(c => !ReferenceEquals(c, win) && c.Valid && c.Boxes >= 0.6 * win.Boxes);
+        float runner = candidates.Where(c => !ReferenceEquals(c, win)).Select(c => c.Score).DefaultIfEmpty(0).Max();
+        bool isMap = win.Valid && !ambiguous;
+        return new MapFit(isMap, win.Scroll, win.Score, win.Visible, win.Matched, runner, paper,
+            Inv($"margin={margin:F0} paperRGB={pr},{pg},{pb} boxes={win.Boxes} spread={win.Spread:F1} medDx={win.MedDx:F1} peaks={peaks.Count}{(ambiguous ? " AMBIGUOUS" : "")}"));
+    }
+
+    /// <summary>How many coarse peaks are verified with icon boxes.</summary>
+    private const int MaxPeaks = 6;
+
+    private sealed record Candidate(float Scroll, float Score, int Visible, int Matched, int Boxes, float Spread, float MedDx, bool Valid)
+    {
+        /// <summary>Verified first, then more agreeing icons, then more ink.</summary>
+        public bool Beats(Candidate o) => Valid != o.Valid ? Valid : Boxes != o.Boxes ? Boxes > o.Boxes : Score > o.Score;
+    }
+
+    /// <summary>
+    /// Refines one coarse peak and checks it against the icons themselves.
+    /// <para>Sub-cell: vertex of the parabola through the peak and its neighbours.</para>
+    /// <para>Fine: the ink peak of an icon is not its centre (icons are not symmetric: the "?" has a light glyph in its
+    /// upper half, monsters a white face ...), which biased the peak by up to ~11 design px. The bounding box of an
+    /// icon's ink IS centred on the node (the textures are centred), so take every visible node's box centre and shift
+    /// the scroll by the median vertical error. The median ignores the few boxes that touch a path dash or the marker.</para>
+    /// <para>Verified: on the real map the icon boxes agree with each other within a few px (small spread, median x error
+    /// near 0). A wrong screen or a wrong row that happens to be "inky" where some nodes would be has no such blobs.</para>
+    /// </summary>
+    private Candidate Verify(IReadOnlyList<MapMark> marks, float[] scores, int i, float minScroll)
+    {
+        float scroll = minScroll + i * Cell;
+        if (i > 0 && i < scores.Length - 1)
+        {
+            float a = scores[i - 1], b = scores[i], c = scores[i + 1];
             float den = a - 2 * b + c;
             if (den < 0) scroll += Math.Clamp(0.5f * (a - c) / den, -0.5f, 0.5f) * Cell;
         }
 
-        // Ambiguity: best score at least ~half a row (60 design px) away from the winner.
-        float runner = 0;
-        for (int i = 0; i < steps; i++)
-            if (Math.Abs(i - best) * Cell >= 60) runner = Math.Max(runner, scores[i]);
+        var dys = new List<float>();
+        var dxs = new List<float>();
+        for (int k = 0; k < marks.Count; k++)
+        {
+            float x = marks[k].X, y = marks[k].Y0 + scroll;
+            if (y < 50 || y > 1030 || IsMasked(x, y)) continue;
+            if (IconBoxCentre(x, y) is { } c)
+            {
+                dxs.Add(c.X - x);
+                dys.Add(c.Y - y);
+            }
+        }
+        float medDx = 0, spread = -1;
+        if (dys.Count >= 3)
+        {
+            dys.Sort();
+            dxs.Sort();
+            float medDy = dys[dys.Count / 2];
+            scroll += medDy;
+            medDx = dxs[dxs.Count / 2];
+            // Median absolute deviation of the vertical errors.
+            spread = dys.Select(d => Math.Abs(d - medDy)).Order().ElementAt(dys.Count / 2);
+        }
 
         float score = Score(marks, scroll, out int vis, out int matched);
-        bool isMap = score >= MinScore && vis >= 5 && matched >= MinMatchedShare * vis && runner <= MaxRunnerShare * score;
-        return new MapFit(isMap, scroll, score, vis, matched, runner, paper, Inv($"margin={margin:F0} paperRGB={pr},{pg},{pb}"));
+        // Measured on 45 real map frames vs ~2,200 other frames (MapBench): real maps have boxes/visible >= 0.64,
+        // spread <= 1.4, |medDx| <= 1.2; the closest non-maps have <= 0.47, >= 1.9 and up to 15.
+        bool boxesAgree = dys.Count >= Math.Max(MinBoxes, (vis + 1) / 2) && spread is >= 0 and <= 2.5f && Math.Abs(medDx) <= 3f;
+        bool valid = boxesAgree && score >= MinScore && vis >= MinVisible && matched >= MinMatchedShare * vis;
+        return new Candidate(scroll, score, vis, matched, dys.Count, spread, medDx, valid);
     }
 
     /// <summary>Mean clamped ink of the spots at <paramref name="scroll"/> over visible, unmasked nodes.</summary>
@@ -135,6 +203,9 @@ public sealed class MapScrollEstimator
             float x = marks[i].X, y = marks[i].Y0 + scroll;
             if (y < 20 || y > 1060 || IsMasked(x, y)) continue;
             visible++;
+            // A node sits on paper: at least two of the four corners around it must be plain paper. Without this, a
+            // layout pushed past the end of the parchment "matches" the black margin (black is very far from paper).
+            if (!OnPaper(x, y)) continue;
             float ink = BoxMean(_inkIntegral, x - SpotHalf, y - SpotHalf, x + SpotHalf, y + SpotHalf);
             if (ink >= MatchInk) matched++;
             sum += Math.Min(ink, 60);
@@ -157,6 +228,77 @@ public sealed class MapScrollEstimator
             if (ink > bi) (bx, by, bi) = (dx, dy, ink);
         }
         return (bx, by, bi);
+    }
+
+    private bool OnPaper(float x, float y)
+    {
+        const float d = 40, h = 5;
+        int paper = 0;
+        if (BoxMean(_inkIntegral, x - d - h, y - d - h, x - d + h, y - d + h) < PaperInk) paper++;
+        if (BoxMean(_inkIntegral, x + d - h, y - d - h, x + d + h, y - d + h) < PaperInk) paper++;
+        if (BoxMean(_inkIntegral, x - d - h, y + d - h, x - d + h, y + d + h) < PaperInk) paper++;
+        if (BoxMean(_inkIntegral, x + d - h, y + d - h, x + d + h, y + d + h) < PaperInk) paper++;
+        return paper >= 2;
+    }
+
+    /// <summary>Mean ink below which a small box counts as plain paper (texture and stains stay well under it).</summary>
+    private const float PaperInk = 22f;
+
+    /// <summary>Ink per cell above which a cell belongs to an icon (colour distance from the paper, 0..255).</summary>
+    private const int IconInk = 30;
+
+    /// <summary>
+    /// Centre of the bounding box of the ink blob around (x, y): flood fill from the inkiest cell near (x, y) through
+    /// cells with at least <see cref="IconInk"/>, limited to a 96x96 design px window (an icon is drawn about 60 px).
+    /// Null when nothing icon-sized is there.
+    /// </summary>
+    /// <summary>Weakest darkest-cell ink that can start an icon blob (a fading-in icon, not the paper texture).</summary>
+    private const int MinSeedInk = 20;
+
+    internal (float X, float Y)? IconBoxCentre(float x, float y)
+    {
+        const int R = 24; // window half-size in cells (48 design px)
+        int cx = (int)(x / Cell), cy = (int)(y / Cell);
+        int x0 = Math.Max(0, cx - R), x1 = Math.Min(GridW - 1, cx + R), y0 = Math.Max(0, cy - R), y1 = Math.Min(GridH - 1, cy + R);
+        // Seed: the inkiest cell within ±6 cells of the predicted centre.
+        int seed = -1, seedInk = MinSeedInk - 1;
+        for (int gy = Math.Max(y0, cy - 6); gy <= Math.Min(y1, cy + 6); gy++)
+        for (int gx = Math.Max(x0, cx - 6); gx <= Math.Min(x1, cx + 6); gx++)
+            if (_ink[gy * GridW + gx] > seedInk) (seed, seedInk) = (gy * GridW + gx, _ink[gy * GridW + gx]);
+        if (seed < 0) return null;
+        // While the map fades in (and for the dimmed icons of a co-op partner's view) the icons are washed out, so a
+        // fixed threshold loses them. Follow the blob down to 40% of its own darkest cell, but never below the paper's
+        // own texture noise (16) and never above the normal icon threshold.
+        int thr = Math.Clamp((int)(seedInk * 0.4f), 16, IconInk);
+
+        int bx0 = int.MaxValue, bx1 = -1, by0 = int.MaxValue, by1 = -1, count = 0;
+        var seen = new HashSet<int> { seed };
+        var stack = new Stack<int>();
+        stack.Push(seed);
+        while (stack.Count > 0)
+        {
+            int i = stack.Pop();
+            int gx = i % GridW, gy = i / GridW;
+            count++;
+            bx0 = Math.Min(bx0, gx);
+            bx1 = Math.Max(bx1, gx);
+            by0 = Math.Min(by0, gy);
+            by1 = Math.Max(by1, gy);
+            Visit(gx - 1, gy);
+            Visit(gx + 1, gy);
+            Visit(gx, gy - 1);
+            Visit(gx, gy + 1);
+        }
+        // Too small = a path dash; touching the window edge = merged with something bigger (circle, marker, drawing).
+        if (count < 60 || bx0 == x0 || bx1 == x1 || by0 == y0 || by1 == y1) return null;
+        return ((bx0 + bx1 + 1) * Cell / 2f, (by0 + by1 + 1) * Cell / 2f);
+
+        void Visit(int nx, int ny)
+        {
+            if (nx < x0 || nx > x1 || ny < y0 || ny > y1) return;
+            int n = ny * GridW + nx;
+            if (_ink[n] >= thr && seen.Add(n)) stack.Push(n);
+        }
     }
 
     internal static bool IsMasked(float x, float y)
@@ -199,7 +341,9 @@ public sealed class MapScrollEstimator
             {
                 int r = _r[o + gx], g = _g[o + gx], b = _b[o + gx];
                 lumAcc += (r * 77 + g * 150 + b * 29) >> 8;  // Rec. 601 luma
-                inkAcc += (Math.Abs(r - pr) + Math.Abs(g - pg) + Math.Abs(b - pb)) / 3;
+                int ink = (Math.Abs(r - pr) + Math.Abs(g - pg) + Math.Abs(b - pb)) / 3;
+                _ink[o + gx] = (byte)ink;
+                inkAcc += ink;
                 _lumIntegral[irow + gx + 1] = _lumIntegral[iprev + gx + 1] + lumAcc;
                 _inkIntegral[irow + gx + 1] = _inkIntegral[iprev + gx + 1] + inkAcc;
             }

@@ -10,8 +10,8 @@ using Sts2Overlay.Vision.Map;
 // MapBench fit <frame files or folders...> --saves <dir with current_run*.save copies> [--render <dir>] [--truth <file>]
 //
 // For every frame, every distinct act map found in the saves is fitted; the best fit decides "map or not".
-// --truth: a text file "frameName scroll" (or "frameName -" for not-a-map) checked line by line: a map frame passes
-// when detected and the scroll is within 4 design px; any other frame passes when it is not detected as a map.
+// --truth: see below. A map frame passes when it is detected and every measurable node icon is within 6 design px of
+// the fitted layout; any other frame passes when it is not detected as a map.
 
 CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
 if (args.Length == 0 || args[0] != "fit")
@@ -51,10 +51,15 @@ var files = inputs.SelectMany(p => Directory.Exists(p)
         : [p])
     .Order(StringComparer.Ordinal).ToList();
 
-Dictionary<string, float?>? truth = truthFile is null ? null : File.ReadAllLines(truthFile)
+// Truth lines: "<frame name> map" (the act map of a known save is open, unobstructed) or "<frame name> -" (anything
+// else, including a map of an act we have no save for, which must NOT be fitted), or "<frame name> skip <reason>"
+// (a transition frame where either answer is fine, e.g. the act title banner over a scrolling map).
+Dictionary<string, string>? truth = truthFile is null ? null : File.ReadAllLines(truthFile)
     .Where(l => l.Trim().Length > 0 && !l.StartsWith('#'))
     .Select(l => l.Split(' ', StringSplitOptions.RemoveEmptyEntries))
-    .ToDictionary(p => p[0], p => p[1] == "-" ? (float?)null : float.Parse(p[1], CultureInfo.InvariantCulture));
+    .ToDictionary(p => p[0], p => p[1]);
+const float MaxNodeError = 6f;
+int nodesTotal = 0, nodesGood = 0;
 
 var est = new MapScrollEstimator();
 int maps = 0, checkedN = 0, pass = 0;
@@ -71,38 +76,52 @@ foreach (string file in files)
     {
         var marks = Marks(l.Layout, l.Map);
         var sw = Stopwatch.StartNew();
-        MapFit fit = est.Estimate(frame, marks);
+        MapFit fit = Environment.GetEnvironmentVariable("MAPBENCH_RANGE") is { } rg && rg.Split(',') is [var lo, var hi] ? est.Estimate(frame, marks, float.Parse(lo), float.Parse(hi)) : est.Estimate(frame, marks);
         times.Add(sw.Elapsed.TotalMilliseconds);
         if (best is null || (fit.IsMap && !best.IsMap) || (fit.IsMap == best.IsMap && fit.Score > best.Score)) { best = fit; bestL = l; }
     }
     best ??= MapFit.None("no layouts");
     string name = Path.GetFileName(file);
     if (best.IsMap) maps++;
-    string verdict = "";
-    if (truth != null && truth.TryGetValue(name, out float? want))
-    {
-        checkedN++;
-        bool ok = want is null ? !best.IsMap : best.IsMap && Math.Abs(best.Scroll - want.Value) <= 4f;
-        if (ok) pass++;
-        verdict = ok ? " OK" : $" FAIL (truth {(want is null ? "-" : want.Value.ToString("F1"))})";
-    }
-    if (best.IsMap || truth != null) Console.WriteLine($"{name}: {(best.IsMap ? bestL?.Name : "-")} {best}{verdict}");
-    if (Environment.GetEnvironmentVariable("MAPBENCH_RESIDUALS") == "1" && best.IsMap && bestL is { } rl)
+    // Node check: every visible node whose icon box can be measured must sit within MaxNodeError design px of the
+    // fitted layout (icon textures are centred on the node, so the box centre is the node centre).
+    int nodesHere = 0, nodesOk = 0;
+    var bad = new List<string>();
+    // MAPBENCH_FORCE=1: check/render the best fit even when it was rejected (to see why).
+    bool force = Environment.GetEnvironmentVariable("MAPBENCH_FORCE") == "1";
+    if ((best.IsMap || force) && bestL is { } rl)
     {
         foreach (var (coord, p) in rl.Layout.Centers.OrderBy(kv => kv.Key.Row).ThenBy(kv => kv.Key.Col))
         {
-            if (coord == rl.Map.Start || coord == rl.Map.Boss) continue;
+            if (coord == rl.Map.Start || coord == rl.Map.Boss || coord == rl.Map.SecondBoss) continue;
             float y = p.Y + best.Scroll;
-            if (y < 40 || y > 1040 || MapScrollEstimator.IsMasked(p.X, y)) continue;
-            var (dx, dy, ink) = est.LocalPeak(new MapMark(p.X, p.Y), best.Scroll);
-            Console.WriteLine($"   {coord} {rl.Map.Nodes[coord].Type,-9} dx={dx,4:F0} dy={dy,4:F0} ink={ink:F0}");
+            if (y < 50 || y > 1030 || MapScrollEstimator.IsMasked(p.X, y)) continue;
+            if (est.IconBoxCentre(p.X, y) is not { } b) continue;
+            nodesHere++;
+            float ex = b.X - p.X, ey = b.Y - y;
+            if (Math.Abs(ex) <= MaxNodeError && Math.Abs(ey) <= MaxNodeError) nodesOk++;
+            else bad.Add($"{coord} {rl.Map.Nodes[coord].Type} off ({ex:F0},{ey:F0})");
+            if (Environment.GetEnvironmentVariable("MAPBENCH_RESIDUALS") == "1")
+                Console.WriteLine($"   {coord} {rl.Map.Nodes[coord].Type,-9} box=({ex,4:F0},{ey,4:F0})");
         }
+        nodesTotal += nodesHere;
+        nodesGood += nodesOk;
     }
-    if (renderDir != null && best.IsMap && bestL is { } bl) Render(file, frame, bl.Layout, best, Path.Combine(renderDir, Path.ChangeExtension(name, ".png")));
+    string verdict = "";
+    if (truth != null && truth.TryGetValue(name, out string? want) && want != "skip")
+    {
+        checkedN++;
+        bool ok = want == "map" ? best.IsMap && bad.Count == 0 : !best.IsMap;
+        if (ok) pass++;
+        verdict = ok ? " OK" : $" FAIL (truth {want})";
+    }
+    if (best.IsMap || (truth != null && truth.ContainsKey(name)) || (Environment.GetEnvironmentVariable("MAPBENCH_ALL") == "1" && best.Paper > 0))
+        Console.WriteLine($"{name}: {(best.IsMap ? bestL?.Name : "-")} {best} nodes {nodesOk}/{nodesHere}{verdict}" + (bad.Count > 0 ? " BAD " + string.Join("; ", bad) : ""));
+    if (renderDir != null && (best.IsMap || force) && bestL is { } bl) Render(file, frame, bl.Layout, best, Path.Combine(renderDir, Path.ChangeExtension(name, ".png")));
 }
-Console.WriteLine($"frames {files.Count}, detected as map {maps}" + (truth != null ? $", truth checks {pass}/{checkedN}" : "")
+Console.WriteLine($"frames {files.Count}, detected as map {maps}, nodes within {MaxNodeError} px {nodesGood}/{nodesTotal}" + (truth != null ? $", truth checks {pass}/{checkedN}" : "")
     + (times.Count > 0 ? $", fit median {times.Order().ElementAt(times.Count / 2):F1} ms" : ""));
-return truth != null && pass != checkedN ? 1 : 0;
+return (truth != null && pass != checkedN) || nodesGood != nodesTotal ? 1 : 0;
 
 static List<MapMark> Marks(MapScreenLayout layout, MapGraph map) => layout.Centers
     .Where(kv => kv.Key != map.Start && kv.Key != map.Boss && kv.Key != map.SecondBoss)
