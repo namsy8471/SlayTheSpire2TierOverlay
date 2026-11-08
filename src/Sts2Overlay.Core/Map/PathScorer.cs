@@ -1,4 +1,5 @@
 using Sts2Overlay.Core.Data;
+using Sts2Overlay.Core.Localization;
 using Sts2Overlay.Core.Model;
 using Sts2Overlay.Core.Scoring;
 using Sts2Overlay.Core.Shop;
@@ -399,19 +400,35 @@ public sealed class PathScorer
     /// <summary>Sums per component key; turns into a <see cref="ScoreBreakdown"/> whose total is exactly the sum.</summary>
     private sealed class Accumulator
     {
-        private static readonly (string Key, string Label)[] Order =
+        // Keys only: the labels come from Label() on every call, so they follow the current language.
+        private static readonly string[] Order =
         [
-            (PathComponentKeys.Elite, "엘리트"),
-            (PathComponentKeys.Monster, "몬스터"),
-            (PathComponentKeys.Unknown, "? 방"),
-            (PathComponentKeys.Treasure, "보물"),
-            (PathComponentKeys.Shop, "상점"),
-            (PathComponentKeys.Rest, "휴식처"),
-            (PathComponentKeys.HpLoss, "HP 손실"),
-            (PathComponentKeys.DeathRisk, "사망 위험"),
-            (PathComponentKeys.BossRisk, "보스 위험"),
-            (PathComponentKeys.Patterns, "위험 패턴"),
+            PathComponentKeys.Elite,
+            PathComponentKeys.Monster,
+            PathComponentKeys.Unknown,
+            PathComponentKeys.Treasure,
+            PathComponentKeys.Shop,
+            PathComponentKeys.Rest,
+            PathComponentKeys.HpLoss,
+            PathComponentKeys.DeathRisk,
+            PathComponentKeys.BossRisk,
+            PathComponentKeys.Patterns,
         ];
+
+        private static string Label(string key) => key switch
+        {
+            PathComponentKeys.Elite => Loc.T("엘리트", "Elite"),
+            PathComponentKeys.Monster => Loc.T("몬스터", "Enemy"),
+            PathComponentKeys.Unknown => Loc.T("? 방", "? Room"),
+            PathComponentKeys.Treasure => Loc.T("보물", "Treasure"),
+            PathComponentKeys.Shop => Loc.T("상점", "Shop"),
+            PathComponentKeys.Rest => Loc.T("휴식처", "Rest Site"),
+            PathComponentKeys.HpLoss => Loc.T("HP 손실", "HP loss"),
+            PathComponentKeys.DeathRisk => Loc.T("사망 위험", "Death risk"),
+            PathComponentKeys.BossRisk => Loc.T("보스 위험", "Boss risk"),
+            PathComponentKeys.Patterns => Loc.T("위험 패턴", "Risky pattern"),
+            _ => key,
+        };
 
         // A small array instead of a dictionary: the advisor re-scores thousands of paths per call.
         private readonly double[] _values = new double[Order.Length];
@@ -425,9 +442,9 @@ public sealed class PathScorer
             var parts = new List<ScoreComponent>();
             for (var i = 0; i < Order.Length; i++)
             {
-                if (_values[i] != 0) parts.Add(new ScoreComponent(Order[i].Key, Order[i].Label, _values[i]));
+                if (_values[i] != 0) parts.Add(new ScoreComponent(Order[i], Label(Order[i]), _values[i]));
             }
-            if (parts.Count == 0) parts.Add(new ScoreComponent(PathComponentKeys.BossRisk, "보스 위험", 0));
+            if (parts.Count == 0) parts.Add(new ScoreComponent(PathComponentKeys.BossRisk, Label(PathComponentKeys.BossRisk), 0));
             return new ScoreBreakdown(parts);
         }
 
@@ -435,7 +452,7 @@ public sealed class PathScorer
         {
             for (var i = 0; i < Order.Length; i++)
             {
-                if (ReferenceEquals(Order[i].Key, key) || Order[i].Key == key) return i;
+                if (ReferenceEquals(Order[i], key) || Order[i] == key) return i;
             }
             throw new ArgumentException($"Unknown path component '{key}'.", nameof(key));
         }

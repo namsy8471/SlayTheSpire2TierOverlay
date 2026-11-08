@@ -1,4 +1,5 @@
 using Sts2Overlay.Core.Data;
+using Sts2Overlay.Core.Localization;
 using Sts2Overlay.Core.Model;
 using Sts2Overlay.Core.Scoring;
 
@@ -31,7 +32,7 @@ internal sealed class DeckPool
         _ = profile;
     }
 
-    /// <summary>Short Korean note of the targets the last <see cref="Remove"/>/<see cref="Transform"/> took.</summary>
+    /// <summary>Short note (current language) of the targets the last <see cref="Remove"/>/<see cref="Transform"/> took.</summary>
     public string? LastDetail { get; private set; }
 
     private int Total => _curses + _strikes + _defends + _others;
@@ -73,7 +74,9 @@ internal sealed class DeckPool
             }
             LastDetail = string.Join(", ", new[]
             {
-                tc > 0 ? $"저주 {tc}" : null, tb > 0 ? $"기본 카드 {tb}" : null, to > 0 ? $"기타 {to}" : null,
+                tc > 0 ? Loc.T($"저주 {tc}", $"Curse {tc}") : null,
+                tb > 0 ? Loc.T($"기본 카드 {tb}", $"Basic {tb}") : null,
+                to > 0 ? Loc.T($"기타 {to}", $"Other {to}") : null,
             }.Where(s => s is not null));
             return total;
         }
@@ -82,7 +85,8 @@ internal sealed class DeckPool
         var n = curses + strikes + defends + others;
         if (n == 0) { LastDetail = null; return 0; }
         var each = (curses * curseValue + (strikes + defends) * basicValue + others * otherValue) / n;
-        LastDetail = $"기본·저주 비율 {(curses + strikes + defends) * 100 / Math.Max(1, n)}%";
+        var share = (curses + strikes + defends) * 100 / Math.Max(1, n);
+        LastDetail = Loc.T($"기본·저주 비율 {share}%", $"Basic/Curse share {share}%");
         return each * Math.Min(count, n);
     }
 

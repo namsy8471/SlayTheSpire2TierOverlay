@@ -30,7 +30,7 @@ public sealed record RestSiteAdvice
 
     public required RestConfidence Confidence { get; init; }
 
-    /// <summary>One Korean line saying why, e.g. <c>HP 38%, 보스까지 4칸·엘리트 1 → 휴식이 더 안전 (보스 도착 HP 예상 20%→45%)</c>.</summary>
+    /// <summary>One line in the current language saying why, e.g. <c>HP 38%, 보스까지 4칸·엘리트 1 → 휴식이 더 안전 (보스 도착 HP 예상 20%→45%)</c>.</summary>
     public required string Reason { get; init; }
 
     /// <summary>

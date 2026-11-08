@@ -1,5 +1,6 @@
 using System.Globalization;
 using Sts2Overlay.Core.Data;
+using Sts2Overlay.Core.Localization;
 using Sts2Overlay.Core.Map;
 using Sts2Overlay.Core.Model;
 using Sts2Overlay.Core.Scoring;
@@ -64,11 +65,11 @@ public sealed class RestSiteAdvisor
         // Trivial cases first: they need no simulation and are always "sure".
         if (upgrades.Count == 0)
         {
-            return new RestSiteAdvice { Action = RestAction.Heal, Confidence = RestConfidence.Sure, Reason = "강화할 카드가 없어 휴식", Upgrades = upgrades };
+            return new RestSiteAdvice { Action = RestAction.Heal, Confidence = RestConfidence.Sure, Reason = Loc.T("강화할 카드가 없어 휴식", "No card to upgrade → Rest"), Upgrades = upgrades };
         }
         if (run.MaxHp > 0 && run.Hp >= run.MaxHp)
         {
-            return new RestSiteAdvice { Action = RestAction.Smith, Confidence = RestConfidence.Sure, Reason = "HP가 가득 차 있어 강화", Upgrades = upgrades };
+            return new RestSiteAdvice { Action = RestAction.Smith, Confidence = RestConfidence.Sure, Reason = Loc.T("HP가 가득 차 있어 강화", "HP is full → Smith"), Upgrades = upgrades };
         }
 
         // Without a current node the map cannot say where we are (Recommend would start at the act start), so fall back.
@@ -85,7 +86,7 @@ public sealed class RestSiteAdvisor
 
         var healScore = Difference(healPath.Score, smithPath.Score);
         var best = upgrades[0];
-        var smithScore = new ScoreBreakdown([new ScoreComponent(RestComponentKeys.Upgrade, "카드 강화", best.Total, best.Card.Id)]);
+        var smithScore = new ScoreBreakdown([new ScoreComponent(RestComponentKeys.Upgrade, Loc.T("카드 강화", "Upgrade card"), best.Total, best.Card.Id)]);
 
         var heal = healScore.Total > smithScore.Total;
         var gap = Math.Abs(healScore.Total - smithScore.Total);
@@ -157,7 +158,9 @@ public sealed class RestSiteAdvisor
         {
             Action = heal ? RestAction.Heal : RestAction.Smith,
             Confidence = close ? RestConfidence.Close : RestConfidence.Sure,
-            Reason = $"지도 없음: HP {Pct(hp)} {(heal ? "<" : "≥")} 기록 기준 {Pct(threshold)} → {(heal ? "휴식" : "강화")}",
+            Reason = Loc.T(
+                $"지도 없음: HP {Pct(hp)} {(heal ? "<" : "≥")} 기록 기준 {Pct(threshold)} → {(heal ? "휴식" : "강화")}",
+                $"No map: HP {Pct(hp)} {(heal ? "<" : "≥")} your usual {Pct(threshold)} → {(heal ? "Rest" : "Smith")}"),
             Upgrades = upgrades,
         };
     }
@@ -188,11 +191,11 @@ public sealed class RestSiteAdvisor
         var rewards = heal.Total - smith.Total - known.Sum(D);
         var parts = new List<ScoreComponent>
         {
-            new(PathComponentKeys.BossRisk, "보스 위험 감소", D(PathComponentKeys.BossRisk)),
-            new(PathComponentKeys.DeathRisk, "전투 사망 위험 감소", D(PathComponentKeys.DeathRisk)),
-            new(PathComponentKeys.HpLoss, "이후 HP 손실 부담", D(PathComponentKeys.HpLoss)),
-            new(PathComponentKeys.Rest, "이후 휴식처", D(PathComponentKeys.Rest)),
-            new(RestComponentKeys.Rewards, "보상까지 살아남기", rewards),
+            new(PathComponentKeys.BossRisk, Loc.T("보스 위험 감소", "Less Boss risk"), D(PathComponentKeys.BossRisk)),
+            new(PathComponentKeys.DeathRisk, Loc.T("전투 사망 위험 감소", "Less death risk in fights"), D(PathComponentKeys.DeathRisk)),
+            new(PathComponentKeys.HpLoss, Loc.T("이후 HP 손실 부담", "HP loss ahead"), D(PathComponentKeys.HpLoss)),
+            new(PathComponentKeys.Rest, Loc.T("이후 휴식처", "Rest Sites ahead"), D(PathComponentKeys.Rest)),
+            new(RestComponentKeys.Rewards, Loc.T("보상까지 살아남기", "Surviving to rewards"), rewards),
         };
         return new ScoreBreakdown(parts.Where(c => Math.Abs(c.Value) >= 1e-9));
     }
@@ -216,11 +219,14 @@ public sealed class RestSiteAdvisor
     private static string Reason(bool heal, double hp, RestOutlook o)
     {
         var road = o.RoomsBeforeBoss == 0
-            ? "보스 직전"
-            : $"보스까지 {o.RoomsBeforeBoss}칸·엘리트 {o.ElitesAhead}·휴식처 {o.RestsAhead}";
+            ? Loc.T("보스 직전", "Boss is next")
+            : Loc.T($"보스까지 {o.RoomsBeforeBoss}칸·엘리트 {o.ElitesAhead}·휴식처 {o.RestsAhead}",
+                $"{o.RoomsBeforeBoss} rooms to Boss·Elites {o.ElitesAhead}·Rest Sites {o.RestsAhead}");
         return heal
-            ? $"HP {Pct(hp)}, {road} → 휴식이 더 안전 (보스 도착 HP 예상 {Pct(o.BossHpIfSmith)}→{Pct(o.BossHpIfHeal)})"
-            : $"HP {Pct(hp)}, {road} → 버틸 만해 강화 (보스 도착 HP 예상 {Pct(o.BossHpIfSmith)})";
+            ? Loc.T($"HP {Pct(hp)}, {road} → 휴식이 더 안전 (보스 도착 HP 예상 {Pct(o.BossHpIfSmith)}→{Pct(o.BossHpIfHeal)})",
+                $"HP {Pct(hp)}, {road} → Rest is safer (est. HP at Boss {Pct(o.BossHpIfSmith)}→{Pct(o.BossHpIfHeal)})")
+            : Loc.T($"HP {Pct(hp)}, {road} → 버틸 만해 강화 (보스 도착 HP 예상 {Pct(o.BossHpIfSmith)})",
+                $"HP {Pct(hp)}, {road} → safe enough to Smith (est. HP at Boss {Pct(o.BossHpIfSmith)})");
     }
 
     private static string Pct(double ratio) => (Math.Round(ratio * 100)).ToString("0", CultureInfo.InvariantCulture) + "%";

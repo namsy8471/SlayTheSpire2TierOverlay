@@ -20,6 +20,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Only for Sts2Overlay.Core.Localization.Loc (user-facing progress / version-guard lines follow the overlay language). -->
+    <ProjectReference Include="..\Sts2Overlay.Core\Sts2Overlay.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="Sts2Overlay.Resources.Tests" />
   </ItemGroup>
 </Project>
