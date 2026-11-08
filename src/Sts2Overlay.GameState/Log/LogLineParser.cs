@@ -75,6 +75,12 @@ public static partial class LogLineParser
     [GeneratedRegex(@"^\[EventSynchronizer\] Option index \d+ chosen for player (?<p>\d+) in event (?<ev>EVENT\.[A-Z0-9_]+)\. Choice key: (?<key>\S+)")]
     private static partial Regex EventOption();
 
+    [GeneratedRegex(@"^\[EventSynchronizer\] Event (?<ev>EVENT\.[A-Z0-9_]+) began for player (?<p>\d+) with options: ")]
+    private static partial Regex EventBegan();
+
+    [GeneratedRegex(@"textKey: (?<key>[A-Za-z0-9_.]+)")]
+    private static partial Regex TextKey();
+
     [GeneratedRegex(@"^\[ActionQueueSet\] Enqueueing action PlayCardAction card: (?<card>CARD\.[A-Z0-9_]+) \(\d+\) index: (?<idx>\d+) targetid: \S* ?to player queue owned by (?<p>\d+)")]
     private static partial Regex PlayCard();
 
@@ -194,6 +200,11 @@ public static partial class LogLineParser
                     return new CardPlayedEvent(ULong(m, "p"), m.Groups["card"].Value, Int(m, "idx"));
                 if ((m = EventOption().Match(line)).Success)
                     return new EventOptionChosenEvent(ULong(m, "p"), m.Groups["ev"].Value, m.Groups["key"].Value);
+                if ((m = EventBegan().Match(line)).Success)
+                {
+                    var keys = TextKey().Matches(line, m.Length).Select(k => k.Groups["key"].Value).ToList();
+                    return new EventStartedEvent(ULong(m, "p"), m.Groups["ev"].Value, keys);
+                }
                 if ((m = RemotePurchase().Match(line)).Success)
                     return new RemoteShopPurchaseEvent(ULong(m, "p"), m.Groups["id"].Value);
                 if ((m = RestOption().Match(line)).Success)

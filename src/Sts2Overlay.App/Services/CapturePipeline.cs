@@ -47,6 +47,12 @@ public sealed class CapturePipeline : IDisposable
     /// <summary>Raised on the WORKER thread with a short Korean status line (capture saved / failed).</summary>
     public event Action<string>? Status;
 
+    /// <summary>
+    /// Optional extra reader of every periodic frame, called on the WORKER thread while the frame is valid (the
+    /// buffer is reused afterwards, so copy what you keep). Used by the event option markers.
+    /// </summary>
+    public Action<CapturedFrame>? FrameProbe { get; set; }
+
     public ICardRecognizer Recognizer
     {
         get => _recognizer;
@@ -136,6 +142,7 @@ public sealed class CapturePipeline : IDisposable
 
         if (save) SavePng(frame);
         if (!manual && !periodic) return;
+        FrameProbe?.Invoke(frame); // before the "unchanged screen" skip: a hover change is small but matters to the probe
 
         // Skip recognition while the screen is visually unchanged and we already have an answer for it.
         var sig = Signature(frame);

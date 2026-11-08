@@ -83,6 +83,7 @@ public sealed partial class AppController : IDisposable
         CatalogPath = catalogPath;
         (_engine, _cards) = LoadPack(packDir, catalogPath, vm);
         InitForecastReview(packDir, catalogPath); // forecast + run review (AppController.ForecastReview.cs)
+        InitEvents(packDir); // event option advice (AppController.Events.cs)
 
         _tracker.Changed += (_, _) => OnTrackerChanged();
         // The panel moved to a monitor with another DPI: the DPI part of the scale changed, ours must follow.
@@ -181,6 +182,7 @@ public sealed partial class AppController : IDisposable
         _pipeline.CharacterHint = snap.Run?.Character;
         RefreshRunViews(snap.Run);
         UpdateForecastReview(snap); // AppController.ForecastReview.cs
+        UpdateEvent(snap); // AppController.Events.cs
         if (Demo is null) RefreshPath(snap);
 
         var likely = IsOfferHint(snap.Hint);
@@ -280,7 +282,7 @@ public sealed partial class AppController : IDisposable
     /// </summary>
     private void UpdateCadence()
     {
-        var offer = IsOfferHint(_snapshot.Hint) || (_snapshot.Hint == ScreenHint.None && _badges.HasBadges);
+        var offer = IsOfferHint(_snapshot.Hint) || (_snapshot.Hint == ScreenHint.None && _badges.HasBadges) || EventScreenLikely;
         var hz = offer ? Math.Clamp(_settings.RecognizeHz, 0.5, 10) : Math.Clamp(_settings.IdleRecognizeHz, 0, 10);
         _pipeline.SetInterval(hz > 0 ? TimeSpan.FromSeconds(1 / hz) : null);
     }
@@ -486,7 +488,8 @@ public sealed partial class AppController : IDisposable
         _lastResult = null;
         _lastEvalKey = null;
         _lastOfferKey = null;
-        if (_vm.Offer.HasContent && !_vm.Offer.IsStale) _vm.Offer = _vm.Offer with { IsStale = true };
+        // In an event room the 추천 tab shows the event's options (AppController.Events.cs): keep it fresh.
+        if (_vm.Offer.HasContent && !_vm.Offer.IsStale && _lastEvent is null) _vm.Offer = _vm.Offer with { IsStale = true };
     }
 
     private void ResetOffer()
@@ -730,6 +733,7 @@ public sealed partial class AppController : IDisposable
         {
             _badges.Hide();
         }
+        UpdateEventMarkerVisibility(); // AppController.Events.cs
         if (showPanel)
         {
             if (!_panel.IsVisible) _panel.Show();
@@ -747,6 +751,7 @@ public sealed partial class AppController : IDisposable
         if (!_panel.IsVisible && !_badges.IsVisible) return;
         // Badges first, then the panel, so the panel ends up above the badge layer.
         OverlayWindowHelper.AssertTopmost(_badges.Hwnd);
+        ReassertEventMarkersTopmost(); // AppController.Events.cs
         if (_settings.AlwaysOnTop) OverlayWindowHelper.AssertTopmost(_panel.Hwnd);
     }
 
@@ -809,6 +814,7 @@ public sealed partial class AppController : IDisposable
         _engineVersion++;
         RefreshRunViews(_snapshot.Run);
         ReloadForecastReview(); // AppController.ForecastReview.cs
+        ReloadEvents(); // AppController.Events.cs
         if (_lastResult is not null) ApplyRecognition(_lastResult);
         ShowMessage("데이터 팩을 다시 읽었습니다");
         PackReloaded?.Invoke();
