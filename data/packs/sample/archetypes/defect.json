@@ -5,7 +5,7 @@
   "archetypes": [
     {
       "id": "defect.sample_orbs",
-      "names": { "kor": "샘플 구체 덱" },
+      "names": { "kor": "샘플 구체 덱", "eng": "Sample Orb deck" },
       "color": "#3498db",
       "cards": {
         "core": ["CARD.DEFRAGMENT"],
