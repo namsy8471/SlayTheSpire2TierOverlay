@@ -146,7 +146,7 @@ public sealed class MapOverlayWindow : Window
                         Fill = Gold,
                     };
                     _canvas.Children.Add(tip);
-                    Label(n.Caption ?? "추천!", n.X, n.Y - 58 * m, 26 * m, GoldDark, Gold, anchorBottom: true, bold: true);
+                    Label(n.Caption ?? ViewModels.UiText.Instance.PickBang, n.X, n.Y - 58 * m, 26 * m, GoldDark, Gold, anchorBottom: true, bold: true);
                     break;
                 case MapNodeMarkKind.UnknownOdds:
                     Label(n.Caption ?? "", n.X, n.Y + 40 * m, 14 * m, Brushes.White, ChipBack, anchorBottom: false, bold: false);
@@ -154,7 +154,7 @@ public sealed class MapOverlayWindow : Window
                 case MapNodeMarkKind.Partner:
                     var r = Ring(n.X, n.Y, 36 * m, Partner, 3.5 * m);
                     r.StrokeDashArray = [2.5, 1.5];
-                    LabelRightAligned(n.Caption ?? "동료", n.X - 44 * m, n.Y, 15 * m, PartnerDark, Partner);
+                    LabelRightAligned(n.Caption ?? ViewModels.UiText.Instance.Teammate, n.X - 44 * m, n.Y, 15 * m, PartnerDark, Partner);
                     break;
             }
         }

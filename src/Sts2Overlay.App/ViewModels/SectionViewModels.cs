@@ -1,6 +1,7 @@
 using System.Windows.Input;
 using System.Windows.Media;
 using Sts2Overlay.App.Services;
+using Sts2Overlay.Core.Localization;
 
 namespace Sts2Overlay.App.ViewModels;
 
@@ -94,9 +95,9 @@ public sealed record DeckSectionVm
 public sealed record BuildCardVm(string Name, string RoleText, string? RarityText, string TierText, bool Owned, CardArtVm? Art)
 {
     /// <summary>"핵심 · 희귀 · 티어 A" line of the hover tooltip.</summary>
-    public string DetailText => string.Join(" · ", new[] { RoleText, RarityText, $"티어 {TierText}" }.Where(s => !string.IsNullOrEmpty(s)));
+    public string DetailText => string.Join(" · ", new[] { RoleText, RarityText, Loc.T($"티어 {TierText}", $"Tier {TierText}") }.Where(s => !string.IsNullOrEmpty(s)));
 
-    public string OwnedText => Owned ? "보유 중" : "아직 없음";
+    public string OwnedText => Owned ? Loc.T("보유 중", "Owned") : Loc.T("아직 없음", "Not yet");
 }
 
 /// <summary>Cards of one archetype role, e.g. "핵심 2/3".</summary>

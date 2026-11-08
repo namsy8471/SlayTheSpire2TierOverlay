@@ -11,6 +11,7 @@ using Sts2Overlay.App.Interop;
 using Sts2Overlay.App.Services;
 using Sts2Overlay.App.ViewModels;
 using Sts2Overlay.App.Views;
+using Sts2Overlay.Core.Localization;
 using Velopack;
 
 namespace Sts2Overlay.App;
@@ -31,6 +32,8 @@ public partial class App : Application
     private PanelViewModel? _vm;
     private LocalResourceService? _resources;
     private UpdateService? _updates;
+    private GameLanguageWatcher? _gameLanguage;
+    private DispatcherTimer? _languageTimer;
 
     /// <summary>
     /// Entry point (StartupObject in the csproj; App.xaml is a Page, so WPF does not generate its own Main).
@@ -87,10 +90,15 @@ public partial class App : Application
             return;
         }
 
+        // Language first, so every text below (including --prepare's console lines) is in the right one.
+        _settings = SettingsStore.Load(AppPaths.SettingsFile);
+        _gameLanguage = new GameLanguageWatcher(Sts2Overlay.GameState.GamePaths.DefaultRoot);
+        ApplyLanguage();
+
         // ---- local resources: headless --prepare (no windows, no single-instance check) ----
         if (e.Args.Any(a => a.Equals("--prepare", StringComparison.OrdinalIgnoreCase)))
         {
-            Shutdown(PrepareCommand.Run(AppOptions.Parse(e.Args), SettingsStore.Load(AppPaths.SettingsFile)));
+            Shutdown(PrepareCommand.Run(AppOptions.Parse(e.Args), _settings));
             return;
         }
 
@@ -99,7 +107,8 @@ public partial class App : Application
         if (!first)
         {
             AppLog.Warn("another instance is running; exiting");
-            MessageBox.Show("STS2 티어 오버레이가 이미 실행 중입니다 (알림 영역 아이콘 확인).", "STS2 티어 오버레이");
+            MessageBox.Show(Loc.T("STS2 티어 오버레이가 이미 실행 중입니다 (알림 영역 아이콘 확인).",
+                "STS2 Tier Overlay is already running (see the notification area icon)."), UiText.Instance.AppName);
             Shutdown();
             return;
         }
@@ -111,7 +120,6 @@ public partial class App : Application
         };
         AppDomain.CurrentDomain.UnhandledException += (_, args) => AppLog.Error("unhandled exception", args.ExceptionObject as Exception);
 
-        _settings = SettingsStore.Load(AppPaths.SettingsFile);
         // --show-in-capture forces it on for this run (old debug flag); recognition stays safe either way.
         var captureVisibility = new OverlayCaptureVisibility(_settings.ShowOverlayInCapture || options.ShowInCapture);
         var packDir = AppPaths.ResolvePackDir(options.PackDir ?? _settings.PackDir);
@@ -149,13 +157,15 @@ public partial class App : Application
         _updates.Message += text => _controller.ShowMessage(text);
         _updates.StateChanged += () =>
         {
-            _vm.UpdateText = _updates.ReadyVersion is { } v ? $"새 버전 v{v} 준비됨 — 종료하면 적용 (트레이: 업데이트 적용)" : null;
+            RefreshUpdateText();
             UpdateTray();
         };
 
         SetUpHotkeys();
         SetUpTray();
         _controller.StateChanged += UpdateTray;
+        Loc.Changed += OnLanguageChanged;
+        StartLanguageWatch();
         _tracker.Refresh();
         _controller.UpdateVisibility();
 
@@ -165,8 +175,9 @@ public partial class App : Application
             RunSelfTest();
             return;
         }
-        _tray?.ShowBalloon("STS2 티어 오버레이",
-            options.Demo is not null ? "데모 모드로 실행 중입니다." : "실행 중입니다. 게임이 앞에 있을 때 표시됩니다.");
+        _tray?.ShowBalloon(UiText.Instance.AppName, options.Demo is not null
+            ? Loc.T("데모 모드로 실행 중입니다.", "Running in demo mode.")
+            : Loc.T("실행 중입니다. 게임이 앞에 있을 때 표시됩니다.", "Running. Shown while the game is in front."));
         _updates.Start();
     }
 
@@ -209,13 +220,16 @@ public partial class App : Application
         Reg(HotkeyManager.VK_F9, "F9", () => _controller!.SaveCapture());
         Reg(HotkeyManager.VK_F10, "F10", () => _controller!.RecognizeNow());
         Reg(HotkeyManager.VK_F11, "F11", () => _controller!.ToggleDebugOutlines());
-        if (failed.Count > 0) _controller!.ShowMessage($"단축키 등록 실패 (다른 프로그램이 사용 중): {string.Join(", ", failed)}"
-            + (System.Diagnostics.Process.GetProcessesByName("OverlaySpike").Length > 0 ? " · 예전 OverlaySpike를 닫아 주세요" : ""));
+        if (failed.Count > 0) _controller!.ShowMessage(Loc.T($"단축키 등록 실패 (다른 프로그램이 사용 중): {string.Join(", ", failed)}",
+                $"Hotkeys not registered (used by another program): {string.Join(", ", failed)}")
+            + (System.Diagnostics.Process.GetProcessesByName("OverlaySpike").Length > 0
+                ? Loc.T(" · 예전 OverlaySpike를 닫아 주세요", " · please close the old OverlaySpike")
+                : ""));
     }
 
     private void SetUpTray()
     {
-        _tray = new TrayIcon(_updates!.CurrentVersion + (_updates.IsInstalled ? "" : " (개발용)"));
+        _tray = new TrayIcon(_updates!.CurrentVersion, devBuild: !_updates.IsInstalled);
         _tray.ExitRequested += () => Shutdown();
         _tray.CheckUpdateRequested += () => _updates.CheckNow();
         _tray.ApplyUpdateRequested += () =>
@@ -248,14 +262,77 @@ public partial class App : Application
         {
             if (AppLog.FilePath is { } p && File.Exists(p)) OpenShell(p);
         };
+        _tray.LanguageRequested += setting =>
+        {
+            _settings.Language = GameLanguage.NormalizeSetting(setting);
+            SettingsStore.Save(AppPaths.SettingsFile, _settings);
+            _tray.SetLanguageSetting(_settings.Language);
+            ApplyLanguage();
+        };
+        _tray.SetLanguageSetting(_settings.Language);
         UpdateTray();
+    }
+
+    // ---- language: the "언어 / Language" setting + the game's own language (Services.GameLanguage) ----
+
+    /// <summary>
+    /// Sets <see cref="Loc"/> from the setting: a fixed kor/eng, or on "auto" the game's settings.save. Unknown (auto, and
+    /// the game's file is missing or unreadable) keeps the current language. A change raises <see cref="Loc.Changed"/>,
+    /// which re-renders everything (<see cref="OnLanguageChanged"/>).
+    /// </summary>
+    private void ApplyLanguage()
+    {
+        string? gameCode = null;
+        if (GameLanguage.NormalizeSetting(_settings.Language) == GameLanguage.Auto && _gameLanguage is not null)
+        {
+            _gameLanguage.Poll();
+            gameCode = _gameLanguage.Code;
+        }
+        if (GameLanguage.Resolve(_settings.Language, gameCode) is not { } lang || lang == Loc.Current) return;
+        AppLog.Info($"language: {Loc.Code(lang)} (setting {_settings.Language}, game {gameCode ?? "unknown"})");
+        Loc.SetLanguage(lang);
+    }
+
+    /// <summary>On "auto", re-reads the game's language every few seconds (the player can change it mid-session).</summary>
+    private void StartLanguageWatch()
+    {
+        _languageTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+        _languageTimer.Tick += (_, _) =>
+        {
+            if (GameLanguage.NormalizeSetting(_settings.Language) == GameLanguage.Auto) ApplyLanguage();
+        };
+        _languageTimer.Start();
+    }
+
+    /// <summary>Re-renders every text in the new language: panel and badges (controller), banners, tray menu.</summary>
+    private void OnLanguageChanged()
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.BeginInvoke(OnLanguageChanged);
+            return;
+        }
+        // The XAML's fixed texts follow by themselves (ViewModels.UiText listens to Loc.Changed).
+        _controller?.RefreshLanguage();
+        _resources?.RefreshLanguage();
+        RefreshUpdateText();
+        _tray?.RelabelMenu();
+        UpdateTray();
+    }
+
+    private void RefreshUpdateText()
+    {
+        if (_vm is null || _updates is null) return;
+        _vm.UpdateText = _updates.ReadyVersion is { } v
+            ? Loc.T($"새 버전 v{v} 준비됨 — 종료하면 적용 (트레이: 업데이트 적용)", $"New version v{v} ready — applied on exit (tray: Apply update)")
+            : null;
     }
 
     private void UpdateTray()
     {
         if (_tray is null || _controller is null) return;
         var (scale, isAuto) = _controller.CurrentUiScale;
-        _tray.SetState(_controller.UserHidden, _controller.Demo, scale, isAuto, "STS2 티어 오버레이 — " + _controller.StatusLine);
+        _tray.SetState(_controller.UserHidden, _controller.Demo, scale, isAuto, UiText.Instance.AppName + " — " + _controller.StatusLine);
         _tray.SetDebugOutlines(_controller.DebugOutlines);
         _tray.SetAlwaysOnTop(_controller.AlwaysOnTop);
         _tray.SetMapOverlay(_controller.MapOverlayOn);
@@ -292,6 +369,8 @@ public partial class App : Application
                 _settings.PanelCollapsed = _vm.IsCollapsed;
                 _settings.SelectedTab = _vm.SelectedTab.ToString();
             }
+            Loc.Changed -= OnLanguageChanged;
+            _languageTimer?.Stop();
             _panel?.SavePosition(); // also saves the other settings
             SettingsStore.Save(AppPaths.SettingsFile, _settings);
             _hotkeys?.Dispose();

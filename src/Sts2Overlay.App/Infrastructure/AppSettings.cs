@@ -65,6 +65,12 @@ public sealed class AppSettings
     /// <summary>Capture rate while the map screen is open, so the marks follow when the map is scrolled.</summary>
     public double MapHz { get; set; } = 6;
 
+    /// <summary>
+    /// "언어 / Language": "auto" (follow the game's own language setting, re-checked while it runs), "kor" or "eng".
+    /// See <see cref="Services.GameLanguage"/>.
+    /// </summary>
+    public string Language { get; set; } = "auto";
+
     /// <summary>Panel background opacity 0..1.</summary>
     public double PanelOpacity { get; set; } = 0.86;
 
