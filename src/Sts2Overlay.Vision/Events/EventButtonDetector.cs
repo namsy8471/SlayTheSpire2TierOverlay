@@ -89,7 +89,7 @@ public static class EventButtonDetector
             else break;
 
             var bounds = t.ToPixelRect(new RectF(RefLeft, top, RefWidth, RefHeight)).Intersect(frame.Width, frame.Height);
-            buttons.Add(new EventButton(i, bounds, state, Signature(px, frame, t, top)));
+            buttons.Add(new EventButton(i, bounds, state, Signature(px, frame, t, new RectF(TextX0, top + TextY0, TextX1 - TextX0, TextY1 - TextY0))));
         }
         return buttons.Count > 0 ? new EventScreen(buttons) : null;
     }
@@ -150,9 +150,10 @@ public static class EventButtonDetector
     internal static bool IsLocked(int r, int g, int b)
         => r is >= 34 and <= 62 && r - g is >= 2 and <= 10 && Math.Abs(g - b) <= 4;
 
-    private static float[] Signature(ReadOnlySpan<byte> px, in ScreenFrame f, RefTransform t, float top)
+    /// <summary>Where the light text pixels of a button's text area are: <see cref="SigCols"/> x <see cref="SigRows"/> cells, fraction 0..1.</summary>
+    internal static float[] Signature(ReadOnlySpan<byte> px, in ScreenFrame f, RefTransform t, RectF refTextArea)
     {
-        var r = t.ToPixelRect(new RectF(TextX0, top + TextY0, TextX1 - TextX0, TextY1 - TextY0)).Intersect(f.Width, f.Height);
+        var r = t.ToPixelRect(refTextArea).Intersect(f.Width, f.Height);
         var sig = new float[SigCols * SigRows];
         if (r.Width < SigCols || r.Height < SigRows) return sig;
         int step = Math.Max(1, (int)t.Scale);

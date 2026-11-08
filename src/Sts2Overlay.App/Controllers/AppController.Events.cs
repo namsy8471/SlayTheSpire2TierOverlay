@@ -18,7 +18,8 @@ namespace Sts2Overlay.App.Controllers;
 /// (init, snapshot, pack reload, cadence, visibility, topmost).
 /// <para>
 /// Flow: the tracker says which event room I'm in (co-op log, or predicted from the single-player save) →
-/// <see cref="EventButtonDetector"/> finds the option buttons on the periodic captures (worker thread) →
+/// <see cref="EventButtonDetector"/> (ancients: <see cref="AncientButtonDetector"/>) finds the option buttons on the
+/// periodic captures (worker thread) →
 /// <see cref="EventScreenTracker"/> lines the buttons up with the page's option keys → <see cref="EventScorer"/>
 /// ranks exactly those options → markers and panel.
 /// </para>
@@ -31,6 +32,7 @@ public sealed partial class AppController
     private EventMarkerWindow? _eventMarkers;
     private string? _eventKey;
     private volatile bool _eventWatch; // read on the capture worker: run the button detector only in event rooms
+    private volatile bool _eventAncient; // the room is an ancient's (its own button layout)
 
     /// <summary>The event evaluation on screen; null outside events.</summary>
     private EventEvaluation? _lastEvent;
@@ -63,6 +65,7 @@ public sealed partial class AppController
     {
         var active = (_source as GameStateAdapter)?.Tracked?.CurrentEvent;
         _eventWatch = active is not null;
+        _eventAncient = active is not null && _eventScorer?.Catalog.Find(active.EventId)?.IsAncient == true;
         _eventScreens?.SetEvent(active?.EventId);
         if (active is null || snap.Run is not { } run || _eventScorer is null)
         {
@@ -75,7 +78,8 @@ public sealed partial class AppController
             }
             return;
         }
-        if (active.Source == EventSource.Log) _eventScreens?.SetLog(active.OptionKeys, active.ChosenKeys);
+        // The log names the offered options; so does a seed replay (Neow, act-start ancients), in button order.
+        if (active.Source == EventSource.Log || active.OptionsReplayed) _eventScreens?.SetLog(active.OptionKeys, active.ChosenKeys);
         if (_lastResult is not null)
         {
             _eventMarkers?.Clear(); // a card screen (event card choice) is up
@@ -135,7 +139,8 @@ public sealed partial class AppController
         EventScreen? screen;
         try
         {
-            screen = EventButtonDetector.Detect(new ScreenFrame(frame.Bgra, frame.Width, frame.Height, frame.Stride));
+            var f = new ScreenFrame(frame.Bgra, frame.Width, frame.Height, frame.Stride);
+            screen = _eventAncient ? AncientButtonDetector.Detect(f) : EventButtonDetector.Detect(f);
         }
         catch (Exception ex)
         {
