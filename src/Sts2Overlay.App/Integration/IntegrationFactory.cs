@@ -4,12 +4,12 @@ namespace Sts2Overlay.App.Integration;
 
 /// <summary>
 /// The single place where the App picks its game-state source and card recogniser.
-/// LEAD: replace the Null* objects with adapters over Sts2Overlay.GameState / Sts2Overlay.Vision.
+/// Real mode = save/log tracker (Sts2Overlay.GameState) + screen recogniser (Sts2Overlay.Vision).
 /// </summary>
 public static class IntegrationFactory
 {
     public static (IGameStateSource State, ICardRecognizer Recognizer) CreateReal()
-        => (new GameStateAdapter(), new NullCardRecognizer());
+        => (new GameStateAdapter(), new VisionRecognizer());
 
     public static (IGameStateSource State, ICardRecognizer Recognizer) CreateDemo(DemoScreen screen)
     {

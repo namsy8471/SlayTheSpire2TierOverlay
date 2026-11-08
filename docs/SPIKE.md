@@ -124,6 +124,8 @@ PckTool extract-images "images/packed/card_portraits/**/*.png" data\local\pck\ca
 
 ## 4. 오버레이 창과 화면 캡처 [대기]
 
+> 2026-11-08 갱신: `tools/OverlaySpike`는 `src/Sts2Overlay.App`으로 대체되어 삭제했습니다. 아래는 스파이크 당시 기록입니다.
+
 `tools/OverlaySpike` (WPF, net10.0-windows)
 - `Topmost` + `WS_EX_NOACTIVATE`(클릭해도 포커스를 안 뺏음) + `WS_EX_TOOLWINDOW`. 1초마다 `HWND_TOPMOST`를 다시 지정합니다.
 - `Ctrl+F7`: 클릭 통과(`WS_EX_TRANSPARENT`) 토글
@@ -138,6 +140,9 @@ PckTool extract-images "images/packed/card_portraits/**/*.png" data\local\pck\ca
 | GDI 캡처가 검지 않음 | ⏳ |
 
 ## 4.1 카드 그림 지각 해시 (pHash) [실행 확인, 오프라인]
+
+> 2026-11-08 갱신: `tools/VisionSpike`는 `src/Sts2Overlay.Vision`(SkiaSharp)과 `tools/VisionBench`로 대체되어 삭제했습니다.
+> 현재 정확도: 보상 24/24·상점 10/10 화면 판별, 잘못 인식한 카드 0, 다른 화면 125장 오탐 0, 4K 프레임당 약 10 ms (`VisionBench bench`).
 
 `tools/VisionSpike` (net10.0, ImageSharp)
 
