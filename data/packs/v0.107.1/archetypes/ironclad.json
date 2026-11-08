@@ -1,4 +1,5 @@
-// 아이언클래드 아키타입 초안 (claude-draft-v1). 시작 덱 카드(BASH 등)와 시작 유물은 commit을 부풀리므로 넣지 않습니다.
+// 아이언클래드 아키타입 (상위 플레이어 근거 v1). 카드 목록은 상위 플레이어의 실제 A10 승리 덱에서 가져왔습니다: OP.GG 주간 최단 승리 상위 100 + 해당 플레이어 최근 승리(2026-11-02~08, 바닐라 94판·37명), 보조로 Baalorlord A10 연승 덱 11판. 근거 표: docs/research/build-sources/ironclad.md
+// 공통 규칙: 멤버 덱 = 축 카드(anchor) 2장 이상, 카드 평가는 자기 자신을 뺀 leave-one-out 멤버십. 지원 = 3명 이상·lift 1.5 이상·점유율 25% 이상(또는 15% 이상 + 제시 5회 이상 중 픽 50% 이상). 베타 변경 카드는 v0.107.x 런만 사용. 시작 덱 카드와 시작 유물은 넣지 않습니다.
 {
   "character": "CHARACTER.IRONCLAD",
   "archetypes": [
@@ -6,112 +7,170 @@
       "id": "ironclad.strength",
       "names": { "kor": "힘 성장", "eng": "Strength" },
       "color": "#c0392b",
+      // 근거(OP.GG A10 승리 덱, 2026-11-02~08): 멤버 덱 24판·18명(v0.107.1 10판·6명, 1위 1판). core 없음: 힘 축 카드 중 점유율 40% 이상이 없음(최고 FIGHT_ME 33%·INFLAME 28%).
+      // DEMON_FORM은 v0.107.1 멤버 덱 0/10(1위의 비멤버 덱 2판에만 있음), BRAND·RUPTURE는 자해 쪽 카드(이 빌드 lift 0.8·1.2) → 제외. 예: https://op.gg/slay-the-spire2/history/7052873
       "cards": {
-        "core": ["CARD.DEMON_FORM", "CARD.INFLAME"],
-        "enabler": ["CARD.BRAND", "CARD.FIGHT_ME", "CARD.DOMINATE", "CARD.RUPTURE"],
-        "payoff": ["CARD.WHIRLWIND", "CARD.SWORD_BOOMERANG", "CARD.TWIN_STRIKE", "CARD.CONFLAGRATION", "CARD.THRASH"],
-        "support": ["CARD.SETUP_STRIKE", "CARD.ONE_TWO_PUNCH"]
+        "core": [],
+        "enabler": ["CARD.INFLAME", "CARD.FIGHT_ME"],
+        "payoff": ["CARD.CONFLAGRATION"],
+        "support": ["CARD.UNRELENTING", "CARD.VICIOUS", "CARD.DARK_EMBRACE"]
       },
-      "fullWeight": 4.0,
-      "keyRelics": [
-        { "id": "RELIC.VAJRA", "w": 0.5 },
-        { "id": "RELIC.SWORD_OF_JADE", "w": 0.5 },
-        { "id": "RELIC.RUINED_HELMET", "w": 0.6 },
-        { "id": "RELIC.GIRYA", "w": 0.5 },
-        { "id": "RELIC.SHURIKEN", "w": 0.5 },
-        { "id": "RELIC.BRIMSTONE", "w": 0.6 }
-      ],
+      // fullWeight 4.0 → 2.0: 새 목록에서 멤버 덱 commit 중앙값 0.35(<0.7)라 0.85 목표로 보정(계산값 1.65, 최솟값 2.0). 기존 유물 6종은 멤버 덱 3명 이상·lift 1.5 이상을 만족하지 못해 제거.
+      "fullWeight": 2.0,
+      "keyRelics": [],
       "needs": [{ "tag": "STRENGTH", "min": 2 }, { "role": "block", "min": 3 }],
       "desc": "힘을 영구히 쌓고 다단 공격으로 한꺼번에 터뜨리는 정석 빌드. 방어를 소홀히 하기 쉬우니 주의",
-      "guideHeroCard": "CARD.DEMON_FORM"
+      "guideHeroCard": "CARD.FIGHT_ME"
     },
     {
       "id": "ironclad.exhaust",
       "names": { "kor": "소멸", "eng": "Exhaust" },
       "color": "#8e44ad",
-      // 코어 정리: CORRUPTION은 고대(Ancient) 희귀도라 카드 보상에 나오지 않고, "스킬 0코스트 + 사용 시 소멸"로 소멸을 공급하는 쪽이라 core → enabler.
-      // core에 두면 CORRUPTION만 가진 덱이 코어 확보로 처리되어 정작 필요한 FEEL_NO_PAIN·DARK_EMBRACE("카드가 소멸될 때마다 …") 우선 추천이 꺼짐.
+      // 근거(OP.GG A10 승리 덱, 2026-11-02~08): 멤버 덱 56판·25명(v0.107.1 11판·5명, 1위 5판). core FEEL_NO_PAIN 55%(26/47)·lift 1.92·14명·빌드 내 픽 26/41.
+      // DARK_EMBRACE는 24%라 core 기준(40%) 미달 → payoff(빌드 내 픽 12/17, lift 4.6). TREMBLE(스스로 소멸) 66% 추가. CORRUPTION 3/56·2명, PACTS_END·HOWL_FROM_BEYOND·FORGOTTEN_RITUAL은 v0.107.1 멤버 덱 0판 → 제외.
+      // 예: https://op.gg/slay-the-spire2/history/7090350 https://op.gg/slay-the-spire2/history/7121129
       "cards": {
-        "core": ["CARD.FEEL_NO_PAIN", "CARD.DARK_EMBRACE"],
-        "enabler": ["CARD.CORRUPTION", "CARD.BURNING_PACT", "CARD.TRUE_GRIT", "CARD.SECOND_WIND", "CARD.STOKE", "CARD.FIEND_FIRE", "CARD.BRAND"],
-        "payoff": ["CARD.ASHEN_STRIKE", "CARD.PACTS_END", "CARD.HOWL_FROM_BEYOND", "CARD.DRUM_OF_BATTLE", "CARD.FORGOTTEN_RITUAL", "CARD.EVIL_EYE"],
-        "support": ["CARD.OFFERING", "CARD.BATTLE_TRANCE"]
+        "core": ["CARD.FEEL_NO_PAIN"],
+        "enabler": ["CARD.TRUE_GRIT", "CARD.TREMBLE", "CARD.SECOND_WIND"],
+        "payoff": ["CARD.DARK_EMBRACE", "CARD.ASHEN_STRIKE"],
+        "support": ["CARD.BLOODLETTING", "CARD.BATTLE_TRANCE", "CARD.HEADBUTT", "CARD.FIGHT_ME"]
       },
+      // 유물: ENDLESS_APPETITE(멤버 덱 0판) 제거, 나머지 5종은 3명 이상·lift 1.5 이상으로 유지. fullWeight 4.5 유지(멤버 중앙값 0.87, 비멤버 0.33).
       "fullWeight": 4.5,
       "keyRelics": [
         { "id": "RELIC.CHARONS_ASHES", "w": 0.7 },
         { "id": "RELIC.BURNING_STICKS", "w": 0.4 },
         { "id": "RELIC.JOSS_PAPER", "w": 0.5 },
         { "id": "RELIC.FORGOTTEN_SOUL", "w": 0.5 },
-        { "id": "RELIC.ENDLESS_APPETITE", "w": 0.6 },
         { "id": "RELIC.TOASTY_MITTENS", "w": 0.4 }
       ],
       "needs": [{ "tag": "EXHAUST", "min": 3 }],
-      "desc": "카드를 소멸시킬 때마다 방어도·드로우를 얻는 엔진. 스킬을 공짜로 만드는 고대 파워를 얻으면 완성에 가까워짐",
+      "desc": "카드를 소멸시킬 때마다 방어도·드로우를 얻는 엔진. 스스로 소멸하는 방어·취약 카드로 소멸 횟수를 채움",
       "guideHeroCard": "CARD.FEEL_NO_PAIN"
     },
     {
       "id": "ironclad.block",
-      "names": { "kor": "방어 누적", "eng": "Barricade" },
+      "names": { "kor": "방어 누적", "eng": "Block" },
       "color": "#7f8c8d",
+      // 근거(OP.GG A10 승리 덱, 2026-11-02~08): 멤버 덱(방어 유지·변환 카드 2장 이상) 24판·16명(v0.107.1 4판·3명, 1위 1판). core 없음.
+      // 축 카드가 서로 함께 쓰이지 않음: BARRICADE 3/14·lift 0.78, BODY_SLAM 3/8·1.21, UNMOVABLE 3/12·0.98, JUGGERNAUT 1/20(빌드 내 제시 12회 중 픽 0) → 모두 제외. 남은 목록은 이 덱들에 많은 방어·에너지 카드.
+      // SHRUG_IT_OFF(lift 1.41)·TAUNT(v0.107.1 3/4)는 OP.GG 기준 미달이나 Baalorlord A10 덱 6/11·10/11 → 보조 출처로 enabler. 예: https://op.gg/slay-the-spire2/history/7265502 https://op.gg/slay-the-spire2/history/7100524
       "cards": {
-        "core": ["CARD.BARRICADE"],
-        "enabler": ["CARD.UNMOVABLE", "CARD.IMPERVIOUS", "CARD.FLAME_BARRIER", "CARD.STONE_ARMOR", "CARD.CRIMSON_MANTLE", "CARD.RAGE"],
-        "payoff": ["CARD.BODY_SLAM", "CARD.JUGGERNAUT"],
-        "support": ["CARD.SHRUG_IT_OFF", "CARD.ARMAMENTS", "CARD.COLOSSUS", "CARD.TAUNT", "CARD.IRON_WAVE"]
+        "core": [],
+        "enabler": ["CARD.BLOOD_WALL", "CARD.ARMAMENTS", "CARD.IMPERVIOUS", "CARD.SHRUG_IT_OFF", "CARD.TAUNT"],
+        "payoff": [],
+        "support": ["CARD.OFFERING", "CARD.PYRE"]
       },
-      "fullWeight": 4.0,
+      // fullWeight 4.0 → 2.5: 멤버 중앙값 0.52(<0.7) → 보정 후 0.84(비멤버 0.56). 유물은 ANCHOR(8명·lift 1.89)만 유지, 나머지 4종은 lift 1.0 미만 또는 1명뿐이라 제거.
+      "fullWeight": 2.5,
       "keyRelics": [
-        { "id": "RELIC.STURDY_CLAMP", "w": 0.6 },
-        { "id": "RELIC.VAMBRACE", "w": 0.4 },
-        { "id": "RELIC.PAELS_LEGION", "w": 0.4 },
-        { "id": "RELIC.PARRYING_SHIELD", "w": 0.5 },
         { "id": "RELIC.ANCHOR", "w": 0.3 }
       ],
       "needs": [{ "tag": "BLOCK", "min": 3 }, { "role": "block", "min": 4 }],
-      "desc": "방어도를 다음 턴까지 유지하고, 쌓인 방어도를 피해로 바꾸는 느린 빌드",
-      "guideHeroCard": "CARD.BARRICADE"
+      "desc": "방어도 카드와 에너지 카드를 두텁게 쌓아 버티는 수비형 덱. 방어도를 유지·변환하는 파워는 상위 덱에서 드물게 쓰임",
+      "guideHeroCard": "CARD.BLOOD_WALL"
     },
     {
       "id": "ironclad.self_damage",
       "names": { "kor": "자해", "eng": "Self-damage" },
       "color": "#e74c3c",
+      // 근거(OP.GG A10 승리 덱, 2026-11-02~08): 멤버 덱 13판·11명(v0.107.1 5판·4명, 1위 2판) — 표본이 얇음. core INFERNO 50%(4/8)·lift 3.82·4명.
+      // TEAR_ASUNDER도 50%(4/8)·lift 5.22·4명으로 수치는 core 기준을 넘지만 잃은 체력을 터뜨리는 마무리 공격이라 payoff. RUPTURE·SPITE 2/9·2명, HEMOKINESIS 3/13 → 제외.
+      // 예: https://op.gg/slay-the-spire2/history/7035633 https://op.gg/slay-the-spire2/history/7202800
       "cards": {
-        "core": ["CARD.RUPTURE", "CARD.INFERNO"],
-        "enabler": ["CARD.BLOODLETTING", "CARD.OFFERING", "CARD.HEMOKINESIS", "CARD.BREAKTHROUGH", "CARD.BLOOD_WALL", "CARD.CRIMSON_MANTLE"],
-        "payoff": ["CARD.TEAR_ASUNDER", "CARD.SPITE"],
-        "support": ["CARD.FEED", "CARD.NOT_YET"]
+        "core": ["CARD.INFERNO"],
+        "enabler": ["CARD.BLOODLETTING", "CARD.BLOOD_WALL", "CARD.BRAND", "CARD.BREAKTHROUGH"],
+        "payoff": ["CARD.TEAR_ASUNDER"],
+        "support": ["CARD.BATTLE_TRANCE", "CARD.FLAME_BARRIER", "CARD.UPPERCUT", "CARD.FIEND_FIRE", "CARD.UNMOVABLE", "CARD.UNRELENTING", "CARD.CONFLAGRATION"]
       },
+      // 유물: RED_SKULL(lift 1.32)·SELF_FORMING_CLAY(1명) 제거. fullWeight 3.5 유지(멤버 중앙값 1.00, 비멤버 0.49).
       "fullWeight": 3.5,
-      "keyRelics": [
-        { "id": "RELIC.RED_SKULL", "w": 0.5 },
-        { "id": "RELIC.SELF_FORMING_CLAY", "w": 0.5 }
-      ],
+      "keyRelics": [],
       "needs": [{ "tag": "SELF_DAMAGE", "min": 3 }],
-      "desc": "스스로 체력을 깎을 때마다 힘이나 광역 피해를 얻는 빌드. 회복 수단이 함께 필요",
-      "guideHeroCard": "CARD.RUPTURE"
+      "desc": "스스로 체력을 깎을 때마다 적 전체에 피해를 주고, 잃은 체력만큼 강해지는 공격으로 마무리하는 빌드. 회복 수단이 함께 필요",
+      "guideHeroCard": "CARD.INFERNO"
     },
     {
       "id": "ironclad.vulnerable",
       "names": { "kor": "취약", "eng": "Vulnerable" },
       "color": "#d35400",
-      // 코어 정리: DISMANTLE("적이 취약이면 두 번 타격")은 BULLY처럼 취약을 소비하는 공격 보상이라 core → payoff.
-      // 코어는 "취약을 걸 때마다 드로우"로 빌드를 정의하는 VICIOUS만.
+      // 근거(OP.GG A10 승리 덱, 2026-11-02~08): 멤버 덱 57판·29명(v0.107.1 19판·8명, 1위 4판). core 없음: 여러 빌드에 섞여 쓰이는 묶음이라 점유율 40% 이상인 엔진 카드가 없음.
+      // VICIOUS는 OP.GG에서 21%·lift 1.24·빌드 내 픽 8/34로 기준 미달(기존 core). Baalorlord A10 덱 8/11 → 보조 출처로 payoff(core 불가). CRUELTY도 같은 경로(Baalorlord 8/11, v0.107.1 lift 1.07).
+      // TAUNT 11/19는 한 플레이어가 6판(55%). DOMINATE·BULLY·DISMANTLE·COLOSSUS·UPPERCUT·BREAK는 lift 1.3 미만, THUNDERCLAP은 14/57(24.6%)로 제외. 예: https://op.gg/slay-the-spire2/history/7138596 https://op.gg/slay-the-spire2/history/7175296
       "cards": {
-        "core": ["CARD.VICIOUS"],
-        "enabler": ["CARD.THUNDERCLAP", "CARD.TREMBLE", "CARD.TAUNT", "CARD.UPPERCUT", "CARD.DOMINATE", "CARD.BREAK"],
-        "payoff": ["CARD.DISMANTLE", "CARD.BULLY", "CARD.CRUELTY", "CARD.COLOSSUS", "CARD.MOLTEN_FIST"],
-        "support": []
+        "core": [],
+        "enabler": ["CARD.TREMBLE", "CARD.TAUNT"],
+        "payoff": ["CARD.MOLTEN_FIST", "CARD.VICIOUS", "CARD.CRUELTY"],
+        "support": ["CARD.FLAME_BARRIER", "CARD.HEADBUTT", "CARD.UNMOVABLE", "CARD.FIGHT_ME", "CARD.SETUP_STRIKE"]
       },
+      // 유물: PAPER_PHROG(lift 1.30)·BAG_OF_MARBLES(0.60) 제거, HAND_DRILL(3명, 비멤버 덱 0판) 유지. fullWeight 3.5 유지(멤버 중앙값 0.84, 비멤버 0.34).
       "fullWeight": 3.5,
       "keyRelics": [
-        { "id": "RELIC.PAPER_PHROG", "w": 0.6 },
-        { "id": "RELIC.BAG_OF_MARBLES", "w": 0.4 },
         { "id": "RELIC.HAND_DRILL", "w": 0.4 }
       ],
       "needs": [{ "tag": "VULNERABLE", "min": 3 }],
       "desc": "취약을 자주 걸어 드로우·추가 타격·피해 감소를 얻는 빌드",
       "guideHeroCard": "CARD.VICIOUS"
+    },
+    {
+      "id": "ironclad.attack_replay",
+      "names": { "kor": "공격 재사용", "eng": "Attack Replay" },
+      "color": "#16a085",
+      // 새 아키타입. 근거(OP.GG A10 승리 덱, 2026-11-02~08): 멤버 덱(STAMPEDE·AGGRESSION·THRASH·BLUDGEON·MANGLE 중 2장 이상) 18판·16명(v0.107.1 4판, 1위 1판).
+      // core 없음: THRASH가 64%(7/11)·lift 6.16·7명으로 가장 흔하지만 손의 공격을 흡수해 커지는 마무리 공격이라 payoff. 엔진 파워 STAMPEDE는 36%로 core 기준(40%) 미달. AGGRESSION 4/14·lift 1.32 → 제외.
+      // 예: https://op.gg/slay-the-spire2/history/7263598 https://op.gg/slay-the-spire2/history/7299437
+      "cards": {
+        "core": [],
+        "enabler": ["CARD.STAMPEDE", "CARD.JUGGLING"],
+        "payoff": ["CARD.THRASH", "CARD.BLUDGEON"],
+        "support": ["CARD.VICIOUS", "CARD.FLAME_BARRIER", "CARD.PYRE", "CARD.BREAK", "CARD.INFLAME", "CARD.UNRELENTING"]
+      },
+      // fullWeight 4.0(기본값): 멤버 중앙값 0.74, 비멤버 0.19라 보정 안 함. 유물: 표본 18판에서 기준을 넘는 유물이 20종 이상이라 우연과 구별되지 않아 비워 둠.
+      "fullWeight": 4.0,
+      "keyRelics": [],
+      "needs": [],
+      "desc": "큰 공격을 자동 사용·복사로 여러 번 쓰고, 손의 공격을 흡수해 커지는 공격으로 마무리하는 공격 위주 빌드",
+      "guideHeroCard": "CARD.THRASH"
+    },
+    {
+      "id": "ironclad.strike_tempo",
+      "names": { "kor": "타격 템포", "eng": "Strike Tempo" },
+      "color": "#f1c40f",
+      // 새 아키타입. 근거(OP.GG A10 승리 덱, 2026-11-02~08): 멤버 덱(SETUP_STRIKE·TWIN_STRIKE·PERFECTED_STRIKE·ANGER·JUGGLING·HELLRAISER 중 2장 이상) 12판·9명(v0.107.1 6판, 1위 1판) — 표본이 얇음.
+      // core 없음: 타격 카드는 모두 일반(Common)이고, 고급 이상 축 카드(JUGGLING 4/9·3명, HELLRAISER 1/11)는 core 기준 미달. POMMEL_STRIKE는 lift 1.41로 OP.GG 미달이나 Baalorlord 8/11 → 보조 출처.
+      // Baalorlord 타격 덱은 PERFECTED_STRIKE 3~5장(https://baalorlord.tv/runs/1793119493). 표본이 작아 3판·3명만으로 통과한 support가 많음. 캐릭터 풀 밖 카드(무색 FLASH_OF_STEEL, 이벤트 MAD_SCIENCE)는 기준을 넘었지만 제외. 예: https://op.gg/slay-the-spire2/history/7121129 https://op.gg/slay-the-spire2/history/7172666
+      "cards": {
+        "core": [],
+        "enabler": ["CARD.SETUP_STRIKE", "CARD.TWIN_STRIKE", "CARD.POMMEL_STRIKE"],
+        "payoff": ["CARD.PERFECTED_STRIKE"],
+        "support": ["CARD.JUGGLING", "CARD.HEADBUTT", "CARD.COLOSSUS", "CARD.EVIL_EYE", "CARD.MOLTEN_FIST", "CARD.BODY_SLAM", "CARD.BREAKTHROUGH", "CARD.OFFERING", "CARD.BLUDGEON", "CARD.CONFLAGRATION", "CARD.INFLAME", "CARD.RAGE", "CARD.UNRELENTING", "CARD.UPPERCUT", "CARD.DRUM_OF_BATTLE", "CARD.HAVOC"]
+      },
+      // fullWeight 4.0 → 6.5: 기본값에서 비멤버 중앙값 0.57(>0.5)라 보정(계산값 6.41), 보정 후 멤버 0.84·비멤버 0.35. 유물은 attack_replay와 같은 이유로 비워 둠. needs: 멤버 덱 12판 중 11판이 STRIKE 축 카드 3장 이상.
+      "fullWeight": 6.5,
+      "keyRelics": [],
+      "needs": [{ "tag": "STRIKE", "min": 3 }],
+      "desc": "이름에 타격이 붙은 카드를 여러 장 모아 빠르게 몰아치는 템포 빌드. 기본 카드 제거와 상충",
+      "guideHeroCard": "CARD.SETUP_STRIKE"
+    },
+    {
+      "id": "ironclad.hellraiser",
+      "names": { "kor": "타격 자동 사용", "eng": "Hellraiser" },
+      "color": "#2e86c1",
+      // 새 아키타입, OP.GG 랭킹 1위 플레이어의 빌드(1위 빌드 규칙): HELLRAISER 덱 7판·4명 중 4판이 1위(그의 승리 12판 중 4판, 모두 v0.107.1).
+      // core HELLRAISER: 1위 멤버 덱 4/4(1위 픽 3/4). 카드 기준은 1위 경로(그의 멤버 덱 50% 이상 + lift 1.5 이상) 또는 일반 기준. POMMEL_STRIKE는 2/4지만 lift 1.00 미만이라 제외.
+      // 예: https://op.gg/slay-the-spire2/history/7278205 https://op.gg/slay-the-spire2/history/7204765 https://op.gg/slay-the-spire2/history/7107205
+      "cards": {
+        "core": ["CARD.HELLRAISER"],
+        "enabler": ["CARD.BURNING_PACT", "CARD.ASHEN_STRIKE"],
+        "payoff": [],
+        "support": ["CARD.BLOODLETTING", "CARD.FLAME_BARRIER", "CARD.PYRE"]
+      },
+      // fullWeight 4.0 → 2.5: 기본값에서 멤버 중앙값 0.55(<0.7) → 보정 후 0.88(비멤버 0.40). 유물 근거 없음. needs 없음: 1위의 HELLRAISER 덱은 STRIKE 축 카드가 0~5장으로 일정하지 않음.
+      "fullWeight": 2.5,
+      "keyRelics": [],
+      "needs": [],
+      "desc": "드로우한 타격 카드를 자동으로 쓰는 파워를 중심으로, 에너지·드로우 카드로 가벼운 덱을 빠르게 돌리는 빌드",
+      "guideHeroCard": "CARD.HELLRAISER"
     }
   ]
 }

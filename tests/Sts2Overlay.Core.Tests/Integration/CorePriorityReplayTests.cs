@@ -280,7 +280,7 @@ public class CorePriorityReplayTests(ITestOutputHelper output)
 
     /// <summary>
     /// Per character: for every build, a deck of that build's non-core cards that leans into it (commit ≥ leanFull), with role
-    /// needs met and no weak role. Every missing core card then ranks above every same-build non-core card that is equal or
+    /// needs met and no weak role. Every missing core card without "엔진 없음" then ranks above every same-build non-core card that is equal or
     /// one tier better (and not valued by another build); owning a core removes the bonus and this build's discount;
     /// a weak deck halves the bonus.
     /// </summary>
@@ -316,9 +316,12 @@ public class CorePriorityReplayTests(ITestOutputHelper output)
             Assert.False(mine.CoreSecured);
             Assert.Equal(cores, mine.MissingCore.Select(m => m.CardId));
 
-            foreach (var c in cores.Where(id => pack.FindTier(character, id)?.Requires.Count is 0 or null))
+            foreach (var c in cores)
             {
                 var ce = Consistent(scorer.Score(state, profile, new CardRef(c)));
+                // Same filter as Pairs: a core whose required axis is missing from this deck ("엔진 없음") is not a fair pair.
+                // A core with `requires` whose axis the build deck supplies is checked (e.g. necrobinder's cores).
+                if (ce.Score.ValueOf(ComponentKeys.EngineMissing) != 0) continue;
                 Assert.True(ce.Score.ValueOf(ComponentKeys.CorePriority) > 0, $"{archetype.Id}: {c} has no core priority");
                 foreach (var n in others.Where(id => !deck.Contains(id)))
                 {

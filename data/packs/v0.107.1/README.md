@@ -8,7 +8,7 @@ Slay the Spire 2 **v0.107.1** 기준 첫 실제 데이터 팩입니다. **초안
 | `tiers/ironclad.json` | 87장 (기본 3 + 일반 20 + 고급 36 + 희귀 26 + 고대 2) |
 | `tiers/silent.json`, `defect.json`, `necrobinder.json`, `regent.json` | 각 88장 (기본 4 + 82 + 고대 2) |
 | `tiers/colorless.json` | 64장 (고급 39 + 희귀 25) |
-| `archetypes/*.json` | 아이언클래드 5, 사일런트 4, 디펙트 5, 네크로바인더 4, 리젠트 3 |
+| `archetypes/*.json` | 아이언클래드 8, 사일런트 3, 디펙트 6, 네크로바인더 3, 리젠트 4 (랭커 실제 빌드 근거, [`docs/research/build-sources/`](../../../docs/research/build-sources/README.md)) |
 | `combos/*.json` | 2장 콤보 58개 (캐릭터당 9~13개) |
 | `weights.json` | 비어 있음 → 코드 기본값 사용 (이유는 파일 주석) |
 
@@ -22,7 +22,11 @@ Slay the Spire 2 **v0.107.1** 기준 첫 실제 데이터 팩입니다. **초안
    - 카드 이름·설명은 **한 글자도 옮기지 않았습니다**. 팁·설명·콤보 이유는 우리 말로 쓴 짧은 요약이며, 다른 카드 이름도 넣지 않았습니다(예: 리젠트의 검 토큰은 "검 토큰"으로만 부름).
    - `type`·`rarity`·`cost`는 카탈로그가 없을 때(예: 리플레이 도구가 팩만 읽을 때) 쓰는 대체 값으로, 커밋된 카탈로그에서 복사했습니다. 카탈로그가 있으면 카탈로그 값이 우선합니다.
 2. **티어**: Claude가 카드 텍스트와 일반적인 덱빌딩 원칙(초반 딜·방어·성장·드로우의 균형, PLAN §7.1 "Jobs")으로 매긴 뒤, 커뮤니티 자료를 **참고만** 했습니다. 참고 자료와 일치한 항목은 `source`에 `ref brokenbuilds(2026-04)`를 덧붙였습니다.
-3. **아키타입·콤보**: 각 캐릭터의 고유 메커니즘(힘·소멸, 독·단도·교활, 구체·밀집·파워·0코스트·상태이상, 소환·파멸·영혼·영체, 별·벼리기·카드 생성)에서 도출했습니다. 시작 덱 카드와 시작 유물은 모든 런에 있어 commit을 부풀리므로 아키타입에 넣지 않았습니다.
+3. **아키타입**: 빌드 목록과 빌드별 카드(core·enabler·payoff·support)는 **상위 랭커가 실제로 이긴 덱**에서 정했습니다. 판정 규칙과 카드마다의 근거는 [`docs/research/build-sources/README.md`](../../../docs/research/build-sources/README.md)와 캐릭터별 문서에 있습니다.
+   - 랭커가 거의 하지 않는 빌드(사일런트 드로우, 디펙트 파워, 네크로바인더 영혼)는 지웠고, 기준을 넘는 새 빌드(아이언클래드 공격 반복·타격·헬레이저, 디펙트 어둠 구체·구체 다양성, 리젠트 별 소모)를 더했습니다.
+   - core 근거가 되는 카드가 없으면 core를 비워 두었습니다. 그 빌드는 "코어 먼저"가 꺼지고, 검증기는 이것을 경고로 알립니다.
+   - 시작 덱 카드와 시작 유물은 모든 런에 있어 commit을 부풀리므로 아키타입에 넣지 않았습니다.
+   - **콤보**는 각 캐릭터의 고유 메커니즘에서 도출했습니다(아키타입 교체 전과 같음).
 4. **검증과 보정**: 테스트로 형식을 검증하고, 사용자의 실제 런 26개를 리플레이해 명백히 어긋난 10장을 조정했습니다(§4). 조정이 튜닝에 쓴 런에만 맞춘 것인지는 튜닝에 쓰지 않은 런으로 따로 검증했습니다(§4.1).
 
 ## 2. 필드 사용 규칙
@@ -71,6 +75,10 @@ Slay the Spire 2 **v0.107.1** 기준 첫 실제 데이터 팩입니다. **초안
   - 네크로바인더 빌드 가이드(오스티·파멸·영혼 3축): KeenGamer <https://www.keengamer.com/articles/guides/best-necrobinder-build-in-slay-the-spire-2/>, PCGamesN <https://www.pcgamesn.com/slay-the-spire-2/necrobinder>, FinalBoss <https://finalboss.io/slay-the-spire-2-necrobinder-character-guide-strategy-builds-and-tier-list>
   - 리젠트 빌드 가이드: KeenGamer <https://www.keengamer.com/articles/guides/slay-the-spire-2-best-regent-builds>
   - 캐릭터 순위는 출처마다 크게 엇갈립니다(어떤 곳은 사일런트, 어떤 곳은 리젠트나 네크로바인더가 1위). 그래서 캐릭터 간 티어 분포를 맞추려 하지 않았습니다.
+- 아키타입 근거 (2026-11, 자세한 내용은 [`docs/research/build-sources/README.md`](../../../docs/research/build-sources/README.md)):
+  - **주 근거**: OP.GG Slay the Spire 2 랭킹의 실제 승리 런 (2026-11-02 ~ 11-08 주간 순위와 순위권 플레이어의 최근 승리; 승천 10·바닐라·싱글 플레이). 런은 `history/<runId>` 주소로만 인용합니다.
+  - **보조 근거**: Baalorlord의 캐릭터별 승천 10 연승 덱과 본인이 쓴 공략.
+  - **참고만**: Spire Codex A10 카드 통계. 카드를 넣고 빼는 유일한 이유로는 쓰지 않았습니다.
 - 축 모델 아이디어: Deck Compass 분석([`docs/research/DECK_COMPASS.md`](../../../docs/research/DECK_COMPASS.md)). 데이터는 가져오지 않았습니다.
 
 ## 4. 런 기록 리플레이 결과 (2026-11-08)

@@ -1,71 +1,92 @@
-// 리젠트 아키타입 초안 (claude-draft-v1). 시작 덱 카드(FALLING_STAR, VENERATE)와 시작 유물(DIVINE_RIGHT)은 넣지 않습니다.
-// 축: STAR(별 생산), FORGE(벼리기 = 검 토큰 강화), CREATE(카드 생성)
-// 커뮤니티 가이드(v0.111 베타 기준 포함)는 별 덱과 벼리기 덱을 섞지 말라고 권합니다.
+// 리젠트 아키타입. 카드 목록은 상위 랭커의 실제 승리 덱(OP.GG 승천 10 바닐라 승리 39판·16명, 2026-11-02~08 주간 순위 + 순위 플레이어 최근 승리)과 Baalorlord의 A10 연승 덱에서 가져왔습니다. 근거 문서: docs/research/build-sources/regent.md
+// 시작 덱 카드(FALLING_STAR, VENERATE)와 시작 유물(DIVINE_RIGHT)은 넣지 않습니다. 축: STAR(별), FORGE(벼리기 = 검 토큰 강화), CREATE(카드 생성)
+// 별 덱은 둘로 나뉩니다: 다른 랭커의 블랙홀 별 덱(regent.stars)과 OP.GG 랭킹 1위 플레이어의 별 소모 덱(regent.star_spend). 1위 플레이어의 별 덱 10판에는 BLACK_HOLE이 한 장도 없습니다.
+// 빌드 소속은 평가하는 카드를 빼고 계산했습니다(leave-one-out). 베타에서 바뀐 카드(PILLAR_OF_CREATION, SPOILS_OF_BATTLE 등)는 v0.107.x 런만 봤습니다.
 {
   "character": "CHARACTER.REGENT",
   "archetypes": [
     {
       "id": "regent.stars",
-      "names": { "kor": "별", "eng": "Stars" },
+      "names": { "kor": "별 (블랙홀)", "eng": "Stars / Black Hole" },
       "color": "#f4d03f",
-      // 코어 정리: ASTRAL_PULSE(일반, 별 3 소비 광역 2회)·SEVEN_STARS(별 7 소비 광역)는 별을 쓰는 소비 카드라 core → payoff.
-      // 일반 소비 카드 한 장으로 코어 확보가 되면 GENESIS(매 턴 별 생산) 우선 추천이 꺼짐.
-      // BLACK_HOLE("별을 쓰거나 얻을 때마다 모든 적에게 피해")은 별 자원을 빌드로 바꾸는 파워라 payoff → core (희귀 GENESIS만 남으면 코어가 너무 드묾).
+      // 근거(OP.GG A10 승리 덱, 2026-11-02~08): 1위 플레이어를 뺀 별 덱 12판·8명(v0.107.1 6, v0.111.0 6). core BLACK_HOLE 62%(LOO 5/8)·lift 3.2·4명.
+      // 보조 근거(Baalorlord A10 리젠트 덱 9판 중 절반 이상 + 별 비용 카드 + OP.GG lift 1.0 이상): REFLECT 5/9, PARTICLE_WALL 6/9, ASTRAL_PULSE 6/9.
+      // 충돌: ASTRAL_PULSE는 OP.GG 보상에서 2/68번만 집혔고 1위 플레이어는 0/27. 규칙상 lift가 1.0 이상(2/12 대 0/27)이라 남겼습니다.
+      // 예: https://op.gg/slay-the-spire2/history/7210354 https://op.gg/slay-the-spire2/history/7162265 https://op.gg/slay-the-spire2/history/7152833
       "cards": {
-        "core": ["CARD.GENESIS", "CARD.BLACK_HOLE"],
-        "enabler": ["CARD.GATHER_LIGHT", "CARD.GLOW", "CARD.HIDDEN_CACHE", "CARD.SOLAR_STRIKE", "CARD.SHINING_STRIKE", "CARD.BIG_BANG", "CARD.CONVERGENCE", "CARD.THE_SEALED_THRONE"],
-        "payoff": ["CARD.ASTRAL_PULSE", "CARD.SEVEN_STARS", "CARD.CHILD_OF_THE_STARS", "CARD.RADIATE", "CARD.DEVASTATE", "CARD.COMET", "CARD.ALIGNMENT", "CARD.GAMMA_BLAST", "CARD.METEOR_SHOWER"],
-        "support": ["CARD.REFLECT", "CARD.NEUTRON_AEGIS", "CARD.PARTICLE_WALL"]
+        "core": ["CARD.BLACK_HOLE"],
+        "enabler": ["CARD.GATHER_LIGHT", "CARD.GLOW", "CARD.ROYAL_GAMBLE", "CARD.BIG_BANG", "CARD.SOLAR_STRIKE"],
+        "payoff": ["CARD.CLOAK_OF_STARS", "CARD.STARDUST", "CARD.COMET", "CARD.REFLECT", "CARD.PARTICLE_WALL", "CARD.ASTRAL_PULSE"],
+        "support": ["CARD.SPECTRUM_SHIFT", "CARD.ORBIT"]
       },
       "fullWeight": 4.5,
-      "keyRelics": [
-        { "id": "RELIC.GALACTIC_DUST", "w": 0.6 },
-        { "id": "RELIC.LUNAR_PASTRY", "w": 0.6 },
-        { "id": "RELIC.MINI_REGENT", "w": 0.4 },
-        { "id": "RELIC.DIVINE_DESTINY", "w": 0.4 }
-      ],
+      // 기존 핵심 유물(GALACTIC_DUST, LUNAR_PASTRY, MINI_REGENT, DIVINE_DESTINY)은 빌드 덱에서 0~2판뿐이라 뺐습니다.
+      "keyRelics": [],
       "needs": [{ "tag": "STAR", "min": 3 }],
-      "desc": "별을 모았다가 별 비용 카드로 한 번에 쏟아붓는 빌드. 생산만 늘리고 소비 카드가 없으면 낭비",
-      "guideHeroCard": "CARD.GENESIS"
+      "desc": "별을 얻거나 쓸 때마다 모든 적을 때리는 파워를 깔고, 싼 별 비용 카드로 별을 계속 돌리는 빌드",
+      "guideHeroCard": "CARD.BLACK_HOLE"
+    },
+    {
+      "id": "regent.star_spend",
+      "names": { "kor": "별 소모 (수렴)", "eng": "Star Spend / Convergence" },
+      "color": "#a569bd",
+      // OP.GG 랭킹 1위 플레이어 빌드: 그의 리젠트 승리 13판 중 별 덱 10판(v0.107.1). 1위 플레이어 빌드 규칙(4승 이상)으로 인정, 카드는 그의 덱 절반 이상 + lift 1.5 이상으로 판정.
+      // 근거: core CHILD_OF_THE_STARS 그의 덱 56%(LOO 5/9)·lift 4.2. CONVERGENCE 70%·보상 9/10 집음, DECISIONS_DECISIONS 56%·5/5 집음.
+      // 보조 근거(Baalorlord 절반 이상 + 별 축 + lift 1.0 이상): GATHER_LIGHT 5/9(lift 1.1), PARTICLE_WALL 6/9(lift 2.9).
+      // 예: https://op.gg/slay-the-spire2/history/7173573 https://op.gg/slay-the-spire2/history/7278207 https://op.gg/slay-the-spire2/history/7278201
+      "cards": {
+        "core": ["CARD.CHILD_OF_THE_STARS"],
+        "enabler": ["CARD.CONVERGENCE", "CARD.HIDDEN_CACHE", "CARD.GATHER_LIGHT"],
+        "payoff": ["CARD.DECISIONS_DECISIONS", "CARD.RADIATE", "CARD.GUIDING_STAR", "CARD.PARTICLE_WALL"],
+        "support": ["CARD.BEGONE"]
+      },
+      "fullWeight": 4.0,
+      // 핵심 유물: 3명 이상 기준을 1인 빌드에서 만족할 수 없어 비웠습니다.
+      "keyRelics": [],
+      "needs": [{ "tag": "STAR", "min": 3 }],
+      "desc": "다음 턴 자원을 미리 쌓고 손패를 보존하며, 별을 쓸 때마다 방어도를 얻는 파워로 버티다가 큰 별 비용 카드로 마무리하는 빌드",
+      "guideHeroCard": "CARD.CHILD_OF_THE_STARS"
     },
     {
       "id": "regent.forge",
       "names": { "kor": "벼리기(검 토큰)", "eng": "Forge / Sovereign Blade" },
       "color": "#b9770e",
+      // 근거(OP.GG A10 승리 덱, 2026-11-02~08): 멤버 덱 14판·8명(1위 플레이어 4판, v0.107.1 10·v0.111.0 4). core SWORD_SAGE 46%(LOO 6/13)·lift 12·5명, FURNACE 50%(LOO 4/8)·lift 2.2·4명.
+      // COSMIC_INDIFFERENCE는 lift 1.59로 경계선입니다. SEEKING_EDGE는 2명뿐이라 근거 부족으로 뺐습니다.
+      // 예: https://op.gg/slay-the-spire2/history/7295402 https://op.gg/slay-the-spire2/history/7177823 https://op.gg/slay-the-spire2/history/7093776
       "cards": {
-        "core": ["CARD.SEEKING_EDGE", "CARD.SWORD_SAGE", "CARD.FURNACE"],
-        "enabler": ["CARD.WROUGHT_IN_WAR", "CARD.REFINE_BLADE", "CARD.BULWARK", "CARD.SPOILS_OF_BATTLE", "CARD.BEAT_INTO_SHAPE", "CARD.THE_SMITH", "CARD.BIG_BANG"],
-        "payoff": ["CARD.CONQUEROR", "CARD.SUMMON_FORTH", "CARD.PARRY"],
-        "support": []
+        "core": ["CARD.SWORD_SAGE", "CARD.FURNACE"],
+        "enabler": ["CARD.BULWARK", "CARD.SPOILS_OF_BATTLE", "CARD.WROUGHT_IN_WAR", "CARD.SUMMON_FORTH"],
+        "payoff": ["CARD.PARRY"],
+        "support": ["CARD.COSMIC_INDIFFERENCE", "CARD.ORBIT"]
       },
       "fullWeight": 4.0,
+      // FENCING_MANUAL: 빌드 덱 3/14·3명·lift 1.8로 유지.
       "keyRelics": [{ "id": "RELIC.FENCING_MANUAL", "w": 0.6 }],
       "needs": [{ "tag": "FORGE", "min": 3 }],
-      "desc": "벼리기로 검 토큰 한 장을 계속 키우는 빌드. 광역화·재사용 파워를 얻으면 후반 마무리가 강함",
-      "guideHeroCard": "CARD.SEEKING_EDGE"
+      "desc": "벼리기로 검 토큰 한 장을 계속 키우는 빌드. 검 토큰 재사용 파워를 얻으면 후반 마무리가 강함",
+      "guideHeroCard": "CARD.SWORD_SAGE"
     },
     {
       "id": "regent.creation",
       "names": { "kor": "카드 생성", "eng": "Creation" },
       "color": "#48c9b0",
-      // 코어 정리: SUPERMASSIVE("이번 전투에 만든 카드 1장당 추가 피해")는 생성 수를 소비하는 공격 보상이라 core → payoff.
-      // 코어는 "카드를 만들 때마다 …" 파워 ARSENAL·PILLAR_OF_CREATION.
+      // 근거(OP.GG A10 승리 덱, 2026-11-02~08): 멤버 덱 13판·9명(1위 플레이어 0판, v0.107.1 7·v0.111.0 6).
+      // core 비움: 엔진 후보 PILLAR_OF_CREATION은 베타 변경 카드라 v0.107 덱만 보면 3/5(60%)·lift 3.2지만 3명뿐이라 core 기준(4명)에 못 미칩니다. ARSENAL은 2명·LOO 2/9로 근거 부족.
+      // 보조 근거(Baalorlord 5/9 + 생성 축 + lift 1.2): BEGONE.
+      // 예: https://op.gg/slay-the-spire2/history/7285865 https://op.gg/slay-the-spire2/history/6749776 https://op.gg/slay-the-spire2/history/7202938
       "cards": {
-        "core": ["CARD.ARSENAL", "CARD.PILLAR_OF_CREATION"],
-        "enabler": ["CARD.SPECTRUM_SHIFT", "CARD.MANIFEST_AUTHORITY", "CARD.QUASAR", "CARD.BUNDLE_OF_JOY", "CARD.COLLISION_COURSE", "CARD.CRASH_LANDING", "CARD.BEGONE", "CARD.CHARGE", "CARD.GUARDS"],
-        "payoff": ["CARD.SUPERMASSIVE", "CARD.HEIRLOOM_HAMMER"],
-        "support": []
+        "core": [],
+        "enabler": ["CARD.CHARGE", "CARD.MANIFEST_AUTHORITY", "CARD.QUASAR", "CARD.BEGONE"],
+        "payoff": ["CARD.PILLAR_OF_CREATION", "CARD.SUPERMASSIVE"],
+        "support": ["CARD.GLITTERSTREAM", "CARD.GLOW", "CARD.VOID_FORM"]
       },
       "fullWeight": 4.0,
-      "keyRelics": [
-        { "id": "RELIC.REGALITE", "w": 0.6 },
-        { "id": "RELIC.VITRUVIAN_MINION", "w": 0.4 },
-        { "id": "RELIC.ORANGE_DOUGH", "w": 0.3 },
-        { "id": "RELIC.TOOLBOX", "w": 0.3 }
-      ],
+      // TOOLBOX: 빌드 덱 3/13·3명, 다른 덱 0/26으로 유지. REGALITE(2판)·VITRUVIAN_MINION(1판)·ORANGE_DOUGH(0판)는 뺐습니다.
+      "keyRelics": [{ "id": "RELIC.TOOLBOX", "w": 0.3 }],
       "needs": [{ "tag": "CREATE", "min": 3 }],
-      "desc": "무색·잔해·하수인 카드를 만들어 낼 때마다 힘·방어도를 얻는 빌드",
-      "guideHeroCard": "CARD.ARSENAL"
+      "desc": "무색·하수인 카드를 만들어 낼 때마다 방어도를 얻고, 만든 카드 수만큼 강해지는 공격으로 마무리하는 빌드",
+      "guideHeroCard": "CARD.PILLAR_OF_CREATION"
     }
   ]
 }

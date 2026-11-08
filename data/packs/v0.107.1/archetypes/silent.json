@@ -1,4 +1,5 @@
-// 사일런트 아키타입 초안 (claude-draft-v1). 시작 덱 카드(SURVIVOR 등)와 시작 유물은 넣지 않습니다.
+// 사일런트 아키타입. 카드 목록은 상위 플레이어의 A10 승리 덱에서 뽑았습니다(OP.GG 주간 최단 승리 상위 100명과 그들의 최근 승리, 2026-11-02~08, 바닐라 v0.107.1·v0.111.0 94판·41명; 보조 출처 Baalorlord A10 연승 덱). 근거와 수치: docs/research/build-sources/silent.md
+// 시작 덱 카드(SURVIVOR 등)와 시작 유물은 넣지 않습니다. 베타에서 바뀐 카드(†)는 v0.107.x 판만으로 판단했습니다.
 {
   "character": "CHARACTER.SILENT",
   "archetypes": [
@@ -6,15 +7,17 @@
       "id": "silent.poison",
       "names": { "kor": "중독", "eng": "Poison" },
       "color": "#27ae60",
-      // 코어 정리: DEADLY_POISON(일반, "중독 N 부여")은 POISONED_STAB·SNAKEBITE와 바꿔 쓸 수 있는 중독 공급원이라 core → enabler.
-      // 일반 카드 한 장으로 코어 확보가 되면 NOXIOUS_FUMES·BOUNCING_FLASK 우선 추천이 꺼짐.
+      // 근거(OP.GG A10 승리 덱, 2026-11-02~08): 멤버 덱 31판·22명(랭킹 1위 플레이어 6판). core NOXIOUS_FUMES 52%·lift 2.7·13명, ACCELERANT† 41%(v0.107 7/17)·lift 11.9·4명(그중 4판이 랭킹 1위 플레이어).
+      // BOUNCING_FLASK는 36%로 core 기준(40%) 미달이라 enabler. Baalorlord 중독 덱도 NOXIOUS_FUMES·SNAKEBITE 중심.
+      // 예: https://op.gg/slay-the-spire2/history/7306479 https://op.gg/slay-the-spire2/history/7176716 https://op.gg/slay-the-spire2/history/7085517
       "cards": {
-        "core": ["CARD.NOXIOUS_FUMES", "CARD.BOUNCING_FLASK"],
-        "enabler": ["CARD.DEADLY_POISON", "CARD.POISONED_STAB", "CARD.SNAKEBITE", "CARD.HAZE", "CARD.CORROSIVE_WAVE", "CARD.ENVENOM"],
-        "payoff": ["CARD.ACCELERANT", "CARD.OUTBREAK", "CARD.BUBBLE_BUBBLE", "CARD.MIRAGE"],
-        "support": ["CARD.MALAISE", "CARD.LEG_SWEEP", "CARD.PIERCING_WAIL", "CARD.FOOTWORK"]
+        "core": ["CARD.NOXIOUS_FUMES", "CARD.ACCELERANT"],
+        "enabler": ["CARD.SNAKEBITE", "CARD.BOUNCING_FLASK", "CARD.DEADLY_POISON"],
+        "payoff": ["CARD.MIRAGE", "CARD.BUBBLE_BUBBLE"],
+        "support": ["CARD.BLUR", "CARD.LEG_SWEEP", "CARD.REFLEX", "CARD.UNTOUCHABLE", "CARD.TRACKING"]
       },
       "fullWeight": 4.0,
+      // 유물 재확인: SNECKO_SKULL 멤버 13%·lift 1.4·3명(유지), TWISTED_FUNNEL 26%·lift 2.3·8명(유지).
       "keyRelics": [
         { "id": "RELIC.SNECKO_SKULL", "w": 0.7 },
         { "id": "RELIC.TWISTED_FUNNEL", "w": 0.5 }
@@ -27,18 +30,19 @@
       "id": "silent.shiv",
       "names": { "kor": "단도", "eng": "Shiv" },
       "color": "#95a5a6",
-      // 코어 정리: BLADE_DANCE(일반, "단도 N장을 손으로")는 CLOAK_AND_DAGGER·LEADING_STRIKE와 같은 일회성 단도 공급원이라 core → enabler.
-      // 코어는 매 턴 단도를 주는 INFINITE_BLADES와 단도 피해를 올리는 ACCURACY.
+      // 근거(OP.GG A10 승리 덱, 2026-11-02~08): 멤버 덱 73판·34명(랭킹 1위 플레이어 9판). core ACCURACY 64%·비멤버 0%·25명, INFINITE_BLADES 48%·비멤버 0%·21명.
+      // 두 core를 함께 든 덱은 30%라 coreTarget 1. STORM_OF_STEEL(lift 0.7)·FINISHER·UP_MY_SLEEVE(24.7%)는 카드 기준 미달로 제외.
+      // 예: https://op.gg/slay-the-spire2/history/7299147 https://op.gg/slay-the-spire2/history/7191806 https://op.gg/slay-the-spire2/history/7204766
       "cards": {
-        "core": ["CARD.INFINITE_BLADES", "CARD.ACCURACY"],
-        "enabler": ["CARD.BLADE_DANCE", "CARD.CLOAK_AND_DAGGER", "CARD.LEADING_STRIKE", "CARD.BLADE_OF_INK", "CARD.UP_MY_SLEEVE", "CARD.HIDDEN_DAGGERS", "CARD.STORM_OF_STEEL"],
-        "payoff": ["CARD.FAN_OF_KNIVES", "CARD.PHANTOM_BLADES", "CARD.KNIFE_TRAP", "CARD.FINISHER"],
-        "support": ["CARD.AFTERIMAGE", "CARD.ENVENOM"]
+        "core": ["CARD.ACCURACY", "CARD.INFINITE_BLADES"],
+        "enabler": ["CARD.LEADING_STRIKE", "CARD.BLADE_DANCE", "CARD.CLOAK_AND_DAGGER", "CARD.HIDDEN_DAGGERS", "CARD.BLADE_OF_INK"],
+        "payoff": ["CARD.PHANTOM_BLADES", "CARD.KNIFE_TRAP", "CARD.FAN_OF_KNIVES", "CARD.ENVENOM"],
+        "support": ["CARD.EXPOSE", "CARD.DEFLECT", "CARD.AFTERIMAGE", "CARD.ESCAPE_PLAN", "CARD.TRACKING"]
       },
       "fullWeight": 4.0,
+      // 유물 재확인: HELICAL_DART 멤버 1판·lift 0.3이라 삭제. NINJA_SCROLL(6명)·KUNAI(lift 2.3)·SHURIKEN(lift 2.0)·ORNAMENTAL_FAN(19명·lift 2.3) 유지.
       "keyRelics": [
         { "id": "RELIC.NINJA_SCROLL", "w": 0.5 },
-        { "id": "RELIC.HELICAL_DART", "w": 0.5 },
         { "id": "RELIC.KUNAI", "w": 0.5 },
         { "id": "RELIC.SHURIKEN", "w": 0.5 },
         { "id": "RELIC.ORNAMENTAL_FAN", "w": 0.3 }
@@ -51,42 +55,24 @@
       "id": "silent.sly_discard",
       "names": { "kor": "교활·버리기", "eng": "Sly / Discard" },
       "color": "#16a085",
+      // 근거(OP.GG A10 승리 덱, 2026-11-02~08): 멤버 덱 51판·27명(랭킹 1위 플레이어 11판). 대부분 단도·중독 덱 위에 얹힌 형태.
+      // core 없음: 엔진 역할의 파워가 기준을 통과하지 못함(TOOLS_OF_THE_TRADE 12%·lift 1.0, ACROBATICS lift 1.3은 범용 드로우). 가장 많은 TACTICIAN(44%·12명)은 1회성 교활 카드라 payoff.
+      // 예: https://op.gg/slay-the-spire2/history/7169193 https://op.gg/slay-the-spire2/history/7144897 https://op.gg/slay-the-spire2/history/7085517
       "cards": {
-        "core": ["CARD.TOOLS_OF_THE_TRADE", "CARD.ACROBATICS"],
-        "enabler": ["CARD.DAGGER_THROW", "CARD.PREPARED", "CARD.CALCULATED_GAMBLE", "CARD.HIDDEN_DAGGERS", "CARD.STORM_OF_STEEL", "CARD.SHADOW_STEP"],
-        "payoff": ["CARD.TACTICIAN", "CARD.REFLEX", "CARD.HAZE", "CARD.ABRASIVE", "CARD.MEMENTO_MORI", "CARD.UNTOUCHABLE", "CARD.FLICK_FLACK", "CARD.RICOCHET"],
-        "support": ["CARD.MASTER_PLANNER", "CARD.HAND_TRICK"]
+        "core": [],
+        "enabler": ["CARD.PREPARED", "CARD.DAGGER_THROW"],
+        "payoff": ["CARD.TACTICIAN", "CARD.RICOCHET", "CARD.REFLEX", "CARD.UNTOUCHABLE", "CARD.ABRASIVE"],
+        "support": ["CARD.WELL_LAID_PLANS", "CARD.TRACKING"]
       },
-      "fullWeight": 4.5,
+      // fullWeight 4.5 → 3.0: 새 목록으로 멤버 덱 commit 중앙값이 0.60이라 0.85 근처로 맞춤(3.0에서 0.90, 비멤버 0.17).
+      "fullWeight": 3.0,
+      // 유물 재확인: TINGSHA lift 0.8, TOUGH_BANDAGES lift 0.6·2명이라 삭제. GAMBLING_CHIP lift 1.1·3명 유지.
       "keyRelics": [
-        { "id": "RELIC.TINGSHA", "w": 0.6 },
-        { "id": "RELIC.TOUGH_BANDAGES", "w": 0.6 },
         { "id": "RELIC.GAMBLING_CHIP", "w": 0.3 }
       ],
       "needs": [{ "tag": "DISCARD", "min": 3 }],
-      "desc": "버려질 때 공짜로 발동하는 교활 카드를 버리기 엔진으로 돌리는 빌드. 엔진 없이 교활 카드만 모으면 안 됨",
-      "guideHeroCard": "CARD.TOOLS_OF_THE_TRADE"
-    },
-    {
-      "id": "silent.draw_burst",
-      "names": { "kor": "드로우 폭발", "eng": "Draw burst" },
-      "color": "#2980b9",
-      // 코어 정리: MURDER("이번 전투에 뽑은 카드 1장당 추가 피해", 3코스트 공격)는 드로우 수를 소비하는 마무리 보상이라 core → payoff.
-      // 코어는 "카드를 뽑을 때마다 모든 적에게 피해"로 빌드를 정의하는 파워 SPEEDSTER.
-      "cards": {
-        "core": ["CARD.SPEEDSTER"],
-        "enabler": ["CARD.ACROBATICS", "CARD.BACKFLIP", "CARD.ADRENALINE", "CARD.EXPERTISE", "CARD.PREDATOR", "CARD.ESCAPE_PLAN", "CARD.PREPARED"],
-        "payoff": ["CARD.MURDER", "CARD.CORROSIVE_WAVE"],
-        "support": ["CARD.TOOLS_OF_THE_TRADE", "CARD.FOOTWORK"]
-      },
-      "fullWeight": 3.5,
-      "keyRelics": [
-        { "id": "RELIC.PAELS_BLOOD", "w": 0.4 },
-        { "id": "RELIC.SNECKO_EYE", "w": 0.4 }
-      ],
-      "needs": [{ "tag": "DRAW", "min": 4 }, { "role": "draw", "min": 3 }],
-      "desc": "카드를 뽑을 때마다 피해를 주는 카드에 드로우를 몰아주는 빌드. 드로우 카드가 먼저",
-      "guideHeroCard": "CARD.SPEEDSTER"
+      "desc": "버려질 때 발동하는 교활 카드를 싼 버리기 카드로 굴리는 빌드. 상위 플레이어는 주로 단도나 중독 덱 위에 얹어 씀",
+      "guideHeroCard": "CARD.PREPARED"
     }
   ]
 }

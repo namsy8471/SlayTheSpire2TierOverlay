@@ -1,5 +1,6 @@
-// 네크로바인더 아키타입 초안 (claude-draft-v1). 시작 덱 카드(BODYGUARD, UNLEASH)와 시작 유물(BOUND_PHYLACTERY)은 넣지 않습니다.
-// 축: SUMMON(오스티 소환/체력), OSTY_ATTACK(오스티가 공격하는 카드), DOOM(파멸), SOUL(영혼 토큰), ETHEREAL(영체 카드)
+// 네크로바인더 아키타입. 카드 목록은 상위 랭커의 실제 승리 덱에서 뽑았습니다(OP.GG A10 바닐라 솔로 승리 38판·16명, 2026-11-02~08 주간 랭킹과 그 플레이어들의 최근 승리; 보조 출처 Baalorlord A10 연승 덱 11개).
+// 카드별 근거·표·제외 사유는 docs/research/build-sources/necrobinder.md. 시작 덱 카드(BODYGUARD, UNLEASH)와 시작 유물(BOUND_PHYLACTERY)은 넣지 않습니다.
+// 축: SUMMON(오스티 소환/체력), OSTY_ATTACK(오스티가 공격하는 카드), DOOM(파멸), ETHEREAL(휘발성 카드). 영혼(souls) 아키타입은 상위 랭커 사용이 거의 없어 삭제했습니다.
 {
   "character": "CHARACTER.NECROBINDER",
   "archetypes": [
@@ -7,79 +8,66 @@
       "id": "necrobinder.osty",
       "names": { "kor": "오스티 소환", "eng": "Osty" },
       "color": "#c8a165",
-      // 코어 정리: SIC_EM("오스티가 피해, 이 적을 칠 때마다 소환")은 소환을 보태는 오스티 공격 한 장이라 core → enabler.
-      // 코어는 오스티를 빌드의 축으로 만드는 파워 NECRO_MASTERY("오스티가 잃은 체력만큼 모든 적도 잃음")와 CALCIFY("오스티 공격 피해 증가").
+      // 근거(OP.GG A10 승리 덱, 2026-11-02~08): 멤버 덱 7판·7명(랭킹 1위 0판, v0.107 2판·v0.111 5판). core CALCIFY 57%·lift 17.7·4명, 이 빌드 런에서 제시 5회 중 4회 픽.
+      // 판정은 카드를 뺀 채 다시 나눈 멤버십(leave-one-out) 기준. FRIENDSHIP(lift 1.58)은 경계값으로 support. NECRO_MASTERY는 멤버 덱 1/7이라 제외.
+      // 예: https://op.gg/slay-the-spire2/history/7114483 https://op.gg/slay-the-spire2/history/6495912 https://op.gg/slay-the-spire2/history/7119119
       "cards": {
-        "core": ["CARD.NECRO_MASTERY", "CARD.CALCIFY"],
-        "enabler": ["CARD.SIC_EM", "CARD.PULL_AGGRO", "CARD.INVOKE", "CARD.REANIMATE", "CARD.DIRGE", "CARD.SPUR", "CARD.AFTERLIFE"],
-        "payoff": ["CARD.SQUEEZE", "CARD.RATTLE", "CARD.FLATTEN", "CARD.HIGH_FIVE", "CARD.BONE_SHARDS", "CARD.SACRIFICE", "CARD.RIGHT_HAND_HAND"],
-        "support": ["CARD.FETCH", "CARD.POKE", "CARD.SNAP"]
+        "core": ["CARD.CALCIFY"],
+        "enabler": ["CARD.SIC_EM", "CARD.FETCH", "CARD.HIGH_FIVE", "CARD.SNAP", "CARD.RIGHT_HAND_HAND", "CARD.CLEANSE", "CARD.PULL_AGGRO", "CARD.INVOKE"],
+        "payoff": ["CARD.FLATTEN"],
+        "support": ["CARD.FRIENDSHIP", "CARD.GRAVE_WARDEN", "CARD.GRAVEBLAST", "CARD.FEAR"]
       },
       "fullWeight": 4.5,
+      // keyRelics: BONE_FLUTE 멤버 덱 3/7·3명·lift 4.4로 유지. PHYLACTERY_UNBOUND는 멤버 덱 0/7이라 제외.
       "keyRelics": [
-        { "id": "RELIC.BONE_FLUTE", "w": 0.6 },
-        { "id": "RELIC.PHYLACTERY_UNBOUND", "w": 0.6 }
+        { "id": "RELIC.BONE_FLUTE", "w": 0.6 }
       ],
       "needs": [{ "tag": "SUMMON", "min": 3 }, { "tag": "OSTY_ATTACK", "min": 3 }],
-      "desc": "오스티를 크게 키워 방패와 주 딜러로 함께 쓰는 빌드. 커뮤니티 가이드에서 가장 무난하다는 평",
-      "guideHeroCard": "CARD.NECRO_MASTERY"
+      "desc": "오스티를 키워 방패와 주 딜러로 함께 쓰는 빌드. 오스티 공격 피해를 올리는 파워를 중심으로 오스티 공격 카드를 여러 장 모음",
+      "guideHeroCard": "CARD.CALCIFY"
     },
     {
       "id": "necrobinder.doom",
       "names": { "kor": "파멸", "eng": "Doom" },
       "color": "#6c3483",
-      // 코어 정리: END_OF_DAYS("모든 적에게 파멸, 파멸 ≥ 체력인 적 처치")는 쌓인 파멸을 거두는 마무리 카드라 core → payoff.
-      // 이 카드만 있으면 파멸을 매 턴 쌓는 엔진(REAPER_FORM·COUNTDOWN)이 없어도 코어 확보로 처리되는 문제가 있었음.
+      // 근거(OP.GG A10 승리 덱, 2026-11-02~08): 멤버 덱 15판·8명(랭킹 1위 3판, v0.107 5판·v0.111 10판). core SLEIGHT_OF_FLESH 62%·lift 1.7·5명(랭킹 1위 2/2).
+      // REAPER_FORM(lift 1.1)·BLIGHT_STRIKE(제시 61회 중 0회 픽)·OBLIVION(2명)·MISERY(1명)는 제외. COUNTDOWN은 core 기준(40%·4명)에 못 미쳐 enabler(27%·3명·lift 1.53, 경계값).
+      // 경계값(lift 1.5~1.6): COUNTDOWN, GRAVE_WARDEN, INVOKE, NEUROSURGE, CAPTURE_SPIRIT.
+      // 예: https://op.gg/slay-the-spire2/history/7269125 https://op.gg/slay-the-spire2/history/6945757 https://op.gg/slay-the-spire2/history/7205789
       "cards": {
-        "core": ["CARD.REAPER_FORM", "CARD.COUNTDOWN"],
-        "enabler": ["CARD.BLIGHT_STRIKE", "CARD.SCOURGE", "CARD.NEGATIVE_PULSE", "CARD.DEATHBRINGER", "CARD.OBLIVION", "CARD.NO_ESCAPE"],
-        "payoff": ["CARD.END_OF_DAYS", "CARD.TIMES_UP", "CARD.DEATHS_DOOR", "CARD.SHROUD"],
-        "support": ["CARD.MISERY", "CARD.SLEIGHT_OF_FLESH"]
+        "core": ["CARD.SLEIGHT_OF_FLESH"],
+        "enabler": ["CARD.DEATHBRINGER", "CARD.NEGATIVE_PULSE", "CARD.SCOURGE", "CARD.COUNTDOWN"],
+        "payoff": ["CARD.NO_ESCAPE", "CARD.DEATHS_DOOR", "CARD.END_OF_DAYS"],
+        "support": ["CARD.DELAY", "CARD.DREDGE", "CARD.CALL_OF_THE_VOID", "CARD.AFTERLIFE", "CARD.DANSE_MACABRE", "CARD.GRAVE_WARDEN", "CARD.INVOKE", "CARD.NEUROSURGE", "CARD.CAPTURE_SPIRIT"]
       },
       "fullWeight": 4.0,
-      "keyRelics": [
-        { "id": "RELIC.UNDYING_SIGIL", "w": 0.5 },
-        { "id": "RELIC.BOOK_REPAIR_KNIFE", "w": 0.4 }
-      ],
+      // keyRelics: 기존 UNDYING_SIGIL(멤버 덱 0/15)·BOOK_REPAIR_KNIFE(2/15·2명)는 근거 기준(3명 이상·lift 1.5 이상) 미달이라 제외.
+      "keyRelics": [],
       "needs": [{ "tag": "DOOM", "min": 3 }, { "role": "block", "min": 3 }],
-      "desc": "파멸을 쌓아 체력보다 높아지면 처치하는 빌드. 느리게 굴러가므로 방어가 함께 필요",
-      "guideHeroCard": "CARD.REAPER_FORM"
-    },
-    {
-      "id": "necrobinder.souls",
-      "names": { "kor": "영혼", "eng": "Souls" },
-      "color": "#5dade2",
-      // 코어 정리: SOUL_STORM("소멸 더미의 영혼 1장당 추가 피해")은 영혼을 소비하는 공격 보상이라 core → payoff.
-      // 코어는 "영혼을 쓸 때마다 …" 파워 DEVOUR_LIFE·HAUNT.
-      "cards": {
-        "core": ["CARD.DEVOUR_LIFE", "CARD.HAUNT"],
-        "enabler": ["CARD.CAPTURE_SPIRIT", "CARD.GRAVE_WARDEN", "CARD.REAVE", "CARD.SEVERANCE", "CARD.DIRGE", "CARD.SEANCE"],
-        "payoff": ["CARD.SOUL_STORM"],
-        "support": ["CARD.DREDGE"]
-      },
-      "fullWeight": 3.5,
-      "keyRelics": [{ "id": "RELIC.FUNERARY_MASK", "w": 0.6 }],
-      "needs": [{ "tag": "SOUL", "min": 3 }],
-      "desc": "드로우 토큰인 영혼을 덱에 섞고, 영혼을 쓸 때마다 소환·피해를 얻는 빌드. 주력보다 보조 축에 가깝다는 평도 있음",
-      "guideHeroCard": "CARD.HAUNT"
+      "desc": "여러 적에게 파멸을 걸고, 해로운 효과를 걸 때마다 피해를 주는 파워로 굴리는 빌드. 쌓인 파멸은 마무리 카드로 거둠",
+      "guideHeroCard": "CARD.SLEIGHT_OF_FLESH"
     },
     {
       "id": "necrobinder.ethereal",
       "names": { "kor": "영체", "eng": "Ethereal" },
       "color": "#a9cce3",
+      // OP.GG 랭킹 1위 플레이어의 빌드: 멤버 덱 13판·5명 중 9판이 랭킹 1위 플레이어(전부 v0.107.1). 일반 표본 기준은 못 넘지만 1위 플레이어 승리 4판 이상이라 유지.
+      // 카드 판정은 두 경로 중 하나: 1위 플레이어 멤버 덱의 50% 이상+lift 1.5 이상, 또는 일반 기준(3명 이상·lift 1.5 이상·25% 이상).
+      // core 없음: 통과한 카드 중 휘발성 축을 굴리는 엔진(텍스트상)이 없음. PULL_FROM_BELOW·BANSHEES_CRY는 마무리라 payoff. SPIRIT_OF_ASH는 2판·1명이라 제외.
+      // PULL_FROM_BELOW는 1위 플레이어 멤버 덱 5/8·제시 10회 중 9회 픽(다른 플레이어 20회 중 1회). REAPER_FORM(lift 1.54)은 경계값. DEFY는 전체 덱 87%·lift 1.1의 범용 카드라 제외.
+      // 예: https://op.gg/slay-the-spire2/history/7268685 https://op.gg/slay-the-spire2/history/7157322 https://op.gg/slay-the-spire2/history/7163448
       "cards": {
-        "core": ["CARD.PULL_FROM_BELOW", "CARD.BANSHEES_CRY", "CARD.SPIRIT_OF_ASH"],
-        "enabler": ["CARD.DEFILE", "CARD.DEFY", "CARD.FEAR", "CARD.PARSE", "CARD.ENFEEBLING_TOUCH", "CARD.SCULPTING_STRIKE", "CARD.CALL_OF_THE_VOID", "CARD.DEMESNE"],
-        "payoff": ["CARD.PAGESTORM", "CARD.VEILPIERCER"],
-        "support": ["CARD.LETHALITY"]
+        "core": [],
+        "enabler": ["CARD.ENFEEBLING_TOUCH"],
+        "payoff": ["CARD.PULL_FROM_BELOW", "CARD.BANSHEES_CRY"],
+        "support": ["CARD.LETHALITY", "CARD.HIGH_FIVE", "CARD.DEBILITATE", "CARD.NEUROSURGE", "CARD.REAP", "CARD.REAPER_FORM"]
       },
-      "fullWeight": 4.0,
-      "keyRelics": [
-        { "id": "RELIC.BIG_HAT", "w": 0.6 },
-        { "id": "RELIC.GHOST_SEED", "w": 0.4 }
-      ],
+      // fullWeight 4.0 → 3.0: 새 목록으로 멤버 덱 commit 중앙값이 0.61(< 0.7)이라 중앙값 약 0.85가 되도록 조정(3.0에서 멤버 0.82, 비멤버 0.40).
+      "fullWeight": 3.0,
+      // keyRelics: 기존 BIG_HAT·GHOST_SEED는 멤버 덱 0/13이라 제외.
+      "keyRelics": [],
       "needs": [{ "tag": "ETHEREAL", "min": 4 }],
-      "desc": "손에서 쓰지 않으면 사라지는 영체 카드를 많이 쓰고, 쓴 횟수만큼 강해지는 카드로 마무리",
+      "desc": "손에서 쓰지 않으면 사라지는 휘발성 카드를 많이 쓰고, 쓴 횟수만큼 강해지는 카드로 마무리. 표본 대부분이 OP.GG 랭킹 1위 플레이어의 런",
       "guideHeroCard": "CARD.PULL_FROM_BELOW"
     }
   ]
