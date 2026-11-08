@@ -137,6 +137,46 @@ public class PathStatsTests
     }
 
     [Fact]
+    public void LeaveOneRunOut_NeverFitsOnTheHeldOutRun()
+    {
+        var runs = PathFloorExtractor.Distinct(Runs.Value).Take(6).ToArray();
+        var pack = TestPacks.DefectPack();
+        var floors = runs.SelectMany(r => PathFloorExtractor.Extract(r, pack)).ToArray();
+        var allKeys = runs.Select(PathFloorExtractor.KeyOf).ToHashSet();
+        var heldOut = new List<string>();
+
+        var sum = PathBacktest.LeaveOneRunOut("loro", runs, floors, pack, train =>
+        {
+            var seen = train.Select(f => f.RunKey).ToHashSet();
+            var missing = Assert.Single(allKeys.Except(seen)); // exactly one run is left out of every fit
+            heldOut.Add(missing);
+            return new PathWeights();
+        });
+
+        Assert.Equal(allKeys.OrderBy(k => k, StringComparer.Ordinal), heldOut.OrderBy(k => k, StringComparer.Ordinal)); // each run once
+        Assert.Equal(floors.Count(f => f.Type is MapNodeType.Monster or MapNodeType.Elite or MapNodeType.Boss or MapNodeType.Unknown), sum.Fights);
+        Assert.True(double.IsFinite(sum.BaselineBossHpMae) || sum.ReachedBoss == 0);
+    }
+
+    [Fact]
+    public void FitLogistic_RecoversAKnownCenter()
+    {
+        // Deterministic sample: P(heal | hp) = 1 / (1 + exp((hp - 0.45) / 0.1)), 20 visits per HP step.
+        var data = new List<(double, bool)>();
+        for (var i = 0; i <= 100; i += 5)
+        {
+            var hp = i / 100.0;
+            var p = 1 / (1 + Math.Exp((hp - 0.45) / 0.1));
+            var heals = (int)Math.Round(20 * p);
+            for (var j = 0; j < 20; j++) data.Add((hp, j < heals));
+        }
+        var (center, softness) = PathStats.FitLogistic(data);
+        Assert.Equal(0.45, center, 2);
+        Assert.Equal(0.1, softness, 2);
+        Assert.True(double.IsNaN(PathStats.FitLogistic([(0.1, true), (0.9, true)]).Center)); // too few / no variation
+    }
+
+    [Fact]
     public void MatchPaths_FindsTheVisitedPrefixOnTheRealMap()
     {
         var map = MapFixture.Load("map_act2.json");

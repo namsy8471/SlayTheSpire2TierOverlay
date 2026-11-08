@@ -118,7 +118,8 @@ public class PathAdvisorTests
         var later = advisor.ScorePath(state, map, [new(0, 1), new(0, 2), new(0, 3), map.Boss]);
         var direct = advisor.ScorePath(state, new MapBuilder(2, 1, (0, 1)).Add(0, 1, MapNodeType.Shop, (0, 2)).Build(), [new(0, 1), new(0, 2)]);
 
-        Assert.Equal(Pack.Weights.Path.ShopValue, later.Score.ValueOf(PathComponentKeys.Shop), 9);
+        // Rewards are weighted by the chance to be alive; two hallway fights at full HP leave that at ~0.99999.
+        Assert.Equal(Pack.Weights.Path.ShopValue, later.Score.ValueOf(PathComponentKeys.Shop), 3);
         Assert.Equal(Pack.Weights.Path.ShopPoorValue, direct.Score.ValueOf(PathComponentKeys.Shop), 9);
     }
 
@@ -127,6 +128,7 @@ public class PathAdvisorTests
     {
         var w = new Weights();
         w.Path.TargetElites[1] = 2;
+        w.Path.DamageShape = new PathDamageShape(); // uniform damage: no death chance at full HP, so rewards are exact
         var pack = TestPacks.DefectPack(w);
         var fresh = new MapBuilder(3, 1, (0, 1))
             .Add(0, 1, MapNodeType.Elite, (0, 2))

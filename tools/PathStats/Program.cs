@@ -78,26 +78,43 @@ internal static class Cli
 
         // Measure with the legacy weights' strength factor (identical in both: StrengthDamageSlope is not refitted).
         var floors = runs.SelectMany(r => PathFloorExtractor.Extract(r, packOld)).ToArray();
-        var report = PathStats.Compute(floors, packOld.Weights.Path, PathHpLoss.Legacy(), k);
+        // The model in the code (variant L below): measured HP tables, soft rest-site rule, healing outside rest sites, gamma damage.
+        var report = PathStats.Compute(floors, packOld.Weights.Path, PathHpLoss.Legacy(), k, restRule: RestRuleFit.Logistic, fitRoomHeal: true, fitDamageShape: true, restHealMean: true);
         Directory.CreateDirectory(outDir);
         File.WriteAllText(Path.Combine(outDir, "stats.json"), JsonSerializer.Serialize(report, JsonOut));
         File.WriteAllText(Path.Combine(outDir, "stats.md"), StatsMarkdown(report));
 
-        // Backtest: current code defaults (packNew) vs the legacy guesses (packOld) vs the freshly fitted values.
-        // Second fit that keeps the old deck-strength slope, to see whether the fitted slope helps or hurts.
-        var reportKeepSlope = PathStats.Compute(floors, packOld.Weights.Path, PathHpLoss.Legacy(), k, packOld.Weights.Path.StrengthDamageSlope);
-        var packFit = DataPackLoader.LoadDirectory(packDir);
-        packFit.Weights.Path = report.Fitted!;
-        var packKeep = DataPackLoader.LoadDirectory(packDir);
-        packKeep.Weights.Path = reportKeepSlope.Fitted!;
-        var sets = new[]
-        {
-            ("old (추정)", packOld), ("new (코드 기본값)", packNew),
-            ($"fit (기울기 {report.Fitted!.StrengthDamageSlope:0.##})", packFit),
-            ($"fit (기울기 {reportKeepSlope.Fitted!.StrengthDamageSlope:0.##} 유지)", packKeep),
-        };
+        // In-sample: current code defaults (packNew) vs the legacy guesses (packOld).
+        var sets = new[] { ("old (추정)", packOld), ("new (코드 기본값)", packNew) };
         var summaries = sets.Select(s => PathBacktest.Summarize(s.Item1,
             PathBacktest.Fights(floors, s.Item2.Weights.Path), PathBacktest.Acts(runs, s.Item2))).ToArray();
+
+        // Out-of-sample: leave one run out, refit on the rest, predict the held-out run.
+        var legacy = packOld.Weights.Path;
+        var thresholds = new List<double>();
+        PathWeights FitWith(IReadOnlyList<PathFloor> train, RestRuleFit rule, bool heal, List<double>? log = null, bool shape = false, bool healMean = false)
+        {
+            var w = PathStats.Compute(train, legacy, PathHpLoss.Legacy(), k, restRule: rule, fitRoomHeal: heal, fitDamageShape: shape, restHealMean: healMean).Fitted!;
+            if (log is not null && w.RestHealBelowHp is { } t) log.Add(t);
+            return w;
+        }
+        var variants = new (string Label, Func<IReadOnlyList<PathFloor>, PathWeights> Fit)[]
+        {
+            ("old: 추정값 (맞춤 없음)", _ => legacy),
+            ("A: HP 표만 측정 (m2/path-weights)", t => FitWith(t, RestRuleFit.Keep, false)),
+            ("B: A + 휴식 임계값", t => FitWith(t, RestRuleFit.Threshold, false)),
+            ("C: A + UpgradeValue 맞춤", t => FitWith(t, RestRuleFit.UpgradeValue, false)),
+            ("D: A + 휴식처 밖 회복", t => FitWith(t, RestRuleFit.Keep, true)),
+            ("E: A + 휴식 임계값 + 휴식처 밖 회복", t => FitWith(t, RestRuleFit.Threshold, true, thresholds)),
+            ("F: A + UpgradeValue 맞춤 + 휴식처 밖 회복", t => FitWith(t, RestRuleFit.UpgradeValue, true)),
+            ("G: A + 부드러운 휴식 규칙(로지스틱)", t => FitWith(t, RestRuleFit.Logistic, false)),
+            ("H: A + 부드러운 휴식 규칙 + 휴식처 밖 회복", t => FitWith(t, RestRuleFit.Logistic, true)),
+            ("I: A + 감마 피해 분포", t => FitWith(t, RestRuleFit.Keep, false, shape: true)),
+            ("J: H + 감마 피해 분포", t => FitWith(t, RestRuleFit.Logistic, true, shape: true)),
+            ("K: E + 감마 피해 분포", t => FitWith(t, RestRuleFit.Threshold, true, shape: true)),
+            ("L: J + 휴식 회복량 평균(유물 포함)", t => FitWith(t, RestRuleFit.Logistic, true, shape: true, healMean: true)),
+        };
+        var loro = variants.Select(v => PathBacktest.LeaveOneRunOut(v.Label, runs, floors, packOld, v.Fit)).ToArray();
 
         var real = new List<(string Map, string Run, int Act, string Label, RealMapResult Result)>();
         foreach (var mapFile in maps)
@@ -113,8 +130,8 @@ internal static class Cli
                 }
             }
         }
-        File.WriteAllText(Path.Combine(outDir, "backtest.json"), JsonSerializer.Serialize(new { summaries, real = real.Select(r => new { r.Map, r.Run, r.Act, r.Label, r.Result }) }, JsonOut));
-        File.WriteAllText(Path.Combine(outDir, "backtest.md"), BacktestMarkdown(summaries, real));
+        File.WriteAllText(Path.Combine(outDir, "backtest.json"), JsonSerializer.Serialize(new { loro, summaries, real = real.Select(r => new { r.Map, r.Run, r.Act, r.Label, r.Result }) }, JsonOut));
+        File.WriteAllText(Path.Combine(outDir, "backtest.md"), LoroMarkdown(loro, thresholds) + BacktestMarkdown(summaries, real));
         Console.Error.WriteLine($"wrote {outDir}/stats.md, stats.json, backtest.md, backtest.json");
         return 0;
     }
@@ -132,6 +149,11 @@ internal static class Cli
         p.EliteGold = 30;
         p.UnknownGold = 8;
         p.TreasureGold = 0;
+        p.RestHealBelowHp = null;
+        p.RestHealSoftness = 0;
+        p.DamageShape = new PathDamageShape();
+        p.UpgradeValue = 7;
+        p.RoomHeal = new PathRoomHeal();
         return p;
     }
 
@@ -222,7 +244,7 @@ internal static class Cli
             w.AppendLine($"- **{rest.Segment}**: 방문 {rest.Visits}, 선택 {string.Join(", ", rest.Choices.Select(kv => $"{kv.Key} {kv.Value}"))}. " +
                          $"HEAL(최대 HP로 잘리지 않은 것) n={rest.HealUncappedN}, 평균 {P(rest.HealUncappedMean)}, 중앙값 {P(rest.HealUncappedMedian)} (범위 {P(rest.HealUncappedMin)}–{P(rest.HealUncappedMax)}). " +
                          $"진입 HP별 HEAL 비율: {string.Join(", ", rest.ByHp.Select(b => $"{b.Bucket} {b.Heals}/{b.Visits}"))}. " +
-                         $"점수기 회복/강화 규칙과 실제 선택 일치: 현재 UpgradeValue {P(rest.CurrentAgreement)}, UpgradeValue={F(rest.UpgradeValueMatchingChoices, "0.0")}이면 {P(rest.MatchingAgreement)} (참고용, 미적용)");
+                         $"회복/강화 규칙과 실제 선택 일치(n={rest.DecidedN}): 사전 규칙 {P(rest.CurrentAgreement)}, UpgradeValue={F(rest.UpgradeValueMatchingChoices, "0.0")}이면 {P(rest.MatchingAgreement)}, HP {P(rest.HealBelowHpMatchingChoices)} 미만이면 회복 규칙 {P(rest.ThresholdAgreement)}");
         }
         w.AppendLine();
 
@@ -244,6 +266,29 @@ internal static class Cli
         {
             w.AppendLine($"| {f.Name} | {F(f.Prior)} | {F(f.Measured)} | {f.N} | {F(f.Fitted)} |");
         }
+        return w.ToString();
+    }
+
+    private static string LoroMarkdown(IReadOnlyList<CalibrationSummary> sums, IReadOnlyList<double> thresholds)
+    {
+        var w = new StringBuilder();
+        w.AppendLine("# 경로 시뮬레이션 백테스트 (leave-one-run-out)");
+        w.AppendLine();
+        w.AppendLine("런 하나를 빼고 나머지 런으로 가중치를 다시 맞춘 뒤, 뺀 런을 예측합니다(런마다 반복). 평균 기준선도 같은 방식으로 뺀 런 없이 계산합니다.");
+        w.AppendLine("보스 HP MAE는 보스에 도착한 막만, 막 Brier는 \"보스 전에 죽는가\" 예측(낮을수록 좋음).");
+        w.AppendLine();
+        w.AppendLine("| 변형 | 보스 HP MAE | 기준선 MAE | 기준선 대비 개선 ± SE | 편향(예측−실제) | 막 Brier | 보스 전 사망 / 예측 | 전투 Brier | 전투 사망 / 예측 |");
+        w.AppendLine("|---|---|---|---|---|---|---|---|---|");
+        foreach (var s in sums)
+        {
+            w.AppendLine($"| {s.Label} | {P(s.BossHpMae)} | {P(s.BaselineBossHpMae)} | {P(s.BaselineBossHpMae - s.BossHpMae)} ± {P(s.BossHpMaeGainSe)} | {P(s.BossHpBias)} | {F(s.ArrivalBrier, "0.0000")} | {s.DiedBeforeBoss} / {F(s.PredictedDiedBeforeBoss, "0.0")} | {F(s.FightBrier, "0.0000")} | {s.Deaths} / {F(s.PredictedDeaths, "0.0")} |");
+        }
+        if (thresholds.Count > 0)
+        {
+            w.AppendLine();
+            w.AppendLine($"E의 폴드별 휴식 임계값: 최소 {P(thresholds.Min())}, 중앙 {P(thresholds.Order().ElementAt(thresholds.Count / 2))}, 최대 {P(thresholds.Max())} ({thresholds.Count}폴드).");
+        }
+        w.AppendLine();
         return w.ToString();
     }
 

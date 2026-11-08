@@ -32,6 +32,12 @@ public sealed record ActPrediction
 
     /// <summary>Simulated chance to survive the rooms walked before the boss (for a death: through the death room).</summary>
     public double PredictedArrival { get; init; }
+
+    /// <summary>
+    /// The "always predict the average" baseline for this act. Leave-one-run-out sets it to the mean over the other
+    /// runs; null = <see cref="PathBacktest.Summarize"/> uses the in-sample mean.
+    /// </summary>
+    public double? BaselineBossHp { get; init; }
 }
 
 /// <summary>Aggregate quality of one weight set (lower Brier / MAE = better).</summary>
@@ -59,6 +65,12 @@ public sealed record CalibrationSummary
 
     /// <summary>MAE of the "always predict the average" baseline, for scale.</summary>
     public double BaselineBossHpMae { get; init; }
+
+    /// <summary>
+    /// Standard error of (<see cref="BaselineBossHpMae"/> − <see cref="BossHpMae"/>), clustered by run: acts of the
+    /// same run (and both co-op players) are not independent, so the run is the unit of the error estimate.
+    /// </summary>
+    public double BossHpMaeGainSe { get; init; }
 
     public int DiedBeforeBoss { get; init; }
     public double PredictedDiedBeforeBoss { get; init; }
@@ -112,18 +124,27 @@ public static class PathBacktest
             var factor = double.IsFinite(f.DeckStrength) ? PathScorer.StrengthDamageFactor(f.DeckStrength, w) : 1.0;
             var loss = w.HpLossFor(f.Multiplayer).For(f.Type, f.Act) * factor;
             result.Add(new FightPrediction(f.RunKey, f.PlayerId, f.Multiplayer, f.Act, PathStats.RoomName(f.Type),
-                f.HpRatioBefore, loss, f.DamageFraction, PathScorer.DeathChance(f.HpRatioBefore, loss), f.Died));
+                f.HpRatioBefore, loss, f.DamageFraction, PathScorer.DeathChance(f.HpRatioBefore, loss, ShapeOf(w, f.Type)), f.Died));
         }
         return result;
     }
+
+    private static int ShapeOf(PathWeights w, MapNodeType t) => t switch
+    {
+        MapNodeType.Monster => w.DamageShape.Monster,
+        MapNodeType.Elite => w.DamageShape.Elite,
+        MapNodeType.Unknown => w.DamageShape.Unknown,
+        MapNodeType.Boss => w.DamageShape.Boss,
+        _ => 0,
+    };
 
     /// <summary>
     /// For every player and act: the deck/HP state after the act's ancient, then <see cref="PathAdvisor.ScorePath"/> on
     /// the rooms actually walked (as a straight-line map). Acts cut short without a death (abandoned) are skipped.
     /// </summary>
-    public static IReadOnlyList<ActPrediction> Acts(IReadOnlyList<RunHistory> runs, DataPack pack)
+    public static IReadOnlyList<ActPrediction> Acts(IReadOnlyList<RunHistory> runs, DataPack pack, PathWeights? path = null)
     {
-        var advisor = new PathAdvisor(pack);
+        var advisor = new PathAdvisor(pack, path);
         var result = new List<ActPrediction>();
         foreach (var run in runs)
         {
@@ -188,11 +209,50 @@ public static class PathBacktest
             ReachedBoss = reached.Length,
             BossHpMae = reached.Length == 0 ? double.NaN : reached.Average(a => Math.Abs(a.PredictedBossHp - a.ActualBossHp!.Value)),
             BossHpBias = reached.Length == 0 ? double.NaN : reached.Average(a => a.PredictedBossHp - a.ActualBossHp!.Value),
-            BaselineBossHpMae = reached.Length == 0 ? double.NaN : reached.Average(a => Math.Abs(meanActual - a.ActualBossHp!.Value)),
+            BaselineBossHpMae = reached.Length == 0 ? double.NaN : reached.Average(a => Math.Abs((a.BaselineBossHp ?? meanActual) - a.ActualBossHp!.Value)),
+            BossHpMaeGainSe = ClusteredSe(reached.Select(a => (a.RunKey,
+                Math.Abs((a.BaselineBossHp ?? meanActual) - a.ActualBossHp!.Value) - Math.Abs(a.PredictedBossHp - a.ActualBossHp!.Value))).ToArray()),
             DiedBeforeBoss = acts.Count(a => a.DiedBeforeBoss),
             PredictedDiedBeforeBoss = acts.Sum(a => 1 - a.PredictedArrival),
             ArrivalBrier = acts.Count == 0 ? double.NaN : acts.Average(a => Math.Pow(1 - a.PredictedArrival - (a.DiedBeforeBoss ? 1 : 0), 2)),
         };
+    }
+
+    /// <summary>
+    /// Leave-one-run-out backtest: for every run, <paramref name="fit"/> gets the rows of all <i>other</i> runs and
+    /// returns weights; those weights then predict the held-out run (its fights and its acts). So no run is ever
+    /// predicted by numbers measured on itself. Both co-op players of a run are held out together. The mean baseline
+    /// is held out the same way.
+    /// </summary>
+    public static CalibrationSummary LeaveOneRunOut(string label, IReadOnlyList<RunHistory> runs, IReadOnlyList<PathFloor> floors,
+        DataPack pack, Func<IReadOnlyList<PathFloor>, PathWeights> fit)
+    {
+        var byRun = floors.ToLookup(f => f.RunKey);
+        // Actual boss-arrival HP does not depend on the weights, so the baseline's inputs are computed once.
+        var actual = Acts(runs, pack).Where(a => a.ActualBossHp is not null).ToArray();
+        var fights = new List<FightPrediction>();
+        var acts = new List<ActPrediction>();
+        foreach (var run in runs)
+        {
+            var key = PathFloorExtractor.KeyOf(run);
+            var w = fit(floors.Where(f => f.RunKey != key).ToArray());
+            fights.AddRange(Fights(byRun[key].ToArray(), w));
+            var others = actual.Where(a => a.RunKey != key).ToArray();
+            double? baseline = others.Length > 0 ? others.Average(a => a.ActualBossHp!.Value) : null;
+            acts.AddRange(Acts([run], pack, w).Select(a => a with { BaselineBossHp = baseline }));
+        }
+        return Summarize(label, fights, acts);
+    }
+
+    /// <summary>Cluster-robust standard error of a mean: Σ over clusters of (cluster sum − n_c × mean)², scaled by G/(G−1).</summary>
+    private static double ClusteredSe(IReadOnlyList<(string Cluster, double Value)> xs)
+    {
+        if (xs.Count < 2) return double.NaN;
+        var mean = xs.Average(x => x.Value);
+        var groups = xs.GroupBy(x => x.Cluster).ToArray();
+        if (groups.Length < 2) return double.NaN;
+        var sum = groups.Sum(g => Math.Pow(g.Sum(x => x.Value) - g.Count() * mean, 2));
+        return Math.Sqrt(sum * groups.Length / (groups.Length - 1.0)) / xs.Count;
     }
 
     /// <summary>A straight-line map start → rooms → last room (row = step), used to score a walked path.</summary>
@@ -247,7 +307,7 @@ public static class PathBacktest
     /// path's rank among all paths), then at every step the advisor's next node vs the node actually taken.
     /// Returns null when the walked rooms do not fit the map (or fit it in more than one way).
     /// </summary>
-    public static RealMapResult? RealMap(RunHistory run, long playerId, int actIndex, MapGraph map, DataPack pack)
+    public static RealMapResult? RealMap(RunHistory run, long playerId, int actIndex, MapGraph map, DataPack pack, PathWeights? path = null)
     {
         var nodes = run.Nodes.Where(n => n.ActIndex == actIndex && (n.IndexInAct > 0 || n.MapPointType != "ancient")).ToArray();
         if (nodes.Length == 0) return null;
@@ -256,7 +316,7 @@ public static class PathBacktest
         if (matches.Count != 1) return null;
         var taken = matches[0];
 
-        var advisor = new PathAdvisor(pack);
+        var advisor = new PathAdvisor(pack, path);
         var timeline = DeckTimeline.Build(run, playerId);
         var baseMap = map with { Current = null, Visited = [map.Start] };
         var startState = timeline.StateBefore(nodes[0].Floor - 1);
