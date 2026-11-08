@@ -22,7 +22,7 @@
 
 ```
 release.cmd 0.2.0
-  └─ tools\release.ps1: 검사 → 확인 → 태그 v0.2.0 만들고 push
+  └─ tools\release.ps1: 검사 → 릴리스 노트(초안 → 메모장에서 다듬기) → 확인 → 노트를 메시지로 한 주석 태그 v0.2.0 만들고 push
         └─ GitHub Actions .github/workflows/release.yml (태그 v* push로 시작)
               build 잡 (windows-latest)
               1. 버전 확인 (SemVer 2, 같은 Release가 이미 있으면 나머지 건너뜀)
@@ -31,11 +31,17 @@ release.cmd 0.2.0
               4. publish 폴더를 워크플로 아티팩트로 올림
               pack 잡 (ubuntu-latest, Windows용으로 cross-pack)
               5. dotnet tool restore  (vpk는 .config/dotnet-tools.json의 로컬 도구)
-              6. dotnet vpk [win] download github --channel win  (이전 릴리스를 받아 둠 → 델타 패키지용, 첫 릴리스면 건너뜀)
-              7. dotnet vpk [win] pack --packId namsy8471.Sts2Overlay --packVersion 0.2.0 --packDir publish --mainExe Sts2Overlay.exe --channel win ...
-                 (델타를 못 만들면 --delta none으로 다시 묶음: 안전망)
-              8. dotnet vpk [win] upload github --channel win --publish --tag v0.2.0  (Release 공개)
+              6. 릴리스 노트 → release-notes.md: 주석 태그의 메시지, 없으면(가벼운 태그, 수동 실행) GitHub 자동 생성 노트,
+                 그것도 없으면 커밋 목록 링크. 빈 본문은 만들지 않음
+              7. dotnet vpk [win] download github --channel win  (이전 릴리스를 받아 둠 → 델타 패키지용, 첫 릴리스면 건너뜀)
+              8. dotnet vpk [win] pack --packId namsy8471.Sts2Overlay --packVersion 0.2.0 --packDir publish --mainExe Sts2Overlay.exe --channel win
+                 --releaseNotes release-notes.md ...  (델타를 못 만들면 --delta none으로 다시 묶음: 안전망)
+              9. dotnet vpk [win] upload github --channel win --publish --tag v0.2.0  (Release 공개)
+             10. gh release edit v0.2.0 --notes-file release-notes.md  (vpk upload에는 본문 옵션이 없음. 본문이 비면 실패)
 ```
+
+- **릴리스 노트는 태그에 있습니다.** `release.ps1`이 노트를 주석 태그(`git tag -a -F … --cleanup=verbatim`)의 메시지로 넣고, 워크플로가 `git for-each-ref refs/tags/v0.2.0 --format='%(contents)'`로 꺼냅니다. 같은 글이 GitHub Release 본문과 Velopack 패키지(`NotesMarkdown`)에 들어가고, 앱은 다운로드 완료 알림에 노트의 첫 두 항목을 "바뀐 점: …"으로 보여 줍니다. `--cleanup=verbatim`이 없으면 git이 `#`로 시작하는 줄(마크다운 제목)을 주석으로 보고 지웁니다.
+- **이미 나간 릴리스의 본문 고치기:** `gh release edit v0.2.0 --notes-file notes.md`. 태그·에셋은 그대로 둡니다(이미 받은 패키지의 노트는 바뀌지 않음).
 
 - **왜 묶기(pack)만 Linux에서 하나:** 델타는 vpk에 딸린 zstd가 만듭니다. 영어 Windows 러너(ANSI 코드 페이지 cp1252)에서는 한글 제목에서 생긴 `STS2 티어 오버레이_ExecutionStub.exe` 경로가 `??`로 깨져 델타가 실패했습니다(v0.1.1). Linux는 파일 이름을 UTF-8 그대로 넘깁니다. 제목을 영문으로 바꾸면 기존 사용자의 바로가기 이름이 바뀌므로 제목은 그대로 둡니다.
 - **`--channel win`을 꼭 넘기는 이유:** Linux에서 돌면 채널 기본값이 `linux`라 `[win]`만으로는 `download`가 `releases.win.json`을 보지 않습니다(이전 릴리스 0개 → 델타 없음).
@@ -51,13 +57,15 @@ release.cmd 0.2.0
 1. 올릴 커밋을 `main`에 합치고 push합니다.
 2. 레포 맨 위의 `release.cmd`를 더블클릭하고 버전을 입력합니다(또는 `release.cmd 0.2.0`). 버전 앞에 `v`는 붙이지 않습니다.
 3. 스크립트가 검사합니다: 추적 중인 파일에 커밋 안 된 변경이 없는지, HEAD가 upstream과 같은지(`git fetch` 후), 태그 `v<버전>`이 로컬·원격에 없는지, 이전 최신 태그보다 큰 버전인지.
-4. 확인하면 태그를 만들어 push하고, Actions 진행 페이지 주소를 알려 줍니다. 몇 분 뒤 Release가 공개되고, 켜져 있는 오버레이들은 다음 확인 때(최대 6시간) 받아 갑니다.
+4. **릴리스 노트:** 이전 태그 이후 병합된 PR 제목으로 초안을 만들어 `artifacts\release-notes\v<버전>.md`에 쓰고 메모장으로 엽니다. 플레이어가 읽을 글로 다듬어(한 줄에 변경 하나, "새 기능 / 개선 / 버그 수정 / 설치·업데이트" 같은 섹션) 저장하고 메모장을 닫으면 계속합니다. `<!--`로 시작하는 안내문 줄은 빠지고, 제목 말고 내용이 한 줄도 없으면 멈춥니다. 다시 실행하면 같은 초안을 이어서 엽니다.
+5. 화면에 노트를 보여 주고, 확인하면 노트를 메시지로 한 주석 태그를 만들어 push하고, Actions 진행 페이지 주소를 알려 줍니다. 몇 분 뒤 Release가 공개되고, 켜져 있는 오버레이들은 다음 확인 때(최대 6시간) 받아 갑니다.
 
 | 옵션 | 동작 |
 |---|---|
 | `-DryRun` | 검사만 하고 실행할 명령을 보여 줍니다. 태그·push·업로드는 하지 않습니다 |
 | `-Local` | Actions 대신 이 PC에서 테스트·publish·`vpk pack`·`vpk upload`까지 합니다. 태그는 `vpk upload --tag`가 GitHub에 만듭니다. 토큰은 `$env:GITHUB_TOKEN`, 없으면 `gh auth token`(화면에 찍지 않음). 이 태그로 Actions가 다시 돌아도 Release가 이미 있으면 건너뜁니다 |
-| `-Yes` | 확인 질문을 건너뜁니다 |
+| `-NotesFile <파일>` | 릴리스 노트를 이 파일에서 읽습니다(초안·메모장 없음) |
+| `-Yes` | 확인 질문을 건너뜁니다. 메모장도 열지 않으므로 `-NotesFile`과 함께 쓰세요(아니면 다듬지 않은 PR 제목 초안이 그대로 나감) |
 | `-NoPause` | 끝나고 키 입력을 기다리지 않습니다 (자동화용) |
 
 ## 앱의 업데이트 동작
@@ -67,7 +75,7 @@ release.cmd 0.2.0
 - **설치판에서만** 동작합니다(`UpdateManager.IsInstalled`). checkout, `dist\Sts2Overlay.exe`, 그냥 publish한 폴더는 업데이트하지 않고, 트레이 버전 옆에 "(개발용)"이 붙습니다.
 - 시작하고 **15초 뒤** 한 번 확인하고, 그 뒤로는 30분마다 "확인할 때가 됐는지"만 보고 실제 확인은 **최대 6시간마다** 합니다. 트레이 "업데이트 확인"은 바로 확인하되 1분에 한 번까지입니다.
 - 새 버전이 있으면 백그라운드에서 받고, 패널 아래 초록 줄("새 버전 vX 준비됨 — 종료하면 적용")과 트레이 "업데이트 적용 (재시작) vX"를 보여 줍니다.
-- 트레이 "업데이트 확인"은 결과를 **항상 트레이 알림(풍선)과 패널 줄**로 알려 줍니다: 확인 중… → 최신 버전입니다 (vX) / vX 다운로드 중… → 다운로드 완료 — 재시작하면 적용 / 실패 이유(인터넷 연결, GitHub 한도, 주소 오류 등) / 개발용 실행이라 확인하지 않음. 확인하는 동안 메뉴 항목은 "업데이트 확인 중…"으로 바뀌고 눌리지 않습니다. 자동 확인으로 받은 새 버전도 다운로드가 끝나면 알림을 띄웁니다. (패널은 게임이 앞에 있을 때만 보이므로 알림이 필요합니다.)
+- 트레이 "업데이트 확인"은 결과를 **항상 트레이 알림(풍선)과 패널 줄**로 알려 줍니다: 확인 중… → 최신 버전입니다 (vX) / vX 다운로드 중… → 다운로드 완료 — 재시작하면 적용 / 실패 이유(인터넷 연결, GitHub 한도, 주소 오류 등) / 개발용 실행이라 확인하지 않음. 확인하는 동안 메뉴 항목은 "업데이트 확인 중…"으로 바뀌고 눌리지 않습니다. 자동 확인으로 받은 새 버전도 다운로드가 끝나면 알림을 띄웁니다. (패널은 게임이 앞에 있을 때만 보이므로 알림이 필요합니다.) 패키지에 릴리스 노트가 있으면 다운로드 완료 알림 끝에 "바뀐 점: (노트의 첫 두 항목)"이 붙습니다(`ReleaseNotesSummary`, 120자까지).
 - 적용: 트레이에서 누르면 설정을 저장하며 정상 종료한 뒤 Velopack이 파일을 바꾸고 다시 켭니다. 안 누르면 오버레이가 종료될 때 조용히 적용하고 다시 켜지 않습니다. **스스로 재시작하는 일은 없습니다.**
 - 자동 확인의 오프라인, GitHub 한도 초과, 피드 오류는 `app.log`에만 남고 다음 확인 때 다시 시도합니다.
 - `settings.json`:
