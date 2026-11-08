@@ -298,6 +298,10 @@ public sealed partial class AppController : IDisposable
             AppLog.Info($"screen: {_loggedKind?.ToString() ?? "-"} -> {r.ScreenKind} ({r.Cards.Count} cards, hint {_snapshot.Hint})");
             _loggedKind = r.ScreenKind;
         }
+        // A card grid is an offer only when it shows cards the deck does not hold; otherwise it is the deck itself
+        // (remove / upgrade / transform screens, deck view), which needs no badges.
+        if (r.ScreenKind == ScreenKind.Grid && !CardGridFilter.IsOffer(r.Cards.Select(c => c.Card).ToList(), _snapshot.Run?.Deck.Select(d => d.Card)))
+            r = RecognitionResult.Other;
         if (r.ScreenKind == ScreenKind.Other || r.Cards.Count == 0)
         {
             ClearBadges();
@@ -314,7 +318,7 @@ public sealed partial class AppController : IDisposable
         {
             try
             {
-                var (offer, badges, skip) = r.ScreenKind == ScreenKind.Reward ? EvaluateReward(r) : EvaluateShop(r);
+                var (offer, badges, skip) = r.ScreenKind == ScreenKind.Shop ? EvaluateShop(r) : EvaluateReward(r);
                 _vm.Offer = offer;
                 _lastBadges = badges;
                 _lastSkip = skip;
@@ -351,7 +355,8 @@ public sealed partial class AppController : IDisposable
     {
         var run = _snapshot.Run ?? UnknownRun;
         var cards = r.Cards.Select(c => c.Card).ToArray();
-        var context = _snapshot.RewardContext;
+        // Event grids and "pick 1 of N" rows are not combat rewards: score them as event offers.
+        var context = r.ScreenKind == ScreenKind.Reward ? _snapshot.RewardContext : OfferContext.Event;
         var eval = _engine.EvaluateOffer(run, cards, context);
 
         var rows = new List<OfferRowVm>();
@@ -388,7 +393,12 @@ public sealed partial class AppController : IDisposable
 
         var offer = new OfferSectionVm
         {
-            Title = ContextTitle(context),
+            Title = r.ScreenKind switch
+            {
+                ScreenKind.Choice => "카드 선택",
+                ScreenKind.Grid => "카드 선택 · 이벤트",
+                _ => ContextTitle(context),
+            },
             ConfidenceText = eval.Confidence switch
             {
                 RecommendationConfidence.Sure => "확신",

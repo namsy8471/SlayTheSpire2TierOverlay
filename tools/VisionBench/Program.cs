@@ -12,7 +12,7 @@ using VisionBench;
 //   VisionBench selftest  [--db file]                       each portrait shrunk/darkened → still found?
 //   VisionBench recognize <png> [--db file] [--character CHARACTER.X] [--upscale 2]
 //   VisionBench annotate  <png> [out.png]                   draws the found boxes (debugging)
-//   VisionBench bench     [--captures dir] [--save file | --saves dir] [--labels file] [--out dir] [--upscale 2] [--partial off] [--prices file]
+//   VisionBench bench     [--captures dir] [--save file | --saves dir] [--labels file] [--out dir] [--upscale 2] [--partial off] [--new-screens off] [--prices file]
 //   VisionBench stress    [--captures dir] [--out dir] [--every n] [--pool on] [--rows a,min,s,m]   covers clean cards artificially: recall + impostor accepts
 //   VisionBench price-occlude [--prices file] [--upscale 2] [--dark x] [--no-rarity x]   paints a "hand" (or a dark
 //                         panel) over parts of each price: unknown is fine, wrong is not
@@ -85,7 +85,13 @@ switch (args.FirstOrDefault())
 // --blocks / --rows agree,minTiles,score,margin[,wholeTopK]: override a partial stage (threshold tuning).
 RecognizerOptions RecognizerOptionsFromArgs()
 {
-    var o = new RecognizerOptions { PartialMatching = opts.GetValueOrDefault("partial") != "off" };
+    var o = new RecognizerOptions
+    {
+        PartialMatching = opts.GetValueOrDefault("partial") != "off",
+        // --new-screens off: only the reward row and the shop (the layouts before choose-a-card / grid support).
+        GridScreens = opts.GetValueOrDefault("new-screens") != "off",
+        ChoiceScreens = opts.GetValueOrDefault("new-screens") != "off",
+    };
     static PartialStage Parse(PartialStage d, string? arg)
     {
         if (arg == null) return d;
@@ -579,7 +585,10 @@ void Bench()
         {
             if (tracker.Generation != generation) visits.Add((name, name, tracked, truth));
             else visits[^1] = (visits[^1].First, name, tracked, visits[^1].Run);
-            visitSlots[visits.Count - 1] = Math.Max(visitSlots.GetValueOrDefault(visits.Count - 1), r.Slots.Count);
+            // Only frames of this screen count: an "Other" frame inside the hold time reports the slots it examined
+            // (e.g. ten empty grid cells), not the screen's.
+            if (r.Kind == tracked.Kind)
+                visitSlots[visits.Count - 1] = Math.Max(visitSlots.GetValueOrDefault(visits.Count - 1), r.Slots.Count);
             generation = tracker.Generation;
         }
         Row row = rows[^1];
@@ -665,6 +674,10 @@ Row Evaluate(string name, DateTime time, ScreenRecognition r, string? expected, 
     string verdict;
     if (r.Kind == ScreenKind.Other)
         verdict = expected == null ? "other?" : kindOk == true ? "ok" : "MISSED";
+    // Card grids are mostly the player's own deck (remove/upgrade screens) and choose-a-card rows come from relics,
+    // potions and events: the save's reward/shop floors are no ground truth for them (the app filters deck grids).
+    else if (IsGridOrChoice(r.Kind) && expected is null or "Other")
+        verdict = "grid/choice";
     else if (kindOk == false)
         verdict = "FALSE-POS";
     else if (truthCards == null)
@@ -690,6 +703,8 @@ Row Evaluate(string name, DateTime time, ScreenRecognition r, string? expected, 
     static IReadOnlyList<string> TruthSet(Floor f) => f.Offered.Concat(f.Gained).Distinct().ToList();
 }
 
+static bool IsGridOrChoice(ScreenKind k) => k is ScreenKind.CardGrid or ScreenKind.CardChoice;
+
 static string Key(RecognizedCard c) => c.CardId + (c.Upgraded ? "+" : c.UpgradeKnown ? "" : "?");
 
 static bool KeyMatches(string rec, string truth) =>
@@ -713,7 +728,8 @@ string VisitReport(List<(string First, string Last, TrackedScreen Screen, RunTru
         if (best != null && Overlap(best) == 0) best = null;
         var truthCards = best?.Offered.Concat(best.Gained).Distinct().ToList();
         string verdict = "unverified";
-        if (truthCards != null)
+        if (IsGridOrChoice(s.Kind)) verdict = "grid/choice";
+        else if (truthCards != null)
         {
             int wrong = keys.Count(k => !truthCards.Select(StripUp).Contains(StripUp(k)));
             int badUp = keys.Count(k => truthCards.Select(StripUp).Contains(StripUp(k)) && !truthCards.Any(t => KeyMatches(k, t)));
@@ -753,8 +769,8 @@ string Report(List<Row> rows, IReadOnlyList<RunTruth> runs, string capturesDir, 
     sb.AppendLine("|---|---|---|---|---|");
     sb.AppendLine($"| reward screens | {reward.Count} | {reward.Count(r => r.Kind == "RewardCardSelect")} | {reward.Count(r => r.Verdict == "CORRECT")} | {Verdicts(reward)} |");
     sb.AppendLine($"| shop screens | {shop.Count} | {shop.Count(r => r.Kind == "Shop")} | {shop.Count(r => r.Verdict.StartsWith("CORRECT", StringComparison.Ordinal))} | {Verdicts(shop)}; cards found {shop.Sum(r => r.Recognized.Count)} / {shop.Count * 7} slots |");
-    sb.AppendLine($"| other screens | {other.Count} | {other.Count(r => r.Kind == "Other")} | - | false positives: {other.Count(r => r.Kind != "Other")} |");
-    sb.AppendLine($"| unlabelled | {unlabelled.Count} | - | - | recognised as reward {unlabelled.Count(r => r.Kind == "RewardCardSelect")}, shop {unlabelled.Count(r => r.Kind == "Shop")}; checked against the save: {Verdicts(unlabelled.Where(r => r.Kind != "Other"))} |");
+    sb.AppendLine($"| other screens | {other.Count} | {other.Count(r => r.Kind == "Other")} | - | false positives: {other.Count(r => r.Kind is not ("Other" or "CardGrid" or "CardChoice"))}; card grid / choose-a-card: {other.Count(r => r.Kind is "CardGrid" or "CardChoice")} |");
+    sb.AppendLine($"| unlabelled | {unlabelled.Count} | - | - | recognised as reward {unlabelled.Count(r => r.Kind == "RewardCardSelect")}, shop {unlabelled.Count(r => r.Kind == "Shop")}, choose-a-card {unlabelled.Count(r => r.Kind == "CardChoice")}, card grid {unlabelled.Count(r => r.Kind == "CardGrid")}; reward/shop checked against the save: {Verdicts(unlabelled.Where(r => r.Kind is "RewardCardSelect" or "Shop"))} |");
     sb.AppendLine();
     sb.AppendLine("Verdicts: CORRECT = every card right (id + upgrade); PARTIAL k/n = no wrong card, some slots rejected (covered by a tooltip or the merchant's hand, still fading in, or sold); WRONG = a wrong card id was accepted; WRONG-UPG = right id, wrong upgrade flag. `X?` = upgrade unknown (title hidden).");
     sb.AppendLine();

@@ -40,6 +40,8 @@ public sealed class VisionRecognizer : ICardRecognizer
         {
             VisionKind.RewardCardSelect => ScreenKind.Reward,
             VisionKind.Shop => ScreenKind.Shop,
+            VisionKind.CardChoice => ScreenKind.Choice,
+            VisionKind.CardGrid => ScreenKind.Grid,
             _ => ScreenKind.Other,
         };
         if (kind == ScreenKind.Other) return RecognitionResult.Other;
