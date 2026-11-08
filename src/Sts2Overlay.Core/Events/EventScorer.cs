@@ -30,11 +30,15 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
     /// Scores the options of <paramref name="eventId"/>. With <paramref name="offeredKeys"/> (exact text keys from the log) only
     /// those are scored, in that order; otherwise every option of <paramref name="page"/> (default: the first page).
     /// Null when the event is not in the catalog and no keys were given.
+    /// <paramref name="possibleKeys"/> limits <see cref="EventEvaluation.NotOffered"/> to options this run could have drawn
+    /// (e.g. no co-op-only relic in single player); null = the whole pool.
     /// </summary>
-    public EventEvaluation? Evaluate(RunState state, string eventId, IReadOnlyList<string>? offeredKeys = null, string? page = null)
-        => Evaluate(state, DeckAnalyzer.Analyze(state, Pack), eventId, offeredKeys, page);
+    public EventEvaluation? Evaluate(RunState state, string eventId, IReadOnlyList<string>? offeredKeys = null, string? page = null,
+        IReadOnlyCollection<string>? possibleKeys = null)
+        => Evaluate(state, DeckAnalyzer.Analyze(state, Pack), eventId, offeredKeys, page, possibleKeys);
 
-    public EventEvaluation? Evaluate(RunState state, DeckProfile profile, string eventId, IReadOnlyList<string>? offeredKeys = null, string? page = null)
+    public EventEvaluation? Evaluate(RunState state, DeckProfile profile, string eventId, IReadOnlyList<string>? offeredKeys = null, string? page = null,
+        IReadOnlyCollection<string>? possibleKeys = null)
     {
         var def = Catalog.Find(eventId);
         IReadOnlyList<EventOptionDef> options;
@@ -87,7 +91,26 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
             Options = evals.Select((e, i) => e with { Rank = ranks[i], IsBest = best == i }).ToArray(),
             Confidence = confidence,
             OptionsExact = offeredKeys is { Count: > 0 },
+            NotOffered = offeredKeys is { Count: > 0 } ? NotOfferedOptions(state, profile, def!, pageName, offeredKeys, possibleKeys) : [],
         };
+    }
+
+    /// <summary>
+    /// An ancient's other options on the offered page (its pool: the game draws a few of them at random), scored the same
+    /// way and ranked among themselves, best first. Regular events show every option they have, so they get none.
+    /// </summary>
+    private IReadOnlyList<EventOptionEvaluation> NotOfferedOptions(RunState state, DeckProfile profile, EventDef def, string pageName,
+        IReadOnlyList<string> offeredKeys, IReadOnlyCollection<string>? possibleKeys)
+    {
+        if (!def.IsAncient || def.FindPage(pageName) is not { } page) return [];
+        var offered = offeredKeys.ToHashSet(StringComparer.Ordinal);
+        var rest = EventSlots.Displayed(page)
+            .Where(o => !offered.Contains(o.Key) && !o.Key.EndsWith(LockedSuffix, StringComparison.Ordinal))
+            .Where(o => possibleKeys is null || possibleKeys.Contains(o.Key))
+            .Select(o => ScoreOption(state, profile, def, o, Weights.LookaheadDepth))
+            .OrderByDescending(e => e.Total)
+            .ToList();
+        return rest.Select((e, k) => e with { Rank = k + 1 }).ToArray();
     }
 
     private const string LockedSuffix = "_LOCKED";

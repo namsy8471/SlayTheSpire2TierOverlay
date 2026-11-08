@@ -98,7 +98,7 @@ public sealed partial class AppController
         EventEvaluation? eval;
         try
         {
-            eval = _eventScorer.Evaluate(run, active.EventId, keys, page);
+            eval = _eventScorer.Evaluate(run, active.EventId, keys, page, active.PossibleKeys);
         }
         catch (Exception ex)
         {
@@ -235,35 +235,15 @@ public sealed partial class AppController
 
     private OfferSectionVm EventOffer(EventEvaluation eval, ActiveEvent active, EventButtonMatch? match)
     {
-        var rows = new List<OfferRowVm>();
-        foreach (var o in eval.Options.OrderBy(o => o.Rank))
-        {
-            var sub = new List<string> { $"{o.Rank}위" };
-            if (o.IsLethal) sub.Add("죽음 위험");
-            if (o.IsUnaffordable) sub.Add(o.Option.Key.EndsWith(EventSlots.LockedSuffix, StringComparison.Ordinal) ? "잠김" : "골드 부족");
-            if (o.IsRandom) sub.Add("운 요소");
-            if (o.HasUnmodelled) sub.Add("일부 효과 미반영");
-            rows.Add(new OfferRowVm
-            {
-                Name = _eventText.OptionTitle(o.Option.Key),
-                ScoreText = Fmt(o.Total),
-                BarWidth = Bar(Math.Max(0, o.Total + 30)), // option scores sit around 0 (leave = 0): shift for the bar
-                IsBest = o.IsBest,
-                IsEstimate = o.HasUnmodelled,
-                Unaffordable = o.IsUnaffordable || o.IsLethal,
-                SubText = string.Join(" · ", sub),
-                Tip = o.EffectTexts.Count > 0 ? string.Join(", ", o.EffectTexts.Select(DisplayEffect)) : null,
-                Chips = o.Score.Components
-                    .Where(c => Math.Abs(c.Value) >= 0.5)
-                    .OrderByDescending(c => Math.Abs(c.Value))
-                    .Take(3)
-                    .Select(c => Chip(ComponentLabel(c), c.Value))
-                    .ToArray(),
-            });
-        }
+        var rows = eval.Options.OrderBy(o => o.Rank).Select(o => EventRow(o)).ToList();
+        // An ancient's options that weren't drawn this time: their own ranking, below, for reference.
+        var extra = eval.NotOffered.Select(o => EventRow(o, rankOnly: true)).ToList();
 
         var source = active.Source == EventSource.Log ? "로그" : active.Certain ? "세이브 예측" : "세이브 예측 (추정)";
-        var options = match is not null ? " · 화면 버튼 일치" : eval.OptionsExact ? "" : " · 선택지는 데이터 기준";
+        var options = match is not null ? " · 화면 버튼 일치"
+            : active.OptionsReplayed ? " · 선택지는 시드로 계산"
+            : eval.OptionsExact ? ""
+            : " · 선택지는 데이터 기준";
         return new OfferSectionVm
         {
             Title = $"이벤트 · {_eventText.EventTitle(eval.Event.Id)}",
@@ -278,6 +258,38 @@ public sealed partial class AppController
             Rows = rows,
             Footer = (eval.Best is { } best ? $"추천: {_eventText.OptionTitle(best.Option.Key)}" : "추천 없음")
                      + $" · 인식: {source}{options}",
+            ExtraTitle = extra.Count > 0 ? $"이번에 안 나온 선택지 {extra.Count}개 · 참고 순위" : null,
+            ExtraRows = extra,
+        };
+    }
+
+    /// <summary>One option row. <paramref name="rankOnly"/>: the sub line is just "N위" (one-line rows of the lower block).</summary>
+    private OfferRowVm EventRow(EventOptionEvaluation o, bool rankOnly = false)
+    {
+        var sub = new List<string> { $"{o.Rank}위" };
+        if (!rankOnly)
+        {
+            if (o.IsLethal) sub.Add("죽음 위험");
+            if (o.IsUnaffordable) sub.Add(o.Option.Key.EndsWith(EventSlots.LockedSuffix, StringComparison.Ordinal) ? "잠김" : "골드 부족");
+            if (o.IsRandom) sub.Add("운 요소");
+            if (o.HasUnmodelled) sub.Add("일부 효과 미반영");
+        }
+        return new OfferRowVm
+        {
+            Name = _eventText.OptionTitle(o.Option.Key),
+            ScoreText = Fmt(o.Total),
+            BarWidth = Bar(Math.Max(0, o.Total + 30)), // option scores sit around 0 (leave = 0): shift for the bar
+            IsBest = o.IsBest,
+            IsEstimate = o.HasUnmodelled,
+            Unaffordable = o.IsUnaffordable || o.IsLethal,
+            SubText = string.Join(" · ", sub),
+            Tip = o.EffectTexts.Count > 0 ? string.Join(", ", o.EffectTexts.Select(DisplayEffect)) : null,
+            Chips = o.Score.Components
+                .Where(c => Math.Abs(c.Value) >= 0.5)
+                .OrderByDescending(c => Math.Abs(c.Value))
+                .Take(3)
+                .Select(c => Chip(ComponentLabel(c), c.Value))
+                .ToArray(),
         };
     }
 

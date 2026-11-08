@@ -125,6 +125,7 @@ public static class RunSaveParser
             SaveTime = Long(root, "save_time") is { } t and > 0 ? DateTimeOffset.FromUnixTimeSeconds(t) : null,
             ActId = actId,
             GameMode = Str(root, "game_mode"),
+            ModifierCount = Prop(root, "modifiers") is { ValueKind: JsonValueKind.Array } mods ? mods.GetArrayLength() : -1,
             Events = ParseEvents(root, act, actIndex, history, visited.Count, me),
         };
     }

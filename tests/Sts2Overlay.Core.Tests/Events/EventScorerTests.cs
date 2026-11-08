@@ -143,6 +143,72 @@ public class EventScorerTests
         Assert.Equal("PURGE", eval.Best!.Option.ShortName);
     }
 
+    // An ancient (random draw from a pool of options): gold amounts give a clear order A > B > C > D > E.
+    private static readonly EventCatalog AncientCatalog = EventCatalog.Parse("""
+    {
+      "events": [
+        {
+          "id": "EVENT.TEST_ANCIENT", "kind": "ancient",
+          "pages": [
+            { "page": "INITIAL", "options": [
+              { "key": "TEST_ANCIENT.pages.INITIAL.options.A", "effects": [ { "type": "gold", "amount": 250 } ] },
+              { "key": "TEST_ANCIENT.pages.INITIAL.options.B", "effects": [ { "type": "gold", "amount": 200 } ] },
+              { "key": "TEST_ANCIENT.pages.INITIAL.options.C", "effects": [ { "type": "gold", "amount": 150 } ] },
+              { "key": "TEST_ANCIENT.pages.INITIAL.options.D", "effects": [ { "type": "gold", "amount": 100 } ] },
+              { "key": "TEST_ANCIENT.pages.INITIAL.options.E", "effects": [ { "type": "gold", "amount": 50 } ] }
+            ]}
+          ]
+        }
+      ]
+    }
+    """);
+
+    [Fact]
+    public void Ancient_RanksOnlyTheOfferedOptions_AndListsTheRestBelow()
+    {
+        var scorer = new EventScorer(new DataPack(), AncientCatalog);
+        var keys = new[] { "TEST_ANCIENT.pages.INITIAL.options.D", "TEST_ANCIENT.pages.INITIAL.options.B", "TEST_ANCIENT.pages.INITIAL.options.E" };
+        var eval = scorer.Evaluate(State(80), "EVENT.TEST_ANCIENT", keys)!;
+
+        // The offered options keep their button order and are ranked among themselves: B is the best of them.
+        Assert.Equal(["D", "B", "E"], eval.Options.Select(o => o.Option.ShortName));
+        Assert.Equal([2, 1, 3], eval.Options.Select(o => o.Rank));
+        Assert.Equal("B", eval.Best!.Option.ShortName);
+
+        // The options not drawn this time: ranked among themselves, best first, never the recommendation.
+        Assert.Equal(["A", "C"], eval.NotOffered.Select(o => o.Option.ShortName));
+        Assert.Equal([1, 2], eval.NotOffered.Select(o => o.Rank));
+        Assert.DoesNotContain(eval.NotOffered, o => o.IsBest);
+        Assert.True(eval.NotOffered[0].Total > eval.Best!.Total); // A outscores B but isn't on offer
+    }
+
+    [Fact]
+    public void Ancient_PossibleKeys_DropOptionsThisRunCannotDraw()
+    {
+        var scorer = new EventScorer(new DataPack(), AncientCatalog);
+        var keys = new[] { "TEST_ANCIENT.pages.INITIAL.options.D", "TEST_ANCIENT.pages.INITIAL.options.B", "TEST_ANCIENT.pages.INITIAL.options.E" };
+        var possible = keys.Append("TEST_ANCIENT.pages.INITIAL.options.C").ToArray(); // A can't appear in this run
+        var eval = scorer.Evaluate(State(80), "EVENT.TEST_ANCIENT", keys, possibleKeys: possible)!;
+        Assert.Equal(["C"], eval.NotOffered.Select(o => o.Option.ShortName));
+        Assert.Equal(1, eval.NotOffered[0].Rank);
+    }
+
+    [Fact]
+    public void Ancient_WithoutOfferedKeys_ScoresTheWholePool_AndNothingBelow()
+    {
+        var scorer = new EventScorer(new DataPack(), AncientCatalog);
+        var eval = scorer.Evaluate(State(80), "EVENT.TEST_ANCIENT")!;
+        Assert.Equal(5, eval.Options.Count);
+        Assert.Empty(eval.NotOffered);
+    }
+
+    [Fact]
+    public void RegularEvent_HasNoNotOfferedBlock()
+    {
+        var keys = new[] { "TEST_SHRINE.pages.INITIAL.options.LEAVE", "TEST_SHRINE.pages.INITIAL.options.PURGE" };
+        Assert.Empty(Scorer.Evaluate(State(80), "EVENT.TEST_SHRINE", keys)!.NotOffered);
+    }
+
     [Fact]
     public void UnknownKey_IsScoredAsUnmodelled()
     {

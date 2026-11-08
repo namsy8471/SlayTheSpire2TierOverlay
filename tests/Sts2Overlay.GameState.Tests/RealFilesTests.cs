@@ -53,6 +53,44 @@ public class RealFilesTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void Neow_replay_matches_every_history_run_of_this_game_version()
+    {
+        // Run-history files list the options Neow generated (ancient_choice, in button order). Check the seed replay against
+        // the shared fixtures and every real run made on the version the replay was ported from.
+        var dirs = new List<string> { TestPaths.RunsDir };
+        bool? unlocked = null;
+        if (RealPaths()?.SavesDirectory is { } saves)
+        {
+            dirs.Add(Path.Combine(saves, "history"));
+            unlocked = ProgressSave.AllCharactersUnlockedIn(saves);
+        }
+        int ok = 0, skipped = 0;
+        var misses = new List<string>();
+        foreach (string file in dirs.Where(Directory.Exists).SelectMany(d => Directory.GetFiles(d, "*.run")))
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(file));
+            var root = doc.RootElement;
+            if (root.GetProperty("build_id").GetString() != "v0.107.1" || root.GetProperty("modifiers").GetArrayLength() > 0) { skipped++; continue; }
+            var first = root.GetProperty("map_point_history")[0][0];
+            if (first.GetProperty("rooms")[0].GetProperty("model_id").GetString() != NeowOptions.EventId) { skipped++; continue; }
+            var players = root.GetProperty("players").EnumerateArray().Select(p => p.GetProperty("id").GetRawText()).ToList();
+            string seed = root.GetProperty("seed").GetString()!;
+            foreach (var stats in first.GetProperty("player_stats").EnumerateArray())
+            {
+                if (!stats.TryGetProperty("ancient_choice", out var choices)) continue;
+                int slot = players.IndexOf(stats.GetProperty("player_id").GetRawText());
+                var truth = choices.EnumerateArray().Select(c => c.GetProperty("TextKey").GetString()!).ToArray();
+                var replay = NeowOptions.Relics(seed, slot, players.Count, unlocked ?? true);
+                if (truth.SequenceEqual(replay)) ok++;
+                else misses.Add($"{Path.GetFileName(file)} slot {slot}: game [{string.Join(", ", truth)}] replay [{string.Join(", ", replay)}]");
+            }
+        }
+        output.WriteLine($"neow replay: {ok} ok, {misses.Count} wrong, {skipped} runs of other versions/modes skipped");
+        foreach (var m in misses) output.WriteLine(m);
+        Assert.Empty(misses);
+    }
+
+    [Fact]
     public void Live_run_save_parses()
     {
         if (RealPaths() is not { SavesDirectory: { } saves } paths) { output.WriteLine("no saves folder"); return; }
