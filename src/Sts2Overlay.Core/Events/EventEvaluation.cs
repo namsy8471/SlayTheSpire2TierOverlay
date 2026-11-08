@@ -30,6 +30,12 @@ public sealed record EventOptionEvaluation
     /// <summary>One-liners in the current language (<see cref="Localization.Loc"/>) describing what the option does, in effect order (e.g. "체력 9 잃음" / "Lose 9 HP").</summary>
     public IReadOnlyList<string> EffectTexts { get; init; } = [];
 
+    /// <summary>HP of the option's training-dummy fight after multiplayer scaling; null when it has none.</summary>
+    public int? DummyHp { get; init; }
+
+    /// <summary>Simulated chance to kill that dummy in time; null when unknown or there is no such fight.</summary>
+    public double? WinChance { get; init; }
+
     public double Total => Score.Total;
 }
 
@@ -56,4 +62,9 @@ public sealed record EventEvaluation
     /// <see cref="Options"/>' ranks or the recommendation. Empty unless the offered options are known.
     /// </summary>
     public IReadOnlyList<EventOptionEvaluation> NotOffered { get; init; } = [];
+
+    /// <summary>The damage forecast used for a training-dummy fight (shown in the panel); null otherwise.</summary>
+    public Combat.DamageForecast? Forecast { get; init; }
+
+    public IReadOnlyList<string> ForecastNotes { get; init; } = [];
 }

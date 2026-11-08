@@ -152,6 +152,17 @@ public sealed class EventEffect
     public string? Rewards { get; init; }
     public string? Note { get; init; }
 
+    /// <summary>
+    /// A <c>fight</c> against a target that never acts and leaves after <see cref="TurnLimit"/> player turns (the training
+    /// dummy): the event var holding its HP (before multiplayer scaling). The fight costs no HP; it is won or lost.
+    /// </summary>
+    public string? DummyHp { get; init; }
+
+    public int? TurnLimit { get; init; }
+
+    /// <summary>The effect only happens if the option's dummy fight (<see cref="DummyHp"/>) is won.</summary>
+    public bool OnWin { get; init; }
+
     /// <summary>Probability the effect happens (1 when absent).</summary>
     public double? Chance { get; init; }
 }

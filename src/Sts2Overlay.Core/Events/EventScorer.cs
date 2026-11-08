@@ -42,12 +42,13 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
     /// (e.g. no co-op-only relic in single player); null = the whole pool.
     /// </summary>
     public EventEvaluation? Evaluate(RunState state, string eventId, IReadOnlyList<string>? offeredKeys = null, string? page = null,
-        IReadOnlyCollection<string>? possibleKeys = null)
-        => Evaluate(state, DeckAnalyzer.Analyze(state, Pack), eventId, offeredKeys, page, possibleKeys);
+        IReadOnlyCollection<string>? possibleKeys = null, EventContext? context = null)
+        => Evaluate(state, DeckAnalyzer.Analyze(state, Pack), eventId, offeredKeys, page, possibleKeys, context);
 
     public EventEvaluation? Evaluate(RunState state, DeckProfile profile, string eventId, IReadOnlyList<string>? offeredKeys = null, string? page = null,
-        IReadOnlyCollection<string>? possibleKeys = null)
+        IReadOnlyCollection<string>? possibleKeys = null, EventContext? context = null)
     {
+        _context = context;
         var def = Catalog.Find(eventId);
         IReadOnlyList<EventOptionDef> options;
         string pageName;
@@ -102,8 +103,15 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
             Confidence = confidence,
             OptionsExact = offeredKeys is { Count: > 0 },
             NotOffered = offeredKeys is { Count: > 0 } ? NotOfferedOptions(state, profile, def!, pageName, offeredKeys, possibleKeys) : [],
+            Forecast = evals.Any(e => e.DummyHp is not null) ? context?.Forecast : null,
+            ForecastNotes = evals.Any(e => e.DummyHp is not null) ? context?.ForecastNotes ?? [] : [],
         };
     }
+
+    // Evaluate is called from one thread at a time (the UI thread); the context only lives for that call.
+    private EventContext? _context;
+
+    private const double UnknownWinChance = 0.5;
 
     /// <summary>
     /// An ancient's other options on the offered page (its pool: the game draws a few of them at random), scored the same
@@ -187,6 +195,8 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
         var texts = new List<string>();
         var sim = new Sim(state.Hp, Math.Max(1, state.MaxHp), state.Gold);
         bool lethal = false, unaffordable = false, unmodelled = false, random = false;
+        double? winChance = null; // chance to win this option's dummy fight; its OnWin rewards are weighted by it
+        int? dummyHp = null;
         var vars = Variables(state, def);
         // Deck pool the option works on; removals/transforms take from it so "remove 2" doesn't count the same curse twice.
         var pool = new DeckPool(Pack, state, profile);
@@ -203,6 +213,12 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
             if (p < 1) random = true;
             if (string.Equals(e.How, "random", StringComparison.OrdinalIgnoreCase)) random = true;
             var chanceText = p < 1 ? Loc.T($" ({p * 100:0}% 확률)", $" ({p * 100:0}% chance)") : "";
+            if (e.OnWin)
+            {
+                // Without a damage forecast the fight is a coin flip as far as we know (the option is marked unmodelled).
+                p *= winChance ?? UnknownWinChance;
+                chanceText = Loc.T(" (처치 시)", " (if killed)");
+            }
             var count = Resolve(e.Count, vars, out var countKnown) is double c ? (int)Math.Max(0, Math.Round(c)) : 1;
             if (!countKnown) unmodelled = true;
             double? amount = Resolve(e.Amount, vars, out var amountKnown);
@@ -360,6 +376,27 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
                     texts.Add(Loc.T($"포션 {n}개 잃음", $"Lose {Potions(n)}") + chanceText);
                     break;
                 }
+                case EventEffectTypes.Fight when e.DummyHp is { } hpVar:
+                {
+                    // Training dummy: never attacks (no HP cost), escapes after TurnLimit player turns. Won or lost.
+                    var turns = e.TurnLimit ?? 3;
+                    var baseHp = vars.TryGetValue(hpVar, out var bh) ? bh : 0;
+                    var hp = DummyFight.ScaleHp(baseHp, _context?.PlayerCount ?? 1, Math.Max(0, state.Act - 1));
+                    dummyHp = hp;
+                    if (_context?.Forecast is { } forecast && _context.ForecastTurns == turns)
+                    {
+                        winChance = forecast.ProbAtLeast(hp);
+                        texts.Add(Loc.T($"체력 {hp} 인형을 {turns}턴 안에 처치 · 예상 확률 {winChance * 100:0}%",
+                            $"Kill the {hp} HP dummy within {turns} turns · est. chance {winChance * 100:0}%"));
+                    }
+                    else
+                    {
+                        unmodelled = true;
+                        texts.Add(Loc.T($"체력 {hp} 인형을 {turns}턴 안에 처치", $"Kill the {hp} HP dummy within {turns} turns"));
+                    }
+                    random = true;
+                    break;
+                }
                 case EventEffectTypes.Fight:
                 {
                     var lost = Weights.FightHpLossFraction * sim.MaxHp;
@@ -415,6 +452,8 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
             HasUnmodelled = unmodelled,
             IsRandom = random,
             EffectTexts = texts,
+            WinChance = winChance,
+            DummyHp = dummyHp,
         };
     }
 

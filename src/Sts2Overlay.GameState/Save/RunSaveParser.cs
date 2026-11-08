@@ -65,16 +65,7 @@ public static class RunSaveParser
             floorsBeforeAct + visited.Count);
 
         // --- deck, relics, potions -------------------------------------------------------------
-        var deck = new List<DeckCard>();
-        foreach (JsonElement c in Array(me, "deck"))
-        {
-            JsonElement ench = Prop(c, "enchantment");
-            deck.Add(new DeckCard(
-                new CardRef(Str(c, "id") ?? "?", Int(c, "current_upgrade_level") ?? 0),
-                FloorAdded: Int(c, "floor_added_to_deck") ?? 0,
-                EnchantmentId: Str(ench, "id"),
-                EnchantmentAmount: Int(ench, "amount") ?? 0));
-        }
+        var deck = Array(me, "deck").Select(ReadDeckCard).ToList();
         var relicDetails = Array(me, "relics")
             .Where(r => Str(r, "id") != null)
             .Select(r => new SavedRelic(Str(r, "id")!, Array(Prop(r, "props"), "bools")
@@ -123,6 +114,13 @@ public static class RunSaveParser
             MyNetId = myNetId,
             MyPlayerMatched = matched,
             PlayerNetIds = netIds,
+            Partners = playerList.Select((p, i) => (p, i)).Where(x => x.i != myIndex)
+                .Select(x => new PartnerPlayer(
+                    netIds[x.i],
+                    Str(x.p, "character_id") ?? "CHARACTER.UNKNOWN",
+                    Array(x.p, "deck").Select(ReadDeckCard).ToList(),
+                    Array(x.p, "relics").Select(r => Str(r, "id")).OfType<string>().ToList()))
+                .ToList(),
             Potions = potions,
             RelicDetails = relicDetails,
             UnlockedEpochs = Array(Prop(me, "unlock_state"), "unlocked_epochs")
@@ -142,6 +140,16 @@ public static class RunSaveParser
             ModifierCount = Prop(root, "modifiers") is { ValueKind: JsonValueKind.Array } mods ? mods.GetArrayLength() : -1,
             Events = ParseEvents(root, act, actIndex, history, visited.Count, me),
         };
+    }
+
+    private static DeckCard ReadDeckCard(JsonElement c)
+    {
+        JsonElement ench = Prop(c, "enchantment");
+        return new DeckCard(
+            new CardRef(Str(c, "id") ?? "?", Int(c, "current_upgrade_level") ?? 0),
+            FloorAdded: Int(c, "floor_added_to_deck") ?? 0,
+            EnchantmentId: Str(ench, "id"),
+            EnchantmentAmount: Int(ench, "amount") ?? 0);
     }
 
     private static EventRoomState? ParseEvents(JsonElement root, JsonElement act, int actIndex, JsonElement history, int visitedCount, JsonElement me)
