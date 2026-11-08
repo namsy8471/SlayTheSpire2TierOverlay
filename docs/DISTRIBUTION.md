@@ -54,13 +54,14 @@ release.cmd 0.2.0
 
 ## 앱의 업데이트 동작
 
-코드: `src/Sts2Overlay.App/Services/UpdateService.cs`, `UpdatePolicy.cs` (규칙은 `tests/Sts2Overlay.App.Tests/UpdatePolicyTests.cs`에서 테스트).
+코드: `src/Sts2Overlay.App/Services/UpdateService.cs`, `UpdatePolicy.cs` (규칙은 `tests/Sts2Overlay.App.Tests/UpdatePolicyTests.cs`, 확인 결과 메시지는 `UpdateServiceTests.cs`에서 테스트).
 
 - **설치판에서만** 동작합니다(`UpdateManager.IsInstalled`). checkout, `dist\Sts2Overlay.exe`, 그냥 publish한 폴더는 업데이트하지 않고, 트레이 버전 옆에 "(개발용)"이 붙습니다.
 - 시작하고 **15초 뒤** 한 번 확인하고, 그 뒤로는 30분마다 "확인할 때가 됐는지"만 보고 실제 확인은 **최대 6시간마다** 합니다. 트레이 "업데이트 확인"은 바로 확인하되 1분에 한 번까지입니다.
 - 새 버전이 있으면 백그라운드에서 받고, 패널 아래 초록 줄("새 버전 vX 준비됨 — 종료하면 적용")과 트레이 "업데이트 적용 (재시작) vX"를 보여 줍니다.
+- 트레이 "업데이트 확인"은 결과를 **항상 트레이 알림(풍선)과 패널 줄**로 알려 줍니다: 확인 중… → 최신 버전입니다 (vX) / vX 다운로드 중… → 다운로드 완료 — 재시작하면 적용 / 실패 이유(인터넷 연결, GitHub 한도, 주소 오류 등) / 개발용 실행이라 확인하지 않음. 확인하는 동안 메뉴 항목은 "업데이트 확인 중…"으로 바뀌고 눌리지 않습니다. 자동 확인으로 받은 새 버전도 다운로드가 끝나면 알림을 띄웁니다. (패널은 게임이 앞에 있을 때만 보이므로 알림이 필요합니다.)
 - 적용: 트레이에서 누르면 설정을 저장하며 정상 종료한 뒤 Velopack이 파일을 바꾸고 다시 켭니다. 안 누르면 오버레이가 종료될 때 조용히 적용하고 다시 켜지 않습니다. **스스로 재시작하는 일은 없습니다.**
-- 오프라인, GitHub 한도 초과, 피드 오류는 `app.log`에만 남고 다음 확인 때 다시 시도합니다.
+- 자동 확인의 오프라인, GitHub 한도 초과, 피드 오류는 `app.log`에만 남고 다음 확인 때 다시 시도합니다.
 - `settings.json`:
   - `"autoUpdate": false` — 자동 확인을 끕니다(트레이 "업데이트 확인"은 그대로).
   - `"updateUrl"` — 업데이트를 받을 곳. 비우면 공식 저장소. 다른 `https://github.com/<owner>/<repo>`, vpk 출력이 있는 http(s) 폴더, 로컬·네트워크 폴더 절대 경로(테스트용)를 받습니다. 잘못된 값이면 기록을 남기고 공식 저장소를 씁니다.

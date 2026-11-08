@@ -146,7 +146,13 @@ public partial class App : Application
         _resources.Start();
 
         _updates = new UpdateService(_settings);
-        _updates.Message += text => _controller.ShowMessage(text);
+        // Both places: the panel line is hidden whenever the game is not in front (exactly when the tray is used),
+        // so the tray balloon is what the user actually sees after "업데이트 확인".
+        _updates.Message += text =>
+        {
+            _controller.ShowMessage(text);
+            _tray?.ShowBalloon("STS2 티어 오버레이 업데이트", text);
+        };
         _updates.StateChanged += () =>
         {
             _vm.UpdateText = _updates.ReadyVersion is { } v ? $"새 버전 v{v} 준비됨 — 종료하면 적용 (트레이: 업데이트 적용)" : null;
@@ -217,7 +223,7 @@ public partial class App : Application
     {
         _tray = new TrayIcon(_updates!.CurrentVersion + (_updates.IsInstalled ? "" : " (개발용)"));
         _tray.ExitRequested += () => Shutdown();
-        _tray.CheckUpdateRequested += () => _updates.CheckNow();
+        _tray.CheckUpdateRequested += () => _ = _updates.CheckNowAsync();
         _tray.ApplyUpdateRequested += () =>
         {
             // Normal shutdown first (settings saved in OnExit), then Velopack swaps the files and restarts us.
@@ -261,6 +267,7 @@ public partial class App : Application
         _tray.SetMapOverlay(_controller.MapOverlayOn);
         _tray.SetShowInCapture(_controller.ShowOverlayInCapture, _controller.CaptureForcedHidden);
         _tray.SetUpdateReady(_updates?.ReadyVersion);
+        _tray.SetUpdateChecking(_updates?.IsChecking == true);
     }
 
     private static void OpenShell(string path)

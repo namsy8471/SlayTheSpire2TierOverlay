@@ -18,7 +18,7 @@ public sealed class TrayIcon : IDisposable
     private readonly IntPtr _hIcon;
     private readonly Icon _drawnIcon;
     private readonly ToolStripMenuItem _demoReward, _demoShop, _demoOther, _demoOff, _toggle, _scaleAuto, _outlines, _onTop, _mapOverlay, _inCapture;
-    private readonly ToolStripMenuItem _applyUpdate;
+    private readonly ToolStripMenuItem _applyUpdate, _checkUpdate;
     private readonly List<ToolStripMenuItem> _scaleItems = [];
 
     /// <param name="versionText">Shown as the disabled "버전 ..." item, e.g. "0.1.0".</param>
@@ -52,6 +52,7 @@ public sealed class TrayIcon : IDisposable
         _inCapture = new ToolStripMenuItem(InCaptureText, null, (_, _) => ShowInCaptureRequested?.Invoke());
 
         _applyUpdate = new ToolStripMenuItem("업데이트 적용 (재시작)", null, (_, _) => ApplyUpdateRequested?.Invoke()) { Visible = false };
+        _checkUpdate = new ToolStripMenuItem(CheckUpdateText, null, (_, _) => CheckUpdateRequested?.Invoke());
 
         var menu = new ContextMenuStrip();
         menu.Items.AddRange(
@@ -71,7 +72,7 @@ public sealed class TrayIcon : IDisposable
             new ToolStripMenuItem("로그 열기", null, (_, _) => OpenLogRequested?.Invoke()),
             new ToolStripSeparator(),
             new ToolStripMenuItem($"버전 {versionText}") { Enabled = false },
-            new ToolStripMenuItem("업데이트 확인", null, (_, _) => CheckUpdateRequested?.Invoke()),
+            _checkUpdate,
             _applyUpdate,
             new ToolStripSeparator(),
             new ToolStripMenuItem("종료", null, (_, _) => ExitRequested?.Invoke()),
@@ -128,8 +129,17 @@ public sealed class TrayIcon : IDisposable
         _inCapture.Text = on && forcedHidden ? InCaptureText + " (지금은 숨김: 호환 캡처 사용 중)" : InCaptureText;
     }
 
+    private const string CheckUpdateText = "업데이트 확인";
+
     /// <summary>"업데이트 확인": check for a new version now.</summary>
     public event Action? CheckUpdateRequested;
+
+    /// <summary>While a check or download runs: "업데이트 확인 중…", disabled.</summary>
+    public void SetUpdateChecking(bool checking)
+    {
+        _checkUpdate.Enabled = !checking;
+        _checkUpdate.Text = checking ? "업데이트 확인 중…" : CheckUpdateText;
+    }
 
     /// <summary>"업데이트 적용 (재시작)": shown once an update was downloaded.</summary>
     public event Action? ApplyUpdateRequested;
