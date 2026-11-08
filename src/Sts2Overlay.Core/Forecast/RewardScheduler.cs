@@ -83,6 +83,7 @@ public sealed class RewardScheduler
         var r = rng.NextDouble();
         if (r < options.UnknownFightChance) into.Add(new RewardEvent(RewardKind.Normal, act));
         else if (r < options.UnknownFightChance + options.UnknownShopChance) into.Add(new RewardEvent(RewardKind.Shop, act));
+        else if (options.EventCardChance > 0 && rng.NextDouble() < options.EventCardChance) into.Add(new RewardEvent(RewardKind.EventCard, act));
     }
 
     internal sealed record ActLayout(int Act, int StartFloor, int ContentFloors, double Monster, double Elite, double Unknown, double Shop);

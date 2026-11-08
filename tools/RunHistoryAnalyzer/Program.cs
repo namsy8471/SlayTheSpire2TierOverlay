@@ -13,7 +13,7 @@ using Sts2Overlay.Tools.RunHistoryAnalyzer;
 //   dotnet run --project tools/RunHistoryAnalyzer -- stats  <runs-dir|file.run>... [--player <steamId>]
 //   dotnet run --project tools/RunHistoryAnalyzer -- validate <runs-dir|file.run>... --pack <dir> [--compare-pack <dir>] [--cv-pack <dir>]
 //        [--player <steamId>] [--tuned-until <unix>] [--all-players] [--k 5] [--chrono-test <games>] [--min-net 3] [--min-games 2] [--out <file.md>]
-//   dotnet run --project tools/RunHistoryAnalyzer -- calibrate <runs-dir>... --pack <dir> [--catalog <cards.json>] [--sims N] [--noise σ] [--policy greedy|engine]
+//   dotnet run --project tools/RunHistoryAnalyzer -- calibrate <runs-dir>... --pack <dir> [--catalog <cards.json>] [--sims N] [--noise σ] [--policy greedy|engine] [--emit]
 //   dotnet run --project tools/RunHistoryAnalyzer -- tune-weights <runs-dir|file.run>... --pack <dir> [--player <steamId>] [--tuned-until <unix>] [--all-players] [--lambda 0.005]... [--no-zero] [--out <file.md>]
 //
 // Run files live in %APPDATA%\SlayTheSpire2\steam\<steamid>\profile1\saves\history\.
@@ -37,6 +37,7 @@ internal static class Cli
         string? catalogFile = null;
         var sims = 1000;
         var noise = 0.0;
+        var emit = false;
         var policy = PickPolicy.Greedy;
         var summaryOnly = false;
         var allPlayers = false;
@@ -61,6 +62,7 @@ internal static class Cli
                 case "--chrono-test": chronoTest = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture); break;
                 case "--min-net": minNet = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture); break;
                 case "--min-games": minGames = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture); break;
+                case "--emit": emit = true; break;
                 case "--catalog": catalogFile = Next(args, ref i); break;
                 case "--sims": sims = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture); break;
                 case "--noise": noise = double.Parse(Next(args, ref i), CultureInfo.InvariantCulture); break;
@@ -158,7 +160,7 @@ internal static class Cli
                 // In co-op "me" is the Steam id of the history folder (steam/<id>/profile1/...); without it LocalPlayer picks player 1.
                 var options = new ForecastOptions { Simulations = sims, PickNoise = noise, Policy = policy, Seed = 12345 };
                 var named = files.Zip(runs, (f, r) => (r, f, player ?? SteamIdFromPath(f))).ToArray();
-                Write(Calibration.Run(named, pack, pool, options), outFile);
+                Write(Calibration.Run(named, pack, pool, options, emit), outFile);
                 return 0;
             }
             default:
@@ -230,7 +232,7 @@ internal static class Cli
               stats  <runs-dir|file.run>... [--player <steamId>] [--out <file.md>]
               validate <runs-dir|file.run>... --pack <dir> [--compare-pack <dir>] [--cv-pack <dir>] [--player <steamId>]
                        [--tuned-until <unix>] [--all-players] [--k 5] [--chrono-test <games>] [--min-net 3] [--min-games 2] [--out <file.md>]
-              calibrate <runs-dir>... --pack <dir> [--catalog <cards.json>] [--sims N] [--noise σ] [--policy greedy|engine] [--out <file.md>]
+              calibrate <runs-dir>... --pack <dir> [--catalog <cards.json>] [--sims N] [--noise σ] [--policy greedy|engine] [--emit] [--out <file.md>]
               tune-weights <runs-dir|file.run>... --pack <dir> [--player <steamId>] [--tuned-until <unix>] [--all-players] [--lambda 0.005]... [--no-zero] [--out <file.md>]
             """);
     }

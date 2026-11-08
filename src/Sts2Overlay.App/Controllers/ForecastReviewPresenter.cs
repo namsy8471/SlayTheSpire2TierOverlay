@@ -28,20 +28,45 @@ internal static class ForecastReviewPresenter
             Name = a.Archetype.DisplayName,
             Color = ParseColor(a.Archetype.Color),
             IsCompleteNow = a.IsCompleteNow,
-            EndText = a.IsCompleteNow ? "완성" : Pct(a.EndOfRun.PComplete),
-            BarWidth = (a.IsCompleteNow ? 1 : a.EndOfRun.PComplete) * BarMax,
+            EndText = a.IsCompleteNow ? "완성" : Pct(a.CalibratedIfSurvive),
+            BarWidth = (a.IsCompleteNow ? 1 : a.CalibratedIfSurvive) * BarMax,
             DetailText = a.IsCompleteNow
                 ? $"이미 방향 확정 (몰입 {Pct(a.CurrentCommit)}) · 3막 끝 완성도 평균 {a.EndOfRun.MeanCompletionPercent:0}%"
-                : $"다음 보스 전 {Pct(a.NextBoss.PComplete)} · 주 빌드가 될 확률 {Pct(a.EndOfRun.PPrimary)} · 지금 몰입 {Pct(a.CurrentCommit)}",
+                : $"사망 포함 {Pct(a.CalibratedAll)} · 보정 전 {Pct(a.EndOfRun.PComplete)} · 지금 몰입 {Pct(a.CurrentCommit)} · 완성도 {a.CurrentCompletionPercent:0}%",
         }).ToArray();
 
         var e = result.ExpectedUntilEnd;
         var source = result.UsedMap ? "이번 막은 지도 기준" : "이번 막은 보통 길이 기준";
         var note = result.PoolSize == 0
             ? "카드 풀 데이터가 없어 지금 덱 기준으로만 표시합니다."
-            : $"3막 끝까지 살아남고 추천대로 고른다고 가정 · 남은 카드 기회 약 {e.Total:0}번 (일반 {e.Normal:0.#} · 엘리트 {e.Elite:0.#} · 보스 {e.Boss:0} · 상점 {e.Shop:0.#}), {source} · 시뮬레이션 {result.Simulations}회 [추정]";
-        return new ForecastSectionVm { Title = "빌드 완성 확률 (3막 끝까지)", Rows = rows, Note = note };
+            : $"큰 숫자 = 3막 보스까지 살아남는다면, 지난 런 기록으로 보정한 값 · 남은 카드 기회 약 {e.Total:0}번 (일반 {e.Normal:0.#} · 엘리트 {e.Elite:0.#} · 보스 {e.Boss:0} · 상점 {e.Shop:0.#}), {source} · 시뮬레이션 {result.Simulations}회 [추정]";
+        return new ForecastSectionVm { Title = "빌드 완성 확률 (살아남는다면 · 사망 포함)", Rows = rows, Note = note };
     }
+
+    /// <summary>
+    /// Puts the forecast line under each matching archetype of the 빌드 list (it replaced the old "핵심 카드가 나올
+    /// 확률" line, which could say 80% while the build block said 10%). Archetypes without a forecast get no line.
+    /// </summary>
+    public static BuildSectionVm WithForecast(BuildSectionVm build, ForecastResult? result)
+    {
+        if (!build.HasContent || build.Archetypes.Count == 0) return build;
+        var byName = new Dictionary<string, ArchetypeForecast>(StringComparer.Ordinal);
+        foreach (var f in result?.Archetypes ?? []) byName.TryAdd(f.Archetype.DisplayName, f);
+
+        var changed = false;
+        var items = build.Archetypes.Select(a =>
+        {
+            var text = byName.TryGetValue(a.Name, out var f) ? ForecastLine(f) : null;
+            if (text == a.ProbabilityText) return a;
+            changed = true;
+            return a with { ProbabilityText = text };
+        }).ToArray();
+        return changed ? build with { Archetypes = items } : build;
+    }
+
+    internal static string? ForecastLine(ArchetypeForecast f) => f.IsCompleteNow
+        ? null
+        : $"3막 끝 완성 확률: 살아남는다면 {Pct(f.CalibratedIfSurvive)} · 사망 포함 {Pct(f.CalibratedAll)} [추정]";
 
     public static ReviewSectionVm Review(RunReview review, CardInfoProvider cards, bool showBanner)
     {
