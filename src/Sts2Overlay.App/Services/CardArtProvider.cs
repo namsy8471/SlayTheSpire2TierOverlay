@@ -38,10 +38,9 @@ public sealed class CardArtProvider
     /// <summary>Uses the current data/local layout (the catalog the manifest names, else the committed one).</summary>
     public static CardArtProvider ForLocalData()
     {
-        var root = AppPaths.FindRepoRoot() ?? AppContext.BaseDirectory;
-        var local = Path.Combine(root, "data", "local");
+        var local = AppPaths.LocalDataDir;
         var catalog = new Sts2Overlay.Resources.LocalLayout(local).ManifestCatalog()
-            ?? Path.Combine(root, "data", "catalog", "cards.v0.107.1.json");
+            ?? AppPaths.CommittedCatalogFile;
         return new CardArtProvider(Path.Combine(local, "pck", "card_art"), File.Exists(catalog) ? catalog : null);
     }
 

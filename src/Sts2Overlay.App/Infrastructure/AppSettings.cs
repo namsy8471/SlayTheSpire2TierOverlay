@@ -64,6 +64,18 @@ public sealed class AppSettings
 
     /// <summary>Panel background opacity 0..1.</summary>
     public double PanelOpacity { get; set; } = 0.86;
+
+    /// <summary>
+    /// Installed builds only: check for a new version ~15 s after start (then at most every 6 h) and download it in the
+    /// background. It is applied when the overlay exits, or right away from the tray ("업데이트 적용"). Never restarts by itself.
+    /// </summary>
+    public bool AutoUpdate { get; set; } = true;
+
+    /// <summary>
+    /// Where updates come from. Null = the GitHub releases of namsy8471/SlayTheSpire2TierOverlay. Also accepts another
+    /// github.com repo URL, any http(s) folder with Velopack release files, or a local folder (for testing).
+    /// </summary>
+    public string? UpdateUrl { get; set; }
 }
 
 /// <summary>Loads and saves <see cref="AppSettings"/>. A broken file falls back to defaults (and is logged).</summary>

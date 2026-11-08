@@ -29,7 +29,44 @@
       WinForms owns startup; here WPF does, and the manifest is the documented way to make a WPF app Per-Monitor V2.
     -->
     <NoWarn>$(NoWarn);WFO0003</NoWarn>
+    <!-- Exe/installer/shortcut icon: our own gold "S" tier badge (tools/make-icon.ps1), no game art. -->
+    <ApplicationIcon>Assets\Sts2Overlay.ico</ApplicationIcon>
+    <!--
+      Our own Main (App.Main in App.xaml.cs) instead of the one WPF generates from App.xaml: Velopack's
+      install/update/uninstall hooks (VelopackApp.Build().Run()) must run before anything else, including WPF start-up.
+    -->
+    <StartupObject>Sts2Overlay.App.App</StartupObject>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- App.xaml stays the application resource dictionary (InitializeComponent) but no longer generates Main. -->
+    <ApplicationDefinition Remove="App.xaml" />
+    <Page Include="App.xaml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Auto-update (Services/UpdateService.cs). Keep in step with the vpk tool in .config/dotnet-tools.json. -->
+    <PackageReference Include="Velopack" Version="1.2.161" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Tray icon: the same .ico, read from the assembly so the right size can be picked. -->
+    <EmbeddedResource Include="Assets\Sts2Overlay.ico" LogicalName="Sts2Overlay.ico" />
+  </ItemGroup>
+
+  <!--
+    Installed builds have no repo next to them, so the data the app reads at run time is published next to the exe
+    under data/ (Infrastructure/AppPaths.cs finds it there). Publish only: not into bin/ and not into the test projects.
+    Gitignored game-text catalogs (catalog.*.json) and local overrides never ship.
+  -->
+  <ItemGroup>
+    <Content Include="..\..\data\packs\**\*.json" Exclude="..\..\data\**\catalog.*.json;..\..\data\**\user_overrides.json"
+             Link="data\packs\%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="Never" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\data\catalog\*.json" Exclude="..\..\data\**\catalog.*.json"
+             Link="data\catalog\%(Filename)%(Extension)"
+             CopyToOutputDirectory="Never" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
 
   <!-- WinForms adds global usings (System.Windows.Forms, System.Drawing) whose names clash with WPF (Application, Point, Brush...). -->
   <ItemGroup>

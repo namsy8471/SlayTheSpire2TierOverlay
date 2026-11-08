@@ -403,14 +403,13 @@ internal static class CaptureVerify
 
     private static CardRecognizer? LoadRecognizer(string outDir, Action<string> output)
     {
-        var root = AppPaths.FindRepoRoot() ?? AppContext.BaseDirectory;
-        var artRoot = Path.Combine(root, "data", "local", "pck", "card_art");
+        var artRoot = Path.Combine(AppPaths.LocalDataDir, "pck", "card_art");
         if (!Directory.Exists(artRoot))
         {
             output($"recognition: no card art at {artRoot}, recognition comparison skipped");
             return null;
         }
-        var catalog = Path.Combine(root, "data", "catalog", "cards.v0.107.1.json");
+        var catalog = AppPaths.CommittedCatalogFile;
         // Cache next to the report, so the verifier never writes into data/local.
         var db = CardArtDatabase.LoadOrBuild(artRoot, File.Exists(catalog) ? catalog : null, Path.Combine(outDir, "card-art.verify.bin"), _ => { });
         return new CardRecognizer(db);
