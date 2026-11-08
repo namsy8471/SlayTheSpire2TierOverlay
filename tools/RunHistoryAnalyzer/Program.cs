@@ -14,6 +14,7 @@ using Sts2Overlay.Tools.RunHistoryAnalyzer;
 //   dotnet run --project tools/RunHistoryAnalyzer -- validate <runs-dir|file.run>... --pack <dir> [--compare-pack <dir>] [--cv-pack <dir>]
 //        [--player <steamId>] [--tuned-until <unix>] [--all-players] [--k 5] [--chrono-test <games>] [--min-net 3] [--min-games 2] [--out <file.md>]
 //   dotnet run --project tools/RunHistoryAnalyzer -- calibrate <runs-dir>... --pack <dir> [--catalog <cards.json>] [--sims N] [--noise σ] [--policy greedy|engine]
+//   dotnet run --project tools/RunHistoryAnalyzer -- tune-weights <runs-dir|file.run>... --pack <dir> [--player <steamId>] [--tuned-until <unix>] [--all-players] [--lambda 0.005]... [--no-zero] [--out <file.md>]
 //
 // Run files live in %APPDATA%\SlayTheSpire2\steam\<steamid>\profile1\saves\history\.
 
@@ -41,6 +42,8 @@ internal static class Cli
         var allPlayers = false;
         int k = 5, minNet = 3, minGames = 2;
         int? chronoTest = null;
+        var lambdas = new List<double>();
+        var noZero = false;
 
         for (var i = 1; i < args.Length; i++)
         {
@@ -62,6 +65,8 @@ internal static class Cli
                 case "--sims": sims = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture); break;
                 case "--noise": noise = double.Parse(Next(args, ref i), CultureInfo.InvariantCulture); break;
                 case "--policy": policy = Enum.Parse<PickPolicy>(Next(args, ref i), ignoreCase: true); break;
+                case "--no-zero": noZero = true; break;
+                case "--lambda": lambdas.Add(double.Parse(Next(args, ref i), CultureInfo.InvariantCulture)); break;
                 default: inputs.Add(args[i]); break;
             }
         }
@@ -74,6 +79,18 @@ internal static class Cli
         }
 
         var runs = files.Select(RunHistoryReader.ReadFile).ToArray();
+        if (command == "tune-weights")
+        {
+            if (packDir is null)
+            {
+                Console.Error.WriteLine("tune-weights 에는 --pack 이 필요합니다.");
+                return 1;
+            }
+
+            Write(TuneWeightsCommand.Run(files.Zip(runs).ToArray(), LoadPack(packDir), player, tunedUntil, allPlayers, lambdas.Count > 0 ? lambdas : [0.005], noZero), outFile);
+            return 0;
+        }
+
         if (command == "validate")
         {
             if (packDir is null)
@@ -214,6 +231,7 @@ internal static class Cli
               validate <runs-dir|file.run>... --pack <dir> [--compare-pack <dir>] [--cv-pack <dir>] [--player <steamId>]
                        [--tuned-until <unix>] [--all-players] [--k 5] [--chrono-test <games>] [--min-net 3] [--min-games 2] [--out <file.md>]
               calibrate <runs-dir>... --pack <dir> [--catalog <cards.json>] [--sims N] [--noise σ] [--policy greedy|engine] [--out <file.md>]
+              tune-weights <runs-dir|file.run>... --pack <dir> [--player <steamId>] [--tuned-until <unix>] [--all-players] [--lambda 0.005]... [--no-zero] [--out <file.md>]
             """);
     }
 }

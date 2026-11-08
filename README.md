@@ -107,6 +107,10 @@ dotnet run --project tools/PathStats -- "%APPDATA%\SlayTheSpire2\steam\<id>\prof
 
 ```bash
 dotnet run --project tools/RunHistoryAnalyzer -c Release -- calibrate "%APPDATA%\SlayTheSpire2\steam\<id>\profile1\saves\history" --pack data/packs/v0.107.1 --sims 1000
+점수 가중치를 같은 방식으로 탐색 (fold마다 다시 맞추고, 현재 값 쪽으로 규제):
+
+```bash
+dotnet run --project tools/RunHistoryAnalyzer -- tune-weights "%APPDATA%\SlayTheSpire2\steam\<id>\profile1\saves\history" --pack data/packs/v0.107.1 --player <id> --tuned-until 1794134406 --all-players --lambda 0.005
 ```
 
 ## 저작권
