@@ -9,7 +9,7 @@ namespace Sts2Overlay.App.Integration;
 public static class IntegrationFactory
 {
     public static (IGameStateSource State, ICardRecognizer Recognizer) CreateReal()
-        => (new NullGameStateSource(), new NullCardRecognizer());
+        => (new GameStateAdapter(), new NullCardRecognizer());
 
     public static (IGameStateSource State, ICardRecognizer Recognizer) CreateDemo(DemoScreen screen)
     {

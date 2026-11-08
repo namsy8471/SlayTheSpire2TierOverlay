@@ -6,7 +6,7 @@ namespace Sts2Overlay.App.Infrastructure;
 public static class AppPaths
 {
     /// <summary>Default data pack, relative to the repo root (the real v0.107.1 pack replaces it later).</summary>
-    public const string DefaultPackDir = "data/packs/sample";
+    public const string DefaultPackDir = "data/packs/v0.107.1";
 
     /// <summary><c>%LOCALAPPDATA%\Sts2Overlay</c>: settings, log, debug captures. Never committed.</summary>
     public static string DataRoot { get; } = Path.Combine(

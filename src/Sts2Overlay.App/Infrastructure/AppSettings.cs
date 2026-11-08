@@ -16,7 +16,7 @@ public sealed class AppSettings
     /// <summary>Last selected panel tab (<see cref="ViewModels.PanelTab"/> name).</summary>
     public string? SelectedTab { get; set; }
 
-    /// <summary>Data pack directory; relative paths are resolved against the repo root. Null = data/packs/sample.</summary>
+    /// <summary>Data pack directory; relative paths are resolved against the repo root. Null = data/packs/v0.107.1.</summary>
     public string? PackDir { get; set; }
 
     /// <summary>Card catalog JSON with Korean names. Null = newest data/local/catalog.*.json.</summary>

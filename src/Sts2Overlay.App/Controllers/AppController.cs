@@ -11,6 +11,7 @@ using Sts2Overlay.App.ViewModels;
 using Sts2Overlay.App.Views;
 using Sts2Overlay.Core.Archetypes;
 using Sts2Overlay.Core.Data;
+using Sts2Overlay.Core.Map;
 using Sts2Overlay.Core.Model;
 using Sts2Overlay.Core.Scoring;
 using Sts2Overlay.Core.Shop;
@@ -174,6 +175,7 @@ public sealed class AppController : IDisposable
         _snapshot = snap;
         _pipeline.CharacterHint = snap.Run?.Character;
         RefreshRunViews(snap.Run);
+        if (Demo is null) RefreshPath(snap);
 
         var likely = IsOfferHint(snap.Hint);
         if (likely && prevHint != snap.Hint)
@@ -191,6 +193,75 @@ public sealed class AppController : IDisposable
         }
         UpdateCadence();
     }
+
+    // ---- path tab ---------------------------------------------------------------------------------------------
+
+    private string? _pathKey;
+
+    /// <summary>
+    /// Re-runs <see cref="PathAdvisor"/> when something it depends on changed (position, HP, gold, deck size, pack).
+    /// It takes a few ms, but snapshots arrive on every log line, so the key avoids redundant work.
+    /// </summary>
+    private void RefreshPath(GameStateSnapshot snap)
+    {
+        if (snap.Run is not { } run || snap.Map is not { } map)
+        {
+            _pathKey = null;
+            UpdatePath(null);
+            return;
+        }
+        var key = $"{map.ActId}|{map.Current}|{run.Hp}/{run.MaxHp}|{run.Gold}|{run.Deck.Count}|{run.Deck.Count(c => c.Upgrade > 0)}#{_engineVersion}";
+        if (key == _pathKey) return;
+        _pathKey = key;
+        try
+        {
+            var rec = new PathAdvisor(_engine.Pack).Recommend(run, map);
+            UpdatePath(ToPathView(rec, map));
+        }
+        catch (Exception ex)
+        {
+            AppLog.Error("path advice failed", ex);
+            UpdatePath(null);
+        }
+    }
+
+    private static readonly string[] PathLabels = ["추천", "대안 1", "대안 2"];
+
+    internal static PathView? ToPathView(PathRecommendation rec, MapGraph map)
+    {
+        if (rec.IsEmpty) return new PathView([], null, "보스 앞이거나 갈 수 있는 길이 없습니다");
+        var options = rec.Top.Select((o, i) => new PathOptionView(
+            PathLabels[Math.Min(i, PathLabels.Length - 1)],
+            $"엘리트 {o.Elites} · 휴식 {o.Rests} · 상점 {o.CountOf(MapNodeType.Shop)} · ? {o.CountOf(MapNodeType.Unknown)} · 보스 도착 HP {o.ExpectedBossHp:P0}",
+            o.Risks.Concat(o.Chips).Distinct().Take(5).ToArray(),
+            o.Total,
+            i == 0)).ToArray();
+        string? next = rec.NextStep is { } n && map.Nodes.TryGetValue(n, out var node)
+            ? $"다음: {NodeName(node.Type)} {Direction(map.Current ?? map.Start, n)}"
+            : null;
+        var note = $"덱 강도 {rec.DeckStrength:0.00} 기준 · 경로 {rec.TotalPaths}개 중" + (rec.Exhaustive ? "" : " 일부") + " 비교 [추정 가중치]";
+        return new PathView(options, next, note);
+    }
+
+    private static string NodeName(MapNodeType t) => t switch
+    {
+        MapNodeType.Monster => "일반 전투",
+        MapNodeType.Elite => "엘리트",
+        MapNodeType.RestSite => "휴식처",
+        MapNodeType.Shop => "상점",
+        MapNodeType.Treasure => "보물",
+        MapNodeType.Boss => "보스",
+        MapNodeType.Ancient => "고대의 존재",
+        _ => "? 이벤트",
+    };
+
+    /// <summary>Map columns grow to the right on screen, so the column delta reads as left/straight/right.</summary>
+    private static string Direction(MapCoord from, MapCoord to) => (to.Col - from.Col) switch
+    {
+        < 0 => "(왼쪽)",
+        > 0 => "(오른쪽)",
+        _ => "(위)",
+    };
 
     private static bool IsOfferHint(ScreenHint h) => h is ScreenHint.RewardLikely or ScreenHint.ShopLikely;
 
