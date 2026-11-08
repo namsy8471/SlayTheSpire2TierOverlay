@@ -51,4 +51,7 @@ public static class ComponentKeys
     public const string SkipCommit = "skip_commit";
 
     public const string RemovalValue = "removal_value";
+
+    /// <summary>Shop card items: minus the skip score, so the item value is <c>card − skip</c> and still sums exactly.</summary>
+    public const string SkipRelative = "skip";
 }

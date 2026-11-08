@@ -7,12 +7,124 @@ namespace Sts2Overlay.Core.Shop;
 /// <summary>PLAN §7.3: cards ranked by (score − skip) / price, card removal as a candidate, best affordable bundle.</summary>
 public sealed class ShopScorer(DataPack pack)
 {
+    /// <summary>Largest number of candidate items searched exhaustively for the recommended bundle.</summary>
+    public const int MaxBundleCandidates = 12;
+
     public DataPack Pack { get; } = pack;
 
     public ShopEvaluation Evaluate(RunState state, DeckProfile profile, ShopOffer offer)
-        => throw new NotImplementedException();
+    {
+        var gold = Math.Max(0, state.Gold);
+        var skip = new SkipScorer(Pack).Score(state, profile);
+        var scorer = new CardScorer(Pack);
+        var items = new List<ShopItemEvaluation>();
+
+        foreach (var sale in offer.Cards)
+        {
+            var eval = scorer.Score(state, profile, sale.Card, OfferContext.Shop);
+            var value = new ScoreBreakdown(eval.Score.Components.Append(
+                new ScoreComponent(ComponentKeys.SkipRelative, ScoringLabels.SkipRelative, -skip.Total, $"스킵 {skip.Total:0.#}점")));
+            items.Add(new ShopItemEvaluation
+            {
+                Kind = ShopItemKind.Card,
+                Card = sale.Card,
+                Price = sale.Price,
+                Value = value,
+                CardEvaluation = eval,
+                Affordable = sale.Price <= gold,
+            });
+        }
+
+        var removal = RemovalItem(state, offer, gold);
+        if (removal is not null) items.Add(removal);
+
+        var sorted = items.OrderByDescending(i => i.ValuePerGold).ToArray();
+        var bundle = BestBundle(sorted, gold);
+        return new ShopEvaluation
+        {
+            Items = sorted,
+            RecommendedPurchase = bundle,
+            GoldLeft = gold - bundle.Sum(i => i.Price),
+            Skip = skip,
+        };
+    }
 
     /// <summary>75 + 25 × removals so far (ascension ≥ 6: 100 + 50 ×). [확인, sts2.gg; 게임 코드로 재확인 필요]</summary>
     public static int RemovalPrice(RunState state, Weights weights)
-        => throw new NotImplementedException();
+    {
+        var s = weights.Shop;
+        var high = state.Ascension >= s.HighAscension;
+        var count = Math.Max(0, state.CardRemovalsBought);
+        return high
+            ? s.RemovalBaseHighAscension + s.RemovalStepHighAscension * count
+            : s.RemovalBase + s.RemovalStep * count;
+    }
+
+    /// <summary>
+    /// The card the removal service should take: a curse first, else a basic Strike, else a basic Defend.
+    /// Strikes go before Defends so that removal never deepens a block shortage. Null when nothing is worth removing.
+    /// </summary>
+    public string? RemovalTarget(RunState state, out bool isCurse)
+    {
+        var curse = state.Deck.Select(d => d.Id).FirstOrDefault(id => DeckAnalyzer.IsCurse(Pack, state.Character, id));
+        if (curse is not null)
+        {
+            isCurse = true;
+            return curse;
+        }
+        isCurse = false;
+        var strike = state.Deck.Select(d => d.Id).FirstOrDefault(CardIdHeuristics.IsBasicStrike);
+        var defend = state.Deck.Select(d => d.Id).FirstOrDefault(CardIdHeuristics.IsBasicDefend);
+        return strike ?? defend;
+    }
+
+    private ShopItemEvaluation? RemovalItem(RunState state, ShopOffer offer, int gold)
+    {
+        var target = RemovalTarget(state, out var isCurse);
+        if (target is null) return null;
+        var w = Pack.Weights.Shop;
+        var price = offer.RemovalPrice ?? RemovalPrice(state, Pack.Weights);
+        var value = isCurse ? w.CurseRemovalValue : w.BasicRemovalValue;
+        var component = new ScoreComponent(ComponentKeys.RemovalValue,
+            isCurse ? ScoringLabels.CurseRemoval : ScoringLabels.BasicRemoval, value, target);
+        return new ShopItemEvaluation
+        {
+            Kind = ShopItemKind.CardRemoval,
+            Price = price,
+            Value = new ScoreBreakdown([component]),
+            RemovalTarget = target,
+            Affordable = price <= gold,
+        };
+    }
+
+    /// <summary>Exhaustive search over positive-value affordable items: max Σ value within gold, ties → less gold spent.</summary>
+    private static IReadOnlyList<ShopItemEvaluation> BestBundle(IReadOnlyList<ShopItemEvaluation> sortedItems, int gold)
+    {
+        var candidates = sortedItems
+            .Where(i => i.Affordable && i.Value.Total > 0 && i.Price >= 0 && double.IsFinite(i.Value.Total))
+            .Take(MaxBundleCandidates)
+            .ToArray();
+        var bestMask = 0;
+        var bestValue = 0.0;
+        var bestCost = 0;
+        for (var mask = 1; mask < 1 << candidates.Length; mask++)
+        {
+            long cost = 0;
+            var value = 0.0;
+            for (var j = 0; j < candidates.Length; j++)
+            {
+                if ((mask & (1 << j)) == 0) continue;
+                cost += candidates[j].Price;
+                value += candidates[j].Value.Total;
+            }
+            if (cost > gold) continue;
+            if (value > bestValue + 1e-9 || (Math.Abs(value - bestValue) <= 1e-9 && cost < bestCost))
+            {
+                bestMask = mask;
+                bestValue = value;
+                bestCost = (int)cost;
+            }
+        }
+        return candidates.Where((_, j) => (bestMask & (1 << j)) != 0).ToArray();
+    }
 }
