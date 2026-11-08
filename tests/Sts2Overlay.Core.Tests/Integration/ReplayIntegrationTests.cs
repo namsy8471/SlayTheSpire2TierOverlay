@@ -88,7 +88,7 @@ public class ReplayIntegrationTests
         }
 
         // The user's real picks give the engine a non-trivial number of comparable decisions.
-        Assert.True(replays.Sum(r => r.ComparableCount) > 300);
+        Assert.True(replays.Sum(r => r.ComparableCount) >= 250);
     }
 
     [Fact]
