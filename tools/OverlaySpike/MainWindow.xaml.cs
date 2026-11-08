@@ -23,8 +23,8 @@ public partial class MainWindow : Window
     private const int WS_EX_NOACTIVATE = 0x08000000;
     private static readonly IntPtr HWND_TOPMOST = new(-1);
     private const uint SWP_NOSIZE = 0x0001, SWP_NOMOVE = 0x0002, SWP_NOACTIVATE = 0x0010;
-    private const int HOTKEY_CLICKTHROUGH = 1, HOTKEY_QUIT = 2;
-    private const uint MOD_CONTROL = 0x2, MOD_SHIFT = 0x4, VK_F7 = 0x76, VK_Q = 0x51;
+    private const int HOTKEY_CLICKTHROUGH = 1, HOTKEY_QUIT = 2, HOTKEY_CAPTURE = 3;
+    private const uint MOD_CONTROL = 0x2, MOD_SHIFT = 0x4, VK_F7 = 0x76, VK_F9 = 0x78, VK_Q = 0x51;
 
     [DllImport("user32.dll")] private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
     [DllImport("user32.dll")] private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
@@ -60,6 +60,7 @@ public partial class MainWindow : Window
         HwndSource.FromHwnd(_hwnd).AddHook(WndProc);
         RegisterHotKey(_hwnd, HOTKEY_CLICKTHROUGH, MOD_CONTROL, VK_F7);
         RegisterHotKey(_hwnd, HOTKEY_QUIT, MOD_CONTROL | MOD_SHIFT, VK_Q);
+        RegisterHotKey(_hwnd, HOTKEY_CAPTURE, MOD_CONTROL, VK_F9);
 
         var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         timer.Tick += (_, _) => Tick();
@@ -94,6 +95,7 @@ public partial class MainWindow : Window
         {
             if (wParam.ToInt32() == HOTKEY_CLICKTHROUGH) ToggleClickThrough();
             else if (wParam.ToInt32() == HOTKEY_QUIT) Close();
+            else if (wParam.ToInt32() == HOTKEY_CAPTURE) CaptureGame();
             handled = true;
         }
         return IntPtr.Zero;
@@ -109,6 +111,52 @@ public partial class MainWindow : Window
         Log($"clickThrough={_clickThrough}");
     }
 
+    /// <summary>
+    /// Saves a PNG of the game window. Simplest possible capture (GDI copy of the composed desktop):
+    /// works if the game is a borderless/"fullscreen" window composed by DWM, which is how Godot 4.5
+    /// implements fullscreen. If the PNG comes out black, we need Windows.Graphics.Capture instead.
+    /// We hide our own panel for the shot so it doesn't cover the cards.
+    /// </summary>
+    private void CaptureGame()
+    {
+        try
+        {
+            Process? game = Process.GetProcessesByName("SlayTheSpire2").FirstOrDefault(p => p.MainWindowHandle != IntPtr.Zero);
+            if (game is null)
+            {
+                CaptureText.Text = "게임 창을 찾지 못함";
+                return;
+            }
+            GetWindowRect(game.MainWindowHandle, out RECT r);
+            int w = r.Right - r.Left, h = r.Bottom - r.Top;
+
+            Visibility = Visibility.Hidden;
+            Dispatcher.Invoke(() => { }, DispatcherPriority.Render); // let the hide render first
+            Thread.Sleep(80);
+
+            using var bmp = new System.Drawing.Bitmap(w, h);
+            using (var g = System.Drawing.Graphics.FromImage(bmp))
+            {
+                g.CopyFromScreen(r.Left, r.Top, 0, 0, new System.Drawing.Size(w, h));
+            }
+            Visibility = Visibility.Visible;
+
+            string dir = Path.Combine(Path.GetDirectoryName(_logPath)!, "captures");
+            Directory.CreateDirectory(dir);
+            string file = Path.Combine(dir, $"cap_{DateTime.Now:yyyyMMdd_HHmmss}.png");
+            bmp.Save(file, System.Drawing.Imaging.ImageFormat.Png);
+
+            CaptureText.Text = $"캡처 저장: {Path.GetFileName(file)} ({w}x{h})";
+            Log($"capture {file} {w}x{h}");
+        }
+        catch (Exception ex)
+        {
+            Visibility = Visibility.Visible;
+            CaptureText.Text = "캡처 실패: " + ex.Message;
+            Log("capture failed: " + ex);
+        }
+    }
+
     private void UpdateModeText() =>
         ModeText.Text = _clickThrough ? "클릭 통과: 켜짐 (마우스가 게임으로 감)" : "클릭 통과: 꺼짐 (패널 클릭 가능)";
 
@@ -116,6 +164,7 @@ public partial class MainWindow : Window
     {
         UnregisterHotKey(_hwnd, HOTKEY_CLICKTHROUGH);
         UnregisterHotKey(_hwnd, HOTKEY_QUIT);
+        UnregisterHotKey(_hwnd, HOTKEY_CAPTURE);
         Log("closed");
         base.OnClosed(e);
     }
