@@ -112,6 +112,64 @@
       </Border>
     </DataTemplate>
 
+    <!--
+      빌드 tab card tile: portrait + name. Owned = gold frame and check; not owned = dimmed, so what is still needed stands out.
+      Hover: name, role/rarity/tier, owned or not, and the large portrait (decoded only when the tooltip opens).
+    -->
+    <DataTemplate x:Key="BuildCardTileTemplate" DataType="{x:Type vm:BuildCardVm}">
+      <StackPanel x:Name="Tile" Width="62" Margin="0,0,4,5" Background="Transparent" Cursor="Help"
+                  ToolTipService.InitialShowDelay="120" ToolTipService.ShowDuration="60000" ToolTipService.Placement="Left">
+        <Border x:Name="Frame" Height="46" CornerRadius="3" BorderThickness="1" BorderBrush="#40FFFFFF" Background="#40000000">
+          <Grid>
+            <TextBlock Text="그림 없음" FontSize="9.5" Foreground="{StaticResource TextDim}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Visibility="{Binding Art, Converter={StaticResource BoolVis}, ConverterParameter=!}" />
+            <Image Source="{Binding Art.Thumb}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
+            <Border CornerRadius="2" Padding="3,0,3,1" Margin="1" HorizontalAlignment="Left" VerticalAlignment="Top"
+                    Background="{Binding TierText, Converter={StaticResource TierBrush}}">
+              <TextBlock Text="{Binding TierText}" FontSize="9.5" FontWeight="Bold"
+                         Foreground="{Binding TierText, Converter={StaticResource TierBrush}, ConverterParameter=fg}" />
+            </Border>
+            <Border Width="14" Height="14" CornerRadius="7" Margin="1" HorizontalAlignment="Right" VerticalAlignment="Top" Background="{StaticResource Gold}"
+                    Visibility="{Binding Owned, Converter={StaticResource BoolVis}}">
+              <TextBlock Text="✓" FontSize="10" FontWeight="Bold" Foreground="#1A1A1A" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+          </Grid>
+        </Border>
+        <TextBlock Text="{Binding Name}" FontSize="10.5" TextAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
+        <StackPanel.ToolTip>
+          <ToolTip Padding="6" Background="#F0101318" BorderBrush="{StaticResource Gold}" BorderThickness="1.5" Foreground="{StaticResource TextMain}">
+            <StackPanel MaxWidth="380">
+              <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="Bold" />
+              <TextBlock Text="{Binding DetailText}" FontSize="12" Foreground="{StaticResource TextDim}" Margin="0,1,0,0" />
+              <TextBlock Text="{Binding OwnedText}" FontSize="12" FontWeight="SemiBold" Margin="0,1,0,5">
+                <TextBlock.Style>
+                  <Style TargetType="TextBlock">
+                    <Setter Property="Foreground" Value="#E59866" />
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding Owned}" Value="True">
+                        <Setter Property="Foreground" Value="{StaticResource Gold}" />
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </TextBlock.Style>
+              </TextBlock>
+              <Image Source="{Binding Art.Large}" Width="380" Height="289" RenderOptions.BitmapScalingMode="HighQuality"
+                     Visibility="{Binding Art, Converter={StaticResource BoolVis}}" />
+            </StackPanel>
+          </ToolTip>
+        </StackPanel.ToolTip>
+      </StackPanel>
+      <DataTemplate.Triggers>
+        <DataTrigger Binding="{Binding Owned}" Value="True">
+          <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource Gold}" />
+          <Setter TargetName="Frame" Property="BorderThickness" Value="1.5" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Owned}" Value="False">
+          <Setter TargetName="Tile" Property="Opacity" Value="0.5" />
+        </DataTrigger>
+      </DataTemplate.Triggers>
+    </DataTemplate>
+
     <!-- One offer row: card / skip / removal -->
     <DataTemplate x:Key="OfferRowTemplate" DataType="{x:Type vm:OfferRowVm}">
       <Border x:Name="Bd" Margin="0,0,0,6" Padding="8,6,8,7" CornerRadius="7" Background="{StaticResource RowBg}" BorderThickness="1.5" BorderBrush="Transparent">
@@ -438,6 +496,51 @@
                                        Visibility="{Binding MissingText, Converter={StaticResource BoolVis}}" />
                             <TextBlock Text="{Binding NeedsText}" Style="{StaticResource Dim}" Margin="0,2,0,0"
                                        Visibility="{Binding NeedsText, Converter={StaticResource BoolVis}}" />
+                            <!-- this build's cards: header toggles the tiles (open by default for the current direction only) -->
+                            <Button Command="{Binding ToggleCardsCommand}" Margin="0,6,0,0" Cursor="Hand" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                    Visibility="{Binding CardsSummaryText, Converter={StaticResource BoolVis}}" ToolTip="빌드 카드 보기/접기">
+                              <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                  <Border x:Name="Bd" Background="#14FFFFFF" CornerRadius="4" Padding="6,2,6,3">
+                                    <ContentPresenter />
+                                  </Border>
+                                  <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                      <Setter TargetName="Bd" Property="Background" Value="#30FFFFFF" />
+                                    </Trigger>
+                                  </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                              </Button.Template>
+                              <StackPanel Orientation="Horizontal">
+                                <!-- Text from a style, not a local value: a local Text would beat the trigger -->
+                                <TextBlock FontSize="11.5" Foreground="{StaticResource TextDim}">
+                                  <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                      <Setter Property="Text" Value="▸ 빌드 카드 보기" />
+                                      <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+                                          <Setter Property="Text" Value="▾ 빌드 카드 접기" />
+                                        </DataTrigger>
+                                      </Style.Triggers>
+                                    </Style>
+                                  </TextBlock.Style>
+                                </TextBlock>
+                                <TextBlock Text=" · " FontSize="11.5" Foreground="{StaticResource TextDim}" />
+                                <TextBlock Text="{Binding CardsSummaryText}" FontSize="11.5" />
+                              </StackPanel>
+                            </Button>
+                            <ItemsControl ItemsSource="{Binding CardGroups}" Margin="0,2,0,0" Focusable="False"
+                                          Visibility="{Binding IsExpanded, Converter={StaticResource BoolVis}}">
+                              <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:BuildCardGroupVm}">
+                                  <StackPanel Margin="0,4,0,0">
+                                    <TextBlock Text="{Binding Title}" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextDim}" Margin="1,0,0,3" />
+                                    <ItemsControl ItemsSource="{Binding Cards}" ItemsPanel="{StaticResource WrapPanelTemplate}"
+                                                  ItemTemplate="{StaticResource BuildCardTileTemplate}" Focusable="False" />
+                                  </StackPanel>
+                                </DataTemplate>
+                              </ItemsControl.ItemTemplate>
+                            </ItemsControl>
                           </StackPanel>
                         </Border>
                         <DataTemplate.Triggers>

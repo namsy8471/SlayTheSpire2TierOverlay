@@ -513,7 +513,7 @@ public sealed partial class AppController : IDisposable
         {
             var profile = _engine.Analyze(run);
             _vm.Deck = BuildDeck(run, profile);
-            _vm.Build = BuildArchetypes(_engine.Archetypes(run, EstimateRemainingRewards(run)));
+            _vm.Build = BuildArchetypes(run, _engine.Archetypes(run, EstimateRemainingRewards(run)));
         }
         catch (Exception ex)
         {
@@ -592,22 +592,41 @@ public sealed partial class AppController : IDisposable
         return entry.ActTier is not null && entry.ActTier.TryGetValue(run.Act, out var t) ? t : entry.Tier;
     }
 
-    private BuildSectionVm BuildArchetypes(ArchetypeReport report)
+    /// <summary>
+    /// Archetype id → card tiles shown, for archetypes the user opened or closed. The build section is rebuilt on
+    /// every snapshot, so the choice lives here; archetypes not in it follow the default (only the primary is open).
+    /// </summary>
+    private readonly Dictionary<string, bool> _buildCardsExpanded = new(StringComparer.Ordinal);
+
+    private void ToggleBuildCards(string archetypeId)
+    {
+        var items = _vm.Build.Archetypes.Select(a =>
+        {
+            if (a.Id != archetypeId) return a;
+            _buildCardsExpanded[archetypeId] = !a.IsExpanded;
+            return a with { IsExpanded = !a.IsExpanded };
+        }).ToArray();
+        _vm.Build = _vm.Build with { Archetypes = items };
+    }
+
+    private BuildSectionVm BuildArchetypes(RunState run, ArchetypeReport report)
     {
         if (report.Statuses.Count == 0) return BuildSectionVm.Empty;
 
-        string RoleName(string role) => role switch
+        static string RoleName(string role) => BuildCardsPresenter.RoleName(role);
+
+        BuildCardVm Card(string id, string role, bool owned)
         {
-            ArchetypeRoles.Core => "핵심",
-            ArchetypeRoles.Payoff => "완성",
-            ArchetypeRoles.Enabler => "조력",
-            ArchetypeRoles.Support => "보조",
-            _ => role,
-        };
+            var rarity = _cards.Rarity(run.Character, id);
+            return new BuildCardVm(_cards.Name(id), role, rarity is null ? null : CardInfoProvider.RarityKorean(rarity),
+                TierOf(run, id)?.ToString() ?? "?", owned, ArtOf(id));
+        }
 
         var items = report.Statuses.Take(5).Select(st =>
         {
             var a = st.Archetype;
+            var groups = BuildCardsPresenter.Groups(st, _engine.Pack.Canonical, Card);
+            var isPrimary = ReferenceEquals(st, report.Primary);
             // m2/forecast-calib: the old "핵심 카드가 나올 확률" line is replaced by the calibrated forecast line,
             // filled in by ForecastReviewPresenter.WithForecast (AppController.ForecastReview.cs).
             string? prob = null;
@@ -621,9 +640,14 @@ public sealed partial class AppController : IDisposable
                     $"{(n.Role is { } r ? ScoringLabels.Role(r) : n.Tag ?? "?")} {Fmt1(n.Min)}+"));
             return new ArchetypeVm
             {
+                Id = a.Id,
                 Name = a.DisplayName,
                 Color = ParseColor(a.Color),
-                IsPrimary = ReferenceEquals(st, report.Primary),
+                IsPrimary = isPrimary,
+                CardGroups = groups,
+                CardsSummaryText = BuildCardsPresenter.Summary(groups),
+                IsExpanded = _buildCardsExpanded.TryGetValue(a.Id, out var open) ? open : isPrimary,
+                ToggleCardsCommand = new RelayCommand(_ => ToggleBuildCards(a.Id)),
                 CommitText = $"몰입 {st.Commit:P0} · 완성도 {st.CompletionPercent:0}%{(st.IsCommitted ? " · 방향 확정" : "")}",
                 CompletionBarWidth = Math.Clamp(st.CompletionPercent, 0, 100) / 100 * 356,
                 StageText = new string('●', st.Stage) + new string('○', Math.Max(0, 5 - st.Stage)),

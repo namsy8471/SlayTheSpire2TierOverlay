@@ -1,3 +1,4 @@
+using System.Windows.Input;
 using System.Windows.Media;
 using Sts2Overlay.App.Services;
 
@@ -79,8 +80,27 @@ public sealed record DeckSectionVm
     public IReadOnlyList<RoleBarVm> Roles { get; init; } = [];
 }
 
+/// <summary>One card tile of an archetype in the 빌드 tab (portrait + name; dimmed while not owned).</summary>
+/// <param name="RoleText">핵심 / 완성 / 조력 / 보조.</param>
+/// <param name="RarityText">일반 / 고급 / 희귀 …, null when unknown.</param>
+/// <param name="TierText">"S".."D", or "?" when unrated.</param>
+/// <param name="Art">Card portrait; null when the art isn't extracted (the tile shows a placeholder).</param>
+public sealed record BuildCardVm(string Name, string RoleText, string? RarityText, string TierText, bool Owned, CardArtVm? Art)
+{
+    /// <summary>"핵심 · 희귀 · 티어 A" line of the hover tooltip.</summary>
+    public string DetailText => string.Join(" · ", new[] { RoleText, RarityText, $"티어 {TierText}" }.Where(s => !string.IsNullOrEmpty(s)));
+
+    public string OwnedText => Owned ? "보유 중" : "아직 없음";
+}
+
+/// <summary>Cards of one archetype role, e.g. "핵심 2/3".</summary>
+public sealed record BuildCardGroupVm(string Title, IReadOnlyList<BuildCardVm> Cards);
+
 public sealed record ArchetypeVm
 {
+    /// <summary>Archetype id from the pack; keys the expanded/collapsed state across rebuilds.</summary>
+    public string Id { get; init; } = "";
+
     public required string Name { get; init; }
     public Brush Color { get; init; } = Brushes.SteelBlue;
     public bool IsPrimary { get; init; }
@@ -90,6 +110,18 @@ public sealed record ArchetypeVm
     public string? ProbabilityText { get; init; }
     public string? MissingText { get; init; }
     public string? NeedsText { get; init; }
+
+    /// <summary>The archetype's cards by role (핵심 → 완성 → 조력 → 보조), empty roles left out.</summary>
+    public IReadOnlyList<BuildCardGroupVm> CardGroups { get; init; } = [];
+
+    /// <summary>Card tiles shown; the controller remembers the user's choice per <see cref="Id"/>.</summary>
+    public bool IsExpanded { get; init; }
+
+    /// <summary>"카드 9/15 보유".</summary>
+    public string CardsSummaryText { get; init; } = "";
+
+    /// <summary>Header click: show/hide the card tiles.</summary>
+    public ICommand? ToggleCardsCommand { get; init; }
 }
 
 public sealed record BuildSectionVm
