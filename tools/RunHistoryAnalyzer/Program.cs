@@ -2,12 +2,16 @@ using System.Globalization;
 using Sts2Overlay.Core.Data;
 using Sts2Overlay.Core.History;
 using Sts2Overlay.Core.Replay;
+using Sts2Overlay.Core.Replay.Validation;
+using Sts2Overlay.Tools.RunHistoryAnalyzer;
 
 // RunHistoryAnalyzer: replays .run history files through the recommendation engine and prints
 // a Korean Markdown report (agreement with your picks) or personal statistics.
 //
 //   dotnet run --project tools/RunHistoryAnalyzer -- replay <runs-dir|file.run>... [--pack <dir>] [--player <steamId>] [--out <file.md>] [--summary]
 //   dotnet run --project tools/RunHistoryAnalyzer -- stats  <runs-dir|file.run>... [--player <steamId>]
+//   dotnet run --project tools/RunHistoryAnalyzer -- validate <runs-dir|file.run>... --pack <dir> [--compare-pack <dir>] [--cv-pack <dir>]
+//        [--player <steamId>] [--tuned-until <unix>] [--all-players] [--k 5] [--chrono-test <games>] [--min-net 3] [--min-games 2] [--out <file.md>]
 //
 // Run files live in %APPDATA%\SlayTheSpire2\steam\<steamid>\profile1\saves\history\.
 
@@ -25,9 +29,12 @@ internal static class Cli
 
         var command = args[0];
         var inputs = new List<string>();
-        string? packDir = null, outFile = null;
-        long? player = null;
+        string? packDir = null, outFile = null, comparePackDir = null, cvPackDir = null;
+        long? player = null, tunedUntil = null;
         var summaryOnly = false;
+        var allPlayers = false;
+        int k = 5, minNet = 3, minGames = 2;
+        int? chronoTest = null;
 
         for (var i = 1; i < args.Length; i++)
         {
@@ -37,6 +44,14 @@ internal static class Cli
                 case "--out": outFile = Next(args, ref i); break;
                 case "--player": player = long.Parse(Next(args, ref i), CultureInfo.InvariantCulture); break;
                 case "--summary": summaryOnly = true; break;
+                case "--compare-pack": comparePackDir = Next(args, ref i); break;
+                case "--cv-pack": cvPackDir = Next(args, ref i); break;
+                case "--tuned-until": tunedUntil = long.Parse(Next(args, ref i), CultureInfo.InvariantCulture); break;
+                case "--all-players": allPlayers = true; break;
+                case "--k": k = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture); break;
+                case "--chrono-test": chronoTest = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture); break;
+                case "--min-net": minNet = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture); break;
+                case "--min-games": minGames = int.Parse(Next(args, ref i), CultureInfo.InvariantCulture); break;
                 default: inputs.Add(args[i]); break;
             }
         }
@@ -49,6 +64,32 @@ internal static class Cli
         }
 
         var runs = files.Select(RunHistoryReader.ReadFile).ToArray();
+        if (command == "validate")
+        {
+            if (packDir is null)
+            {
+                Console.Error.WriteLine("validate 에는 --pack 이 필요합니다.");
+                return 1;
+            }
+
+            var options = new ValidateOptions
+            {
+                Pack = LoadPack(packDir),
+                PackName = Path.GetFileName(Path.TrimEndingDirectorySeparator(packDir)),
+                ComparePack = comparePackDir is null ? null : LoadPack(comparePackDir),
+                ComparePackName = comparePackDir is null ? "비교 팩" : Path.GetFileName(Path.TrimEndingDirectorySeparator(comparePackDir)),
+                CvPack = cvPackDir is null ? null : LoadPack(cvPackDir),
+                CvPackName = Path.GetFileName(Path.TrimEndingDirectorySeparator(cvPackDir ?? packDir)),
+                User = player,
+                TunedUntil = tunedUntil,
+                AllPlayers = allPlayers,
+                K = k,
+                ChronoTestGames = chronoTest,
+                Calibration = new TierShiftOptions { MinNet = minNet, MinGames = minGames },
+            };
+            Write(ValidateCommand.Run(files.Zip(runs).ToArray(), options), outFile);
+            return 0;
+        }
 
         switch (command)
         {
@@ -130,6 +171,8 @@ internal static class Cli
             RunHistoryAnalyzer
               replay <runs-dir|file.run>... [--pack <dir>] [--player <steamId>] [--out <file.md>] [--summary]
               stats  <runs-dir|file.run>... [--player <steamId>] [--out <file.md>]
+              validate <runs-dir|file.run>... --pack <dir> [--compare-pack <dir>] [--cv-pack <dir>] [--player <steamId>]
+                       [--tuned-until <unix>] [--all-players] [--k 5] [--chrono-test <games>] [--min-net 3] [--min-games 2] [--out <file.md>]
             """);
     }
 }

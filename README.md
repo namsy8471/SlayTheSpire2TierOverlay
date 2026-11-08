@@ -73,6 +73,12 @@ dotnet run --project tools/VisionBench -- bench
 dotnet run --project tools/RunHistoryAnalyzer -- replay "%APPDATA%\SlayTheSpire2\steam\<id>\profile1\saves\history" --pack data/packs/v0.107.1 --out data/local/replay.md
 ```
 
+튜닝에 쓰지 않은 런으로 데이터 팩을 검증 (홀드아웃·교차 검증, [팩 README §4.1](data/packs/v0.107.1/README.md)):
+
+```bash
+dotnet run --project tools/RunHistoryAnalyzer -- validate "%APPDATA%\SlayTheSpire2\steam\<id>\profile1\saves\history" --pack data/packs/v0.107.1 --player <id> --tuned-until 1794134406 --all-players --out data/local/holdout/validate.md
+```
+
 ## 저작권
 
 게임 텍스트·이미지는 레포에 넣지 않습니다. 데이터는 게임 내부 ID(`CARD.BALL_LIGHTNING` 등)와 우리 주석만 담고, 이름이 들어간 카탈로그와 카드 그림은 사용자 PC에서만 생성합니다.
