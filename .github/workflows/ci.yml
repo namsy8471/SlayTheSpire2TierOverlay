@@ -1,0 +1,20 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  core:
+    # Cloud CI builds and tests only Contracts + Core (+ tools). The bridge mod and the WPF app
+    # need the game DLLs / Windows and are built locally (PLAN §14).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+      - run: dotnet restore SlayTheSpire2TierOverlay.sln
+      - run: dotnet build SlayTheSpire2TierOverlay.sln --no-restore -c Release
+      - run: dotnet test SlayTheSpire2TierOverlay.sln --no-build -c Release --logger "console;verbosity=normal"

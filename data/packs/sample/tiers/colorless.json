@@ -1,0 +1,8 @@
+// 무색 카드 팩 형식 샘플. 카드 ID는 가짜이고 값은 자리표시자입니다.
+{
+  "character": "COLORLESS",
+  "dataVersion": "sample",
+  "cards": {
+    "CARD.SAMPLE_COLORLESS": { "tier": "C", "roles": { "draw": 0.3 }, "confidence": 0.3, "source": "placeholder" }
+  }
+}

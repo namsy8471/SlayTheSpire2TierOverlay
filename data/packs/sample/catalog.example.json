@@ -1,0 +1,23 @@
+// catalog.json 형식 예시 (로더는 이 파일을 읽지 않습니다).
+// 실제 catalog.json은 브리지 모드의 CatalogDumper가 사용자 PC에서 만들고, 게임 텍스트가 들어가므로 커밋하지 않습니다.
+// names는 비워 두었고 나머지 값도 자리표시자입니다.
+{
+  "gameVersion": "sample",
+  "commit": "sample",
+  "cards": [
+    {
+      "id": "CARD.BALL_LIGHTNING",
+      "pool": "CHARACTER.DEFECT",
+      "names": {},
+      "type": "attack",
+      "rarity": "common",
+      "cost": 1,
+      "costX": false,
+      "keywords": [],
+      "tags": [],
+      "target": "AnyEnemy",
+      "gainsBlock": false,
+      "multiplayerOnly": false
+    }
+  ]
+}
