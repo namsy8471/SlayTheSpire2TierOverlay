@@ -60,6 +60,16 @@ public sealed class DataPack
             : null;
     }
 
+    /// <summary>
+    /// True when the catalog gives the card the <c>Eternal</c> keyword: "cannot be removed or transformed from your deck"
+    /// (Ascender's Bane, Greed, Folly, …). False when the catalog does not know the card.
+    /// </summary>
+    public bool IsEternal(string cardId)
+        => FindCatalog(cardId)?.Keywords.Contains(EternalKeyword, StringComparer.OrdinalIgnoreCase) == true;
+
+    /// <summary>The catalog keyword of cards that cannot be removed or transformed.</summary>
+    public const string EternalKeyword = "Eternal";
+
     /// <summary>Card rarity from the catalog, else the tier entry. Null when unknown.</summary>
     public string? CardRarity(string character, string cardId)
         => (FindCatalog(cardId)?.Rarity ?? FindTier(character, cardId)?.Rarity)?.ToLowerInvariant();

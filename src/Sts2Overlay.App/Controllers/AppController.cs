@@ -935,7 +935,11 @@ public sealed partial class AppController : IDisposable
         {
             pack = DataPackLoader.LoadDirectory(dir);
             vm.PackText = $"팩 {name}";
-            AppLog.Info($"pack loaded: {dir} ({pack.Tiers.Sum(t => t.Value.Cards.Count)} rated cards, {pack.Archetypes.Count} archetypes)");
+            // The catalog comes from data/catalog next to the packs (DataPackLoader.SiblingCatalogPath). Without it curses
+            // and statuses look like unrated cards (e.g. a curse offered as the best upgrade), so say so loudly.
+            var catalogText = pack.Catalog is { } cat ? $"{cat.Cards.Count} catalog cards" : "NO CATALOG: curse/status detection off";
+            AppLog.Info($"pack loaded: {dir} ({pack.Tiers.Sum(t => t.Value.Cards.Count)} rated cards, {pack.Archetypes.Count} archetypes, {catalogText})");
+            if (pack.Catalog is null) AppLog.Warn($"pack has no card catalog: expected {DataPackLoader.SiblingCatalogPath(dir)}");
         }
         catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or System.Text.Json.JsonException)
         {

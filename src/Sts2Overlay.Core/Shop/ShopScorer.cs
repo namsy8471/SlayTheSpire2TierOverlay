@@ -78,12 +78,14 @@ public sealed class ShopScorer(DataPack pack)
         => ShopPrices.Estimated(Pack.Weights.Shop, rarity ?? Pack.CardRarity(character, cardId), colorless ?? Pack.IsColorless(cardId), onSale);
 
     /// <summary>
-    /// The card the removal service should take: a curse first, else a basic Strike, else a basic Defend.
+    /// The card the removal service should take: a removable curse first (Eternal ones such as Ascender's Bane or Greed
+    /// cannot be removed), else a basic Strike, else a basic Defend.
     /// Strikes go before Defends so that removal never deepens a block shortage. Null when nothing is worth removing.
     /// </summary>
     public string? RemovalTarget(RunState state, out bool isCurse)
     {
-        var curse = state.Deck.Select(d => d.Id).FirstOrDefault(id => DeckAnalyzer.IsCurse(Pack, state.Character, id));
+        var curse = state.Deck.Select(d => d.Id)
+            .FirstOrDefault(id => DeckAnalyzer.IsCurse(Pack, state.Character, id) && !Pack.IsEternal(id));
         if (curse is not null)
         {
             isCurse = true;

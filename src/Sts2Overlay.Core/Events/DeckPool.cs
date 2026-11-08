@@ -21,6 +21,8 @@ internal sealed class DeckPool
         _state = state;
         foreach (var c in state.Deck)
         {
+            // Eternal cards (Ascender's Bane, Greed, …) cannot be removed or transformed: no target at all.
+            if (pack.IsEternal(c.Id)) continue;
             if (DeckAnalyzer.IsCurse(pack, state.Character, c.Id)) _curses++;
             else if (CardIdHeuristics.IsBasicStrike(c.Id)) _strikes++;
             else if (CardIdHeuristics.IsBasicDefend(c.Id)) _defends++;
@@ -44,15 +46,14 @@ internal sealed class DeckPool
     public double Transform(int count, bool choose, string? filter, EventWeights w)
         => Take(count, choose, filter, w.TransformCurse, w.TransformBasic, w.TransformOther);
 
-    /// <summary>Cards that can still be upgraded (not upgraded, not curses), narrowed by <paramref name="filter"/>.</summary>
+    /// <summary>
+    /// Cards the game can still upgrade (<see cref="UpgradeAdvisor.CanUpgrade"/>: no curses, statuses, quest cards or
+    /// cards at their catalog maxUpgrade), narrowed by <paramref name="filter"/>.
+    /// </summary>
     public int Upgradable(string? filter)
     {
         var f = Filter(filter);
-        return _state.Deck.Count(c =>
-            c.Upgrade == 0
-            && !DeckAnalyzer.IsCurse(_pack, _state.Character, c.Id)
-            && _pack.CardType(_state.Character, c.Id) is not CardTypes.Status
-            && Matches(c.Id, f));
+        return _state.Deck.Count(c => UpgradeAdvisor.CanUpgrade(_pack, _state.Character, c) && Matches(c.Id, f));
     }
 
     private double Take(int count, bool choose, string? filter, double curseValue, double basicValue, double otherValue)
@@ -91,6 +92,10 @@ internal sealed class DeckPool
     {
         if (string.IsNullOrWhiteSpace(filter)) return new(true, true, true, true, null);
         var f = filter.ToLowerInvariant();
+        // Checked before "basic"/"strike": these texts mention those words in a different sense.
+        if (f.Contains("upgradable")) return new(false, true, true, true, null);   // PAEL_TOOTH: curses cannot be upgraded
+        if (f.Contains("non-basic")) return new(true, false, false, true, null);   // SLIPPERY_BRIDGE: anything but Strike/Defend
+        if (f.Contains("starter")) return new(false, false, false, true, null);    // ARCHAIC_TOOTH: Bash/Neutralize/… only
         if (f.Contains("strike") && f.Contains("defend")) return new(false, true, true, false, null);
         if (f.Contains("strike")) return new(false, true, false, false, null);
         if (f.Contains("defend")) return new(false, false, true, false, null);
