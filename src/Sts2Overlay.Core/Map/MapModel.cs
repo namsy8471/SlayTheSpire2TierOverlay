@@ -46,6 +46,12 @@ public sealed record MapGraph
     /// <summary>Last visited coordinate in this act (<c>visited_map_coords</c> tail), or null before the first step.</summary>
     public MapCoord? Current { get; init; }
 
+    /// <summary>
+    /// Every coordinate visited in this act, in order (<c>visited_map_coords</c>), start included. Optional: empty when unknown.
+    /// The path advisor uses it to count elites already fought this act.
+    /// </summary>
+    public IReadOnlyList<MapCoord> Visited { get; init; } = [];
+
     public static MapNodeType ParseType(string? saveType) => saveType switch
     {
         "monster" => MapNodeType.Monster,
