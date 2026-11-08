@@ -6,7 +6,7 @@ public sealed class FakeCardRecognizer(FakeGameStateSource state) : ICardRecogni
     public RecognitionResult? Recognize(CapturedFrame frame, string? characterHint) => state.Screen switch
     {
         DemoScreen.Reward => new RecognitionResult(ScreenKind.Reward, DemoScenario.RewardCards(frame.ScreenRect)),
-        DemoScreen.Shop => new RecognitionResult(ScreenKind.Shop, DemoScenario.ShopCards(frame.ScreenRect)),
+        DemoScreen.Shop => new RecognitionResult(ScreenKind.Shop, DemoScenario.ShopCards(frame.ScreenRect)) { RemovalService = DemoScenario.RemovalCoin(frame.ScreenRect) },
         _ => RecognitionResult.Other,
     };
 }

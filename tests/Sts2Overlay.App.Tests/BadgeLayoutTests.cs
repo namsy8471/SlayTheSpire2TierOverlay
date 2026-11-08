@@ -94,16 +94,18 @@ public class BadgeLayoutTests
     }
 
     [Fact]
-    public void Skip_pill_sits_under_the_card_row_at_the_smallest_badge_scale()
+    public void Skip_pill_sits_below_the_games_skip_button_at_the_smallest_badge_scale()
     {
         BadgeFrame f = BadgeLayout.Compute(Reward4K, [], Layer4K, 1.5, 1, skip: true, outlines: false);
 
         PlacedBadge skip = Assert.IsType<PlacedBadge>(f.Skip);
-        double rowBottom = Reward4K.Max(c => c.Bottom) / 1.5;
         double rowCentre = (Reward4K[0].X + Reward4K[2].Right) / 2.0 / 1.5;
         Assert.Equal(f.Badges.Min(b => b.Scale), skip.Scale);
-        Assert.Equal(rowBottom + 12 * skip.Scale, skip.Box.Y, 6);
+        // The "넘기기" button ends at reference y 957 = 1914 px at 4K (UI scale 2) = 1276 DIPs at 150 %.
+        Assert.Equal(1914 / 1.5 + 8 * skip.Scale, skip.Box.Y, 6);
         Assert.Equal(rowCentre, skip.Box.X + skip.Box.Width / 2, 6);
+        Assert.Equal(BadgeLayout.SkipWidth * skip.Scale, skip.Box.Width, 6);
+        Assert.True(skip.Box.InsideArea(3840 / 1.5, 2160 / 1.5));
     }
 
     [Fact]

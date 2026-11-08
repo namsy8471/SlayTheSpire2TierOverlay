@@ -58,7 +58,14 @@ public sealed class VisionRecognizer : ICardRecognizer
                 c.PriceReading?.OnSale == true,
                 c.PriceBounds is { } p ? new PixelRect(p.X, p.Y, p.Width, p.Height).Offset(frame.ScreenRect.X, frame.ScreenRect.Y) : null))
             .ToArray();
-        return new RecognitionResult(kind, cards);
+        // Shop: is the card-removal service still for sale? A fixed-place colour probe (CardRemovalProbe), ~0.1 ms.
+        var removal = kind == ScreenKind.Shop ? CardRemovalProbe.Read(vf) : null;
+        return new RecognitionResult(kind, cards)
+        {
+            RemovalService = removal is { Available: true, Bounds: var b }
+                ? new PixelRect(b.X, b.Y, b.Width, b.Height).Offset(frame.ScreenRect.X, frame.ScreenRect.Y)
+                : null,
+        };
     }
 
     private CardRecognizer? Load()

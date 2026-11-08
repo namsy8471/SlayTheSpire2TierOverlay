@@ -25,6 +25,9 @@ public sealed record RecognizedCard(CardRef Card, PixelRect ScreenBounds, double
 /// <param name="Cards">Cards left to right (shop: row by row). Empty for Other.</param>
 public sealed record RecognitionResult(ScreenKind ScreenKind, IReadOnlyList<RecognizedCard> Cards)
 {
+    /// <summary>Shop: the card-removal service coin (physical SCREEN pixels) when it is visible and still for sale, else null.</summary>
+    public PixelRect? RemovalService { get; init; }
+
     public static RecognitionResult Other { get; } = new(ScreenKind.Other, []);
 }
 

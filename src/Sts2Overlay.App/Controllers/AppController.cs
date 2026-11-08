@@ -58,7 +58,8 @@ public sealed partial class AppController : IDisposable
     private string? _lastOfferKey;
     private string? _lastEvalKey;
     private IReadOnlyList<BadgeSpec> _lastBadges = [];
-    private string? _lastSkip;
+    private SkipSpec? _lastSkip;
+    private string? _lastRemovalText;
     private bool _userHidden;
     private bool _clickThrough;
 
@@ -314,10 +315,11 @@ public sealed partial class AppController : IDisposable
         {
             try
             {
-                var (offer, badges, skip) = r.ScreenKind == ScreenKind.Reward ? EvaluateReward(r) : EvaluateShop(r);
+                var (offer, badges, skip, removal) = r.ScreenKind == ScreenKind.Reward ? EvaluateReward(r) : EvaluateShop(r);
                 _vm.Offer = offer;
                 _lastBadges = badges;
                 _lastSkip = skip;
+                _lastRemovalText = removal;
                 _lastEvalKey = evalKey;
             }
             catch (Exception ex)
@@ -343,11 +345,13 @@ public sealed partial class AppController : IDisposable
                 ? _lastBadges[i] with { CardBounds = r.Cards[i].ScreenBounds, PriceBounds = r.Cards[i].PriceBounds }
                 : new BadgeSpec(r.Cards[i].ScreenBounds, "?", "", false, true, r.Cards[i].Card.IsUpgraded, r.Cards[i].PriceBounds);
         }
-        _badges.ShowBadges(specs, _lastSkip, showBounds: Demo is not null || DebugOutlines);
+        // The removal marker needs both: the engine recommends removal AND the probe sees the service still for sale.
+        var removalMark = r.RemovalService is { } coin && _lastRemovalText is { } text ? new RemovalSpec(coin, text) : null;
+        _badges.ShowBadges(specs, _lastSkip, removalMark, showBounds: Demo is not null || DebugOutlines);
         UpdateCadence();
     }
 
-    private (OfferSectionVm, IReadOnlyList<BadgeSpec>, string?) EvaluateReward(RecognitionResult r)
+    private (OfferSectionVm, IReadOnlyList<BadgeSpec>, SkipSpec?, string?) EvaluateReward(RecognitionResult r)
     {
         var run = _snapshot.Run ?? UnknownRun;
         var cards = r.Cards.Select(c => c.Card).ToArray();
@@ -403,12 +407,13 @@ public sealed partial class AppController : IDisposable
         };
 
         var badges = eval.Cards
-            .Select((e, i) => new BadgeSpec(r.Cards[i].ScreenBounds, e.DisplayTier.ToString(), Fmt(e.Total), e.IsBest, e.IsEstimate, e.Card.IsUpgraded))
+            .Select((e, i) => new BadgeSpec(r.Cards[i].ScreenBounds, e.DisplayTier.ToString(), Fmt(e.Total), e.IsBest, e.IsEstimate, e.Card.IsUpgraded,
+                Chips: OfferMarkers.CardChips(e.Chips), Ribbon: e.IsBest ? OfferMarkers.RecommendRibbon : null))
             .ToArray();
-        return (offer, badges, eval.SkipRecommended ? Fmt(eval.Skip.Total) : null);
+        return (offer, badges, OfferMarkers.Skip(eval, Fmt), null);
     }
 
-    private (OfferSectionVm, IReadOnlyList<BadgeSpec>, string?) EvaluateShop(RecognitionResult r)
+    private (OfferSectionVm, IReadOnlyList<BadgeSpec>, SkipSpec?, string?) EvaluateShop(RecognitionResult r)
     {
         var run = _snapshot.Run ?? UnknownRun;
         // --- shop prices (m2/shop-price): unread prices are estimated by the scorer; label colours bound the gold ---
@@ -459,10 +464,11 @@ public sealed partial class AppController : IDisposable
         {
             var item = byCard.TryGetValue(rc.Card, out var q) && q.Count > 0 ? q.Dequeue() : null;
             var e = item?.CardEvaluation;
+            var buy = item is not null && recommended.Contains(item);
             return new BadgeSpec(rc.ScreenBounds, e?.DisplayTier.ToString() ?? "?", e is null ? "" : Fmt(e.Total),
-                item is not null && recommended.Contains(item), e?.IsEstimate ?? true, rc.Card.IsUpgraded);
+                buy, e?.IsEstimate ?? true, rc.Card.IsUpgraded, Ribbon: buy ? OfferMarkers.BuyRibbon : null);
         }).ToArray();
-        return (section, badges, null);
+        return (section, badges, null, OfferMarkers.RemovalText(eval, _cards.Name));
     }
 
     /// <summary>"75골드", "~150골드 (추정)" for an unread label, "37골드 세일" for the half-price card.</summary>
