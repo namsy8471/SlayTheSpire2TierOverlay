@@ -1,0 +1,2680 @@
+{
+  "gameVersion": "v0.107.1",
+  "source": "tools/CatalogBuilder --relics (static IL of sts2.dll: RelicModel.Rarity/HasUponPickupEffect/SpawnsPets/AddsPet, IsUsedUp and IsAllowed overrides)",
+  "note": "Game facts only. RelicModel.IsTradable needs: not IsUsedUp, no HasUponPickupEffect, not IsMelted, no SpawnsPets, rarity other than Starter, Event and Ancient. usedUpOverride = IsUsedUp reads the saved state of the relic. addsPet = Player.HasEventPet. allowedOverride = RelicModel.IsAllowed has its own rule (relic bag pulls).",
+  "relics": [
+    {
+      "id": "RELIC.AKABEKO",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.ALCHEMICAL_COFFER",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.AMETHYST_AUBERGINE",
+      "rarity": "Common",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": true
+    },
+    {
+      "id": "RELIC.ANCHOR",
+      "rarity": "Common",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.ARCANE_SCROLL",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.ARCHAIC_TOOTH",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.ART_OF_WAR",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.ASTROLABE",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.BAG_OF_MARBLES",
+      "rarity": "Common",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.BAG_OF_PREPARATION",
+      "rarity": "Common",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.BEATING_REMNANT",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.BEAUTIFUL_BRACELET",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.BELLOWS",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.BELT_BUCKLE",
+      "rarity": "Shop",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.BIG_HAT",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.BIG_MUSHROOM",
+      "rarity": "Event",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.BIIIG_HUG",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.BING_BONG",
+      "rarity": "Event",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.BLACK_BLOOD",
+      "rarity": "Starter",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.BLACK_STAR",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.BLESSED_ANTLER",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.BLOOD_SOAKED_ROSE",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.BLOOD_VIAL",
+      "rarity": "Common",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.BONE_FLUTE",
+      "rarity": "Common",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.BONE_TEA",
+      "rarity": "Event",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": true,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.BOOKMARK",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.BOOK_OF_FIVE_RINGS",
+      "rarity": "Common",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": true
+    },
+    {
+      "id": "RELIC.BOOK_REPAIR_KNIFE",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.BOOMING_CONCH",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.BOUND_PHYLACTERY",
+      "rarity": "Starter",
+      "hasUponPickupEffect": false,
+      "spawnsPets": true,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.BOWLER_HAT",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": true
+    },
+    {
+      "id": "RELIC.BREAD",
+      "rarity": "Shop",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.BRILLIANT_SCARF",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.BRIMSTONE",
+      "rarity": "Shop",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.BRONZE_SCALES",
+      "rarity": "Common",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.BURNING_BLOOD",
+      "rarity": "Starter",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.BURNING_STICKS",
+      "rarity": "Shop",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.BYRDPIP",
+      "rarity": "Event",
+      "hasUponPickupEffect": true,
+      "spawnsPets": true,
+      "usedUpOverride": false,
+      "addsPet": true,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.CALLING_BELL",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.CANDELABRA",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.CAPTAINS_WHEEL",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.CAULDRON",
+      "rarity": "Shop",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.CENTENNIAL_PUZZLE",
+      "rarity": "Common",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.CHANDELIER",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.CHARONS_ASHES",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.CHEMICAL_X",
+      "rarity": "Shop",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.CHOICES_PARADOX",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.CHOSEN_CHEESE",
+      "rarity": "Event",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.CIRCLET",
+      "rarity": "None",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.CLAWS",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.CLOAK_CLASP",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.CRACKED_CORE",
+      "rarity": "Starter",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.CROSSBOW",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.CURSED_PEARL",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.DARKSTONE_PERIAPT",
+      "rarity": "Event",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.DATA_DISK",
+      "rarity": "Common",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.DAUGHTER_OF_THE_WIND",
+      "rarity": "Event",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.DELICATE_FROND",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.DEMON_TONGUE",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.DEPRECATED_RELIC",
+      "rarity": "None",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.DIAMOND_DIADEM",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.DINGY_RUG",
+      "rarity": "Shop",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.DISTINGUISHED_CAPE",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.DIVINE_DESTINY",
+      "rarity": "Starter",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.DIVINE_RIGHT",
+      "rarity": "Starter",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.DOLLYS_MIRROR",
+      "rarity": "Shop",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.DRAGON_FRUIT",
+      "rarity": "Shop",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": true
+    },
+    {
+      "id": "RELIC.DREAM_CATCHER",
+      "rarity": "Event",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.DRIFTWOOD",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.DUSTY_TOME",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.ECTOPLASM",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.ELECTRIC_SHRYMP",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.EMBER_TEA",
+      "rarity": "Event",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": true,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.EMOTION_CHIP",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.EMPTY_CAGE",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.ETERNAL_FEATHER",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.FAKE_ANCHOR",
+      "rarity": "Event",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.FAKE_BLOOD_VIAL",
+      "rarity": "Event",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.FAKE_HAPPY_FLOWER",
+      "rarity": "Event",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.FAKE_LEES_WAFFLE",
+      "rarity": "Event",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.FAKE_MANGO",
+      "rarity": "Event",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.FAKE_MERCHANTS_RUG",
+      "rarity": "Event",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.FAKE_ORICHALCUM",
+      "rarity": "Event",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.FAKE_SNECKO_EYE",
+      "rarity": "Event",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.FAKE_STRIKE_DUMMY",
+      "rarity": "Event",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.FAKE_VENERABLE_TEA_SET",
+      "rarity": "Event",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.FENCING_MANUAL",
+      "rarity": "Common",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.FESTIVE_POPPER",
+      "rarity": "Common",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.FIDDLE",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.FISHING_ROD",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.FORGOTTEN_SOUL",
+      "rarity": "Event",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.FRAGRANT_MUSHROOM",
+      "rarity": "Event",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.FRESNEL_LENS",
+      "rarity": "Event",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.FROZEN_EGG",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": true
+    },
+    {
+      "id": "RELIC.FUNERARY_MASK",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.FUR_COAT",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.GALACTIC_DUST",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.GAMBLING_CHIP",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.GAME_PIECE",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.GHOST_SEED",
+      "rarity": "Shop",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.GIRYA",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": true
+    },
+    {
+      "id": "RELIC.GLASS_EYE",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.GLITTER",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.GNARLED_HAMMER",
+      "rarity": "Shop",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.GOLDEN_COMPASS",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.GOLDEN_PEARL",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.GOLD_PLATED_CABLES",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.GORGET",
+      "rarity": "Common",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.GREMLIN_HORN",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.HAND_DRILL",
+      "rarity": "Event",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.HAPPY_FLOWER",
+      "rarity": "Common",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.HEFTY_TABLET",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.HELICAL_DART",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.HISTORY_COURSE",
+      "rarity": "Event",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.HORN_CLEAT",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.ICE_CREAM",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.INFUSED_CORE",
+      "rarity": "Starter",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.INTIMIDATING_HELMET",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.IRON_CLUB",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.IVORY_TILE",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.JEWELED_MASK",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.JEWELRY_BOX",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.JOSS_PAPER",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.JUZU_BRACELET",
+      "rarity": "Common",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": true
+    },
+    {
+      "id": "RELIC.KALEIDOSCOPE",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.KIFUDA",
+      "rarity": "Shop",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.KUNAI",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.KUSARIGAMA",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.LANTERN",
+      "rarity": "Common",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.LARGE_CAPSULE",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.LASTING_CANDY",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": true
+    },
+    {
+      "id": "RELIC.LAVA_LAMP",
+      "rarity": "Shop",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.LAVA_ROCK",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.LEAD_PAPERWEIGHT",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.LEAFY_POULTICE",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.LEES_WAFFLE",
+      "rarity": "Shop",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.LETTER_OPENER",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.LIZARD_TAIL",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": true,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.LOOMING_FRUIT",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.LORDS_PARASOL",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.LOST_COFFER",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.LOST_WISP",
+      "rarity": "Event",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.LUCKY_FYSH",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": true
+    },
+    {
+      "id": "RELIC.LUNAR_PASTRY",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.MANGO",
+      "rarity": "Rare",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.MASSIVE_SCROLL",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": true
+    },
+    {
+      "id": "RELIC.MAW_BANK",
+      "rarity": "Event",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": true,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.MEAL_TICKET",
+      "rarity": "Common",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": true
+    },
+    {
+      "id": "RELIC.MEAT_CLEAVER",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.MEAT_ON_THE_BONE",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.MEMBERSHIP_CARD",
+      "rarity": "Shop",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.MERCURY_HOURGLASS",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.METRONOME",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.MINIATURE_CANNON",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.MINIATURE_TENT",
+      "rarity": "Shop",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.MINI_REGENT",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.MOLTEN_EGG",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": true
+    },
+    {
+      "id": "RELIC.MR_STRUGGLES",
+      "rarity": "Event",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.MUMMIFIED_HAND",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.MUSIC_BOX",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.MYSTIC_LIGHTER",
+      "rarity": "Shop",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.NEOWS_BONES",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.NEOWS_TALISMAN",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.NEOWS_TORMENT",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.NEW_LEAF",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.NINJA_SCROLL",
+      "rarity": "Shop",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.NUNCHAKU",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.NUTRITIOUS_OYSTER",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.NUTRITIOUS_SOUP",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.ODDLY_SMOOTH_STONE",
+      "rarity": "Common",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.OLD_COIN",
+      "rarity": "Rare",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": true
+    },
+    {
+      "id": "RELIC.ORANGE_DOUGH",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.ORICHALCUM",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.ORNAMENTAL_FAN",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.ORRERY",
+      "rarity": "Shop",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.PAELS_BLOOD",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.PAELS_CLAW",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.PAELS_EYE",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.PAELS_FLESH",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.PAELS_GROWTH",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.PAELS_HORN",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.PAELS_LEGION",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": true,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.PAELS_TEARS",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.PAELS_TOOTH",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.PAELS_WING",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.PANDORAS_BOX",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.PANTOGRAPH",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.PAPER_KRANE",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.PAPER_PHROG",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.PARRYING_SHIELD",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.PEAR",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.PENDULUM",
+      "rarity": "Common",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.PEN_NIB",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.PERMAFROST",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.PETRIFIED_TOAD",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.PHIAL_HOLSTER",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.PHILOSOPHERS_STONE",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.PHYLACTERY_UNBOUND",
+      "rarity": "Starter",
+      "hasUponPickupEffect": false,
+      "spawnsPets": true,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.PLANISPHERE",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": true
+    },
+    {
+      "id": "RELIC.POCKETWATCH",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.POLLINOUS_CORE",
+      "rarity": "Event",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.POMANDER",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.POTION_BELT",
+      "rarity": "Common",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.POWER_CELL",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.PRAYER_WHEEL",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.PRECARIOUS_SHEARS",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.PRECISE_SCISSORS",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.PRESERVED_FOG",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.PRISMATIC_GEM",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.PUMPKIN_CANDLE",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.PUNCH_DAGGER",
+      "rarity": "Shop",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.RADIANT_PEARL",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.RAINBOW_RING",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.RAZOR_TOOTH",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.RED_MASK",
+      "rarity": "Common",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.RED_SKULL",
+      "rarity": "Common",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.REGALITE",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.REGAL_PILLOW",
+      "rarity": "Common",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.REPTILE_TRINKET",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.RINGING_TRIANGLE",
+      "rarity": "Shop",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.RING_OF_THE_DRAKE",
+      "rarity": "Starter",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.RING_OF_THE_SNAKE",
+      "rarity": "Starter",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.RIPPLE_BASIN",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.ROYAL_POISON",
+      "rarity": "Event",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.ROYAL_STAMP",
+      "rarity": "Shop",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.RUINED_HELMET",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.RUNIC_CAPACITOR",
+      "rarity": "Shop",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.RUNIC_PYRAMID",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.SAI",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.SAND_CASTLE",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.SCREAMING_FLAGON",
+      "rarity": "Shop",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.SCROLL_BOXES",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.SEAL_OF_GOLD",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.SEA_GLASS",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.SELF_FORMING_CLAY",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.SERE_TALON",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.SHOVEL",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": true
+    },
+    {
+      "id": "RELIC.SHURIKEN",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.SIGNET_RING",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.SILKEN_TRESS",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": true,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.SILVER_CRUCIBLE",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": true,
+      "addsPet": false,
+      "allowedOverride": true
+    },
+    {
+      "id": "RELIC.SLING_OF_COURAGE",
+      "rarity": "Shop",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.SMALL_CAPSULE",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.SNECKO_EYE",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.SNECKO_SKULL",
+      "rarity": "Common",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.SOZU",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.SPARKLING_ROUGE",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.SPIKED_GAUNTLETS",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.STONE_CALENDAR",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.STONE_CRACKER",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.STONE_HUMIDIFIER",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.STORYBOOK",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.STRAWBERRY",
+      "rarity": "Common",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.STRIKE_DUMMY",
+      "rarity": "Common",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.STURDY_CLAMP",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.SWORD_OF_JADE",
+      "rarity": "Event",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.SWORD_OF_STONE",
+      "rarity": "Event",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.SYMBIOTIC_VIRUS",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.TANXS_WHISTLE",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.TEA_OF_DISCOURTESY",
+      "rarity": "Event",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": true,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.THE_ABACUS",
+      "rarity": "Shop",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.THE_BOOT",
+      "rarity": "Event",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.THE_COURIER",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.THROWING_AXE",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.TINGSHA",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.TINY_MAILBOX",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.TOASTY_MITTENS",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.TOOLBOX",
+      "rarity": "Shop",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.TOUCH_OF_OROBAS",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.TOUGH_BANDAGES",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.TOXIC_EGG",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": true
+    },
+    {
+      "id": "RELIC.TOY_BOX",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": true,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.TRI_BOOMERANG",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.TUNGSTEN_ROD",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.TUNING_FORK",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.TWISTED_FUNNEL",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.UNCEASING_TOP",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.UNDYING_SIGIL",
+      "rarity": "Shop",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.UNSETTLING_LAMP",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.VAJRA",
+      "rarity": "Common",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.VAMBRACE",
+      "rarity": "Uncommon",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.VELVET_CHOKER",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.VENERABLE_TEA_SET",
+      "rarity": "Common",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.VERY_HOT_COCOA",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.VEXING_PUZZLEBOX",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.VITRUVIAN_MINION",
+      "rarity": "Shop",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.WAR_HAMMER",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.WAR_PAINT",
+      "rarity": "Common",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.WHETSTONE",
+      "rarity": "Common",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.WHISPERING_EARRING",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.WHITE_BEAST_STATUE",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": true
+    },
+    {
+      "id": "RELIC.WHITE_STAR",
+      "rarity": "Rare",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": true
+    },
+    {
+      "id": "RELIC.WINGED_BOOTS",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": true,
+      "addsPet": false,
+      "allowedOverride": true
+    },
+    {
+      "id": "RELIC.WING_CHARM",
+      "rarity": "Shop",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.WONGOS_MYSTERY_TICKET",
+      "rarity": "Event",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": true,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.WONGO_CUSTOMER_APPRECIATION_BADGE",
+      "rarity": "Event",
+      "hasUponPickupEffect": false,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    },
+    {
+      "id": "RELIC.YUMMY_COOKIE",
+      "rarity": "Ancient",
+      "hasUponPickupEffect": true,
+      "spawnsPets": false,
+      "usedUpOverride": false,
+      "addsPet": false,
+      "allowedOverride": false
+    }
+  ]
+}

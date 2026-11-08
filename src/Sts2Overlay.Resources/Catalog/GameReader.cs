@@ -33,6 +33,18 @@ public sealed class DecodedCard
 /// Reads sts2.dll with Mono.Cecil. Cecil parses the file as metadata + IL bytes only;
 /// no game code is ever executed, and the file is opened read-only.
 /// </summary>
+public sealed class DecodedRelic
+{
+    public required TypeDefinition Type { get; init; }
+    public required string Id { get; init; }
+    public string? Rarity { get; init; }
+    public bool? HasUponPickupEffect { get; init; }
+    public bool? SpawnsPets { get; init; }
+    public bool UsedUpOverride { get; init; }
+    public bool? AddsPet { get; init; }
+    public bool AllowedOverride { get; init; }
+}
+
 public sealed class GameReader : IDisposable
 {
     private readonly ModuleDefinition _module;
@@ -40,12 +52,13 @@ public sealed class GameReader : IDisposable
 
     public TypeDefinition AbstractModel { get; }
     public TypeDefinition CardModel { get; }
+    public TypeDefinition RelicModel { get; }
     public TypeDefinition CardPoolModel { get; }
     public TypeDefinition CharacterModel { get; }
     public TypeDefinition ModelDb { get; }
 
     // Enum value -> name tables, read from the enum definitions inside the assembly.
-    private readonly EnumTable _cardType, _rarity, _target, _multiplayer, _keyword, _tag;
+    private readonly EnumTable _cardType, _rarity, _target, _multiplayer, _keyword, _tag, _relicRarity;
 
     public GameReader(string dllPath)
     {
@@ -72,6 +85,7 @@ public sealed class GameReader : IDisposable
 
         AbstractModel = FindType("MegaCrit.Sts2.Core.Models.AbstractModel");
         CardModel = FindType("MegaCrit.Sts2.Core.Models.CardModel");
+        RelicModel = FindType("MegaCrit.Sts2.Core.Models.RelicModel");
         CardPoolModel = FindType("MegaCrit.Sts2.Core.Models.CardPoolModel");
         CharacterModel = FindType("MegaCrit.Sts2.Core.Models.CharacterModel");
         ModelDb = FindType("MegaCrit.Sts2.Core.Models.ModelDb");
@@ -84,6 +98,7 @@ public sealed class GameReader : IDisposable
         // IEnumerable<CardKeyword> / HashSet<CardTag>: the enum is the generic argument.
         _keyword = EnumTable.From(((GenericInstanceType)GetterOf(CardModel, "get_CanonicalKeywords")!.ReturnType).GenericArguments[0]);
         _tag = EnumTable.From(((GenericInstanceType)GetterOf(CardModel, "get_CanonicalTags")!.ReturnType).GenericArguments[0]);
+        _relicRarity = EnumTable.From(GetterOf(RelicModel, "get_Rarity")!.ReturnType);
     }
 
     public void Dispose() => _module.Dispose();
@@ -178,6 +193,35 @@ public sealed class GameReader : IDisposable
             return r.Ok && r.ReturnValue is int v ? v : null;
         }
         return null;
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // Relic decoding
+    // ------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// The constant parts of <c>RelicModel.IsTradable</c>: rarity, <c>HasUponPickupEffect</c>, <c>SpawnsPets</c>, and
+    /// whether the class overrides <c>IsUsedUp</c> (then tradability also depends on the relic's saved state).
+    /// Also <c>AddsPet</c> (Byrdonis Nest) and whether the class overrides <c>IsAllowed</c> (relic bag pulls).
+    /// A getter with logic leaves its field null.
+    /// </summary>
+    public DecodedRelic DecodeRelic(TypeDefinition relic)
+    {
+        bool? Bool(string getter) => EvaluateIntGetter(relic, getter) is int v ? v != 0 : null;
+        bool Overrides(string method) => new[] { relic }.Concat(BaseChain(relic))
+            .TakeWhile(t => t.FullName != RelicModel.FullName)
+            .Any(t => t.Methods.Any(m => m.Name == method && !m.IsAbstract));
+        return new DecodedRelic
+        {
+            Type = relic,
+            Id = ModelIdOf(relic),
+            Rarity = _relicRarity.Name(EvaluateIntGetter(relic, "get_Rarity")),
+            HasUponPickupEffect = Bool("get_HasUponPickupEffect"),
+            SpawnsPets = Bool("get_SpawnsPets"),
+            UsedUpOverride = Overrides("get_IsUsedUp"),
+            AddsPet = Bool("get_AddsPet"),
+            AllowedOverride = Overrides("IsAllowed"),
+        };
     }
 
     // ------------------------------------------------------------------------------------------

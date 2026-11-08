@@ -9,7 +9,7 @@ namespace Sts2Overlay.GameState.Tracking;
 /// </summary>
 public static class CardRarities
 {
-    private sealed record Info(string Rarity, string Type, bool Exhaust, int MaxUpgrade, string Multiplayer);
+    private sealed record Info(string Rarity, string Type, bool Exhaust, int MaxUpgrade, string Multiplayer, IReadOnlySet<string> Keywords);
 
     private static readonly Lazy<Dictionary<string, Info>> s_cards = new(() =>
     {
@@ -23,16 +23,25 @@ public static class CardRarities
             if (!c.TryGetProperty("id", out JsonElement id) || id.GetString() is not { } i) continue;
             string rarity = c.TryGetProperty("rarity", out JsonElement r) ? r.GetString() ?? "" : "";
             string type = c.TryGetProperty("type", out JsonElement t) ? t.GetString() ?? "" : "";
-            bool exhaust = c.TryGetProperty("keywords", out JsonElement k) && k.ValueKind == JsonValueKind.Array
-                           && k.EnumerateArray().Any(x => x.GetString() == "Exhaust");
+            var keywords = c.TryGetProperty("keywords", out JsonElement k) && k.ValueKind == JsonValueKind.Array
+                ? k.EnumerateArray().Select(x => x.GetString()).OfType<string>().ToHashSet(StringComparer.Ordinal)
+                : new HashSet<string>(StringComparer.Ordinal);
+            bool exhaust = keywords.Contains("Exhaust");
             int max = c.TryGetProperty("maxUpgrade", out JsonElement mu) && mu.TryGetInt32(out int m) ? m : 1;
             string mp = c.TryGetProperty("multiplayer", out JsonElement mpe) ? mpe.GetString() ?? "None" : "None";
-            map[i] = new Info(rarity, type, exhaust, max, mp);
+            map[i] = new Info(rarity, type, exhaust, max, mp, keywords);
         }
         return map;
     });
 
     public static string? Of(string cardId) => s_cards.Value.GetValueOrDefault(cardId)?.Rarity;
+
+    /// <summary>True when the card id is in the catalog.</summary>
+    public static bool Knows(string cardId) => s_cards.Value.ContainsKey(cardId);
+
+    /// <summary>The card's canonical keyword (CardKeyword name, e.g. <c>Eternal</c>, <c>Exhaust</c>), before upgrades and enchantments.</summary>
+    public static bool HasCanonicalKeyword(string cardId, string keyword) =>
+        s_cards.Value.GetValueOrDefault(cardId)?.Keywords.Contains(keyword) ?? false;
 
     /// <summary>Attack / Skill / Power / Status / Curse, or null for an unknown id.</summary>
     public static string? TypeOf(string cardId) => s_cards.Value.GetValueOrDefault(cardId)?.Type;
