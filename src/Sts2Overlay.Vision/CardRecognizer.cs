@@ -106,6 +106,12 @@ public sealed class CardRecognizer
     public RecognizerOptions Options { get; }
     public CardArtDatabase Database => _db;
 
+    /// <summary>
+    /// Optional merchant relic reader, run on screens with the shop rug (<see cref="ScreenGate.ShopLikely"/>). Its
+    /// identified relics also confirm a shop on their own (a frame where every card is covered).
+    /// </summary>
+    public global::Sts2Overlay.Vision.Relics.RelicRecognizer? Relics { get; init; }
+
     public CardRecognizer(CardArtDatabase db, RecognizerOptions? options = null)
     {
         _db = db;
@@ -143,8 +149,11 @@ public sealed class CardRecognizer
         {
             List<RecognizedCard> slots = RecognizeShop(frame, t, step, hints);
             List<RecognizedCard> accepted = slots.Where(s => s.Accepted).ToList();
-            if (accepted.Count(c => c.Partial == null) >= 1)
-                return new ScreenRecognition(ScreenKind.Shop, accepted, slots, gate, sw.Elapsed.TotalMilliseconds, "shop");
+            // A relic is accepted only with its price label under it (RelicRecognizerOptions.RequirePriceLabel), so
+            // one identified relic is as strong a shop signal as one whole-art card match.
+            IReadOnlyList<global::Sts2Overlay.Vision.Relics.RecognizedRelic> relics = Relics?.Recognize(frame) ?? [];
+            if (accepted.Count(c => c.Partial == null) >= 1 || relics.Any(r => r.Accepted))
+                return new ScreenRecognition(ScreenKind.Shop, accepted, slots, gate, sw.Elapsed.TotalMilliseconds, "shop") { Relics = relics };
             notes.Add("shop rug but no cards");
             examined = slots;
         }

@@ -1,9 +1,14 @@
+using Sts2Overlay.Vision.Relics;
+
 namespace Sts2Overlay.Vision;
 
 /// <summary>What the overlay should currently show, merged over recent frames.</summary>
 public sealed record TrackedScreen(ScreenKind Kind, IReadOnlyList<RecognizedCard> Cards)
 {
     public static readonly TrackedScreen None = new(ScreenKind.Other, []);
+
+    /// <summary>Shop: the merchant relics known to be for sale (identified, by slot).</summary>
+    public IReadOnlyList<RecognizedRelic> Relics { get; init; } = [];
 }
 
 /// <summary>
@@ -22,6 +27,7 @@ public sealed class RecognitionTracker
     private ScreenKind _kind = ScreenKind.Other;
     private int _slotCount;
     private readonly SortedDictionary<int, RecognizedCard> _best = [];
+    private readonly SortedDictionary<int, RecognizedRelic> _relics = [];
     private DateTime _lastSeen;
 
     /// <summary>How long to keep showing the last screen when frames stop recognising it.</summary>
@@ -30,7 +36,8 @@ public sealed class RecognitionTracker
     /// <summary>Incremented whenever a new screen starts (or the memory is cleared).</summary>
     public int Generation { get; private set; }
 
-    public TrackedScreen Current => _kind == ScreenKind.Other ? TrackedScreen.None : new TrackedScreen(_kind, _best.Values.ToList());
+    public TrackedScreen Current => _kind == ScreenKind.Other ? TrackedScreen.None
+        : new TrackedScreen(_kind, _best.Values.ToList()) { Relics = _relics.Values.ToList() };
 
     public TrackedScreen Update(ScreenRecognition frame, DateTime now)
     {
@@ -64,8 +71,29 @@ public sealed class RecognitionTracker
                 PriceReading = c.Price != null ? c.PriceReading : old.PriceReading ?? c.PriceReading,
             };
         }
+        MergeRelics(frame.Relics);
         _lastSeen = now;
         return Current;
+    }
+
+    /// <summary>
+    /// Merchant relics per slot: an identified relic replaces whatever the slot held (The Courier restocks a bought
+    /// slot with a new relic), an empty slot drops it (bought), an unknown one (tooltip, hand, hovered card) keeps it.
+    /// </summary>
+    private void MergeRelics(IReadOnlyList<RecognizedRelic> relics)
+    {
+        foreach (RecognizedRelic r in relics)
+            switch (r.State)
+            {
+                case RelicSlotState.Identified:
+                    _relics[r.Slot] = _relics.TryGetValue(r.Slot, out RecognizedRelic? old) && old.RelicId == r.RelicId && r.Price == null
+                        ? r with { Price = old.Price, PriceReading = old.PriceReading ?? r.PriceReading } // keep the last clear price
+                        : r;
+                    break;
+                case RelicSlotState.Empty:
+                    _relics.Remove(r.Slot);
+                    break;
+            }
     }
 
     public void Reset() => Reset(ScreenKind.Other, 0);
@@ -76,5 +104,6 @@ public sealed class RecognitionTracker
         _kind = kind;
         _slotCount = slots;
         _best.Clear();
+        _relics.Clear();
     }
 }

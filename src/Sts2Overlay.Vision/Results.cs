@@ -114,4 +114,8 @@ public sealed record ScreenRecognition(
     IReadOnlyList<RecognizedCard> Slots,
     ScreenGate Gate,
     double ElapsedMs,
-    string Detail);
+    string Detail)
+{
+    /// <summary>Shop: the three merchant relic slots (identified, empty or unknown); empty elsewhere or without a relic reader.</summary>
+    public IReadOnlyList<global::Sts2Overlay.Vision.Relics.RecognizedRelic> Relics { get; init; } = [];
+}
