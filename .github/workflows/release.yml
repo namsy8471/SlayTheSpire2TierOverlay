@@ -117,10 +117,21 @@ jobs:
         if: steps.version.outputs.skip != 'true'
         run: |
           $ver = '${{ steps.version.outputs.version }}'
-          dotnet vpk pack --packId namsy8471.Sts2Overlay --packVersion $ver --packDir publish --mainExe Sts2Overlay.exe `
-            --packTitle "STS2 티어 오버레이" --packAuthors namsy8471 --icon src/Sts2Overlay.App/Assets/Sts2Overlay.ico `
-            --runtime win-x64 --outputDir releases
-          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $pack = @('vpk', 'pack', '--packId', 'namsy8471.Sts2Overlay', '--packVersion', $ver, '--packDir', 'publish',
+            '--mainExe', 'Sts2Overlay.exe', '--packTitle', 'STS2 티어 오버레이', '--packAuthors', 'namsy8471',
+            '--icon', 'src/Sts2Overlay.App/Assets/Sts2Overlay.ico', '--runtime', 'win-x64', '--outputDir', 'releases')
+          dotnet @pack
+          if ($LASTEXITCODE -ne 0) {
+            # 델타는 vpk에 딸린 zstd.exe가 만드는데, 이 영어(cp1252) 러너에서는 한글이 든 파일 경로
+            # ("STS2 티어 오버레이_ExecutionStub.exe")를 열지 못해 실패합니다 (v0.1.1 첫 시도).
+            # 델타 없이 다시 묶습니다: 업데이트는 full 패키지로 받으므로 조금 더 받을 뿐 똑같이 됩니다.
+            Write-Host '::warning::vpk pack failed (likely delta creation). Retrying with --delta none.'
+            Get-ChildItem releases -File |
+              Where-Object { $_.Name -like "*-$ver-*" -or $_.Name -like '*-Setup.exe' -or $_.Name -like '*-Portable.zip' } |
+              Remove-Item -Force
+            dotnet @pack --delta none
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+          }
           Get-ChildItem releases | Format-Table Name, Length -AutoSize
 
       # 태그가 이미 있으면(push 트리거) 그 태그에, 수동 실행이면 이 커밋에 새 태그를 붙여 Release를 공개합니다.
