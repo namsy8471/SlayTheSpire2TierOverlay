@@ -50,7 +50,7 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
             if (def is null) return null;
             var p = def.FindPage(page) ?? def.InitialPage;
             if (p is null) return null;
-            options = p.Options;
+            options = EventSlots.Displayed(p); // the page's buttons: no greyed-out faces or lone fallbacks
             pageName = p.Page;
         }
 
