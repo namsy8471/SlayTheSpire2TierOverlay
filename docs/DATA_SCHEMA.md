@@ -19,7 +19,9 @@ data/packs/<팩 이름 또는 게임 버전>/
 ├─ archetypes/*.json     아키타입 목록
 ├─ combos/*.json         콤보 목록
 ├─ aliases.json          (선택) 옛 ID → 현재 ID
-└─ catalog.json          (선택) 카드 카탈로그. 보통 넘겨받음 (아래 참고)
+├─ catalog.json          (선택) 카드 카탈로그. 보통 넘겨받음 (아래 참고)
+├─ events.stats.json     (선택) 이벤트·고대 선택지를 상위 플레이어가 고른 비율 (§9)
+└─ relics.json           (선택) 유물을 상위 플레이어가 사거나 고른 비율 (§10)
 
 data/catalog/cards.v0.107.1.json   커밋된 이름 없는 카드 카탈로그 (§8)
 ```
@@ -27,7 +29,8 @@ data/catalog/cards.v0.107.1.json   커밋된 이름 없는 카드 카탈로그 (
 - 모든 부분이 선택입니다. 없는 파일은 기본값(`weights.json`) 또는 빈 목록이 됩니다.
 - 하위 폴더에서는 `*.json` 파일만 읽고, 파일 이름의 사전순으로 읽습니다. 파일 이름 자체에는 의미가 없습니다(캐릭터는 파일 내용으로 정합니다).
 - 카탈로그 우선순위: `LoadDirectory(dir, catalog)`로 넘긴 객체 → `LoadDirectory(dir, catalogPath: "data/catalog/cards.v0.107.1.json")`로 넘긴 파일 → 폴더의 `catalog.json`. 파일 하나만 읽을 때는 `DataPackLoader.LoadCatalogFile(path)`를 씁니다(레포 기준 경로는 `DataPackLoader.DefaultCatalogRelativePath`).
-- 계획만 있고 아직 로더가 읽지 않는 파일: `manifest.json`(PLAN §6.6), `relics.json`(v2), `user_overrides.json`, `data/schema/*.schema.json`.
+- `events.stats.json`·`relics.json`이 없으면 `DataPack.EventStats`·`RelicStats`가 null이고, 이벤트·유물 점수는 파일이 없던 때와 똑같습니다.
+- 계획만 있고 아직 로더가 읽지 않는 파일: `manifest.json`(PLAN §6.6), `user_overrides.json`, `data/schema/*.schema.json`.
 
 ## 2. 공통 규칙
 
@@ -70,8 +73,8 @@ ID는 게임 모델 ID 그대로입니다. 게임이 ID를 바꾼 경우(예: `R
 | JSON 값 종류 | 동작 | 예 |
 |---|---|---|
 | 숫자·문자열 | 적은 값으로 교체 | `"wArch": 30` |
-| 중첩 객체 (`skip`, `shop`, `completion`, `cardOdds`, `cardOdds.eliteReward`, `cardOdds.pity` 등) | **병합**: 적은 속성만 바뀌고 나머지는 기본값 유지 | `"skip": { "margin": 1 }` → `t0`, `lambdaSize` 유지 |
-| 사전 (`tierValue`, `targets`, `urgency`, `idealDeckSize`, `skip.t0`, `skip.basicPickBias`, `completion.poolSize`, `shop.cardPrice`, `shop.characterCardSlots`, `shop.colorlessCardSlots`) | **키 단위 병합**: 적은 키의 값만 교체(값이 사전이면 그 값 전체를 교체), 나머지 키 유지 | `"tierValue": { "S": 90 }` → A~D 유지 |
+| 중첩 객체 (`skip`, `shop`, `completion`, `cardOdds`, `cardOdds.eliteReward`, `cardOdds.pity`, `events` 등) | **병합**: 적은 속성만 바뀌고 나머지는 기본값 유지 | `"skip": { "margin": 1 }` → `t0`, `lambdaSize` 유지 |
+| 사전 (`tierValue`, `targets`, `urgency`, `idealDeckSize`, `skip.t0`, `skip.basicPickBias`, `completion.poolSize`, `shop.cardPrice`, `shop.characterCardSlots`, `shop.colorlessCardSlots`, `events.maxHpFactor`, `events.relicTier`) | **키 단위 병합**: 적은 키의 값만 교체(값이 사전이면 그 값 전체를 교체), 나머지 키 유지 | `"tierValue": { "S": 90 }` → A~D 유지 |
 | 배열 (`weakRoles`) | 통째로 교체 | `"weakRoles": ["block"]` |
 
 예: `"targets": { "CHARACTER.DEFECT": { "1": { ... } } }`는 `"default"`를 그대로 두고 디펙트 목표치를 추가합니다. 반대로 `"urgency": { "2": { "block": 2 } }`는 2막의 역할별 사전 전체를 `{ "block": 2 }`로 바꿉니다(1·3막은 유지).
@@ -88,10 +91,10 @@ ID는 게임 모델 ID 그대로입니다. 게임이 ID를 바꾼 경우(예: `R
 | `upgradedSupplyMultiplier` | 숫자 | 1.2 | 강화된 덱 카드의 역할 공급 배수 | §7.1 필요 |
 | `wArch` | 숫자 | 20 | 빌드 점수 계수 `W_arch` | §7.1 빌드 |
 | `buildCap` | 숫자 | 25 | 빌드 점수 상한 | §7.1 빌드 |
-| `buildCapWeak` | 숫자 | 12 | 약한 역할이 목표 미달일 때의 빌드 상한 | §7.1 규칙 3 |
+| `buildCapWeak` | 숫자 | 12 | 약한 역할이 목표 미달일 때의 빌드 상한. core를 확보한 빌드의 카드에는 쓰지 않음(위급이면 다시 씀, `corePriority.emergency*`) | §7.1 규칙 3 |
 | `weakThreshold` | 0..1 | 0.5 | 약한 역할 공급/목표 비율이 이 값 미만이면 `buildCapWeak` 적용 | §7.1 규칙 3 |
 | `weakRoles` | 문자열 배열 | `["block","draw"]` | 약점 우선 규칙을 보는 역할 | §7.1 규칙 3 |
-| `offBuildPenalty` | 숫자 | 10 | commit ≥ 기준인데 빌드 밖 카드일 때 감점 | §7.1 빌드 |
+| `offBuildPenalty` | 숫자 | 10 | commit ≥ 기준인데 빌드 밖 카드일 때 감점. 그 빌드의 테마 카드(`onTheme` 또는 `needs`의 tag를 provides/consumes)는 감점 없음. 확정 빌드에 "빌드 필수 카드" 바닥값이 있으면 `감점 + 바닥값 < 티어 두 칸`이 되도록 `2 × (A − B) − 바닥값 − 1`로 줄임 | §7.1 빌드 |
 | `commitThreshold` | 0..1 | 0.7 | 엔진 전역의 "빌드 확정" 기준(스킵 등) | §7.1, §7.2 |
 | `hybridMargin` | 0..1 | 0.15 | 상위 두 아키타입 commit 차이가 이 이하면 하이브리드 | §7.5 |
 | `corePriority.bonus` | 숫자 ≥ 0 | 15 (= 티어 한 칸) | 빠진 core 카드 가산 "코어 확보"의 최대값. `starter + (bonus − starter) × ramp` | §7.1 코어 먼저 |
@@ -108,6 +111,12 @@ ID는 게임 모델 ID 그대로입니다. 게임이 ID를 바꾼 경우(예: `R
 | `corePriority.runActs` | 정수 ≥ 1 | 3 | 런의 막 수. 끝나지 않은 막마다 보스 보상(희귀 3장) 1번 | §7.1 코어 먼저 |
 | `corePriority.essentialTarget` | 정수 ≥ 0 | 2 | core를 얻은 뒤 support(서브 시너지)가 제값을 받기 전에 필요한 서로 다른 필수 시너지(payoff + enabler) 수. 아키타입 `essentialTarget`이 있으면 그것 | §7.1 필수 시너지 |
 | `corePriority.subBeforeEssential` | 0..1 | 0.4 | core는 있지만 필수 시너지가 목표보다 적을 때 support 카드 시너지에 곱함 | §7.1 필수 시너지 |
+| `corePriority.securedEssentialFloor` | 숫자 ≥ 0 | 27 | core를 확보한 덱 빌드(commit 무관)의 필수 시너지(payoff·enabler) 카드가 받는 시너지의 최소값 "빌드 필수 카드". 27 = 티어 한 칸(15) + 보통 역할 부족(~6) + 드로우 카드의 덱 비대 이점(~6): 한 티어 위 범용 카드는 이기고 두 티어 위(30)는 못 이김. 30 이상이면 검증기 경고, 0이면 끔 | §7.1 빌드 필수 카드 |
+| `corePriority.securedEssentialExtra` | 정수 ≥ 0 | 2 | 필수 시너지를 `essentialTarget + 이 값`장 넘게 가지면 바닥값이 줄기 시작(빌드 완성 → 부족한 역할이 다시 이김) | §7.1 빌드 필수 카드 |
+| `corePriority.securedEssentialTaper` | 0..1 | 0.5 | 넘친 필수 시너지 한 장마다 바닥값에서 빼는 비율 | §7.1 빌드 필수 카드 |
+| `corePriority.emergencyRoles` | 역할 배열 | `["block"]` | 부족하면 "위급"인 역할. **통째로 교체** | §7.1 빌드 필수 카드 |
+| `corePriority.emergencyGap` | 0..1 | 0.7 | 위급 역할의 부족도(1 = 공급 0)가 이 값 이상(공급이 목표의 30% 미만)이면 위급. HP가 `situation.lowHpThreshold` 미만이어도 위급 | §7.1 빌드 필수 카드 |
+| `corePriority.emergencyFactor` | 0..1 | 0.5 | 위급일 때 "빌드 필수 카드" 바닥값에 곱함. 위급이면 `buildCapWeak`도 다시 적용되고, 약한 덱이면 바닥값도 `buildCapWeak`를 넘지 않음 | §7.1 빌드 필수 카드 |
 | `comboCap` | 숫자 | 15 | 콤보 점수 상한 | §7.1 콤보 |
 | `wNeed` | 숫자 | 25 | 필요 점수 계수 `W_need` | §7.1 필요 |
 | `targets` | `{캐릭터 또는 "default": {막: {역할: 숫자}}}` | `default`: 1막 frontload3 aoe1 block2.5 scaling0.5 draw1 / 2막 3.5·1.5·3.5·1.5·2 / 3막 3.5·2·4·2.5·3 | 막별 역할 공급 목표치 | §7.1 필요 |
@@ -161,6 +170,9 @@ ID는 게임 모델 ID 그대로입니다. 게임이 ID를 바꾼 경우(예: `R
 | `completion.supportWeight` | 숫자 | 56 | 완성도 %에서 enabler·support 카드 가중치(참고 사이트 `rec`) | §7.5 |
 | `completion.poolSize` | `{희귀도: 정수}` | common20 uncommon35 rare25 | 카탈로그가 없을 때 캐릭터 풀 크기 (v0.107.1 카탈로그의 캐릭터별 싱글플레이 수) | §7.5 |
 | `completion.cardsPerReward` | 정수 | 3 | 카드 보상 한 번의 카드 수 | §7.5 |
+| `events.measuredBlend` | 0..1 | 0.5 | `events.stats.json`의 측정 선택률을 이벤트 점수에 섞는 비율. 0이면 효과 공식만 씀(파일이 없을 때와 같음). 식은 §9 | 이벤트 |
+| `events.measuredScale` | 숫자 ≥ 0 | 20 | 선택률이 무작위보다 1.0 높을 때의 점수. 지금 공식 값의 폭(변화 16~28, 유물 13~24)과 비슷하게 둠 | 이벤트 |
+| `events.*` (그 밖) | | `EventWeights` 기본값 | 이벤트 효과 점수(`goldValue`, `maxHpFactor`, `relicTier`, `cursePenalty` 등). 지금까지 코드 상수였고 이제 `weights.json`에서 덮어쓸 수 있음 [추정] | 이벤트 |
 
 역할 이름(`Roles`): `frontload`, `aoe`, `block`, `scaling`, `draw`, `energy`, `exhaust_fodder`.
 
@@ -253,7 +265,8 @@ ID는 게임 모델 ID 그대로입니다. 게임이 ID를 바꾼 경우(예: `R
 | `coreTarget` | 정수 ≥ 1 | 1 | 빌드가 돌아가려면 필요한 서로 다른 core 카드 수. 이만큼 갖기 전까지 빠진 core를 "코어 확보"로 밀어 주고, 다른 카드 시너지는 `보유 core / coreTarget` 비율로만 반영. core 카드 수보다 크면 그 수로 줄임 |
 | `essentialTarget` | 정수 ≥ 0 또는 생략 | (`corePriority.essentialTarget`) | 이 빌드의 support 카드가 제값을 받기 전에 필요한 필수 시너지(payoff + enabler) 수. 필수 카드 수보다 크면 그 수로 줄임 |
 | `keyRelics` | `[{id, w}]` | `[]` | 핵심 유물과 commit 가중치(`w` 기본 1.0) |
-| `needs` | `[{tag?, role?, min}]` | `[]` | 요구 조건. `role`은 역할 공급과, `tag`는 덱의 `provides` 축 개수와 비교. `min` 기본 1 |
+| `needs` | `[{tag?, role?, min}]` | `[]` | 요구 조건. `role`은 역할 공급과, `tag`는 덱의 `provides` 축 개수와 비교. `min` 기본 1. 티어 항목이 이 `tag`를 provides/consumes하는 카드는 테마 카드(`onTheme`과 같은 취급) |
+| `onTheme` | 카드 ID 배열 | `[]` (생략 가능) | `cards`와 같은 높이(형제)에 둡니다. 빌드에 어울리지만 역할 목록에 넣을 만큼은 아닌 카드. 빌드가 확정돼도 오프빌드 감점을 받지 않고, commit·시너지 점수는 없음. 같은 아키타입의 역할 목록(core/enabler/payoff/support)과 겹치면 검증 오류. 다른 아키타입의 역할 카드인 것은 괜찮음 |
 | `desc` | 문자열 | null | 한 줄 설명 (한국어) |
 | `guideHeroCard` | 카드 ID | null | 빌드 모음 탭의 대표 카드 |
 
@@ -275,6 +288,9 @@ ID는 게임 모델 ID 그대로입니다. 게임이 ID를 바꾼 경우(예: `R
   2. **코어 전에는 확정 아님**: 점수기에서는 `CoreSecured`인 빌드만 commit ≥ `commitThreshold`일 때 "확정"으로 보고 오프빌드 감점을 줍니다(감지기 commit·예측은 그대로).
   3. **코어 확보**: `CoreSecured`가 아닌 A의 빠진 core 카드에 `core_priority = (starter + (bonus − starter) × ramp) × (1 − coreFactor) × weak` (`starter` = `starterMaxAct`까지, 그리고 core를 확보한 빌드가 아직 없을 때만 `starterBonus`, `ramp` = A가 기울어 있으면 `clamp(commit/leanFull)` 아니면 0, `weak` = 약한 덱이면 `weakFactor`, `requires` 축이 없으면 0). 여러 빌드 중 가장 큰 값 하나만. `coreTarget` 2면 두 번째 core는 절반.
   4. **필수 → 서브 시너지**: core를 하나라도 가진 뒤, `OwnedEssential < EssentialTarget`이면 A의 support 카드 시너지 × `subBeforeEssential` (빌드 설명에 "보조 시너지 40% (필수 시너지 n/2 전)"). payoff·enabler는 바로 제값.
+  5. **빌드 필수 카드** (`secured_essential`): core 카드가 있는 A가 `CoreSecured`(core를 `coreTarget`장 보유)이고 덱의 빌드이면(commit이 가장 높거나 `hybridMargin` 안), commit과 상관없이 A의 payoff·enabler 카드의 시너지(`build + core_missing`)를 바닥값까지 올립니다: `secured_essential = max(0, 바닥 − 시너지)`, `바닥 = securedEssentialFloor × taper × 위급` (core가 들어온 순간 바로 전부), `taper` = 필수 시너지가 `EssentialTarget + securedEssentialExtra`장 넘으면 한 장마다 `securedEssentialTaper`씩 감소, `위급` = 위급이면 `emergencyFactor`. 여러 빌드 중 가장 큰 바닥 하나만, `requires` 축이 없으면 0, 자원 과잉 감쇠 대상. 위급하고 약한 덱이면 바닥값은 `buildCapWeak` 이하. 결과: 확보한 빌드의 필수 카드는 한 티어 위 범용 카드(드로우 등)보다 먼저, 두 티어 위 카드보다는 뒤. 확정 빌드(commit ≥ `commitThreshold`)에서 역할 부족이 없는 범용 카드는 원래 오프빌드 −10을 받는데, 그대로 두면 바닥값 27과 합쳐 37점 차로 두 티어 위 카드까지 이기므로, 바닥값이 있는 동안 오프빌드 감점을 `max(0, 2 × (A − B) − 바닥값 − 1)`(기본 2)로 줄입니다. 빌드가 끝나 바닥값이 줄면 감점은 다시 10까지 돌아옵니다.
+  6. **약점 상한 예외**: 덱이 약해도(규칙 3) 카드가 core를 확보한 빌드의 카드면 `buildCapWeak` 대신 `buildCap`. 위급이면 다시 `buildCapWeak`.
+  7. **테마 카드**: 확정된 빌드의 `onTheme` 카드나 빌드 `needs`의 tag를 provides/consumes하는 카드(예: 독 빌드의 독 카드)는 오프빌드 감점이 없습니다. 시너지·commit은 주지 않습니다.
 - **빌드 역할 표시** (`CardEvaluation.BuildRoles`): 제시된 카드가 어느 빌드의 코어 / 필수 시너지 / 서브 시너지인지, 현재 commit 높은 빌드 순으로 최대 2개 ("냉기·밀집 구체 코어 · 파워 서브 시너지"). 보상·상점·이벤트 카드 줄에 표시.
 - **충족 안 된 요구**: `role` 요구는 `역할 공급[role] < min`, `tag` 요구는 `provides 개수[tag] < min`이면 미충족. 해당 입력이 없으면(null) 그 검사는 건너뜁니다.
 - **정렬**: commit 내림차순 → 완성도 내림차순 → id 사전순.
@@ -355,7 +371,53 @@ ID는 게임 모델 ID 그대로입니다. 게임이 ID를 바꾼 경우(예: `R
 
 v0.107.1 캐릭터 풀 크기 (싱글플레이): 모든 캐릭터가 일반 20 / 고급 35 / 희귀 25 / 고대 2, 기본은 아이언클래드 3·나머지 4. 멀티플레이는 고급 36 / 희귀 26 (사일런트는 싱글 전용 고급 1장이 빠지고 멀티 전용 1장이 들어와 고급 35). 무색: 싱글 고급 32 / 희귀 21, 멀티 39 / 25. 디펙트 카드는 모두 88장.
 
-## 9. 검증 규칙 (`DataPackValidator`)
+## 9. `events.stats.json` (측정 선택률, 선택)
+
+상위 플레이어가 이벤트·고대에서 각 선택지를 고른 비율입니다(v2: OP.GG 랭커 A10 바닐라 솔로, 근거 [`docs/research/v2-stats/events.md`](research/v2-stats/events.md)). `EventScorer`가 효과 공식 점수에 섞습니다. 파일이 없으면 점수는 공식 그대로입니다.
+
+```jsonc
+{ "version": 1, "source": "opgg-top-a10-2026-11",
+  "events":   { "ABYSSAL_BATHS": { "INITIAL": { "k": 2, "options": { "ABSTAIN": { "choiceRate": 0.648, "byAct": { "3": 0.7 } } } } } },
+  "ancients": { "NEOW": { "LEAD_PAPERWEIGHT": { "pickRate": 0.62 } } } }
+```
+
+| 필드 | 타입 | 의미 |
+|---|---|---|
+| `events.<이벤트>.<페이지>.k` | 정수 ≥ 1 | 표본에서 그 페이지에 보인 선택지 수. 무작위로 고르면 `1/k` |
+| `events.<이벤트>.<페이지>.options.<선택지>.choiceRate` | 0..1 | 그 페이지에서 이 선택지를 고른 비율 |
+| `…options.<선택지>.byAct` | `{막: 0..1}` | 그 막의 비율이 전체와 안정적으로 다를 때만 적음. 그 막에서만 `choiceRate` 대신 씀 |
+| `ancients.<고대>.<선택지>.pickRate` | 0..1 | 이 선택지가 제시됐을 때 고른 비율 |
+| 그 밖 (`n`, `players`, `dirBoot`, `bandBoot`, `basis` …) | | 근거 자료. 실행 중에는 읽지 않음 |
+
+- 키는 `events.json`의 선택지 키 `<이벤트>.pages.<페이지>.options.<선택지>`를 세 단계로 나눈 것입니다. 고대 선택지는 `<고대>.pages.INITIAL.options.<선택지>`(`NeowOptions`와 같은 이름, 유물 ID에서 `RELIC.`을 뺀 것)로 찾습니다.
+- 점수: 보이는 페이지의 선택지마다 `점수 = 공식 + events.measuredBlend × events.measuredScale × (비율 − 무작위 비율)`. 무작위 비율은 이벤트 `1/k`, 고대 `1/제시된 선택지 수`(모르면 3). 항목이 없는 선택지는 공식 값 그대로이고, 다음 페이지 미리보기에는 섞지 않습니다. 설명에 "상위 플레이어 72% 선택"이 붙습니다.
+- 검증 오류(`DataPackValidator`): 선택률·`byAct` 값이 0..1 밖, `k` < 1, `byAct` 막 < 1. `weights.json`의 `events.measuredBlend`가 0..1 밖이거나 `events.measuredScale`이 음수여도 오류입니다.
+
+## 10. `relics.json` (측정 유물 선택률, 선택)
+
+유물은 원래 희귀도 값(`events.relicTier`)으로만 평가합니다. 이 파일은 상점 구매율과 고대 선택률로 그 값을 조정합니다(엘리트·보물·보스 보상 유물은 99.9% 가져가서 선택 신호가 없어 항목이 없습니다).
+
+```jsonc
+{ "version": 1, "source": "opgg-top-a10-2026-11", "shopMedianPickRate": 0.327, "ancientNeutralPickRate": 0.333,
+  "relics": { "RELIC.MINIATURE_TENT": { "signal": "shop", "use": true, "pickRate": 0.645, "tier": "A" } } }
+```
+
+| 필드 | 타입 | 의미 |
+|---|---|---|
+| `shopMedianPickRate` | (0, 1] | 상점 유물 구매율의 중앙값. 구매는 골드에 묶여 있어 상점 비율은 이 값에 대한 비로만 씀 |
+| `ancientNeutralPickRate` | (0, 1] | 고대에서 무작위로 고를 때의 비율(1/3) |
+| `relics.<RELIC.X>.signal` | `shop` 또는 `ancient:<고대>` | 비율을 어디서 쟀는지 |
+| `….use` | bool (필수) | 실행 중에 쓸지. `false` = 불확실 → 희귀도 값 유지 |
+| `….pickRate` | 0..1 | 구매율 또는 선택률 |
+| `….tier` | S..D 또는 null | 등급 구간이 안정할 때만 적은 참고 표시. 점수에는 쓰지 않음 |
+| 그 밖 (`n`, `eff_n`, `players`, `bandBoot`, `presenceLift` …) | | 근거 자료 |
+
+- 유물 값 = 희귀도 값 × `clamp(pickRate / 기준, 0.5, 1.5)` (`use: true`일 때만). 기준은 `signal: "shop"`이면 `shopMedianPickRate`, 아니면 `ancientNeutralPickRate`.
+- 고대 선택지에 `events.stats.json`의 `pickRate`가 있어 선택률 블렌드(§9)가 붙으면, 그 선택지의 유물에는 이 배수를 곱하지 않습니다. 두 숫자가 같은 고대 선택에서 잰 값이라 두 번 세게 되기 때문입니다. 배수는 선택지 단위 통계가 없는 유물(선택률 항목이 없는 고대 선택지, 이벤트의 `relic` 효과)에만 씁니다.
+- 쓰는 곳: `EventScorer`가 ID를 아는 유물을 줄 때(`relic` 효과, 고대 선택지), `ShopScorer.RelicValue`. 상점 화면 인식기가 아직 유물을 읽지 않아 상점 추천 목록에는 유물 항목이 없습니다. `RelicValue`는 그 항목이 생기면 쓸 값입니다.
+- 검증 오류(`DataPackValidator`): 유물 ID가 `RELIC.X`가 아님, `use` 없음(참/거짓 필수), `pickRate`가 0..1 밖, `tier`가 S..D나 null이 아님, `signal`이 `shop`이나 `ancient:<ID>`가 아님, `shopMedianPickRate`·`ancientNeutralPickRate`가 (0, 1] 밖.
+
+## 11. 검증 규칙 (`DataPackValidator`)
 
 `Validate(pack)`는 `ValidationIssue(Severity, Where, Message)` 목록을 돌려줍니다. `Where`는 `tiers[CHARACTER.DEFECT].cards[CARD.X].roles.block`처럼 문제 위치를 가리킵니다.
 
@@ -365,17 +427,17 @@ v0.107.1 캐릭터 풀 크기 (싱글플레이): 모든 캐릭터가 일반 20 /
 |---|---|
 | ID | 카드·유물·캐릭터 ID가 §2.2 형식이 아님 (티어 팩 키, 아키타입 카드·유물·캐릭터, `guideHeroCard`, 콤보 카드·캐릭터, 별칭 키·값) |
 | 티어 항목 | `roles` 값이 0..1 밖, `confidence`가 0..1 밖, `dupFactor`가 0..3 밖, `cycle`이 0..1 밖, `upgradedDelta`가 유한수가 아님, `actTier` 막 < 1, `cost` < 0 |
-| 아키타입 | id 없음, **id 중복**, 카드 0장, `fullWeight` ≤ 0, `commitThreshold`가 (0, 1] 밖, `coreTarget` < 1, `essentialTarget` < 0, `roleWeight` 음수, 유물 `w` 음수, `needs`에 `tag`와 `role`이 모두 없음, `min` 음수 |
+| 아키타입 | id 없음, **id 중복**, 카드 0장, `fullWeight` ≤ 0, `commitThreshold`가 (0, 1] 밖, `coreTarget` < 1, `essentialTarget` < 0, `roleWeight` 음수, 유물 `w` 음수, `needs`에 `tag`와 `role`이 모두 없음, `min` 음수, `onTheme` 카드가 같은 아키타입의 역할 목록에도 있음 |
 | 콤보 | 서로 다른 카드가 2장 미만 |
-| 가중치 | `unknownConfidence`·`commitThreshold`·`hybridMargin`·`weakThreshold`·`skip.lowConfidence`가 0..1 밖, `completion.cardsPerReward` < 1, `poolSize` 값 ≤ 0, `cardOdds.*`의 `rare`/`uncommon`/`rareHighAscension`이 0..1 밖, `rareMultiplierHighAscension`이 0..1 밖, `pity`의 `start`/`cap`이 -1..1 밖이거나 `start > cap`, `pity` step이나 강화 확률이 0..1 밖, `shop.cardPrice` 값 ≤ 0, `priceJitterMin`이 0 이하이거나 `priceJitterMax`보다 큼, `colorlessPriceMultiplier` ≤ 0, `saleMultiplier`가 0..1 밖, `corePriority.bonus`·`starterBonus` 음수, `skip.basicPickBias` 값·`skip.lowConfidenceStep` 음수, `skip.basicShareFull`이 (0, 1] 밖, `leanMin`·`weakFactor`·`noCoreFactor`·`noCoreMaxUnlock`·`noCoreUnlockByAct`·`subBeforeEssential` 값이 0..1 밖, `leanFull`이 (0, 1] 밖, `essentialTarget`·`rewardsPerFloor` 음수, `floorsPerAct`·`runActs` < 1 |
+| 가중치 | `unknownConfidence`·`commitThreshold`·`hybridMargin`·`weakThreshold`·`skip.lowConfidence`가 0..1 밖, `completion.cardsPerReward` < 1, `poolSize` 값 ≤ 0, `cardOdds.*`의 `rare`/`uncommon`/`rareHighAscension`이 0..1 밖, `rareMultiplierHighAscension`이 0..1 밖, `pity`의 `start`/`cap`이 -1..1 밖이거나 `start > cap`, `pity` step이나 강화 확률이 0..1 밖, `shop.cardPrice` 값 ≤ 0, `priceJitterMin`이 0 이하이거나 `priceJitterMax`보다 큼, `colorlessPriceMultiplier` ≤ 0, `saleMultiplier`가 0..1 밖, `corePriority.bonus`·`starterBonus` 음수, `skip.basicPickBias` 값·`skip.lowConfidenceStep` 음수, `skip.basicShareFull`이 (0, 1] 밖, `leanMin`·`weakFactor`·`noCoreFactor`·`noCoreMaxUnlock`·`noCoreUnlockByAct`·`subBeforeEssential` 값이 0..1 밖, `leanFull`이 (0, 1] 밖, `essentialTarget`·`rewardsPerFloor`·`securedEssentialFloor`·`securedEssentialExtra` 음수, `securedEssentialTaper`·`emergencyGap`·`emergencyFactor`가 0..1 밖, `floorsPerAct`·`runActs` < 1 |
 
 **경고(Warning)**: 데이터가 덜 채워졌을 가능성이 큽니다.
 
 | 대상 | 규칙 |
 |---|---|
 | 티어 | 알 수 없는 역할 키, `Tiers` 사전 키와 팩의 `character`가 다름 |
-| 아키타입 | 카드에 티어 항목이 없음, 같은 카드를 두 번 적음, 캐릭터의 티어 팩이 없음, 알 수 없는 `roleWeight` 키·`needs.role`, `guideHeroCard`가 아키타입 카드가 아님, core 카드 0장(코어 먼저 규칙이 적용되지 않음), `coreTarget`이 core 카드 수보다 큼, `essentialTarget`이 필수 시너지 카드 수보다 큼 |
+| 아키타입 | 카드에 티어 항목이 없음, 같은 카드를 두 번 적음, 캐릭터의 티어 팩이 없음, 알 수 없는 `roleWeight` 키·`needs.role`, `guideHeroCard`가 아키타입 카드가 아님, core 카드 0장(코어 먼저 규칙이 적용되지 않음), `coreTarget`이 core 카드 수보다 큼, `essentialTarget`이 필수 시너지 카드 수보다 큼, `onTheme`에 같은 카드를 두 번 적음 |
 | 콤보 | 카드에 티어 항목이 없음, 캐릭터의 티어 팩이 없음, `w` ≤ 0 (효과 없음) |
 | 별칭 | 데이터가 현재 ID 대신 옛 ID(별칭 키)를 씀, 별칭 연쇄 |
 | 카탈로그 | (카탈로그가 있을 때) 티어·아키타입·콤보·별칭 대상 카드 ID가 카탈로그에 없음 |
-| 가중치 | `tierValue`에 빠진 티어, 출처별 `rare + uncommon`이 1 초과, `corePriority.leanFull < leanMin`, `starterBonus > bonus`, `noCoreFactor`에 core·알 수 없는 역할 키 |
+| 가중치 | `tierValue`에 빠진 티어, 출처별 `rare + uncommon`이 1 초과, `corePriority.leanFull < leanMin`, `starterBonus > bonus`, `noCoreFactor`에 core·알 수 없는 역할 키, `securedEssentialFloor` ≥ 티어 두 칸, `emergencyRoles`에 알 수 없는 역할 |

@@ -14,6 +14,8 @@ namespace Sts2Overlay.Core.Data;
 /// aliases.json            (optional) { "OLD_ID": "NEW_ID" }
 /// text.eng.json           (optional) English for the Korean tips, combo names/reasons, archetype descriptions (PackText)
 /// catalog.json            (optional) CardCatalog; usually passed in instead (catalog / catalogPath)
+/// events.stats.json       (optional) EventStats: measured event/ancient choice rates
+/// relics.json             (optional) RelicStats: measured relic pick rates
 /// </code>
 /// JSON uses camelCase, allows comments and trailing commas, and tier letters as strings.
 /// </summary>
@@ -34,6 +36,8 @@ public static class DataPackLoader
     public const string WeightsFile = "weights.json";
     public const string AliasesFile = "aliases.json";
     public const string CatalogFile = "catalog.json";
+    public const string EventStatsFile = "events.stats.json";
+    public const string RelicStatsFile = "relics.json";
     public const string TiersDir = "tiers";
     public const string ArchetypesDir = "archetypes";
     public const string CombosDir = "combos";
@@ -164,6 +168,12 @@ public static class DataPackLoader
             catalog = LoadFile(sibling, LoadCatalog);
         }
 
+        // Measured rates: optional. Absent → null, and the scorers behave exactly as without them.
+        var eventStatsPath = Path.Combine(directory, EventStatsFile);
+        var eventStats = File.Exists(eventStatsPath) ? LoadFile(eventStatsPath, LoadEventStats) : null;
+        var relicStatsPath = Path.Combine(directory, RelicStatsFile);
+        var relicStats = File.Exists(relicStatsPath) ? LoadFile(relicStatsPath, LoadRelicStats) : null;
+
         return new DataPack
         {
             Weights = weights,
@@ -172,8 +182,16 @@ public static class DataPackLoader
             Combos = combos,
             IdAliases = aliases,
             Catalog = catalog,
+            EventStats = eventStats,
+            RelicStats = relicStats,
         };
     }
+
+    /// <summary><c>events.stats.json</c>: measured event and ancient choice rates.</summary>
+    public static EventStats LoadEventStats(string json) => Deserialize<EventStats>(json, "event stats");
+
+    /// <summary><c>relics.json</c>: measured relic pick rates.</summary>
+    public static RelicStats LoadRelicStats(string json) => Deserialize<RelicStats>(json, "relic stats");
 
     /// <summary>Weights with every value the JSON does not mention left at its default.</summary>
     public static Weights LoadWeights(string json) => Deserialize<Weights>(json, "weights");

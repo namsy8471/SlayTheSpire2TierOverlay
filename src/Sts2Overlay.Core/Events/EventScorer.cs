@@ -18,6 +18,11 @@ namespace Sts2Overlay.Core.Events;
 /// gold than the player has is marked unaffordable and never recommended.</item>
 /// <item>An option whose HP loss would kill the player costs <see cref="EventWeights.DeathCost"/>.</item>
 /// <item>An option that leads to another page adds the best option of that page (looked ahead with the changed HP/gold).</item>
+/// <item><b>Measured choices</b> (<see cref="DataPack.EventStats"/>, optional): an option of the shown page that top players
+/// chose more (or less) often than at random gets <c>MeasuredBlend × MeasuredScale × (rate − 1/k)</c> points
+/// (ancients: <c>1/offered</c>). A relic with a stable measured rate (<see cref="DataPack.RelicStats"/>) is scaled by
+/// <see cref="RelicStats.ValueMultiplier"/>, except the relic of an ancient option that has its own measured pick rate
+/// (the same pick, so it would count twice).</item>
 /// </list>
 /// Like card scores, <see cref="ScoreBreakdown.Total"/> is exactly the sum of the shown components.
 /// </summary>
@@ -25,7 +30,9 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
 {
     public DataPack Pack { get; } = pack;
     public EventCatalog Catalog { get; } = catalog;
-    public EventWeights Weights { get; } = weights ?? new EventWeights();
+
+    /// <summary>The given weights, else the pack's (<c>weights.json</c> "events").</summary>
+    public EventWeights Weights { get; } = weights ?? pack.Weights.Events;
 
     /// <summary>
     /// Scores the options of <paramref name="eventId"/>. With <paramref name="offeredKeys"/> (exact text keys from the log) only
@@ -59,9 +66,11 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
             pageName = p.Page;
         }
 
+        // Ancients show a few options of their pool; with the offered set unknown, EventStats assumes the usual count.
+        int? offeredCount = offeredKeys is { Count: > 0 } ? offeredKeys.Count : null;
         var evals = options.Select(o =>
         {
-            var e = ScoreOption(state, profile, def, o, Weights.LookaheadDepth);
+            var e = ScoreShown(state, profile, def, o, offeredCount);
             // "<KEY>_LOCKED" is the game's greyed-out variant of an option (e.g. Wongo's items without enough gold).
             return o.Key.EndsWith(LockedSuffix, StringComparison.Ordinal) ? e with { IsUnaffordable = true } : e;
         }).ToList();
@@ -108,10 +117,43 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
         var rest = EventSlots.Displayed(page)
             .Where(o => !offered.Contains(o.Key) && !o.Key.EndsWith(LockedSuffix, StringComparison.Ordinal))
             .Where(o => possibleKeys is null || possibleKeys.Contains(o.Key))
-            .Select(o => ScoreOption(state, profile, def, o, Weights.LookaheadDepth))
+            .Select(o => ScoreShown(state, profile, def, o, offeredKeys.Count))
             .OrderByDescending(e => e.Total)
             .ToList();
         return rest.Select((e, k) => e with { Rank = k + 1 }).ToArray();
+    }
+
+    /// <summary>
+    /// An option on the shown page: its effect formula plus the measured top-player choice rate (<see cref="WithMeasured"/>).
+    /// An ancient option with a measured <c>pickRate</c> gets only that blend: its relic is valued by rarity, without the
+    /// <c>relics.json</c> multiplier, because both numbers come from the same ancient pick and would count it twice.
+    /// </summary>
+    private EventOptionEvaluation ScoreShown(RunState state, DeckProfile profile, EventDef def, EventOptionDef option, int? offeredCount)
+    {
+        var m = Pack.EventStats is { } stats && Weights.MeasuredBlend > 0 ? stats.Find(option.Key, state.Act, offeredCount) : null;
+        var relicStats = m is { FromAncient: true } ? null : Pack.RelicStats;
+        var e = ScoreOption(state, profile, def, option, Weights.LookaheadDepth, relicStats);
+        return m is { } measured ? WithMeasured(e, measured, state.Act) : e;
+    }
+
+    /// <summary>
+    /// Adds the measured top-player choice rate of an option on the shown page:
+    /// <c>MeasuredBlend × MeasuredScale × (rate − neutral)</c>, explained as "상위 플레이어 72% 선택".
+    /// Not called (the evaluation stays the very same) when the pack has no stats, the option has none, or the blend is 0.
+    /// Applied to the shown page only, not to look-ahead pages: the rate says which button top players press here.
+    /// </summary>
+    private EventOptionEvaluation WithMeasured(EventOptionEvaluation e, MeasuredChoice m, int act)
+    {
+        var value = Weights.MeasuredBlend * Weights.MeasuredScale * (m.Rate - m.Neutral);
+        var label = Loc.T($"상위 플레이어 {m.Rate * 100:0}% 선택", $"Top players pick {m.Rate * 100:0}%");
+        var detail = m.FromAct
+            ? Loc.T($"{act}막 기준, 무작위면 {m.Neutral * 100:0}%", $"Act {act}; random would be {m.Neutral * 100:0}%")
+            : Loc.T($"무작위면 {m.Neutral * 100:0}%", $"random would be {m.Neutral * 100:0}%");
+        return e with
+        {
+            Score = new ScoreBreakdown(e.Score.Components.Append(new ScoreComponent(EventComponentKeys.Measured, label, value, detail))),
+            EffectTexts = [.. e.EffectTexts, m.FromAct ? Loc.T($"{label} ({act}막)", $"{label} (Act {act})") : label],
+        };
     }
 
     private const string LockedSuffix = "_LOCKED";
@@ -138,7 +180,8 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
         return end < 0 ? null : key[start..end];
     }
 
-    private EventOptionEvaluation ScoreOption(RunState state, DeckProfile profile, EventDef def, EventOptionDef option, int depth)
+    private EventOptionEvaluation ScoreOption(RunState state, DeckProfile profile, EventDef def, EventOptionDef option, int depth,
+        RelicStats? relicStats)
     {
         var acc = new List<ScoreComponent>();
         var texts = new List<string>();
@@ -285,8 +328,9 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
                 case EventEffectTypes.Relic:
                 {
                     var n = Math.Max(1, count);
-                    var tierValue = e.Tier is { } t && Weights.RelicTier.TryGetValue(t, out var tv) ? tv : Weights.RelicDefault;
-                    var v = tierValue * n * p;
+                    // Rarity value, scaled by the relic's measured pick rate when relics.json has a stable one (relicStats is null
+                    // for an ancient option already blended with its own pick rate).
+                    var v = Weights.RelicValue(e.Tier, e.Relic, relicStats) * n * p;
                     acc.Add(new(EventComponentKeys.Relic, Loc.T("유물", "Relic"), v, e.Relic));
                     texts.Add((e.Relic is null ? Loc.T("무작위 유물", "Random Relic") : Loc.T("유물", "Relic"))
                         + (n > 1 ? Loc.T($" {n}개", $" ×{n}") : "") + chanceText);
@@ -351,7 +395,7 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
         if (!lethal && depth > 0 && def.FindPage(option.Next) is { Options.Count: > 0 } next)
         {
             var after = state with { Hp = (int)Math.Round(sim.Hp), MaxHp = (int)Math.Round(sim.MaxHp), Gold = (int)Math.Round(sim.Gold) };
-            var nextEvals = next.Options.Select(o => ScoreOption(after, profile, def, o, depth - 1))
+            var nextEvals = next.Options.Select(o => ScoreOption(after, profile, def, o, depth - 1, relicStats))
                 .Where(o => !o.IsUnaffordable && !o.IsLethal).ToList();
             if (nextEvals.Count > 0)
             {
@@ -481,4 +525,7 @@ public static class EventComponentKeys
     public const string Fight = "ev_fight";
     public const string Death = "ev_death";
     public const string Next = "ev_next";
+
+    /// <summary>The measured top-player choice rate (<see cref="Data.EventStats"/>).</summary>
+    public const string Measured = "ev_measured";
 }

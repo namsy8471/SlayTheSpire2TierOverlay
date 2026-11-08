@@ -1,297 +1,363 @@
-# 아이언클래드 빌드 카드 근거
+# 아이언클래드 빌드 카드 근거 (v2)
 
-`data/packs/v0.107.1/archetypes/ironclad.json`의 core·enabler·payoff·support 목록이 어디서 왔는지 정리한 문서입니다. 모든 카드는 상위 플레이어의 실제 승리 덱에 근거하며, Claude의 판단이나 익명 커뮤니티 글은 근거로 쓰지 않았습니다.
+`data/packs/v0.107.1/archetypes/ironclad.json`의 core·enabler·payoff·support 목록과 유물·fullWeight가 어디서 왔는지 정리한 문서입니다. v1(OP.GG 승리 94판)을 같은 방법으로, 훨씬 큰 표본과 더 엄격한 기준으로 다시 계산했습니다.
 역할 이름 대응: core = 핵심, enabler·payoff = 필수 시너지, support = 보조 시너지.
 
-## 1. 출처
+## 1. 표본
 
-1. **주 출처: OP.GG** (국내 랭킹). 캐릭터별 주간 최단 승리 상위 100(2026-11-02~08)과, 거기 오른 플레이어 전원의 최근 승리. 승천 10, 일반 모드, 싱글, 바닐라(게임 플레이 모드 사용 런 제외). 아이언클래드는 **94판·37명**(v0.107.1 31판·10명, v0.111.0 베타 63판·27명).
-   - OP.GG 랭킹 1위 플레이어(솔로 787판, 승률 64.4%, 최고 연승 44)는 따로 봅니다. 아이언클래드 승리 12판, 모두 v0.107.1.
-2. **보조 출처: Baalorlord** (A10 아이언클래드 11연승을 전부 기록으로 남긴 플레이어, Untapped.gg 파트너). 그의 A10 승리 덱 11판(<https://baalorlord.tv/runs/1790959357> 등). 표의 "Baalorlord" 열은 11판 중 그 카드가 있는 덱 수입니다.
-3. **참고만: Spire Codex A10 Lift.** 이 문서의 어떤 카드도 이것만으로 넣거나 빼지 않았습니다.
+- **OP.GG 상위 플레이어 코퍼스**: 캐릭터별 주간 "최단 시간 승리" 상위 100(2026-11-02~08)에 오른 171명 전원의 전체 전적에서, 승천 10·일반 모드·싱글·바닐라(게임플레이 모드 없음)·v0.107.0 이상 승리를 모았습니다. 아이언클래드 승리 **683판·66명**(v0.107.x 270판, 베타 v0.108~v0.111 413판).
+- **우수 플레이어**: A10 v0.107+ 5승 이상이고, 1막을 통과한 판 기준 승률 25% 이상인 플레이어(전체 27명). 아이언클래드 승리 **397판·18명**. 모든 결정은 우수 플레이어 기준이고, 전체 플레이어 값은 함께 보고합니다.
+- **OP.GG 랭킹 1위 플레이어**는 아이언클래드 승리 79판(전체의 12%)이라 플레이어 균형으로 비중을 제한했습니다(아래).
+- **Baalorlord**(A10 아이언클래드 11연승 기록): v1과 같은 보조 출처. 표의 Baalorlord 열은 그의 A10 승리 덱 11판 중 보유 수.
+- 진 판(우수 플레이어의 1막 이후 패배)은 이 문서의 빌드 판정에 쓰지 않았습니다(빌드 판정은 승리 덱 기준).
 
-## 2. 규칙 (다섯 캐릭터 공통)
+## 2. 규칙 (다섯 캐릭터 공통, v2)
 
-- **멤버 덱**: 그 빌드의 축 카드(anchor) 2장 이상을 가진 승리 덱. 카드를 평가할 때는 그 카드를 빼고 센다(leave-one-out). 그래서 카드가 자기 덱을 멤버로 만들어 점유율을 부풀리지 못합니다.
-- **빌드 성립**: 멤버 덱 6판 이상, 4명 이상, 한 사람이 절반 초과 금지. 예외(1위 빌드): 1위가 그 빌드로 4번 이상 이겼으면 성립.
-- **카드 지원(OP.GG)**: 보유 플레이어 3명 이상, lift 1.5 이상(비멤버 덱 대비, 게임 버전으로 층화한 Mantel–Haenszel 비), 점유율 25% 이상 또는 (15% 이상 + 빌드 런에서 5회 이상 제시 중 픽 50% 이상).
-  - 1위 빌드에서는 위 기준 **또는** 1위 경로(1위 멤버 덱의 50% 이상 + lift 1.5 이상) 중 하나.
-  - 베타(v0.108~v0.111)에서 바뀐 카드는 v0.107.x 런만으로 평가합니다(표에 "v0.107만").
-- **보조 출처 구제**: OP.GG 기준 미달이어도 Baalorlord A10 덱 50% 이상(6/11 이상)이고, 카드 자체 효과가 빌드 메커니즘에 작용하고, OP.GG lift가 1.0 이상이면 enabler·payoff·support로 넣을 수 있음(core는 불가).
-- **core**: 지원된 고급(Uncommon)·희귀(Rare) 카드 중 효과상 빌드의 엔진이고, 멤버 덱 40% 이상·4명 이상(1위 빌드는 그의 멤버 덱 50% 이상). 최대 3장. 해당 카드가 없으면 비워 둡니다.
-- **lift 경계**: lift 1.5~1.6은 데이터가 조금만 바뀌어도 빠질 수 있어 표에 "lift 경계"로 표시합니다.
-- 표의 "1위 멤버 덱"은 그 빌드 멤버 덱 중 1위 플레이어 덱에서 그 카드를 가진 수입니다(베타 변경 카드는 v0.107.x 덱만).
+- **버전**: 베타에서 바뀐 카드(BLOODLETTING·COLOSSUS·CRIMSON_MANTLE·CRUELTY·DEMON_FORM·DOMINATE·EXPECT_A_FIGHT·FORGOTTEN_RITUAL·HOWL_FROM_BEYOND·MANGLE·PACTS_END·PRIMAL_FORCE·RAMPAGE·SETUP_STRIKE·TAUNT 등)는 v0.107.x 런에서만 셉니다(멤버십 계산과 카드 평가 모두). 나머지 카드는 v0.107~v0.111 런을 합칩니다.
+- **멤버 덱**: 빌드 축 카드(anchor, v1과 같은 집합) 2장 이상을 가진 승리 덱(타격 자동 사용은 HELLRAISER 1장). 카드를 평가할 때 그 카드를 빼고 멤버십을 다시 셉니다(leave-one-out).
+- **플레이어 균형**: 점유율·lift·픽률은 플레이어별 비율의 가중 평균이며, 한 플레이어 가중치는 전체의 10%를 넘지 못합니다. lift = (멤버 덱 균형 점유율) / (비멤버 덱 균형 점유율). 괄호 안은 원시값.
+- **빌드 인정**: 멤버 덱 25판 이상·6명 이상·한 사람이 절반 이하. 1위 플레이어 빌드 예외는 그의 승리 15판 이상.
+- **카드 지원**: 보유 플레이어 5명 이상, lift 1.5 이상, 균형 점유율 25% 이상(또는 15% 이상이면서 빌드 런의 카드 보상(전투 후 보상 화면만, 상점·이벤트 제외)에서 10번 이상 제시되어 균형 픽률 50% 이상).
+- **core**: 지원 카드 중 고급·희귀이고 효과상 빌드 엔진(미리 정한 후보: 힘 DEMON_FORM·INFLAME·RUPTURE·FIGHT_ME·DOMINATE·BRAND, 소멸 FEEL_NO_PAIN·DARK_EMBRACE, 방어 BARRICADE·JUGGERNAUT·UNMOVABLE, 자해 RUPTURE·INFERNO·CRIMSON_MANTLE, 취약 VICIOUS·CRUELTY, 공격 재사용 STAMPEDE·AGGRESSION, 타격 템포 HELLRAISER·JUGGLING, 타격 자동 사용 HELLRAISER)이며 점유율 40% 이상·5명 이상. 최대 3장.
+- **확실성(부트스트랩)**: 플레이어를 복원 추출해 200번 다시 계산합니다. 지원(또는 core) 판정이 80% 이상에서 유지되면 통과, 20% 이하이면 탈락. 그 사이면 우수 플레이어 표본으로는 결정할 수 없으므로 전체 플레이어 결과를 보고, 그것도 80%/20%를 넘지 못하면 **불확실**: v1 역할을 그대로 두고(새 카드는 추가하지 않음) 표시합니다.
+- **보조 출처 구제**: OP.GG 기준을 통과하지 못한 카드라도 Baalorlord A10 덱 6/11 이상, 카드 효과가 빌드 축에 작용, 우수 플레이어 lift 1.0 이상이 부트스트랩 80% 이상 유지되면 enabler·payoff·support로 둡니다(core 불가).
+- **역할**: 축을 공급하면 enabler, 쌓인 축을 소비·마무리하면 payoff, 그 밖은 support. v1에 있던 카드는 v1 역할을 유지했고, core에서 내려온 카드와 새 카드는 효과로 정했습니다.
+- **유물(keyRelics)**: 멤버 덱 lift 1.5 이상·5명 이상이 부트스트랩 80% 이상 유지. 빌드마다 유물 100여 종을 시험하므로 우연히 통과하는 유물이 많아, 새로 넣는 유물은 효과가 빌드 축에 작용하는 것만 넣었습니다(가중치 0.4). v1 유물은 불확실이면 유지.
+- **fullWeight**: v1과 같은 보정(우수 플레이어 승리 덱의 commit 중앙값, 플레이어 균형). 멤버 중앙값 0.7 미만이거나 비멤버 0.5 초과일 때만 멤버 중앙값 약 0.85가 되도록 0.5 단위, 최솟값 2.0. 부트스트랩의 80% 이상이 ±0.5 안이어야 바꿈.
+- **coreTarget / essentialTarget**: 멤버 승리 덱이 가진 서로 다른 core 카드 수 / enabler·payoff 카드 수의 균형 중앙값. 부트스트랩 80% 이상 같은 값일 때만 씀. core 보유 중앙값은 모든 빌드에서 1이라 coreTarget은 기본값(1)입니다.
 
-## 3. 기존 아키타입
+## 3. 빌드 요약
 
-### 3.1 힘 성장 (`ironclad.strength`)
+| 빌드 | 멤버 덱 (우수) | 플레이어 (우수) | 멤버 덱 (전체) | 플레이어 (전체) | 1위 덱 | v0.107.x (우수) | 빌드 기준 부트스트랩 | core | 카드 수 |
+|---|---|---|---|---|---|---|---|---|---|
+| 힘 성장 (`ironclad.strength`) | 94 | 14 (최대 26%) | 157 | 43 | 16 | 64 | 100% | 없음 | 2 |
+| 소멸 (`ironclad.exhaust`) | 190 | 16 (최대 17%) | 327 | 47 | 32 | 81 | 100% | FEEL_NO_PAIN | 8 |
+| 방어 누적 (`ironclad.block`) | 59 | 11 (최대 20%) | 115 | 34 | 12 | 22 | 98% | BARRICADE | 5 |
+| 자해 (`ironclad.self_damage`) | 75 | 13 (최대 29%) | 126 | 35 | 22 | 42 | 100% | RUPTURE | 6 |
+| 취약 (`ironclad.vulnerable`) | 136 | 17 (최대 24%) | 216 | 45 | 32 | 95 | 100% | 없음 | 6 |
+| 공격 재사용 (`ironclad.attack_replay`) | 55 | 13 (최대 24%) | 108 | 39 | 7 | 25 | 100% | 없음 | 3 |
+| 타격 템포 (`ironclad.strike_tempo`) | 79 | 15 (최대 25%) | 125 | 36 | 7 | 51 | 100% | 없음 | 6 |
+| 타격 자동 사용 (`ironclad.hellraiser`) | 50 | 11 (최대 24%) | 72 | 26 | 11 | 31 | 98% | HELLRAISER | 4 |
 
-표본: 멤버 덱 24판·18명 (한 플레이어 최대 12%), OP.GG 랭킹 1위 플레이어 1판, v0.107.1 10판·6명 / v0.111.0 14판. 축 카드: DEMON_FORM, INFLAME, RUPTURE, BRAND, FIGHT_ME, DOMINATE.
+여덟 빌드 모두 기준을 넘어 유지했습니다(삭제 없음). v1에서 1위 플레이어 예외로 들어왔던 타격 자동 사용도 이제 일반 기준(우수 50판·11명, 한 사람 최대 24%)을 넘습니다.
 
-**core 없음.** 힘 축 카드 중 다른 축 카드 2장을 가진 덱의 40% 이상에 들어가는 카드가 없습니다(최고 FIGHT_ME 33%, INFLAME 28%). INFLAME은 core → enabler. DEMON_FORM은 v0.107.1 멤버 덱 0/10이며, 1위 플레이어의 비멤버 덱 2판에만 있습니다(베타 런을 합쳐도 3/22, lift 0.89).
+## 4. 빌드별 근거
 
-| 카드 | 역할 | 점유율 (LOO, k/N) | lift | 보유 플레이어 | 빌드 내 픽 (픽/제시) | 1위 멤버 덱 | Baalorlord (11판) | 통과 기준 |
-|---|---|---|---|---|---|---|---|---|
-| INFLAME | enabler | 28% (5/18) | 1.62 | 5 | 5/16 | 0/1 | 0 | OP.GG |
-| FIGHT_ME | enabler | 33% (6/18) | 2.32 | 6 | 4/10 | 0/1 | 5 | OP.GG |
-| CONFLAGRATION | payoff | 29% (7/24) | 2.93 | 7 | 6/9 | 0/1 | 0 | OP.GG |
-| UNRELENTING | support | 29% (7/24) | 1.98 | 6 | 8/25 | 0/1 | 6 | OP.GG |
-| VICIOUS | support | 25% (6/24) | 1.59 | 6 | 4/20 | 0/1 | 8 | OP.GG, lift 경계 |
-| DARK_EMBRACE | support | 21% (5/24) | 1.59 | 4 | 5/10 | 0/1 | 0 | OP.GG, lift 경계 |
+### 4.1 힘 성장 (`ironclad.strength`)
 
-대표 런: <https://op.gg/slay-the-spire2/history/7052873> · <https://op.gg/slay-the-spire2/history/7172666> · <https://op.gg/slay-the-spire2/history/7299437>
+축 카드: BRAND, DEMON_FORM, DOMINATE, FIGHT_ME, INFLAME, RUPTURE. 멤버 덱 우수 94판·14명(한 사람 최대 26%, 1위 16판, v0.107.x 64판) / 전체 157판·43명(v0.107.x 101판). 빌드 기준 부트스트랩 우수 100%·전체 100%.
 
-제외한 카드:
-- DEMON_FORM (기존 core): 0% (0/10), lift 0.00, 0명, 빌드 내 픽 0/1, Baalorlord 0/11, v0.107만
-- BRAND (기존 enabler): 11% (2/19), lift 0.78, 2명, 빌드 내 픽 1/8, Baalorlord 3/11
-- DOMINATE (기존 enabler): 14% (1/7), lift 0.26, 1명, 빌드 내 픽 2/4, Baalorlord 5/11, v0.107만
-- RUPTURE (기존 enabler): 12% (2/17), lift 1.22, 2명, 빌드 내 픽 1/11, Baalorlord 0/11
-- WHIRLWIND (기존 payoff): 12% (3/24), lift 0.97, 3명, 빌드 내 픽 2/12, Baalorlord 0/11
-- SWORD_BOOMERANG (기존 payoff): 25% (6/24), lift 1.499, 6명, 빌드 내 픽 6/49, Baalorlord 0/11
-- TWIN_STRIKE (기존 payoff): 17% (4/24), lift 1.78, 4명, 빌드 내 픽 4/47, Baalorlord 5/11
-- THRASH (기존 payoff): 17% (4/24), lift 1.14, 4명, 빌드 내 픽 2/8, Baalorlord 0/11
-- SETUP_STRIKE (기존 support): 30% (3/10), lift 3.15, 2명, 빌드 내 픽 4/21, Baalorlord 0/11, v0.107만
-- ONE_TWO_PUNCH (기존 support): 12% (3/24), lift 0.89, 3명, 빌드 내 픽 2/7, Baalorlord 0/11
+**core: 없음** (v1: 없음).
 
-- SWORD_BOOMERANG은 lift 1.499로 기준(1.5)을 아주 근소하게 밑돌아 제외했습니다. TWIN_STRIKE·SETUP_STRIKE는 새 타격 템포 아키타입(§4.2)에서 지원됩니다.
-- 보조 출처: Baalorlord 50% 이상 카드(TAUNT·CRUELTY·VICIOUS·POMMEL_STRIKE·BLOODLETTING·PERFECTED_STRIKE·FEEL_NO_PAIN·UNRELENTING·SHRUG_IT_OFF) 중 효과가 힘에 작용하는 카드가 없어 구제 대상이 없습니다(VICIOUS·UNRELENTING은 OP.GG 기준으로 이미 지원).
+| 카드 | 역할 | 판정 | 우수: 점유율 (k/N) | lift (원시) | 플레이어 | 빌드 내 픽 | 지원 부트 | core 부트 | 전체: 점유율 (k/N) | lift | 플레이어 | 지원 부트 | Baalorlord |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| CONFLAGRATION | payoff | 불확실(v1 유지) | 22% (23/94) | 1.95 (2.32) | 9 | 47% (17/34) | 43% | – | 23% (37/157) | 1.97 | 17 | 41% | 0 |
+| BLOOD_WALL | support | OP.GG 우수 | 53% (50/94) | 1.82 (1.70) | 11 | 19% (37/201) | 93% | – | 52% (81/157) | 1.52 | 26 | 50% | 0 |
 
-### 3.2 소멸 (`ironclad.exhaust`)
+대표 런(우수 플레이어 멤버 덱, 서로 다른 플레이어): <https://op.gg/slay-the-spire2/history/3952049> · <https://op.gg/slay-the-spire2/history/5870693> · <https://op.gg/slay-the-spire2/history/6441784> · <https://op.gg/slay-the-spire2/history/6616541>
 
-표본: 멤버 덱 56판·25명 (한 플레이어 최대 16%), OP.GG 랭킹 1위 플레이어 5판, v0.107.1 11판·5명 / v0.111.0 45판. 축 카드: FEEL_NO_PAIN, DARK_EMBRACE, EVIL_EYE, FORGOTTEN_RITUAL, ASHEN_STRIKE, PACTS_END, HOWL_FROM_BEYOND, DRUM_OF_BATTLE. 데이터에서 가장 크고 일관된 빌드입니다.
+v1에서 뺀 카드(부트스트랩으로 탈락 확정):
+- DARK_EMBRACE (v1 support): 우수 19%·lift 0.81·8명·지원 부트 2% / 전체 14%·lift 0.68·13명·지원 부트 0% → 우수 기준 탈락. Baalorlord 0/11
+- FIGHT_ME (v1 enabler): 우수 13%·lift 0.70·5명·지원 부트 0% / 전체 13%·lift 0.79·10명·지원 부트 0% → 우수 기준 탈락. Baalorlord 5/11
+- INFLAME (v1 enabler): 우수 20%·lift 0.89·6명·지원 부트 2% / 전체 16%·lift 0.86·12명·지원 부트 0% → 우수 기준 탈락. Baalorlord 0/11
+- UNRELENTING (v1 support): 우수 16%·lift 1.41·8명·지원 부트 2% / 전체 19%·lift 1.21·21명·지원 부트 5% → 우수 기준 탈락. Baalorlord 6/11
+- VICIOUS (v1 support): 우수 31%·lift 1.19·10명·지원 부트 11% / 전체 27%·lift 1.07·19명·지원 부트 0% → 우수 기준 탈락. Baalorlord 8/11
 
-**core FEEL_NO_PAIN** (55%, lift 1.92, 14명, 빌드 내 픽 26/41, 1위 멤버 덱 4/5, Baalorlord 6/11). DARK_EMBRACE는 점유율 24%라 core 기준 미달 → payoff(희귀 카드라 드물지만 제시되면 12/17 픽, lift 4.58; DARK_EMBRACE 덱 15판 중 13판이 FEEL_NO_PAIN도 보유).
+추가하지 않은 불확실 후보(점 추정은 통과하거나 근접했지만 부트스트랩 20~80%):
+- BLOODLETTING: 우수 73%·lift 1.25·10명·지원 부트 21% / 전체 76%·lift 1.40·지원 부트 30%
+- BREAKTHROUGH: 우수 28%·lift 1.77·8명·지원 부트 58% / 전체 29%·lift 1.59·지원 부트 50%
+- INFERNO: 우수 25%·lift 1.41·9명·지원 부트 32% / 전체 27%·lift 1.53·지원 부트 35%
+- SWORD_BOOMERANG: 우수 34%·lift 1.74·8명·지원 부트 68% / 전체 31%·lift 1.48·지원 부트 43%
 
-| 카드 | 역할 | 점유율 (LOO, k/N) | lift | 보유 플레이어 | 빌드 내 픽 (픽/제시) | 1위 멤버 덱 | Baalorlord (11판) | 통과 기준 |
-|---|---|---|---|---|---|---|---|---|
-| FEEL_NO_PAIN | core | 55% (26/47) | 1.92 | 14 | 26/41 | 4/5 | 6 | OP.GG |
-| TRUE_GRIT | enabler | 71% (40/56) | 1.91 | 22 | 30/111 | 3/5 | 4 | OP.GG |
-| TREMBLE | enabler | 66% (37/56) | 1.53 | 19 | 38/109 | 2/5 | 4 | OP.GG, lift 경계 |
-| SECOND_WIND | enabler | 48% (27/56) | 2.67 | 15 | 20/38 | 2/5 | 4 | OP.GG |
-| DARK_EMBRACE | payoff | 24% (13/54) | 4.58 | 10 | 12/17 | 1/5 | 0 | OP.GG |
-| ASHEN_STRIKE | payoff | 29% (15/51) | 1.52 | 11 | 15/41 | 2/5 | 3 | OP.GG, lift 경계 |
-| BLOODLETTING | support | 73% (8/11) | 1.62 | 4 | 6/20 | 4/5 | 7 | OP.GG, v0.107만 |
-| BATTLE_TRANCE | support | 57% (32/56) | 1.59 | 18 | 31/50 | 3/5 | 4 | OP.GG, lift 경계 |
-| HEADBUTT | support | 36% (20/56) | 1.51 | 14 | 21/96 | 1/5 | 0 | OP.GG, lift 경계 |
-| FIGHT_ME | support | 29% (16/56) | 2.64 | 15 | 12/35 | 0/5 | 5 | OP.GG |
+유물: v1 없음 → v2 없음.
+- 통계 기준은 넘었지만 효과가 빌드 축과 무관하거나 확인되지 않아 넣지 않은 유물: BURNING_STICKS, DRAGON_FRUIT, MINIATURE_CANNON
 
-대표 런: <https://op.gg/slay-the-spire2/history/7090350> · <https://op.gg/slay-the-spire2/history/7121129> · <https://op.gg/slay-the-spire2/history/7176719> · <https://op.gg/slay-the-spire2/history/7263598>
+fullWeight 2.0 → 2.0: 새 목록 기준 멤버 덱 commit 중앙값 우수 0.25(원시 0.25)·비멤버 0.00 / 전체 0.25·0.00. 보정값 부트스트랩 ±0.5 안 100%. 적용 후 멤버 0.25·비멤버 0.00.
+목표 수: core 보유 중앙값 – → coreTarget 기본값. enabler·payoff 보유 중앙값 우수 0 (부트 100%, 전체 0) → essentialTarget 설정 안 함.
 
-제외한 카드:
-- CORRUPTION (기존 enabler): 5% (3/56), lift ∞, 2명, 빌드 내 픽 0/0, Baalorlord 0/11
-- BURNING_PACT (기존 enabler): 38% (21/56), lift 1.49, 13명, 빌드 내 픽 22/36, Baalorlord 4/11
-- STOKE (기존 enabler): 23% (13/56), lift 1.49, 9명, 빌드 내 픽 12/19, Baalorlord 0/11
-- FIEND_FIRE (기존 enabler): 16% (9/56), lift 1.02, 8명, 빌드 내 픽 9/28, Baalorlord 0/11
-- BRAND (기존 enabler): 9% (5/56), lift 0.55, 5명, 빌드 내 픽 5/22, Baalorlord 3/11
-- PACTS_END (기존 payoff): 0% (0/10), lift 0.00, 0명, 빌드 내 픽 0/1, Baalorlord 0/11, v0.107만
-- HOWL_FROM_BEYOND (기존 payoff): 0% (0/8), lift 0.00, 0명, 빌드 내 픽 0/2, Baalorlord 3/11, v0.107만
-- DRUM_OF_BATTLE (기존 payoff): 23% (12/52), lift 1.72, 9명, 빌드 내 픽 10/25, Baalorlord 3/11
-- FORGOTTEN_RITUAL (기존 payoff): 0% (0/11), lift 0.00, 0명, 빌드 내 픽 0/11, Baalorlord 0/11, v0.107만
-- EVIL_EYE (기존 payoff): 41% (19/46), lift 1.01, 12명, 빌드 내 픽 15/29, Baalorlord 4/11
-- OFFERING (기존 support): 21% (12/56), lift 0.70, 9명, 빌드 내 픽 10/13, Baalorlord 5/11
+### 4.2 소멸 (`ironclad.exhaust`)
 
-- FORGOTTEN_RITUAL·HOWL_FROM_BEYOND·PACTS_END는 베타에서 바뀐 카드로, v0.107.1 소멸 덱에 한 장도 없습니다(1위는 FORGOTTEN_RITUAL을 13번 제시받아 한 번도 안 집음). v0.111.0에서의 인기는 베타 변경 효과라 v0.107.1 팩에 넣지 않았습니다.
-- BURNING_PACT·STOKE는 lift 1.49로 기준을 근소하게 밑돕니다. EVIL_EYE는 소멸 덱에 41% 있지만 다른 덱에도 35% 있어 이 빌드에 특화되지 않았습니다(lift 1.01).
-- CORRUPTION은 고대 카드로 보상에 나오지 않고, 멤버 덱 3판·2명뿐입니다. 설명(desc)에서 이 카드 언급을 뺐습니다.
-- 유물: ENDLESS_APPETITE(멤버 덱 0판) 제거. CHARONS_ASHES(5명, lift 5.84)·BURNING_STICKS(3명, 2.21)·JOSS_PAPER(8명, 1.54)·FORGOTTEN_SOUL(3명, 비멤버 0판)·TOASTY_MITTENS(3명, 1.60) 유지.
+축 카드: ASHEN_STRIKE, DARK_EMBRACE, DRUM_OF_BATTLE, EVIL_EYE, FEEL_NO_PAIN, FORGOTTEN_RITUAL, HOWL_FROM_BEYOND, PACTS_END. 멤버 덱 우수 190판·16명(한 사람 최대 17%, 1위 32판, v0.107.x 81판) / 전체 327판·47명(v0.107.x 115판). 빌드 기준 부트스트랩 우수 100%·전체 100%.
 
-### 3.3 방어 누적 (`ironclad.block`)
+**core: FEEL_NO_PAIN** (v1: FEEL_NO_PAIN).
 
-표본: 멤버 덱 24판·16명 (한 플레이어 최대 17%), OP.GG 랭킹 1위 플레이어 1판, v0.107.1 4판·3명 / v0.111.0 20판. 축 카드(방어도 유지·변환): BARRICADE, BODY_SLAM, JUGGERNAUT, UNMOVABLE. 축 카드는 베타 변경 카드가 아니라 두 버전을 합쳐 평가했습니다(멤버 덱 대부분이 v0.111.0).
+| 카드 | 역할 | 판정 | 우수: 점유율 (k/N) | lift (원시) | 플레이어 | 빌드 내 픽 | 지원 부트 | core 부트 | 전체: 점유율 (k/N) | lift | 플레이어 | 지원 부트 | Baalorlord |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| FEEL_NO_PAIN | core | OP.GG 전체(우수 미결), core 전체(우수 미결) | 58% (73/125) | 1.51 (1.44) | 13 | 62% (61/103) | 55% | 55% | 61% (133/219) | 1.61 | 35 | 80% | 6 |
+| TRUE_GRIT | enabler | OP.GG 전체(우수 미결) | 57% (109/190) | 1.71 (1.65) | 12 | 25% (99/381) | 78% | – | 58% (191/327) | 1.77 | 39 | 99% | 4 |
+| SECOND_WIND | enabler | OP.GG 전체(우수 미결) | 41% (79/190) | 1.60 (1.46) | 11 | 49% (66/139) | 60% | – | 46% (151/327) | 1.74 | 36 | 88% | 4 |
+| STOKE | enabler | OP.GG 전체(우수 미결) | 29% (54/190) | 1.60 (1.37) | 12 | 67% (43/60) | 62% | – | 31% (102/327) | 1.84 | 30 | 88% | 0 |
+| FORGOTTEN_RITUAL | payoff | OP.GG 우수 | 42% (23/75) | 3.44 (4.99) | 10 | 39% (17/65) | 92% | – | 37% (35/107) | 4.01 | 18 | 98% | 0 |
+| DARK_EMBRACE | payoff | OP.GG 우수 | 31% (46/162) | 1.90 (1.63) | 13 | 68% (38/56) | 84% | 2% | 27% (77/290) | 2.07 | 28 | 92% | 0 |
+| ASHEN_STRIKE | payoff | 불확실(v1 유지) | 30% (42/161) | 1.86 (1.71) | 12 | 32% (32/104) | 72% | – | 31% (84/273) | 1.64 | 31 | 73% | 3 |
+| STONE_ARMOR | support | OP.GG 우수 | 30% (50/190) | 2.07 (1.88) | 12 | 31% (45/163) | 80% | – | 25% (83/327) | 1.27 | 27 | 10% | 4 |
 
-**core 없음, 기존 정체성 상실.** 축 카드끼리 함께 쓰이지 않습니다: BARRICADE 3/14(lift 0.78), BODY_SLAM 3/8(1.21), UNMOVABLE 3/12(0.98), JUGGERNAUT 1/20(빌드 내 제시 12회 중 픽 0). BARRICADE는 v0.111.0에서 DEMON_FORM·EXPECT_A_FIGHT(둘 다 베타 변경)와 함께 쓰여 v0.107.1 팩 근거가 되지 못합니다. 남은 목록은 이 덱들에 비멤버보다 많이 들어간 방어·에너지 카드입니다. 그래서 영어 이름을 "Barricade" → "Block"으로, 설명을 바꿨습니다.
+대표 런(우수 플레이어 멤버 덱, 서로 다른 플레이어): <https://op.gg/slay-the-spire2/history/3724927> · <https://op.gg/slay-the-spire2/history/5870711> · <https://op.gg/slay-the-spire2/history/6868530> · <https://op.gg/slay-the-spire2/history/6696752>
 
-| 카드 | 역할 | 점유율 (LOO, k/N) | lift | 보유 플레이어 | 빌드 내 픽 (픽/제시) | 1위 멤버 덱 | Baalorlord (11판) | 통과 기준 |
-|---|---|---|---|---|---|---|---|---|
-| BLOOD_WALL | enabler | 38% (9/24) | 1.51 | 9 | 7/59 | 1/1 | 0 | OP.GG, lift 경계 |
-| ARMAMENTS | enabler | 29% (7/24) | 1.66 | 6 | 9/58 | 0/1 | 3 | OP.GG |
-| IMPERVIOUS | enabler | 21% (5/24) | 1.73 | 5 | 6/12 | 0/1 | 3 | OP.GG |
-| SHRUG_IT_OFF | enabler | 75% (18/24) | 1.41 | 12 | 17/47 | 1/1 | 6 | Baalorlord 보조 출처 |
-| TAUNT | enabler | 75% (3/4) | 1.69 | 2 | 3/4 | 1/1 | 10 | Baalorlord 보조 출처, v0.107만 |
-| OFFERING | support | 33% (8/24) | 1.55 | 8 | 7/9 | 0/1 | 5 | OP.GG, lift 경계 |
-| PYRE | support | 33% (8/24) | 2.22 | 7 | 5/11 | 0/1 | 0 | OP.GG |
+v1에서 뺀 카드(부트스트랩으로 탈락 확정):
+- BATTLE_TRANCE (v1 support): 우수 49%·lift 1.09·14명·지원 부트 2% / 전체 49%·lift 0.97·37명·지원 부트 0% → 우수 기준 탈락. Baalorlord 4/11
+- BLOODLETTING (v1 support): 우수 68%·lift 1.10·11명·지원 부트 7% / 전체 70%·lift 1.19·25명·지원 부트 11% → 우수 기준 탈락. Baalorlord 7/11
+- FIGHT_ME (v1 support): 우수 21%·lift 1.32·11명·지원 부트 20% / 전체 17%·lift 1.18·25명·지원 부트 0% → 우수 기준 탈락. Baalorlord 5/11
+- HEADBUTT (v1 support): 우수 36%·lift 1.08·12명·지원 부트 4% / 전체 29%·lift 1.12·25명·지원 부트 2% → 우수 기준 탈락. Baalorlord 0/11
+- TREMBLE (v1 enabler): 우수 63%·lift 1.28·15명·지원 부트 12% / 전체 59%·lift 1.20·42명·지원 부트 0% → 우수 기준 탈락. Baalorlord 4/11
 
-대표 런: <https://op.gg/slay-the-spire2/history/7265502> · <https://op.gg/slay-the-spire2/history/7172208> · <https://op.gg/slay-the-spire2/history/7100524>
+추가하지 않은 불확실 후보(점 추정은 통과하거나 근접했지만 부트스트랩 20~80%):
+- BURNING_PACT: 우수 45%·lift 1.36·15명·지원 부트 32% / 전체 48%·lift 1.52·지원 부트 56%
+- DOMINATE: 우수 56%·lift 1.61·10명·지원 부트 62% / 전체 52%·lift 1.52·지원 부트 53%
+- HAVOC: 우수 24%·lift 1.44·9명·지원 부트 30% / 전체 24%·lift 1.69·지원 부트 37%
 
-제외한 카드:
-- BARRICADE (기존 core): 21% (3/14), lift 0.78, 3명, 빌드 내 픽 2/4, Baalorlord 3/11
-- UNMOVABLE (기존 enabler): 25% (3/12), lift 0.98, 3명, 빌드 내 픽 3/4, Baalorlord 0/11
-- FLAME_BARRIER (기존 enabler): 42% (10/24), lift 1.23, 9명, 빌드 내 픽 7/13, Baalorlord 0/11
-- STONE_ARMOR (기존 enabler): 29% (7/24), lift 0.92, 6명, 빌드 내 픽 8/21, Baalorlord 4/11
-- CRIMSON_MANTLE (기존 enabler): 0% (0/4), lift 0.00, 0명, 빌드 내 픽 0/0, Baalorlord 0/11, v0.107만
-- RAGE (기존 enabler): 12% (3/24), lift 1.00, 3명, 빌드 내 픽 4/17, Baalorlord 5/11
-- BODY_SLAM (기존 payoff): 38% (3/8), lift 1.21, 3명, 빌드 내 픽 4/16, Baalorlord 0/11
-- JUGGERNAUT (기존 payoff): 5% (1/20), lift 0.59, 1명, 빌드 내 픽 0/12, Baalorlord 0/11
-- COLOSSUS (기존 support): 25% (1/4), lift 0.75, 1명, 빌드 내 픽 0/2, Baalorlord 0/11, v0.107만
-- IRON_WAVE (기존 support): 21% (5/24), lift 1.96, 4명, 빌드 내 픽 3/48, Baalorlord 0/11
+유물: v1 CHARONS_ASHES, BURNING_STICKS, JOSS_PAPER, FORGOTTEN_SOUL, TOASTY_MITTENS → v2 CHARONS_ASHES (w 0.7), TOASTY_MITTENS (w 0.4).
+- BURNING_STICKS: 우수 기준 근처 아님 / 전체 기준 근처 아님 → 제거
+- CHARONS_ASHES: 우수 lift 1.63·8명·부트 58% / 전체 lift 1.52·15명·부트 56% → 유지 (불확실)
+- FORGOTTEN_SOUL: 우수 기준 근처 아님 / 전체 기준 근처 아님 → 제거
+- JOSS_PAPER: 우수 기준 근처 아님 / 전체 기준 근처 아님 → 제거
+- TOASTY_MITTENS: 우수 lift 3.25·7명·부트 76% / 전체 lift 3.67·15명·부트 99% → 유지
+- 통계 기준은 넘었지만 효과가 빌드 축과 무관하거나 확인되지 않아 넣지 않은 유물: ART_OF_WAR, BIIIG_HUG, DUSTY_TOME, PANDORAS_BOX, SHURIKEN, TOOLBOX
 
-- 보조 출처 구제: SHRUG_IT_OFF(OP.GG lift 1.41, Baalorlord 6/11)와 TAUNT(v0.107.1 3/4·2명, lift 1.69, Baalorlord 10/11)는 스스로 방어도를 얻는 카드라 enabler로 넣었습니다. FEEL_NO_PAIN(Baalorlord 6/11, lift 1.05)은 방어도를 소멸 축을 거쳐서만 얻어 넣지 않았습니다.
-- 유물: ANCHOR(8명, lift 1.89) 유지. STURDY_CLAMP(0.49)·VAMBRACE(0.71)·PARRYING_SHIELD(0.28)·PAELS_LEGION(1명) 제거.
+fullWeight 4.5 → 4.5 (불확실, v1 유지): 새 목록 기준 멤버 덱 commit 중앙값 우수 0.71(원시 0.69)·비멤버 0.23 / 전체 0.73·0.27. 보정값 부트스트랩 ±0.5 안 53%. 적용 후 멤버 0.71·비멤버 0.23.
+목표 수: core 보유 중앙값 1 (부트 100%) → coreTarget 기본값. enabler·payoff 보유 중앙값 우수 2 (부트 97%, 전체 2) → essentialTarget 2.
 
-### 3.4 자해 (`ironclad.self_damage`)
+### 4.3 방어 누적 (`ironclad.block`)
 
-표본: 멤버 덱 13판·11명 (한 플레이어 최대 15%), OP.GG 랭킹 1위 플레이어 2판, v0.107.1 5판·4명 / v0.111.0 8판. 축 카드: RUPTURE, INFERNO, TEAR_ASUNDER, SPITE. 빌드 기준은 넘지만 표본이 얇습니다(LOO 분모 8~13판).
+축 카드: BARRICADE, BODY_SLAM, JUGGERNAUT, UNMOVABLE. 멤버 덱 우수 59판·11명(한 사람 최대 20%, 1위 12판, v0.107.x 22판) / 전체 115판·34명(v0.107.x 38판). 빌드 기준 부트스트랩 우수 98%·전체 100%.
 
-**core INFERNO** (50%, lift 3.82, 4명, 1위 멤버 덱 2/2). TEAR_ASUNDER도 수치(50%, lift 5.22, 4명)는 core 기준을 넘지만, 잃은 체력 횟수만큼 더 때리는 마무리 공격이라 스키마(§5: 쌓인 자원을 터뜨리기만 하는 카드는 payoff)에 따라 payoff로 두었습니다. 두 카드를 함께 가진 멤버 덱은 6/13이라 core가 둘이어도 coreTarget 2 기준(50%)에 못 미칩니다.
+**core: BARRICADE** (v1: 없음).
 
-| 카드 | 역할 | 점유율 (LOO, k/N) | lift | 보유 플레이어 | 빌드 내 픽 (픽/제시) | 1위 멤버 덱 | Baalorlord (11판) | 통과 기준 |
-|---|---|---|---|---|---|---|---|---|
-| INFERNO | core | 50% (4/8) | 3.82 | 4 | 5/9 | 2/2 | 0 | OP.GG |
-| BLOODLETTING | enabler | 80% (4/5) | 1.60 | 4 | 3/11 | 1/2 | 7 | OP.GG, v0.107만 |
-| BLOOD_WALL | enabler | 46% (6/13) | 2.18 | 6 | 4/22 | 1/2 | 0 | OP.GG |
-| BRAND | enabler | 46% (6/13) | 5.98 | 5 | 5/8 | 1/2 | 3 | OP.GG |
-| BREAKTHROUGH | enabler | 46% (6/13) | 2.63 | 6 | 6/22 | 1/2 | 0 | OP.GG |
-| TEAR_ASUNDER | payoff | 50% (4/8) | 5.22 | 4 | 3/4 | 1/2 | 0 | OP.GG |
-| BATTLE_TRANCE | support | 69% (9/13) | 1.53 | 9 | 10/14 | 1/2 | 4 | OP.GG, lift 경계 |
-| FLAME_BARRIER | support | 46% (6/13) | 1.56 | 5 | 4/9 | 0/2 | 0 | OP.GG, lift 경계 |
-| UPPERCUT | support | 38% (5/13) | 1.97 | 5 | 3/6 | 1/2 | 5 | OP.GG |
-| FIEND_FIRE | support | 31% (4/13) | 2.63 | 4 | 4/11 | 0/2 | 0 | OP.GG |
-| UNMOVABLE | support | 31% (4/13) | 1.55 | 4 | 4/5 | 1/2 | 0 | OP.GG, lift 경계 |
-| UNRELENTING | support | 31% (4/13) | 1.82 | 4 | 4/12 | 0/2 | 6 | OP.GG |
-| CONFLAGRATION | support | 23% (3/13) | 1.67 | 3 | 3/5 | 0/2 | 0 | OP.GG |
+| 카드 | 역할 | 판정 | 우수: 점유율 (k/N) | lift (원시) | 플레이어 | 빌드 내 픽 | 지원 부트 | core 부트 | 전체: 점유율 (k/N) | lift | 플레이어 | 지원 부트 | Baalorlord |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| BARRICADE | core | OP.GG 우수, core 우수 | 62% (15/30) | 4.34 (3.40) | 8 | 90% (13/15) | 93% | 91% | 47% (31/66) | 3.16 | 18 | 100% | 3 |
+| SHRUG_IT_OFF | enabler | Baalorlord 보조 출처 | 73% (42/59) | 1.45 (1.48) | 10 | 33% (35/115) | 45% | – | 68% (78/115) | 1.33 | 28 | 6% | 6 |
+| ARMAMENTS | enabler | 불확실(v1 유지) | 41% (23/59) | 1.83 (1.57) | 9 | 14% (17/129) | 78% | – | 37% (43/115) | 1.40 | 22 | 23% | 3 |
+| IMPERVIOUS | enabler | 불확실(v1 유지) | 23% (12/59) | 1.43 (1.30) | 7 | 34% (8/21) | 30% | – | 22% (25/115) | 1.49 | 16 | 33% | 3 |
+| BODY_SLAM | payoff | OP.GG 우수 | 61% (15/25) | 3.62 (3.23) | 8 | 33% (17/54) | 93% | – | 63% (32/51) | 3.20 | 19 | 100% | 0 |
 
-대표 런: <https://op.gg/slay-the-spire2/history/7035633> · <https://op.gg/slay-the-spire2/history/7202800> · <https://op.gg/slay-the-spire2/history/7284933>
+대표 런(우수 플레이어 멤버 덱, 서로 다른 플레이어): <https://op.gg/slay-the-spire2/history/6176418> · <https://op.gg/slay-the-spire2/history/6695107> · <https://op.gg/slay-the-spire2/history/5870896> · <https://op.gg/slay-the-spire2/history/6222079>
 
-제외한 카드:
-- RUPTURE (기존 core): 22% (2/9), lift 3.16, 2명, 빌드 내 픽 2/3, Baalorlord 0/11
-- OFFERING (기존 enabler): 15% (2/13), lift 0.56, 2명, 빌드 내 픽 2/3, Baalorlord 5/11
-- HEMOKINESIS (기존 enabler): 23% (3/13), lift 6.22, 3명, 빌드 내 픽 3/11, Baalorlord 0/11
-- CRIMSON_MANTLE (기존 enabler): 20% (1/5), lift 1.04, 1명, 빌드 내 픽 1/2, Baalorlord 0/11, v0.107만
-- SPITE (기존 payoff): 22% (2/9), lift 3.13, 2명, 빌드 내 픽 2/8, Baalorlord 3/11
-- FEED (기존 support): 15% (2/13), lift 3.03, 2명, 빌드 내 픽 2/5, Baalorlord 0/11
-- NOT_YET (기존 support): 8% (1/13), lift 0.71, 1명, 빌드 내 픽 0/1, Baalorlord 0/11
+v1에서 뺀 카드(부트스트랩으로 탈락 확정):
+- BLOOD_WALL (v1 enabler): 우수 34%·lift 0.96·7명·지원 부트 7% / 전체 47%·lift 1.27·23명·지원 부트 8% → 우수 기준 탈락. Baalorlord 0/11
+- OFFERING (v1 support): 우수 40%·lift 1.33·10명·지원 부트 36% / 전체 31%·lift 0.93·20명·지원 부트 0% → 전체 기준 탈락. Baalorlord 5/11
+- PYRE (v1 support): 우수 21%·lift 1.08·6명·지원 부트 16% / 전체 19%·lift 1.14·13명·지원 부트 12% → 우수 기준 탈락. Baalorlord 0/11
+- TAUNT (v1 enabler): 우수 44%·lift 1.45·4명·지원 부트 22% / 전체 33%·lift 1.04·6명·지원 부트 3% → 전체 기준 탈락. Baalorlord 10/11
 
-- RUPTURE(기존 core)·SPITE는 2/9·2명으로 플레이어 수 미달. HEMOKINESIS는 매우 특화되어 있지만(lift 6.22) 3/13·빌드 내 픽 3/11로 점유율 미달.
-- BLOODLETTING은 베타 변경 카드라 v0.107.1 멤버 덱 5판·4명만으로 평가했습니다(4/5).
-- 유물: RED_SKULL(lift 1.32)·SELF_FORMING_CLAY(1명) 제거.
+추가하지 않은 불확실 후보(점 추정은 통과하거나 근접했지만 부트스트랩 20~80%):
+- UNMOVABLE: 우수 27%·lift 1.54·6명·지원 부트 38% / 전체 31%·lift 1.59·지원 부트 64%
 
-### 3.5 취약 (`ironclad.vulnerable`)
+유물: v1 ANCHOR → v2 없음.
+- ANCHOR: 우수 기준 근처 아님 / 전체 lift 1.31·19명·부트 14% → 제거
+- 통계 기준은 넘었지만 효과가 빌드 축과 무관하거나 확인되지 않아 넣지 않은 유물: ASTROLABE, FRESNEL_LENS, SERE_TALON
 
-표본: 멤버 덱 57판·29명 (한 플레이어 최대 16%), OP.GG 랭킹 1위 플레이어 4판, v0.107.1 19판·8명 / v0.111.0 38판. 축 카드: VICIOUS, CRUELTY, BULLY, DISMANTLE, MOLTEN_FIST, COLOSSUS, DOMINATE.
+fullWeight 2.5 → 2.5: 새 목록 기준 멤버 덱 commit 중앙값 우수 1.00(원시 1.00)·비멤버 0.28 / 전체 1.00·0.28. 보정값 부트스트랩 ±0.5 안 100%. 적용 후 멤버 1.00·비멤버 0.28.
+목표 수: core 보유 중앙값 1 (부트 100%) → coreTarget 기본값. enabler·payoff 보유 중앙값 우수 2 (부트 96%, 전체 2) → essentialTarget 2.
 
-**core 없음.** 승리 덱 절반이 취약 소비 카드를 2장 이상 갖지만, 엔진 카드 없이 여러 빌드에 섞이는 묶음입니다. 기존 core VICIOUS는 OP.GG에서 21%·lift 1.24·빌드 내 픽 8/34(24%, 평균 카드 픽률 23%와 같음)로 기준 미달입니다. Baalorlord A10 덱 8/11에 있어 보조 출처로 payoff에 남겼고(core 불가), CRUELTY도 같은 경로입니다(Baalorlord 8/11, v0.107.1 lift 1.07).
+### 4.4 자해 (`ironclad.self_damage`)
 
-| 카드 | 역할 | 점유율 (LOO, k/N) | lift | 보유 플레이어 | 빌드 내 픽 (픽/제시) | 1위 멤버 덱 | Baalorlord (11판) | 통과 기준 |
-|---|---|---|---|---|---|---|---|---|
-| TREMBLE | enabler | 65% (37/57) | 1.61 | 20 | 37/111 | 2/4 | 4 | OP.GG |
-| TAUNT | enabler | 58% (11/19) | 1.74 | 3 | 9/14 | 3/4 | 10 | OP.GG, v0.107만 |
-| MOLTEN_FIST | payoff | 43% (20/47) | 1.62 | 13 | 18/84 | 1/4 | 0 | OP.GG |
-| VICIOUS | payoff | 21% (11/53) | 1.24 | 10 | 8/34 | 1/4 | 8 | Baalorlord 보조 출처 |
-| CRUELTY | payoff | 27% (4/15) | 1.07 | 2 | 4/5 | 2/4 | 8 | Baalorlord 보조 출처, v0.107만 |
-| FLAME_BARRIER | support | 39% (22/57) | 1.59 | 17 | 20/46 | 0/4 | 0 | OP.GG, lift 경계 |
-| HEADBUTT | support | 39% (22/57) | 1.58 | 12 | 25/97 | 1/4 | 0 | OP.GG, lift 경계 |
-| UNMOVABLE | support | 28% (16/57) | 2.10 | 12 | 14/23 | 1/4 | 0 | OP.GG |
-| FIGHT_ME | support | 26% (15/57) | 2.46 | 14 | 11/37 | 0/4 | 5 | OP.GG |
-| SETUP_STRIKE | support | 26% (5/19) | ∞ | 3 | 6/36 | 0/4 | 0 | OP.GG, v0.107만 |
+축 카드: INFERNO, RUPTURE, SPITE, TEAR_ASUNDER. 멤버 덱 우수 75판·13명(한 사람 최대 29%, 1위 22판, v0.107.x 42판) / 전체 126판·35명(v0.107.x 59판). 빌드 기준 부트스트랩 우수 100%·전체 100%.
 
-대표 런: <https://op.gg/slay-the-spire2/history/7138596> · <https://op.gg/slay-the-spire2/history/7175296> · <https://op.gg/slay-the-spire2/history/7172666> · <https://op.gg/slay-the-spire2/history/7174864>
+**core: RUPTURE** (v1: INFERNO).
 
-제외한 카드:
-- THUNDERCLAP (기존 enabler): 25% (14/57), lift 1.79, 7명, 빌드 내 픽 16/107, Baalorlord 0/11
-- UPPERCUT (기존 enabler): 23% (13/57), lift 1.05, 10명, 빌드 내 픽 14/31, Baalorlord 5/11
-- DOMINATE (기존 enabler): 50% (7/14), lift 1.21, 3명, 빌드 내 픽 11/14, Baalorlord 5/11, v0.107만
-- BREAK (기존 enabler): 14% (8/57), lift 0.86, 8명, 빌드 내 픽 0/0, Baalorlord 0/11
-- DISMANTLE (기존 payoff): 13% (7/54), lift 1.29, 6명, 빌드 내 픽 6/36, Baalorlord 0/11
-- BULLY (기존 payoff): 18% (9/51), lift 1.08, 5명, 빌드 내 픽 6/29, Baalorlord 0/11
-- COLOSSUS (기존 payoff): 29% (4/14), lift 0.81, 2명, 빌드 내 픽 4/9, Baalorlord 0/11, v0.107만
+| 카드 | 역할 | 판정 | 우수: 점유율 (k/N) | lift (원시) | 플레이어 | 빌드 내 픽 | 지원 부트 | core 부트 | 전체: 점유율 (k/N) | lift | 플레이어 | 지원 부트 | Baalorlord |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| RUPTURE | core | OP.GG 우수, core 전체(우수 미결) | 54% (17/35) | 2.77 (2.20) | 7 | 59% (15/25) | 86% | 78% | 48% (26/55) | 2.27 | 14 | 97% | 0 |
+| BLOODLETTING | enabler | Baalorlord 보조 출처 | 84% (35/42) | 1.42 (1.30) | 7 | 42% (34/90) | 36% | – | 88% (51/59) | 1.55 | 16 | 63% | 7 |
+| BLOOD_WALL | enabler | OP.GG 우수 | 63% (45/75) | 2.10 (1.93) | 11 | 24% (39/153) | 98% | – | 61% (76/126) | 1.80 | 24 | 92% | 0 |
+| BREAKTHROUGH | enabler | OP.GG 우수 | 39% (30/75) | 2.70 (2.86) | 9 | 14% (24/124) | 92% | – | 46% (58/126) | 3.01 | 25 | 100% | 0 |
+| INFERNO | payoff | OP.GG 전체(우수 미결) | 29% (15/36) | 1.69 (2.28) | 6 | 48% (11/27) | 60% | 16% | 40% (25/62) | 2.28 | 14 | 96% | 0 |
+| TEAR_ASUNDER | payoff | 불확실(v1 유지) | 25% (13/54) | 2.46 (2.23) | 6 | 53% (11/23) | 51% | – | 22% (20/87) | 2.04 | 13 | 72% | 0 |
 
-- THUNDERCLAP은 14/57 = 24.6%로 점유율 기준(25%)을 근소하게 밑돌고, 빌드 내 픽도 16/107입니다.
-- TAUNT(v0.107.1 11/19)는 3명이 가졌지만 한 플레이어가 6판(55%)을 차지합니다. 카드 기준은 통과하며 Baalorlord 10/11과도 일치합니다. SETUP_STRIKE(v0.107.1 5/19, 3명)도 한 플레이어가 3판(60%)이라 마찬가지로 얇은 근거입니다.
-- 유물: HAND_DRILL(3명, 비멤버 덱 0판) 유지. PAPER_PHROG(lift 1.30)·BAG_OF_MARBLES(0.60) 제거.
+대표 런(우수 플레이어 멤버 덱, 서로 다른 플레이어): <https://op.gg/slay-the-spire2/history/7045157> · <https://op.gg/slay-the-spire2/history/4062736> · <https://op.gg/slay-the-spire2/history/7060442> · <https://op.gg/slay-the-spire2/history/4211860>
 
-## 4. 새로 추가한 아키타입
+v1에서 뺀 카드(부트스트랩으로 탈락 확정):
+- BATTLE_TRANCE (v1 support): 우수 53%·lift 1.14·12명·지원 부트 10% / 전체 52%·lift 1.06·27명·지원 부트 0% → 우수 기준 탈락. Baalorlord 4/11
+- BRAND (v1 enabler): 우수 16%·lift 1.17·7명·지원 부트 13% / 전체 25%·lift 2.04·19명·지원 부트 64% → 우수 기준 탈락. Baalorlord 3/11
+- CONFLAGRATION (v1 support): 우수 22%·lift 1.64·8명·지원 부트 46% / 전체 17%·lift 1.26·13명·지원 부트 3% → 전체 기준 탈락. Baalorlord 0/11
+- FIEND_FIRE (v1 support): 우수 14%·lift 1.21·6명·지원 부트 4% / 전체 13%·lift 1.23·11명·지원 부트 1% → 우수 기준 탈락. Baalorlord 0/11
+- FLAME_BARRIER (v1 support): 우수 27%·lift 1.11·8명·지원 부트 16% / 전체 26%·lift 1.15·16명·지원 부트 8% → 우수 기준 탈락. Baalorlord 0/11
+- UNMOVABLE (v1 support): 우수 18%·lift 1.05·6명·지원 부트 13% / 전체 27%·lift 1.38·18명·지원 부트 32% → 우수 기준 탈락. Baalorlord 0/11
+- UNRELENTING (v1 support): 우수 15%·lift 1.29·5명·지원 부트 12% / 전체 16%·lift 0.94·14명·지원 부트 0% → 우수 기준 탈락. Baalorlord 6/11
+- UPPERCUT (v1 support): 우수 32%·lift 1.26·7명·지원 부트 23% / 전체 25%·lift 1.02·16명·지원 부트 0% → 전체 기준 탈락. Baalorlord 5/11
 
-모델에 없던 빌드 중 빌드 기준을 넘는 것(또는 1위 빌드)을 추가했습니다. 유물(keyRelics)은 세 빌드 모두 비웠습니다: 표본 7~18판에서 "3명 이상·lift 1.5 이상"을 넘는 유물이 빌드마다 1~20종 이상 나와 우연과 구별할 수 없기 때문입니다.
+추가하지 않은 불확실 후보(점 추정은 통과하거나 근접했지만 부트스트랩 20~80%):
+- CRIMSON_MANTLE: 우수 17%·lift 1.53·4명·지원 부트 30% / 전체 22%·lift 1.90·지원 부트 60%
+- NOT_YET: 우수 26%·lift 2.24·8명·지원 부트 61% / 전체 20%·lift 1.58·지원 부트 36%
+- RAGE: 우수 28%·lift 1.41·9명·지원 부트 34% / 전체 23%·lift 1.26·지원 부트 22%
+- SWORD_BOOMERANG: 우수 33%·lift 1.53·7명·지원 부트 43% / 전체 30%·lift 1.32·지원 부트 23%
 
-### 4.1 공격 재사용 (`ironclad.attack_replay`)
+유물: v1 없음 → v2 SELF_FORMING_CLAY (w 0.4).
+- SELF_FORMING_CLAY: 우수 lift 1.68·10명·부트 60% / 전체 lift 1.93·21명·부트 88% → 추가
+- 통계 기준은 넘었지만 효과가 빌드 축과 무관하거나 확인되지 않아 넣지 않은 유물: RAZOR_TOOTH
 
-표본: 멤버 덱 18판·16명 (한 플레이어 최대 11%), OP.GG 랭킹 1위 플레이어 1판, v0.107.1 4판·4명 / v0.111.0 14판. 축 카드: STAMPEDE, AGGRESSION, THRASH, BLUDGEON, MANGLE.
+fullWeight 3.5 → 3.5: 새 목록 기준 멤버 덱 commit 중앙값 우수 0.94(원시 0.94)·비멤버 0.20 / 전체 0.94·0.20. 보정값 부트스트랩 ±0.5 안 100%. 적용 후 멤버 0.94·비멤버 0.20.
+목표 수: core 보유 중앙값 1 (부트 98%) → coreTarget 기본값. enabler·payoff 보유 중앙값 우수 3 (부트 79%, 전체 3) → essentialTarget 설정 안 함.
 
-**core 없음.** THRASH가 가장 흔하지만(64%, lift 6.16, 7명) 손의 공격을 흡수해 커지는 마무리 공격이라 payoff입니다. 엔진 파워 STAMPEDE는 36%로 core 기준 미달, AGGRESSION은 4/14·lift 1.32로 지원 미달, MANGLE(베타 변경)은 v0.107.1 멤버 덱 0/4.
+### 4.5 취약 (`ironclad.vulnerable`)
 
-| 카드 | 역할 | 점유율 (LOO, k/N) | lift | 보유 플레이어 | 빌드 내 픽 (픽/제시) | 1위 멤버 덱 | Baalorlord (11판) | 통과 기준 |
-|---|---|---|---|---|---|---|---|---|
-| STAMPEDE | enabler | 36% (5/14) | 3.86 | 5 | 2/10 | 1/1 | 0 | OP.GG |
-| JUGGLING | enabler | 28% (5/18) | 4.15 | 5 | 5/15 | 0/1 | 0 | OP.GG |
-| THRASH | payoff | 64% (7/11) | 6.16 | 7 | 6/8 | 1/1 | 0 | OP.GG |
-| BLUDGEON | payoff | 46% (6/13) | 2.55 | 6 | 5/10 | 1/1 | 0 | OP.GG |
-| VICIOUS | support | 39% (7/18) | 2.51 | 6 | 7/12 | 0/1 | 8 | OP.GG |
-| FLAME_BARRIER | support | 50% (9/18) | 1.60 | 8 | 8/16 | 0/1 | 0 | OP.GG |
-| PYRE | support | 33% (6/18) | 1.96 | 6 | 5/7 | 0/1 | 0 | OP.GG |
-| BREAK | support | 33% (6/18) | 3.24 | 6 | 0/0 | 0/1 | 0 | OP.GG |
-| INFLAME | support | 28% (5/18) | 1.71 | 5 | 5/12 | 0/1 | 0 | OP.GG |
-| UNRELENTING | support | 28% (5/18) | 1.55 | 5 | 4/18 | 0/1 | 6 | OP.GG, lift 경계 |
+축 카드: BULLY, COLOSSUS, CRUELTY, DISMANTLE, DOMINATE, MOLTEN_FIST, VICIOUS. 멤버 덱 우수 136판·17명(한 사람 최대 24%, 1위 32판, v0.107.x 95판) / 전체 216판·45명(v0.107.x 144판). 빌드 기준 부트스트랩 우수 100%·전체 100%.
 
-대표 런: <https://op.gg/slay-the-spire2/history/7263598> · <https://op.gg/slay-the-spire2/history/7146430> · <https://op.gg/slay-the-spire2/history/7299437> · <https://op.gg/slay-the-spire2/history/7269656>
+**core: 없음** (v1: 없음).
 
-### 4.2 타격 템포 (`ironclad.strike_tempo`)
+| 카드 | 역할 | 판정 | 우수: 점유율 (k/N) | lift (원시) | 플레이어 | 빌드 내 픽 | 지원 부트 | core 부트 | 전체: 점유율 (k/N) | lift | 플레이어 | 지원 부트 | Baalorlord |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| TREMBLE | enabler | 불확실(v1 유지) | 69% (85/136) | 1.43 (1.36) | 16 | 35% (90/263) | 43% | – | 67% (140/216) | 1.39 | 39 | 20% | 4 |
+| TAUNT | enabler | OP.GG 우수 | 43% (42/95) | 2.07 (1.81) | 12 | 50% (36/65) | 83% | – | 40% (60/144) | 1.97 | 28 | 86% | 10 |
+| MOLTEN_FIST | payoff | OP.GG 우수 | 43% (45/106) | 2.60 (2.57) | 13 | 31% (56/200) | 100% | – | 46% (73/162) | 2.16 | 27 | 99% | 0 |
+| COLOSSUS | payoff | OP.GG 우수 | 42% (33/83) | 1.99 (2.01) | 10 | 40% (23/47) | 84% | – | 46% (54/123) | 1.78 | 24 | 80% | 0 |
+| VICIOUS | payoff | Baalorlord 보조 출처 | 39% (41/100) | 1.56 (1.60) | 12 | 33% (31/81) | 64% | 46% | 36% (58/159) | 1.56 | 23 | 61% | 8 |
+| CRUELTY | payoff | OP.GG 우수 | 37% (23/86) | 2.81 (3.06) | 12 | 73% (21/33) | 94% | 30% | 24% (30/132) | 1.97 | 18 | 73% | 8 |
 
-표본: 멤버 덱 12판·9명 (한 플레이어 최대 25%), OP.GG 랭킹 1위 플레이어 1판, v0.107.1 6판·4명 / v0.111.0 6판. 축 카드: SETUP_STRIKE, TWIN_STRIKE, PERFECTED_STRIKE, ANGER, JUGGLING, HELLRAISER. 표본이 얇아(멤버 12판) 3판·3명만으로 기준을 넘는 범용 카드가 많고, 모두 support로 두었습니다.
+대표 런(우수 플레이어 멤버 덱, 서로 다른 플레이어): <https://op.gg/slay-the-spire2/history/3977656> · <https://op.gg/slay-the-spire2/history/4038599> · <https://op.gg/slay-the-spire2/history/7052699> · <https://op.gg/slay-the-spire2/history/7075134>
 
-**core 없음.** 타격 카드는 모두 일반(Common)이라 core가 될 수 없고, 고급 이상 축 카드는 JUGGLING 4/9(3명), HELLRAISER 1/11로 기준 미달입니다. ANGER는 4/9지만 2명뿐이라 제외.
-POMMEL_STRIKE는 OP.GG lift 1.41로 미달이지만 Baalorlord 8/11이고 타격 카드라 축에 작용해 보조 출처로 enabler에 넣었습니다. Baalorlord의 타격 덱은 PERFECTED_STRIKE를 3~5장 씁니다(<https://baalorlord.tv/runs/1793824214>, <https://baalorlord.tv/runs/1793119493>, <https://baalorlord.tv/runs/1793129973>).
-아키타입 목록에는 아이언클래드 카드 풀의 카드만 넣으므로(고대 카드는 support 허용), 기준을 넘은 무색·이벤트 카드 2장은 제외했습니다: FLASH_OF_STEEL(무색, 25% (3/12), lift 3.89, 3명), MAD_SCIENCE(이벤트, 25% (3/12), lift 2.57, 3명).
+v1에서 뺀 카드(부트스트랩으로 탈락 확정):
+- FIGHT_ME (v1 support): 우수 18%·lift 1.01·9명·지원 부트 0% / 전체 17%·lift 1.11·20명·지원 부트 0% → 우수 기준 탈락. Baalorlord 5/11
+- FLAME_BARRIER (v1 support): 우수 24%·lift 0.92·10명·지원 부트 0% / 전체 20%·lift 0.81·23명·지원 부트 0% → 우수 기준 탈락. Baalorlord 0/11
+- HEADBUTT (v1 support): 우수 33%·lift 0.99·12명·지원 부트 2% / 전체 27%·lift 0.98·19명·지원 부트 2% → 우수 기준 탈락. Baalorlord 0/11
+- SETUP_STRIKE (v1 support): 우수 13%·lift 0.46·5명·지원 부트 0% / 전체 17%·lift 0.83·11명·지원 부트 0% → 우수 기준 탈락. Baalorlord 0/11
+- UNMOVABLE (v1 support): 우수 20%·lift 1.24·12명·지원 부트 4% / 전체 23%·lift 1.11·29명·지원 부트 2% → 우수 기준 탈락. Baalorlord 0/11
 
-| 카드 | 역할 | 점유율 (LOO, k/N) | lift | 보유 플레이어 | 빌드 내 픽 (픽/제시) | 1위 멤버 덱 | Baalorlord (11판) | 통과 기준 |
-|---|---|---|---|---|---|---|---|---|
-| SETUP_STRIKE | enabler | 83% (5/6) | ∞ | 3 | 6/10 | 0/1 | 0 | OP.GG, v0.107만 |
-| TWIN_STRIKE | enabler | 36% (4/11) | 5.46 | 3 | 5/19 | 0/1 | 5 | OP.GG |
-| POMMEL_STRIKE | enabler | 75% (9/12) | 1.41 | 7 | 13/23 | 1/1 | 8 | Baalorlord 보조 출처 |
-| PERFECTED_STRIKE | payoff | 30% (3/10) | 3.79 | 3 | 2/23 | 0/1 | 6 | OP.GG |
-| JUGGLING | support | 44% (4/9) | 5.39 | 3 | 1/2 | 1/1 | 0 | OP.GG |
-| HEADBUTT | support | 67% (8/12) | 2.31 | 6 | 8/24 | 1/1 | 0 | OP.GG |
-| COLOSSUS | support | 67% (4/6) | 2.78 | 3 | 4/9 | 0/1 | 0 | OP.GG, v0.107만 |
-| EVIL_EYE | support | 50% (6/12) | 1.52 | 5 | 5/7 | 0/1 | 4 | OP.GG, lift 경계 |
-| MOLTEN_FIST | support | 50% (6/12) | 1.68 | 4 | 7/21 | 0/1 | 0 | OP.GG |
-| BODY_SLAM | support | 42% (5/12) | 1.67 | 5 | 4/27 | 0/1 | 0 | OP.GG |
-| BREAKTHROUGH | support | 42% (5/12) | 2.14 | 5 | 6/24 | 1/1 | 0 | OP.GG |
-| OFFERING | support | 42% (5/12) | 1.80 | 3 | 6/7 | 0/1 | 5 | OP.GG |
-| BLUDGEON | support | 33% (4/12) | 2.23 | 4 | 4/12 | 0/1 | 0 | OP.GG |
-| CONFLAGRATION | support | 33% (4/12) | 2.74 | 3 | 4/6 | 0/1 | 0 | OP.GG |
-| INFLAME | support | 33% (4/12) | 1.88 | 4 | 3/8 | 0/1 | 0 | OP.GG |
-| RAGE | support | 33% (4/12) | 2.89 | 4 | 4/11 | 1/1 | 5 | OP.GG |
-| UNRELENTING | support | 33% (4/12) | 2.24 | 3 | 5/11 | 0/1 | 6 | OP.GG |
-| UPPERCUT | support | 33% (4/12) | 1.59 | 3 | 4/6 | 0/1 | 5 | OP.GG, lift 경계 |
-| DRUM_OF_BATTLE | support | 25% (3/12) | 2.03 | 3 | 2/8 | 0/1 | 3 | OP.GG |
-| HAVOC | support | 25% (3/12) | 2.18 | 3 | 4/31 | 1/1 | 0 | OP.GG |
+추가하지 않은 불확실 후보(점 추정은 통과하거나 근접했지만 부트스트랩 20~80%):
+- BULLY: 우수 27%·lift 2.88·12명·지원 부트 70% / 전체 25%·lift 3.12·지원 부트 46%
+- DISMANTLE: 우수 21%·lift 1.75·10명·지원 부트 20% / 전체 22%·lift 2.08·지원 부트 28%
+- DOMINATE: 우수 55%·lift 1.48·9명·지원 부트 52% / 전체 52%·lift 1.47·지원 부트 44%
+- SWORD_BOOMERANG: 우수 28%·lift 1.36·9명·지원 부트 32% / 전체 29%·lift 1.35·지원 부트 22%
+- THUNDERCLAP: 우수 23%·lift 2.84·10명·지원 부트 39% / 전체 27%·lift 2.88·지원 부트 59%
 
-대표 런: <https://op.gg/slay-the-spire2/history/7121129> · <https://op.gg/slay-the-spire2/history/7172666> · <https://op.gg/slay-the-spire2/history/7261328> · <https://op.gg/slay-the-spire2/history/7107205>
+유물: v1 HAND_DRILL → v2 없음.
+- HAND_DRILL: 우수 기준 근처 아님 / 전체 기준 근처 아님 → 제거
+- 통계 기준은 넘었지만 효과가 빌드 축과 무관하거나 확인되지 않아 넣지 않은 유물: CHOICES_PARADOX, WINGED_BOOTS
 
-### 4.3 타격 자동 사용 (`ironclad.hellraiser`) — OP.GG 랭킹 1위 플레이어의 빌드
+fullWeight 3.5 → 3.5: 새 목록 기준 멤버 덱 commit 중앙값 우수 0.71(원시 0.71)·비멤버 0.40 / 전체 0.71·0.40. 보정값 부트스트랩 ±0.5 안 100%. 적용 후 멤버 0.71·비멤버 0.40.
+목표 수: core 보유 중앙값 – → coreTarget 기본값. enabler·payoff 보유 중앙값 우수 3 (부트 61%, 전체 3) → essentialTarget 설정 안 함.
 
-표본: 멤버 덱 7판·4명 (한 플레이어 최대 57%), OP.GG 랭킹 1위 플레이어 4판, v0.107.1 5판·2명 / v0.111.0 2판. 멤버 덱 = HELLRAISER 보유 덱. 일반 빌드 기준(한 사람 절반 이하)은 통과하지 못하지만, 1위 플레이어가 이 빌드로 4번 이겨(그의 아이언클래드 승리 12판 중 4판) 1위 빌드 규칙으로 성립합니다. 그의 HELLRAISER 덱 4판은 22~27장으로 가볍고 기본 타격을 0~3장만 남긴 에너지·드로우 덱입니다.
+### 4.6 공격 재사용 (`ironclad.attack_replay`)
 
-**core HELLRAISER** (1위 멤버 덱 4/4. 1위는 카드 보상에서 4번 제시받아 3번 픽, 멤버 덱 7판의 빌드 내 픽 4/4). 빌드를 정의하는 카드라 점유율·lift는 정의상 100%·∞입니다. 카드 기준은 1위 경로 또는 일반 기준 중 하나(표의 "통과 기준").
+축 카드: AGGRESSION, BLUDGEON, MANGLE, STAMPEDE, THRASH. 멤버 덱 우수 55판·13명(한 사람 최대 24%, 1위 7판, v0.107.x 25판) / 전체 108판·39명(v0.107.x 41판). 빌드 기준 부트스트랩 우수 100%·전체 100%.
 
-| 카드 | 역할 | 점유율 (LOO, k/N) | lift | 보유 플레이어 | 빌드 내 픽 (픽/제시) | 1위 멤버 덱 | Baalorlord (11판) | 통과 기준 |
-|---|---|---|---|---|---|---|---|---|
-| HELLRAISER | core | 100% (7/7) | ∞ | 4 | 4/4 | 4/4 | 0 | 빌드 정의 카드, 1위 경로 4/4 |
-| BURNING_PACT | enabler | 43% (3/7) | 1.67 | 2 | 4/5 | 2/4 | 4 | 1위 경로 |
-| ASHEN_STRIKE | enabler | 29% (2/7) | 1.88 | 1 | 2/4 | 2/4 | 3 | 1위 경로 |
-| BLOODLETTING | support | 100% (5/5) | 2.17 | 2 | 4/8 | 4/4 | 7 | 1위 경로, v0.107만 |
-| FLAME_BARRIER | support | 43% (3/7) | 1.88 | 3 | 3/7 | 1/4 | 0 | OP.GG |
-| PYRE | support | 43% (3/7) | 2.40 | 3 | 2/4 | 0/4 | 0 | OP.GG |
+**core: 없음** (v1: 없음).
 
-대표 런: <https://op.gg/slay-the-spire2/history/7278205> · <https://op.gg/slay-the-spire2/history/7204765> · <https://op.gg/slay-the-spire2/history/7208199> · <https://op.gg/slay-the-spire2/history/7107205>
+| 카드 | 역할 | 판정 | 우수: 점유율 (k/N) | lift (원시) | 플레이어 | 빌드 내 픽 | 지원 부트 | core 부트 | 전체: 점유율 (k/N) | lift | 플레이어 | 지원 부트 | Baalorlord |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| STAMPEDE | enabler | OP.GG 전체(우수 미결) | 22% (9/31) | 1.42 (1.86) | 4 | 20% (4/20) | 26% | 4% | 36% (22/60) | 1.89 | 13 | 86% | 0 |
+| THRASH | payoff | OP.GG 전체(우수 미결) | 23% (7/34) | 1.74 (1.56) | 5 | 53% (4/9) | 35% | – | 29% (20/70) | 2.26 | 15 | 82% | 0 |
+| PYRE | support | 불확실(v1 유지) | 31% (16/55) | 1.79 (1.66) | 8 | 45% (12/22) | 68% | – | 26% (28/108) | 1.70 | 17 | 59% | 0 |
 
-- POMMEL_STRIKE는 1위 멤버 덱 2/4이지만 lift 0.996(비멤버 덱과 같은 비율)이라 두 경로 모두 미달이고, 보조 출처 구제도 lift 1.0 미만이라 안 됩니다. TRUE_GRIT(3/4, lift 1.43)·DOMINATE(2/4, 1.42)·FEEL_NO_PAIN(2/4, 1.13)도 lift 미달.
+대표 런(우수 플레이어 멤버 덱, 서로 다른 플레이어): <https://op.gg/slay-the-spire2/history/5551713> · <https://op.gg/slay-the-spire2/history/4463429> · <https://op.gg/slay-the-spire2/history/6159797> · <https://op.gg/slay-the-spire2/history/6903808>
 
-## 5. 삭제한 아키타입
+v1에서 뺀 카드(부트스트랩으로 탈락 확정):
+- BLUDGEON (v1 payoff): 우수 21%·lift 1.88·5명·지원 부트 18% / 전체 30%·lift 2.14·14명·지원 부트 78% → 우수 기준 탈락. Baalorlord 0/11
+- BREAK (v1 support): 우수 13%·lift 0.97·5명·지원 부트 7% / 전체 15%·lift 1.34·11명·지원 부트 0% → 우수 기준 탈락. Baalorlord 0/11
+- FLAME_BARRIER (v1 support): 우수 34%·lift 1.47·10명·지원 부트 39% / 전체 30%·lift 1.32·21명·지원 부트 17% → 전체 기준 탈락. Baalorlord 0/11
+- INFLAME (v1 support): 우수 21%·lift 0.95·7명·지원 부트 6% / 전체 22%·lift 1.20·18명·지원 부트 12% → 우수 기준 탈락. Baalorlord 0/11
+- JUGGLING (v1 enabler): 우수 20%·lift 1.34·7명·지원 부트 12% / 전체 15%·lift 1.26·13명·지원 부트 0% → 우수 기준 탈락. Baalorlord 0/11
+- UNRELENTING (v1 support): 우수 12%·lift 1.06·5명·지원 부트 2% / 전체 19%·lift 1.19·12명·지원 부트 4% → 우수 기준 탈락. Baalorlord 6/11
+- VICIOUS (v1 support): 우수 31%·lift 1.14·9명·지원 부트 10% / 전체 28%·lift 1.10·20명·지원 부트 3% → 우수 기준 탈락. Baalorlord 8/11
 
-없음. 기존 다섯 빌드 모두 멤버 덱 13판 이상·11명 이상으로 빌드 기준을 넘습니다.
-검토했지만 넣지 않은 빌드:
-- BARRICADE + DEMON_FORM + EXPECT_A_FIGHT "요새" 덱(20판·11명): v0.107.1에서는 1판뿐. 핵심 카드가 베타 변경 카드라 v0.107.1 팩 근거가 되지 못합니다.
-- FORGOTTEN_RITUAL·DRUM_OF_BATTLE 에너지 묶음(17판·10명): v0.107.1에서 0판(FORGOTTEN_RITUAL은 v0.107.1 31판 중 1판 vs v0.111.0 63판 중 32판). 베타 전용.
+유물: v1 없음 → v2 없음.
+- 통계 기준은 넘었지만 효과가 빌드 축과 무관하거나 확인되지 않아 넣지 않은 유물: CHANDELIER, GAME_PIECE, JEWELRY_BOX, TRI_BOOMERANG, WHITE_STAR
 
-## 6. 출처 간 충돌과 미해결 사항
+fullWeight 4.0 → 2.0: 새 목록 기준 멤버 덱 commit 중앙값 우수 0.26(원시 0.23)·비멤버 0.00 / 전체 0.26·0.00. 보정값 부트스트랩 ±0.5 안 100%. 적용 후 멤버 0.52·비멤버 0.00.
+목표 수: core 보유 중앙값 – → coreTarget 기본값. enabler·payoff 보유 중앙값 우수 1 (부트 100%, 전체 1) → essentialTarget 1.
 
-- **VICIOUS·CRUELTY·TAUNT**: Baalorlord는 셋을 거의 매 판 씁니다(8~10/11). OP.GG에서는 VICIOUS가 평범한 픽률(24%)이고, CRUELTY·TAUNT는 v0.107.1에서 2~3명에게 몰려 있습니다. 그래서 취약에서 셋 다 목록에 있지만 core는 없습니다. Baalorlord 런의 게임 버전은 기록되어 있지 않습니다(대략 v0.10x~v0.111).
-- **방어 누적**: 데이터상 BARRICADE 엔진은 상위 플레이어가 쓰지 않습니다. 이 아키타입은 "방어도 카드를 많이 쓰는 덱" 감지로만 남았고 비멤버 덱 commit 중앙값도 0.56으로 높아 특이성이 낮습니다. 삭제 기준(멤버 덱 4판 미만)에는 해당하지 않아 유지했습니다.
-- **TEAR_ASUNDER·THRASH**: 수치로는 core 기준을 넘지만 마무리 공격이라 payoff로 두었습니다. 그 결과 자해는 core 1장, 공격 재사용은 core 없음입니다.
-- **속도 편향**: OP.GG 주간 순위는 "가장 빠른 승리" 순이라, 느린 성장 빌드(BARRICADE·BODY_SLAM, DEMON_FORM)가 실제 승률보다 적게 잡혔을 수 있습니다.
-- **버전 표본**: v0.107.1 승리는 31판·10명뿐이고 3명이 23판을 차지해, 베타 변경 카드(BLOODLETTING·TAUNT·CRUELTY·SETUP_STRIKE·COLOSSUS 등)는 모두 적은 플레이어 수에 기대고 있습니다.
-- **태그 공백(참고)**: 스스로 소멸하는 카드(TREMBLE 등)는 티어 파일에 `EXHAUST` provides 태그가 없습니다. 이 문서는 티어 파일을 바꾸지 않았습니다.
+### 4.7 타격 템포 (`ironclad.strike_tempo`)
+
+축 카드: ANGER, HELLRAISER, JUGGLING, PERFECTED_STRIKE, SETUP_STRIKE, TWIN_STRIKE. 멤버 덱 우수 79판·15명(한 사람 최대 25%, 1위 7판, v0.107.x 51판) / 전체 125판·36명(v0.107.x 73판). 빌드 기준 부트스트랩 우수 100%·전체 100%.
+
+**core: 없음** (v1: 없음).
+
+| 카드 | 역할 | 판정 | 우수: 점유율 (k/N) | lift (원시) | 플레이어 | 빌드 내 픽 | 지원 부트 | core 부트 | 전체: 점유율 (k/N) | lift | 플레이어 | 지원 부트 | Baalorlord |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| POMMEL_STRIKE | enabler | Baalorlord 보조 출처 | 74% (62/79) | 1.35 (1.36) | 14 | 53% (89/163) | 18% | – | 74% (94/125) | 1.43 | 35 | 26% | 8 |
+| SETUP_STRIKE | enabler | OP.GG 우수 | 40% (19/44) | 4.29 (6.96) | 7 | 21% (17/70) | 84% | – | 38% (26/64) | 3.86 | 13 | 95% | 0 |
+| TWIN_STRIKE | enabler | OP.GG 전체(우수 미결) | 29% (19/55) | 1.87 (2.51) | 7 | 21% (26/111) | 60% | – | 38% (33/86) | 2.87 | 17 | 96% | 5 |
+| PERFECTED_STRIKE | payoff | OP.GG 우수 | 37% (20/49) | 2.36 (2.90) | 8 | 27% (33/98) | 92% | – | 39% (32/80) | 2.77 | 16 | 98% | 6 |
+| ARMAMENTS | support | OP.GG 우수 | 40% (26/79) | 1.90 (1.29) | 12 | 14% (21/171) | 82% | – | 38% (45/125) | 1.41 | 25 | 46% | 3 |
+| RAGE | support | 불확실(v1 유지) | 27% (25/79) | 1.47 (1.77) | 11 | 40% (22/50) | 38% | – | 28% (37/125) | 1.74 | 18 | 66% | 5 |
+
+대표 런(우수 플레이어 멤버 덱, 서로 다른 플레이어): <https://op.gg/slay-the-spire2/history/6176418> · <https://op.gg/slay-the-spire2/history/6558157> · <https://op.gg/slay-the-spire2/history/7060474> · <https://op.gg/slay-the-spire2/history/7121129>
+
+v1에서 뺀 카드(부트스트랩으로 탈락 확정):
+- BLUDGEON (v1 support): 우수 5%·lift 0.34·2명·지원 부트 0% / 전체 10%·lift 0.61·9명·지원 부트 0% → 우수 기준 탈락. Baalorlord 0/11
+- BODY_SLAM (v1 support): 우수 15%·lift 0.76·7명·지원 부트 0% / 전체 14%·lift 0.58·13명·지원 부트 0% → 우수 기준 탈락. Baalorlord 0/11
+- BREAKTHROUGH (v1 support): 우수 14%·lift 0.71·5명·지원 부트 0% / 전체 22%·lift 1.06·15명·지원 부트 4% → 우수 기준 탈락. Baalorlord 0/11
+- COLOSSUS (v1 support): 우수 29%·lift 0.96·6명·지원 부트 8% / 전체 32%·lift 0.90·12명·지원 부트 0% → 우수 기준 탈락. Baalorlord 0/11
+- CONFLAGRATION (v1 support): 우수 9%·lift 0.60·5명·지원 부트 0% / 전체 14%·lift 0.93·12명·지원 부트 0% → 우수 기준 탈락. Baalorlord 0/11
+- DRUM_OF_BATTLE (v1 support): 우수 12%·lift 0.65·5명·지원 부트 2% / 전체 15%·lift 0.72·11명·지원 부트 0% → 우수 기준 탈락. Baalorlord 3/11
+- EVIL_EYE (v1 support): 우수 26%·lift 0.76·6명·지원 부트 0% / 전체 32%·lift 0.95·16명·지원 부트 0% → 우수 기준 탈락. Baalorlord 4/11
+- HAVOC (v1 support): 우수 29%·lift 1.51·8명·지원 부트 33% / 전체 22%·lift 1.21·16명·지원 부트 8% → 전체 기준 탈락. Baalorlord 0/11
+- HEADBUTT (v1 support): 우수 35%·lift 1.03·8명·지원 부트 2% / 전체 26%·lift 0.95·11명·지원 부트 0% → 우수 기준 탈락. Baalorlord 0/11
+- INFLAME (v1 support): 우수 23%·lift 1.07·7명·지원 부트 6% / 전체 22%·lift 1.22·15명·지원 부트 8% → 우수 기준 탈락. Baalorlord 0/11
+- JUGGLING (v1 support): 우수 18%·lift 1.22·5명·지원 부트 12% / 전체 21%·lift 1.92·11명·지원 부트 20% → 우수 기준 탈락. Baalorlord 0/11
+- MOLTEN_FIST (v1 support): 우수 20%·lift 0.82·7명·지원 부트 0% / 전체 24%·lift 0.88·13명·지원 부트 0% → 우수 기준 탈락. Baalorlord 0/11
+- OFFERING (v1 support): 우수 35%·lift 1.15·10명·지원 부트 9% / 전체 37%·lift 1.15·23명·지원 부트 4% → 우수 기준 탈락. Baalorlord 5/11
+- UNRELENTING (v1 support): 우수 14%·lift 1.21·7명·지원 부트 1% / 전체 19%·lift 1.18·16명·지원 부트 4% → 우수 기준 탈락. Baalorlord 6/11
+- UPPERCUT (v1 support): 우수 23%·lift 0.85·8명·지원 부트 0% / 전체 23%·lift 0.91·17명·지원 부트 0% → 우수 기준 탈락. Baalorlord 5/11
+
+추가하지 않은 불확실 후보(점 추정은 통과하거나 근접했지만 부트스트랩 20~80%):
+- CRUELTY: 우수 32%·lift 1.74·6명·지원 부트 46% / 전체 20%·lift 1.27·지원 부트 28%
+
+유물: v1 없음 → v2 FAKE_STRIKE_DUMMY (w 0.4), STRIKE_DUMMY (w 0.4).
+- FAKE_STRIKE_DUMMY: 우수 lift 2.89·5명·부트 62% / 전체 lift 2.70·7명·부트 81% → 추가
+- STRIKE_DUMMY: 우수 lift 1.63·12명·부트 70% / 전체 lift 1.83·24명·부트 92% → 추가
+- 통계 기준은 넘었지만 효과가 빌드 축과 무관하거나 확인되지 않아 넣지 않은 유물: ART_OF_WAR, BRIMSTONE, GORGET, LARGE_CAPSULE, LIZARD_TAIL, MOLTEN_EGG, UNSETTLING_LAMP, VEXING_PUZZLEBOX
+
+fullWeight 6.5 → 3.0: 새 목록 기준 멤버 덱 commit 중앙값 우수 0.41(원시 0.42)·비멤버 0.15 / 전체 0.42·0.12. 보정값 부트스트랩 ±0.5 안 98%. 적용 후 멤버 0.88·비멤버 0.33.
+목표 수: core 보유 중앙값 – → coreTarget 기본값. enabler·payoff 보유 중앙값 우수 2 (부트 96%, 전체 2) → essentialTarget 2.
+
+### 4.8 타격 자동 사용 (`ironclad.hellraiser`)
+
+축 카드: HELLRAISER. 멤버 덱 우수 50판·11명(한 사람 최대 24%, 1위 11판, v0.107.x 31판) / 전체 72판·26명(v0.107.x 45판). 빌드 기준 부트스트랩 우수 98%·전체 100%.
+
+**core: HELLRAISER** (v1: HELLRAISER).
+
+| 카드 | 역할 | 판정 | 우수: 점유율 (k/N) | lift (원시) | 플레이어 | 빌드 내 픽 | 지원 부트 | core 부트 | 전체: 점유율 (k/N) | lift | 플레이어 | 지원 부트 | Baalorlord |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| HELLRAISER | core | OP.GG 우수, core 우수 | 100% (50/50) | ∞ (∞) | 11 | 82% (38/46) | 100% | 100% | 100% (72/72) | ∞ | 26 | 100% | 0 |
+| POMMEL_STRIKE | enabler | Baalorlord 보조 출처 | 81% (41/50) | 1.44 (1.39) | 10 | 69% (75/98) | 46% | – | 79% (57/72) | 1.47 | 22 | 40% | 8 |
+| TWIN_STRIKE | enabler | OP.GG 전체(우수 미결) | 28% (9/50) | 1.55 (1.10) | 7 | 15% (9/85) | 40% | – | 33% (21/72) | 2.21 | 17 | 86% | 5 |
+| PERFECTED_STRIKE | payoff | OP.GG 우수 | 59% (19/50) | 3.84 (2.64) | 10 | 41% (33/99) | 98% | – | 55% (35/72) | 4.16 | 22 | 100% | 6 |
+
+대표 런(우수 플레이어 멤버 덱, 서로 다른 플레이어): <https://op.gg/slay-the-spire2/history/3724927> · <https://op.gg/slay-the-spire2/history/6176418> · <https://op.gg/slay-the-spire2/history/7052680> · <https://op.gg/slay-the-spire2/history/6661658>
+
+v1에서 뺀 카드(부트스트랩으로 탈락 확정):
+- ASHEN_STRIKE (v1 enabler): 우수 28%·lift 1.35·6명·지원 부트 33% / 전체 24%·lift 1.02·12명·지원 부트 5% → 전체 기준 탈락. Baalorlord 3/11
+- BLOODLETTING (v1 support): 우수 58%·lift 0.89·4명·지원 부트 0% / 전체 63%·lift 0.96·10명·지원 부트 1% → 우수 기준 탈락. Baalorlord 7/11
+- BURNING_PACT (v1 enabler): 우수 42%·lift 1.06·7명·지원 부트 8% / 전체 40%·lift 1.01·14명·지원 부트 2% → 우수 기준 탈락. Baalorlord 4/11
+- FLAME_BARRIER (v1 support): 우수 22%·lift 0.86·6명·지원 부트 6% / 전체 22%·lift 0.92·12명·지원 부트 4% → 우수 기준 탈락. Baalorlord 0/11
+- PYRE (v1 support): 우수 22%·lift 1.08·5명·지원 부트 15% / 전체 16%·lift 0.89·6명·지원 부트 1% → 우수 기준 탈락. Baalorlord 0/11
+
+추가하지 않은 불확실 후보(점 추정은 통과하거나 근접했지만 부트스트랩 20~80%):
+- ARMAMENTS: 우수 43%·lift 1.84·8명·지원 부트 66% / 전체 38%·lift 1.37·지원 부트 36%
+- PILLAGE: 우수 33%·lift 2.75·7명·지원 부트 75% / 전체 25%·lift 2.27·지원 부트 48%
+- SETUP_STRIKE: 우수 30%·lift 1.68·4명·지원 부트 28% / 전체 35%·lift 2.12·지원 부트 73%
+- STAMPEDE: 우수 25%·lift 1.56·7명·지원 부트 33% / 전체 32%·lift 1.60·지원 부트 56%
+
+유물: v1 없음 → v2 없음.
+- 통계 기준은 넘었지만 효과가 빌드 축과 무관하거나 확인되지 않아 넣지 않은 유물: MOLTEN_EGG, PARRYING_SHIELD, YUMMY_COOKIE
+
+fullWeight 2.5 → 2.5: 새 목록 기준 멤버 덱 commit 중앙값 우수 1.00(원시 0.82)·비멤버 0.28 / 전체 1.00·0.28. 보정값 부트스트랩 ±0.5 안 100%. 적용 후 멤버 1.00·비멤버 0.28.
+목표 수: core 보유 중앙값 1 (부트 100%) → coreTarget 기본값. enabler·payoff 보유 중앙값 우수 2 (부트 72%, 전체 2) → essentialTarget 설정 안 함.
+
+## 5. 추가·삭제한 빌드
+
+- **삭제 없음.** 여덟 빌드 모두 멤버 덱 50판 이상·11명 이상(우수 플레이어)입니다.
+- **추가 없음.** 카드 동시 사용 lift로 찾은 후보 묶음은 모두 멤버 덱의 90% 이상이 기존 빌드 멤버라 별도 빌드가 아닙니다(우수 플레이어 승리 덱):
+  - 요새(BARRICADE·DEMON_FORM·EXPECT_A_FIGHT·BODY_SLAM): 44판·10명, 기존 빌드 멤버 43판(98%), 가장 많이 겹치는 빌드 `ironclad.block` 36판
+  - 의식 에너지(FORGOTTEN_RITUAL·DRUM_OF_BATTLE·EXPECT_A_FIGHT·PRIMAL_FORCE): 5판·5명, 기존 빌드 멤버 5판(100%), 가장 많이 겹치는 빌드 `ironclad.exhaust` 5판
+  - 도발 힘(FIGHT_ME·EXPECT_A_FIGHT·CONFLAGRATION·DEMON_FORM): 28판·10명, 기존 빌드 멤버 26판(93%), 가장 많이 겹치는 빌드 `ironclad.strength` 17판
+  - 0코스트 공격(INFERNAL_BLADE·RAGE·SETUP_STRIKE·JUGGLING): 50판·12명, 기존 빌드 멤버 48판(96%), 가장 많이 겹치는 빌드 `ironclad.strike_tempo` 28판
+  - 약탈 타격(PILLAGE·HELLRAISER·PERFECTED_STRIKE): 36판·12명, 기존 빌드 멤버 36판(100%), 가장 많이 겹치는 빌드 `ironclad.hellraiser` 30판
+  - 소멸 공격(ASHEN_STRIKE·HOWL_FROM_BEYOND·FIEND_FIRE·STOKE·CINDER): 62판·14명, 기존 빌드 멤버 61판(98%), 가장 많이 겹치는 빌드 `ironclad.exhaust` 53판
+  - 진홍 망토 자해(CRIMSON_MANTLE·RUPTURE·INFERNO·BRAND): 69판·12명, 기존 빌드 멤버 69판(100%), 가장 많이 겹치는 빌드 `ironclad.self_damage` 49판
+
+## 6. 해석과 남은 문제
+
+- **힘 성장**: 힘 축 카드(DEMON_FORM·INFLAME·FIGHT_ME·RUPTURE·BRAND·DOMINATE)는 서로 함께 쓰이지 않습니다. 축 카드 자신은 leave-one-out lift가 0.7~1.3이고, 남은 카드는 BLOOD_WALL(지원 확정)과 CONFLAGRATION(불확실)뿐입니다. 상위 플레이어에게 "힘 빌드"는 독립된 덱이라기보다 다른 빌드에 힘 카드 한두 장을 얹는 형태입니다. 멤버 덱이 94판이라 삭제 기준(10판 미만)에는 해당하지 않아 유지했고, 카드 2장이라 검증기가 경고합니다.
+- **방어 누적**: v1에서는 BARRICADE 엔진이 근거가 없어 빠졌지만, v2 표본에서는 BARRICADE(core)·BODY_SLAM이 강하게 함께 쓰입니다(lift 4.3·3.6). v1 결론은 표본 크기 탓이었습니다. 설명을 엔진 중심으로 되돌렸습니다.
+- **자해**: core가 INFERNO → RUPTURE로 바뀌었습니다. RUPTURE는 우수 플레이어 core 부트스트랩 78%(경계)라 전체 플레이어(80%)로 판정했습니다. INFERNO는 지원은 되지만 우수 플레이어 core 부트스트랩 17%라 payoff로 내렸습니다.
+- **소멸**: FEEL_NO_PAIN core는 우수 플레이어 부트스트랩 55%(미결)라 전체 플레이어(80.5%)로 판정했습니다. 경계값입니다. v1에서 베타 효과로 보고 뺐던 FORGOTTEN_RITUAL은 v0.107.x 런만으로도 지원(lift 3.4, 부트 92%)되어 payoff로 넣었습니다.
+- **우수 플레이어 표본의 한계**: 우수 플레이어는 18명이라 "5명 이상" 기준과 부트스트랩이 엄격하게 작동합니다. 그래서 v1 목록의 많은 범용 카드가 빠졌고(특히 타격 템포 15장), 공격 재사용은 3장만 남았습니다.
+- **Baalorlord와의 충돌**: POMMEL_STRIKE는 타격 빌드 덱의 74~81%에 있지만 다른 덱에도 흔해 lift가 1.4 안팎입니다. Baalorlord 8/11로 보조 출처 구제했습니다. TAUNT는 취약에서 OP.GG로 지원되지만 방어 누적에서는 v0.107.x 4명뿐이라 뺐습니다.
+- **유물**: 통계로 통과한 유물 대부분(예: 힘 빌드의 DRAGON_FRUIT·MINIATURE_CANNON)은 빌드 축과 관련이 없어 다중 비교의 우연으로 보고 넣지 않았습니다. ANCHOR·HAND_DRILL·JOSS_PAPER·BURNING_STICKS·FORGOTTEN_SOUL은 v2 표본에서 기준 미달로 뺐습니다.
+- **속도 편향**: 표본은 주간 최단 승리 순위에 오른 플레이어의 전적이라 빠른 공격 덱이 조금 더 많을 수 있습니다(v1과 같음). 다만 v2는 그 플레이어들의 전체 전적을 썼기 때문에 v1보다 편향이 작습니다.
 
 ## 7. 재현
 
-분석 스크립트와 원자료는 저장소에 넣지 않았습니다. 수치는 OP.GG 전적 페이지(`https://op.gg/slay-the-spire2/history/<runId>`)의 최종 덱·카드 보상 기록과 Baalorlord 런 페이지(`https://baalorlord.tv/runs/<id>`)로 다시 셀 수 있습니다.
+분석 스크립트와 원자료는 저장소에 넣지 않았습니다. 수치는 OP.GG 전적 페이지(`https://op.gg/slay-the-spire2/history/<runId>`)의 최종 덱·카드 보상 기록으로 다시 셀 수 있습니다.

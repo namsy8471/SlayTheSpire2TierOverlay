@@ -41,6 +41,14 @@ public sealed class Archetype
 
     public List<KeyRelic> KeyRelics { get; set; } = [];
     public List<ArchetypeNeed> Needs { get; set; } = [];
+
+    /// <summary>
+    /// Cards that fit the build without being one of its roles (<c>onTheme</c>): they never take the off-build penalty, but add no
+    /// commit and no synergy. Cards whose tier entry provides or consumes one of the <see cref="Needs"/> tags count as on-theme too
+    /// (<see cref="IsOnTheme"/>). Must not repeat a role-list card.
+    /// </summary>
+    public List<string> OnTheme { get; set; } = [];
+
     public string? Desc { get; set; }
 
     /// <summary>English <see cref="Desc"/>, from the pack's <c>text.eng.json</c> (<see cref="PackText"/>).</summary>
@@ -70,6 +78,20 @@ public sealed class Archetype
     {
         var role = RoleOf(cardId);
         return role is not null && RoleWeight.TryGetValue(role, out var w) ? w : 0.0;
+    }
+
+    /// <summary>
+    /// True when <paramref name="cardId"/> is not one of the build's roles but fits it: listed in <see cref="OnTheme"/>, or its tier
+    /// entry provides or consumes a tag the build <see cref="Needs"/> (e.g. a poison card for a build that needs <c>POISON</c>).
+    /// <paramref name="canonical"/> maps ids to canonical form (<see cref="DataPack.Canonical"/>).
+    /// </summary>
+    public bool IsOnTheme(string cardId, CardTierEntry? entry, Func<string, string> canonical)
+    {
+        if (RoleOf(cardId) is not null) return false;
+        if (OnTheme.Any(id => string.Equals(canonical(id), cardId, StringComparison.Ordinal))) return true;
+        if (entry is null) return false;
+        return Needs.Any(n => n.Tag is { } tag
+            && (entry.Provides.Contains(tag, StringComparer.Ordinal) || entry.Consumes.Contains(tag, StringComparer.Ordinal)));
     }
 }
 

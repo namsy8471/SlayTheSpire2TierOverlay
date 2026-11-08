@@ -1,5 +1,5 @@
-// 사일런트 아키타입. 카드 목록은 상위 플레이어의 A10 승리 덱에서 뽑았습니다(OP.GG 주간 최단 승리 상위 100명과 그들의 최근 승리, 2026-11-02~08, 바닐라 v0.107.1·v0.111.0 94판·41명; 보조 출처 Baalorlord A10 연승 덱). 근거와 수치: docs/research/build-sources/silent.md
-// 시작 덱 카드(SURVIVOR 등)와 시작 유물은 넣지 않습니다. 베타에서 바뀐 카드(†)는 v0.107.x 판만으로 판단했습니다.
+// 사일런트 아키타입 v2. 카드 목록은 상위 플레이어의 A10 승리 덱에서 뽑았습니다(OP.GG 주간 상위 100에 오른 플레이어 전원의 전체 기록, 바닐라 v0.107~v0.111 승리 888판·77명, 판정은 좋은 플레이어 19명 482판·플레이어 균형·부트스트랩). 근거와 수치: docs/research/build-sources/silent.md
+// 시작 덱 카드와 시작 유물은 넣지 않습니다. 베타에서 바뀐 카드(†)는 v0.107.x 판만으로 판단했습니다. "불확실"은 부트스트랩 80% 기준을 못 넘어 v1 값을 유지한 항목입니다.
 {
   "character": "CHARACTER.SILENT",
   "archetypes": [
@@ -7,17 +7,25 @@
       "id": "silent.poison",
       "names": { "kor": "중독", "eng": "Poison" },
       "color": "#27ae60",
-      // 근거(OP.GG A10 승리 덱, 2026-11-02~08): 멤버 덱 31판·22명(랭킹 1위 플레이어 6판). core NOXIOUS_FUMES 52%·lift 2.7·13명, ACCELERANT† 41%(v0.107 7/17)·lift 11.9·4명(그중 4판이 랭킹 1위 플레이어).
-      // BOUNCING_FLASK는 36%로 core 기준(40%) 미달이라 enabler. Baalorlord 중독 덱도 NOXIOUS_FUMES·SNAKEBITE 중심.
-      // 예: https://op.gg/slay-the-spire2/history/7306479 https://op.gg/slay-the-spire2/history/7176716 https://op.gg/slay-the-spire2/history/7085517
+      // 근거(OP.GG 상위 플레이어 A10 바닐라 승리, v0.107~v0.111, 플레이어 균형·200회 부트스트랩): 좋은 플레이어 멤버 덱 189판·17명(랭킹 1위 플레이어 29판), 전체 플레이어 306판·49명. core NOXIOUS_FUMES 50%·lift 2.13·16명·core 부트스트랩 90%.
+      // 불확실(v1 값 유지): BUBBLE_BUBBLE(payoff, 카드 기준 통과 좋은 44%·전체 56%).
+      // 좋은 플레이어 표본이 얇아(<10명) 전체 플레이어로 판정: ACCELERANT†(유지, 전체 통과 96%), HAZE†(추가, 전체 통과 92%), TRACKING†(제거, 전체 통과 0%).
+      // ACCELERANT†는 core에서 payoff로: 균형 점유율 31%(v0.107 멤버 22/57판)라 core 기준을 넘는 재표본이 16%뿐(전체 플레이어 6%). 카드 기준 통과는 66%(전체 플레이어 96%)라 payoff로 목록에 유지(좋은 플레이어 66%는 6명뿐이라 전체 플레이어로 판정).
+      // v1에서 제거(탈락이 부트스트랩으로 안정): BLUR, LEG_SWEEP, MIRAGE†, REFLEX, TRACKING†, UNTOUCHABLE.
+      // 예: https://op.gg/slay-the-spire2/history/7176716 https://op.gg/slay-the-spire2/history/7089416 https://op.gg/slay-the-spire2/history/6479296 https://op.gg/slay-the-spire2/history/6405508
       "cards": {
-        "core": ["CARD.NOXIOUS_FUMES", "CARD.ACCELERANT"],
-        "enabler": ["CARD.SNAKEBITE", "CARD.BOUNCING_FLASK", "CARD.DEADLY_POISON"],
-        "payoff": ["CARD.MIRAGE", "CARD.BUBBLE_BUBBLE"],
-        "support": ["CARD.BLUR", "CARD.LEG_SWEEP", "CARD.REFLEX", "CARD.UNTOUCHABLE", "CARD.TRACKING"]
+        "core": ["CARD.NOXIOUS_FUMES"],
+        "enabler": ["CARD.SNAKEBITE", "CARD.HAZE", "CARD.BOUNCING_FLASK", "CARD.DEADLY_POISON"],
+        "payoff": ["CARD.ACCELERANT", "CARD.BUBBLE_BUBBLE"],
+        "support": []
       },
-      "fullWeight": 4.0,
-      // 유물 재확인: SNECKO_SKULL 멤버 13%·lift 1.4·3명(유지), TWISTED_FUNNEL 26%·lift 2.3·8명(유지).
+      // onTheme(빌드 밖 감점 면제, 빌드 점수 없음): 빌드 확정 덱(commit ≥ 0.7)에 다른 승리 덱보다 1.5배 이상 자주 있고 5명 이상이 들었으며(부트스트랩 80%) 역할 목록에는 없는 카드. 좋은 플레이어 표본이 얇아 전체 플레이어로 판정: MIRAGE, OUTBREAK. 근거: docs/research/v2-stats/on-theme.md
+      "onTheme": ["CARD.BULLET_TIME", "CARD.BURST", "CARD.CORROSIVE_WAVE", "CARD.MASTER_PLANNER", "CARD.MIRAGE", "CARD.OUTBREAK", "CARD.POISONED_STAB"],
+      // fullWeight 4.0 → 3.0: 새 목록으로 멤버 덱 commit 중앙값이 0.66(<0.7)라 0.85 근처로 맞춤(3.0에서 멤버 0.88, 비멤버 0.17; 플레이어 균형 중앙값).
+      "fullWeight": 3.0,
+      // essentialTarget: 멤버 승리 덱이 든 서로 다른 enabler·payoff 카드 수의 균형 중앙값 2(부트스트랩 90%). coreTarget은 core 보유 중앙값이 1장이라 기본값 1.
+      "essentialTarget": 2,
+      // 유물(축에 작용하는 유물만 후보; lift≥1.5·5명·부트스트랩 80%): SNECKO_SKULL 30%·lift 1.29·12명·부트스트랩 26% 유지(불확실); TWISTED_FUNNEL 15%·lift 1.31·10명·부트스트랩 30% 유지(불확실).
       "keyRelics": [
         { "id": "RELIC.SNECKO_SKULL", "w": 0.7 },
         { "id": "RELIC.TWISTED_FUNNEL", "w": 0.5 }
@@ -30,19 +38,26 @@
       "id": "silent.shiv",
       "names": { "kor": "단도", "eng": "Shiv" },
       "color": "#95a5a6",
-      // 근거(OP.GG A10 승리 덱, 2026-11-02~08): 멤버 덱 73판·34명(랭킹 1위 플레이어 9판). core ACCURACY 64%·비멤버 0%·25명, INFINITE_BLADES 48%·비멤버 0%·21명.
-      // 두 core를 함께 든 덱은 30%라 coreTarget 1. STORM_OF_STEEL(lift 0.7)·FINISHER·UP_MY_SLEEVE(24.7%)는 카드 기준 미달로 제외.
-      // 예: https://op.gg/slay-the-spire2/history/7299147 https://op.gg/slay-the-spire2/history/7191806 https://op.gg/slay-the-spire2/history/7204766
+      // 근거(OP.GG 상위 플레이어 A10 바닐라 승리, v0.107~v0.111, 플레이어 균형·200회 부트스트랩): 좋은 플레이어 멤버 덱 396판·18명(랭킹 1위 플레이어 54판), 전체 플레이어 752판·70명. core ACCURACY 63%·lift 12.28·16명·core 부트스트랩 100%, INFINITE_BLADES 40%·lift 4.21·15명·core 부트스트랩 49%.
+      // 불확실(v1 값 유지): AFTERIMAGE(support, 카드 기준 통과 좋은 52%·전체 97%), EXPOSE(support, 카드 기준 통과 좋은 24%·전체 50%), FAN_OF_KNIVES(payoff, 카드 기준 통과 좋은 56%·전체 86%), INFINITE_BLADES(core, 카드 기준 통과 좋은 100%·전체 100%, core 좋은 49%·전체 93%).
+      // INFINITE_BLADES core 유지(불확실): 좋은 플레이어 균형 점유율 40%로 40% 경계, 전체 플레이어로는 46%·core 통과 93%.
+      // v1에서 제거(탈락이 부트스트랩으로 안정): DEFLECT, ENVENOM, ESCAPE_PLAN, TRACKING†.
+      // 예: https://op.gg/slay-the-spire2/history/3724911 https://op.gg/slay-the-spire2/history/6364114 https://op.gg/slay-the-spire2/history/5870874 https://op.gg/slay-the-spire2/history/6757188
       "cards": {
         "core": ["CARD.ACCURACY", "CARD.INFINITE_BLADES"],
-        "enabler": ["CARD.LEADING_STRIKE", "CARD.BLADE_DANCE", "CARD.CLOAK_AND_DAGGER", "CARD.HIDDEN_DAGGERS", "CARD.BLADE_OF_INK"],
-        "payoff": ["CARD.PHANTOM_BLADES", "CARD.KNIFE_TRAP", "CARD.FAN_OF_KNIVES", "CARD.ENVENOM"],
-        "support": ["CARD.EXPOSE", "CARD.DEFLECT", "CARD.AFTERIMAGE", "CARD.ESCAPE_PLAN", "CARD.TRACKING"]
+        "enabler": ["CARD.BLADE_DANCE", "CARD.LEADING_STRIKE", "CARD.CLOAK_AND_DAGGER", "CARD.HIDDEN_DAGGERS", "CARD.BLADE_OF_INK"],
+        "payoff": ["CARD.PHANTOM_BLADES", "CARD.KNIFE_TRAP", "CARD.FAN_OF_KNIVES"],
+        "support": ["CARD.EXPOSE", "CARD.AFTERIMAGE"]
       },
+      // onTheme(빌드 밖 감점 면제, 빌드 점수 없음): 빌드 확정 덱(commit ≥ 0.7)에 다른 승리 덱보다 1.5배 이상 자주 있고 5명 이상이 들었으며(부트스트랩 80%) 역할 목록에는 없는 카드. 근거: docs/research/v2-stats/on-theme.md
+      "onTheme": ["CARD.ASSASSINATE", "CARD.FINISHER", "CARD.PANACHE", "CARD.SHADOW_STEP", "CARD.STORM_OF_STEEL", "CARD.UP_MY_SLEEVE"],
+      // fullWeight 유지: 멤버 덱 commit 중앙값 1.00, 비멤버 0.17(플레이어 균형).
       "fullWeight": 4.0,
-      // 유물 재확인: HELICAL_DART 멤버 1판·lift 0.3이라 삭제. NINJA_SCROLL(6명)·KUNAI(lift 2.3)·SHURIKEN(lift 2.0)·ORNAMENTAL_FAN(19명·lift 2.3) 유지.
+      // essentialTarget 미설정(불확실): enabler·payoff 보유 중앙값 3가 부트스트랩 57%로 불안정(전체 플레이어 4). coreTarget은 core 보유 중앙값이 1장이라 기본값 1.
+      // 유물(축에 작용하는 유물만 후보; lift≥1.5·5명·부트스트랩 80%): NINJA_SCROLL 7%·lift 1.71·8명·부트스트랩 53% 유지(좋은 플레이어 표본이 얇아 전체 플레이어 87%로 판정); HELICAL_DART 4%·lift ∞·8명·부트스트랩 97% 추가; KUNAI 10%·lift 6.06·13명·부트스트랩 99% 유지; SHURIKEN 13%·lift 5.08·12명·부트스트랩 100% 유지; ORNAMENTAL_FAN 19%·lift 1.46·16명·부트스트랩 42% 유지(불확실).
       "keyRelics": [
         { "id": "RELIC.NINJA_SCROLL", "w": 0.5 },
+        { "id": "RELIC.HELICAL_DART", "w": 0.5 },
         { "id": "RELIC.KUNAI", "w": 0.5 },
         { "id": "RELIC.SHURIKEN", "w": 0.5 },
         { "id": "RELIC.ORNAMENTAL_FAN", "w": 0.3 }
@@ -55,20 +70,26 @@
       "id": "silent.sly_discard",
       "names": { "kor": "교활·버리기", "eng": "Sly / Discard" },
       "color": "#16a085",
-      // 근거(OP.GG A10 승리 덱, 2026-11-02~08): 멤버 덱 51판·27명(랭킹 1위 플레이어 11판). 대부분 단도·중독 덱 위에 얹힌 형태.
-      // core 없음: 엔진 역할의 파워가 기준을 통과하지 못함(TOOLS_OF_THE_TRADE 12%·lift 1.0, ACROBATICS lift 1.3은 범용 드로우). 가장 많은 TACTICIAN(44%·12명)은 1회성 교활 카드라 payoff.
-      // 예: https://op.gg/slay-the-spire2/history/7169193 https://op.gg/slay-the-spire2/history/7144897 https://op.gg/slay-the-spire2/history/7085517
+      // 근거(OP.GG 상위 플레이어 A10 바닐라 승리, v0.107~v0.111, 플레이어 균형·200회 부트스트랩): 좋은 플레이어 멤버 덱 214판·17명(랭킹 1위 플레이어 50판), 전체 플레이어 346판·50명. core 없음.
+      // 불확실(v1 값 유지): DAGGER_THROW(enabler, 카드 기준 통과 좋은 78%·전체 82%), PREPARED(enabler, 카드 기준 통과 좋은 52%·전체 99%), TRACKING†(support, 카드 기준 통과 좋은 58%·전체 28%).
+      // core 없음: 이 축의 엔진 파워(TOOLS_OF_THE_TRADE 23%, MASTER_PLANNER, ABRASIVE)가 core 기준(40%)에 못 미침. 40%를 넘는 ACROBATICS·TACTICIAN은 스킬이라 엔진이 아님.
+      // v1에서 제거(탈락이 부트스트랩으로 안정): ABRASIVE, WELL_LAID_PLANS†.
+      // 예: https://op.gg/slay-the-spire2/history/4682263 https://op.gg/slay-the-spire2/history/4110994 https://op.gg/slay-the-spire2/history/6234531 https://op.gg/slay-the-spire2/history/6669207
       "cards": {
         "core": [],
-        "enabler": ["CARD.PREPARED", "CARD.DAGGER_THROW"],
-        "payoff": ["CARD.TACTICIAN", "CARD.RICOCHET", "CARD.REFLEX", "CARD.UNTOUCHABLE", "CARD.ABRASIVE"],
-        "support": ["CARD.WELL_LAID_PLANS", "CARD.TRACKING"]
+        "enabler": ["CARD.PREPARED", "CARD.ACROBATICS", "CARD.DAGGER_THROW"],
+        "payoff": ["CARD.TACTICIAN", "CARD.UNTOUCHABLE", "CARD.REFLEX", "CARD.RICOCHET"],
+        "support": ["CARD.TRACKING"]
       },
-      // fullWeight 4.5 → 3.0: 새 목록으로 멤버 덱 commit 중앙값이 0.60이라 0.85 근처로 맞춤(3.0에서 0.90, 비멤버 0.17).
+      // onTheme(빌드 밖 감점 면제, 빌드 점수 없음): 빌드 확정 덱(commit ≥ 0.7)에 다른 승리 덱보다 1.5배 이상 자주 있고 5명 이상이 들었으며(부트스트랩 80%) 역할 목록에는 없는 카드. 좋은 플레이어 표본이 얇아 전체 플레이어로 판정: FLICK_FLACK. 근거: docs/research/v2-stats/on-theme.md
+      "onTheme": ["CARD.CORROSIVE_WAVE", "CARD.FLICK_FLACK", "CARD.MASTER_PLANNER", "CARD.SPEEDSTER"],
+      // fullWeight 유지: 멤버 덱 commit 중앙값 0.98, 비멤버 0.30(플레이어 균형).
       "fullWeight": 3.0,
-      // 유물 재확인: TINGSHA lift 0.8, TOUGH_BANDAGES lift 0.6·2명이라 삭제. GAMBLING_CHIP lift 1.1·3명 유지.
+      // essentialTarget: 멤버 승리 덱이 든 서로 다른 enabler·payoff 카드 수의 균형 중앙값 3(부트스트랩 97%). core가 없어 coreTarget 없음.
+      "essentialTarget": 3,
+      // 유물(축에 작용하는 유물만 후보; lift≥1.5·5명·부트스트랩 80%): TINGSHA 11%·lift 1.10·11명·부트스트랩 12% 미채택; TOUGH_BANDAGES 10%·lift 2.19·10명·부트스트랩 86% 추가; GAMBLING_CHIP 8%·lift 1.13·9명·부트스트랩 14% 삭제.
       "keyRelics": [
-        { "id": "RELIC.GAMBLING_CHIP", "w": 0.3 }
+        { "id": "RELIC.TOUGH_BANDAGES", "w": 0.6 }
       ],
       "needs": [{ "tag": "DISCARD", "min": 3 }],
       "desc": "버려질 때 발동하는 교활 카드를 싼 버리기 카드로 굴리는 빌드. 상위 플레이어는 주로 단도나 중독 덱 위에 얹어 씀",

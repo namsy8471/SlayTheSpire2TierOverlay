@@ -24,17 +24,25 @@
 release.cmd 0.2.0
   └─ tools\release.ps1: 검사 → 확인 → 태그 v0.2.0 만들고 push
         └─ GitHub Actions .github/workflows/release.yml (태그 v* push로 시작)
+              build 잡 (windows-latest)
               1. 버전 확인 (SemVer 2, 같은 Release가 이미 있으면 나머지 건너뜀)
               2. dotnet test (Core, GameState, Resources, Vision, App 테스트, Release 구성)
               3. dotnet publish src/Sts2Overlay.App -c Release -r win-x64 --self-contained -o publish -p:Version=0.2.0
-              4. dotnet tool restore  (vpk는 .config/dotnet-tools.json의 로컬 도구)
-              5. dotnet vpk download github  (이전 릴리스를 받아 둠 → 델타 패키지용, 첫 릴리스면 건너뜀)
-              6. dotnet vpk pack --packId namsy8471.Sts2Overlay --packVersion 0.2.0 --packDir publish --mainExe Sts2Overlay.exe ...
-              7. dotnet vpk upload github --publish --tag v0.2.0  (Release 공개)
+              4. publish 폴더를 워크플로 아티팩트로 올림
+              pack 잡 (ubuntu-latest, Windows용으로 cross-pack)
+              5. dotnet tool restore  (vpk는 .config/dotnet-tools.json의 로컬 도구)
+              6. dotnet vpk [win] download github --channel win  (이전 릴리스를 받아 둠 → 델타 패키지용, 첫 릴리스면 건너뜀)
+              7. dotnet vpk [win] pack --packId namsy8471.Sts2Overlay --packVersion 0.2.0 --packDir publish --mainExe Sts2Overlay.exe --channel win ...
+                 (델타를 못 만들면 --delta none으로 다시 묶음: 안전망)
+              8. dotnet vpk [win] upload github --channel win --publish --tag v0.2.0  (Release 공개)
 ```
 
+- **왜 묶기(pack)만 Linux에서 하나:** 델타는 vpk에 딸린 zstd가 만듭니다. 영어 Windows 러너(ANSI 코드 페이지 cp1252)에서는 한글 제목에서 생긴 `STS2 티어 오버레이_ExecutionStub.exe` 경로가 `??`로 깨져 델타가 실패했습니다(v0.1.1). Linux는 파일 이름을 UTF-8 그대로 넘깁니다. 제목을 영문으로 바꾸면 기존 사용자의 바로가기 이름이 바뀌므로 제목은 그대로 둡니다.
+- **`--channel win`을 꼭 넘기는 이유:** Linux에서 돌면 채널 기본값이 `linux`라 `[win]`만으로는 `download`가 `releases.win.json`을 보지 않습니다(이전 릴리스 0개 → 델타 없음).
+- **시험 실행:** Actions → release → Run workflow에서 `dry_run`(기본 켜짐)을 두면 Release를 만들지 않고 `releases-<버전>` 아티팩트로만 올립니다. 예: 버전 `0.1.2-test`로 돌려 델타가 생기는지 확인. 태그 push에는 이 입력이 없어 항상 공개합니다.
+
 - 버전 이름에 `-`가 있으면(`0.2.0-beta.1`) 사전 릴리스(`--pre`)로 올립니다.
-- Actions 화면의 **Run workflow**(workflow_dispatch)로 버전을 입력해 올릴 수도 있습니다. 이때는 그 커밋에 태그가 새로 붙습니다.
+- Actions 화면의 **Run workflow**(workflow_dispatch)로 버전을 입력해 올릴 수도 있습니다. `dry_run`을 끄면 그 커밋에 태그가 새로 붙고 공개됩니다.
 - publish는 단일 파일이 아니라 폴더입니다. Velopack이 폴더를 패키지(`.nupkg`)로 묶고, 이전 버전과의 차이로 델타 패키지를 만듭니다.
 - Release에는 설치 파일(`…-win-Setup.exe`), 전체 패키지(`…-full.nupkg`), 델타 패키지(`…-delta.nupkg`), 피드 파일(`releases.win.json` 등)이 올라갑니다. 앱은 피드를 보고 델타가 있으면 델타만 받습니다.
 
@@ -54,13 +62,14 @@ release.cmd 0.2.0
 
 ## 앱의 업데이트 동작
 
-코드: `src/Sts2Overlay.App/Services/UpdateService.cs`, `UpdatePolicy.cs` (규칙은 `tests/Sts2Overlay.App.Tests/UpdatePolicyTests.cs`에서 테스트).
+코드: `src/Sts2Overlay.App/Services/UpdateService.cs`, `UpdatePolicy.cs` (규칙은 `tests/Sts2Overlay.App.Tests/UpdatePolicyTests.cs`, 확인 결과 메시지는 `UpdateServiceTests.cs`에서 테스트).
 
 - **설치판에서만** 동작합니다(`UpdateManager.IsInstalled`). checkout, `dist\Sts2Overlay.exe`, 그냥 publish한 폴더는 업데이트하지 않고, 트레이 버전 옆에 "(개발용)"이 붙습니다.
 - 시작하고 **15초 뒤** 한 번 확인하고, 그 뒤로는 30분마다 "확인할 때가 됐는지"만 보고 실제 확인은 **최대 6시간마다** 합니다. 트레이 "업데이트 확인"은 바로 확인하되 1분에 한 번까지입니다.
 - 새 버전이 있으면 백그라운드에서 받고, 패널 아래 초록 줄("새 버전 vX 준비됨 — 종료하면 적용")과 트레이 "업데이트 적용 (재시작) vX"를 보여 줍니다.
+- 트레이 "업데이트 확인"은 결과를 **항상 트레이 알림(풍선)과 패널 줄**로 알려 줍니다: 확인 중… → 최신 버전입니다 (vX) / vX 다운로드 중… → 다운로드 완료 — 재시작하면 적용 / 실패 이유(인터넷 연결, GitHub 한도, 주소 오류 등) / 개발용 실행이라 확인하지 않음. 확인하는 동안 메뉴 항목은 "업데이트 확인 중…"으로 바뀌고 눌리지 않습니다. 자동 확인으로 받은 새 버전도 다운로드가 끝나면 알림을 띄웁니다. (패널은 게임이 앞에 있을 때만 보이므로 알림이 필요합니다.)
 - 적용: 트레이에서 누르면 설정을 저장하며 정상 종료한 뒤 Velopack이 파일을 바꾸고 다시 켭니다. 안 누르면 오버레이가 종료될 때 조용히 적용하고 다시 켜지 않습니다. **스스로 재시작하는 일은 없습니다.**
-- 오프라인, GitHub 한도 초과, 피드 오류는 `app.log`에만 남고 다음 확인 때 다시 시도합니다.
+- 자동 확인의 오프라인, GitHub 한도 초과, 피드 오류는 `app.log`에만 남고 다음 확인 때 다시 시도합니다.
 - `settings.json`:
   - `"autoUpdate": false` — 자동 확인을 끕니다(트레이 "업데이트 확인"은 그대로).
   - `"updateUrl"` — 업데이트를 받을 곳. 비우면 공식 저장소. 다른 `https://github.com/<owner>/<repo>`, vpk 출력이 있는 http(s) 폴더, 로컬·네트워크 폴더 절대 경로(테스트용)를 받습니다. 잘못된 값이면 기록을 남기고 공식 저장소를 씁니다.

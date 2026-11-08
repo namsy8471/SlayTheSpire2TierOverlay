@@ -141,7 +141,7 @@ public sealed class TrayIcon : IDisposable
         _openCaptures.Text = Loc.T("캡처 폴더 열기", "Open captures folder");
         _openLog.Text = Loc.T("로그 열기", "Open log");
         _version.Text = Loc.T($"버전 {_versionText}", $"Version {_versionText}") + (_devBuild ? Loc.T(" (개발용)", " (dev)") : "");
-        _checkUpdate.Text = Loc.T("업데이트 확인", "Check for updates");
+        _checkUpdate.Text = CheckUpdateLabel();
         _applyUpdate.Text = ApplyUpdateText(_updateVersion);
         _exit.Text = Loc.T("종료", "Exit");
     }
@@ -192,8 +192,22 @@ public sealed class TrayIcon : IDisposable
         return on && forcedHidden ? text + Loc.T(" (지금은 숨김: 호환 캡처 사용 중)", " (hidden now: compatibility capture in use)") : text;
     }
 
+    private bool _updateChecking;
+
+    private static string CheckUpdateText => Loc.T("업데이트 확인", "Check for updates");
+
     /// <summary>"업데이트 확인": check for a new version now.</summary>
     public event Action? CheckUpdateRequested;
+
+    private string CheckUpdateLabel() => _updateChecking ? Loc.T("업데이트 확인 중…", "Checking for updates…") : CheckUpdateText;
+
+    /// <summary>While a check or download runs: "업데이트 확인 중…", disabled.</summary>
+    public void SetUpdateChecking(bool checking)
+    {
+        _updateChecking = checking;
+        _checkUpdate.Enabled = !checking;
+        _checkUpdate.Text = CheckUpdateLabel();
+    }
 
     /// <summary>"업데이트 적용 (재시작)": shown once an update was downloaded.</summary>
     public event Action? ApplyUpdateRequested;

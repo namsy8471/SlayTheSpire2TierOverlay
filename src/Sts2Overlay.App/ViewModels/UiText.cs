@@ -71,6 +71,9 @@ public sealed class UiText : INotifyPropertyChanged
     // ---- tags on cards ----
     public string EstimateTag => Loc.T("추정", "Est.");
     public string UpgradedTag => Loc.T("강화", "Upgraded");
+
+    /// <summary>Card tooltip: the line that introduces the upgraded text.</summary>
+    public string AfterUpgrade => Loc.T("강화 후 ·", "Upgraded ·");
     public string NoArt => Loc.T("그림 없음", "No art");
 
     // ---- 덱 tab ----

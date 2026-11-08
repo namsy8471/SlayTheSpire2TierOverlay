@@ -171,7 +171,10 @@ public class CorePriorityTests
     {
         var pack = LowCorePack();
         Assert.Equal(0, Score(pack, Filler, Leaning(pack, 0.9)).Score.ValueOf(ComponentKeys.OffBuild));
-        Assert.Equal(-W.OffBuildPenalty, Score(pack, Filler, Leaning(pack, 0.9, OrbCore)).Score.ValueOf(ComponentKeys.OffBuild));
+        // With the core the build is committed: off-build applies, capped so that with the secured-essential floor it stays below two tiers.
+        var step = W.TierValue[Tier.A] - W.TierValue[Tier.B];
+        Assert.Equal(-Math.Min(W.OffBuildPenalty, 2 * step - W.CorePriority.SecuredEssentialFloor - CardScorer.TwoTierMargin),
+            Score(pack, Filler, Leaning(pack, 0.9, OrbCore)).Score.ValueOf(ComponentKeys.OffBuild), 9);
         // the detector's own commit is unchanged by the rule (forecast depends on it)
         var state = State(act: 2, deck: [OrbEnabler, OrbPayoff, OrbSupport]);
         Assert.True(ArchetypeDetector.Detect(state, pack).Single(s => s.Archetype.Id == OrbArchetype).Commit > 0.5);

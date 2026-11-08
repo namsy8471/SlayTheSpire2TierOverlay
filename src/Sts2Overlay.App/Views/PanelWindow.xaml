@@ -3,6 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:Sts2Overlay.App.ViewModels"
         xmlns:svc="clr-namespace:Sts2Overlay.App.Services"
+        xmlns:views="clr-namespace:Sts2Overlay.App.Views"
+        xmlns:ctext="clr-namespace:Sts2Overlay.Core.Text;assembly=Sts2Overlay.Core"
         Title="{Binding PanelTitle, Source={x:Static vm:UiText.Instance}}"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         Topmost="True" ShowInTaskbar="False" ShowActivated="False" ResizeMode="NoResize"
@@ -113,8 +115,37 @@
     </DataTemplate>
 
     <!--
+      One face (base or upgraded) of a card's effect text: energy-cost orb (green when the upgrade changed it), star cost
+      for Regent cards, then the description as the game composes it (keyword lines, gold terms, green upgraded numbers).
+    -->
+    <DataTemplate x:Key="CardFaceTemplate" DataType="{x:Type ctext:CardFace}">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Left" Margin="0,1,7,0" VerticalAlignment="Top">
+          <Border Width="22" Height="22" CornerRadius="11" Background="#F08A24" BorderBrush="#FFE0A0" BorderThickness="1"
+                  Visibility="{Binding Cost, Converter={StaticResource BoolVis}}">
+            <TextBlock x:Name="CostText" Text="{Binding Cost}" FontSize="13" FontWeight="Bold" Foreground="White"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+          <Border Width="22" Height="18" Margin="0,2,0,0" CornerRadius="3" Background="#33F7DC6F"
+                  Visibility="{Binding StarCost, Converter={StaticResource BoolVis}}">
+            <TextBlock FontSize="11" FontWeight="Bold" Foreground="#F7DC6F" HorizontalAlignment="Center" VerticalAlignment="Center">
+              <Run Text="{Binding StarCost, Mode=OneWay}" /><Run Text="★" />
+            </TextBlock>
+          </Border>
+        </StackPanel>
+        <TextBlock views:CardTextView.Runs="{Binding Body}" TextWrapping="Wrap" FontSize="13" LineHeight="18" />
+      </DockPanel>
+      <DataTemplate.Triggers>
+        <DataTrigger Binding="{Binding CostChanged}" Value="True">
+          <Setter TargetName="CostText" Property="Foreground" Value="#B7F5C9" />
+        </DataTrigger>
+      </DataTemplate.Triggers>
+    </DataTemplate>
+
+    <!--
       빌드 tab card tile: portrait + name. Owned = gold frame and check; not owned = dimmed, so what is still needed stands out.
-      Hover: name, role/rarity/tier, owned or not, and the large portrait (decoded only when the tooltip opens).
+      Hover: name, role/rarity/tier, owned or not, the card's effect text (base and upgraded), and the large portrait
+      (decoded only when the tooltip opens).
     -->
     <DataTemplate x:Key="BuildCardTileTemplate" DataType="{x:Type vm:BuildCardVm}">
       <StackPanel x:Name="Tile" Width="62" Margin="0,0,4,5" Background="Transparent" Cursor="Help"
@@ -153,6 +184,20 @@
                   </Style>
                 </TextBlock.Style>
               </TextBlock>
+              <!-- Effect text (game localization + extracted numbers); hidden when the localization isn't extracted. -->
+              <Border Padding="7,6" Margin="0,0,0,6" CornerRadius="3" Background="#26FFFFFF"
+                      Visibility="{Binding Text, Converter={StaticResource BoolVis}}">
+                <StackPanel>
+                  <ContentControl Content="{Binding Text.Base}" ContentTemplate="{StaticResource CardFaceTemplate}" Focusable="False" />
+                  <StackPanel Visibility="{Binding Text.Upgraded, Converter={StaticResource BoolVis}}">
+                    <Border Height="1" Margin="0,6,0,5" Background="#33FFFFFF" />
+                    <TextBlock FontSize="11.5" Foreground="{StaticResource UpgradeFg}" Margin="0,0,0,3">
+                      <Run Text="{Binding AfterUpgrade, Source={x:Static vm:UiText.Instance}, Mode=OneWay}" /> <Run Text="{Binding Text.Upgraded.Title, Mode=OneWay}" FontWeight="SemiBold" />
+                    </TextBlock>
+                    <ContentControl Content="{Binding Text.Upgraded}" ContentTemplate="{StaticResource CardFaceTemplate}" Focusable="False" />
+                  </StackPanel>
+                </StackPanel>
+              </Border>
               <Image Source="{Binding Art.Large}" Width="380" Height="289" RenderOptions.BitmapScalingMode="HighQuality"
                      Visibility="{Binding Art, Converter={StaticResource BoolVis}}" />
             </StackPanel>

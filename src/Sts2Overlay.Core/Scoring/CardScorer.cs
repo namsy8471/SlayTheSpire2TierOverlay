@@ -11,7 +11,8 @@ namespace Sts2Overlay.Core.Scoring;
 /// plus the DECK_COMPASS rules (requires gate, saturation, weakness-first build cap)
 /// and "core first" (<c>core_priority</c> for a build's missing core card; <c>core_missing</c> = the synergy a non-core card loses
 /// while its build has no core, so before any core cards rank on their own strength; then essential before support synergy;
-/// see <see cref="CorePriorityWeights"/>).
+/// see <see cref="CorePriorityWeights"/>); after the core, <c>secured_essential</c> lifts the build's essential cards to a floor that beats a generic
+/// card one tier higher, a secured build skips the weak-deck build cap unless the deck is in an emergency, and on-theme cards are not off-build.
 /// Every tunable comes from <see cref="DataPack.Weights"/>; the total is always the sum of the emitted components.
 /// </summary>
 public sealed class CardScorer(DataPack pack)
@@ -88,7 +89,11 @@ public sealed class CardScorer(DataPack pack)
         double Ungated(Membership m) => w.WArch * m.Commit * m.Weight * m.Stage;
         var buildRaw = memberships.Sum(Ungated);
         var buildRawGated = memberships.Sum(m => Ungated(m) * m.Gate);
-        var buildCap = profile.IsWeak ? w.BuildCapWeak : w.BuildCap;
+        // Weakness first (DECK_COMPASS rule 3) caps the build on a weak deck, but not for a card of a build whose core is already in,
+        // unless the deck is in an emergency (block nearly missing or low HP): then the weak cap is back.
+        var emergency = IsEmergency(state, profile, w);
+        var securedMember = memberships.Any(m => m.Role is not null && m.Core.Target > 0 && m.Core.Owned >= m.Core.Target);
+        var buildCap = profile.IsWeak && (emergency || !securedMember) ? w.BuildCapWeak : w.BuildCap;
         var build = Finite(Math.Min(buildCap, buildRaw));
         var coreMissing = Finite(Math.Min(0.0, Math.Min(buildCap, buildRawGated) - build));
         string buildLabel = Loc.T("빌드 시너지", "Build synergy"), buildDetail = "";
@@ -165,9 +170,9 @@ public sealed class CardScorer(DataPack pack)
         // i.e. its non-core cards already owned), scaled by the share of the core target still missing; max over builds, never summed.
         double corePriority = 0;
         string? corePriorityDetail = null;
+        var topCommit = profile.Archetypes.Select(Commit).DefaultIfEmpty(0.0).Max();
         if (!engineMissing)
         {
-            var topCommit = profile.Archetypes.Select(Commit).DefaultIfEmpty(0.0).Max();
             var weakFactor = profile.IsWeak ? Math.Clamp(Finite(cp.WeakFactor), 0.0, 1.0) : 1.0;
             var bonus = Math.Max(0.0, Finite(cp.Bonus));
             // Starter part only while no build (with core cards) is core-secured: once the deck has a working build, other
@@ -194,6 +199,28 @@ public sealed class CardScorer(DataPack pack)
                     corePriorityDetail = detail;
                 }
             }
+        }
+
+        // ---- secured build essential ("빌드 필수 카드") ----
+        // Once the deck's build owns its core, its essential cards (payoff/enabler) count at least `floor` of synergy, so they beat a
+        // generic card one tier higher with a typical need, but not one two tiers higher (see off-build below). Full as soon as the core is in
+        // (whatever the commit, if it is the deck's build), tapers once the build holds essentialTarget + extra essentials, halves in an emergency. Max over builds.
+        double securedEssential = 0;
+        string? securedDetail = null;
+        if (!engineMissing)
+        {
+            var bestFloor = 0.0;
+            foreach (var m in memberships.Where(m => m.Role is ArchetypeRoles.Payoff or ArchetypeRoles.Enabler))
+            {
+                var f = SecuredFloor(m.Status, profile, topCommit, emergency);
+                if (f.Floor <= bestFloor + Epsilon) continue;
+                bestFloor = f.Floor;
+                securedDetail = Loc.T($"{m.Status.Archetype.DisplayName} 코어 확보: 필수 시너지 최소 {Num(f.Floor)}점",
+                        $"{m.Status.Archetype.DisplayName} core secured: key synergy at least {Num(f.Floor)} pts")
+                    + (f.Taper < 1.0 ? Loc.T($", 필수 {m.Essential.Owned}장 보유 (감쇠 ×{Num(f.Taper)})", $", {m.Essential.Owned} essentials owned (taper ×{Num(f.Taper)})") : "")
+                    + (emergency ? Loc.T($" (위급: 방어·체력 우선 ×{Num(f.EmergencyFactor)})", $" (emergency: Block/HP first ×{Num(f.EmergencyFactor)})") : "");
+            }
+            securedEssential = Finite(Math.Max(0.0, bestFloor - Math.Max(0.0, build + coreMissing)));
         }
 
         // ---- need ----
@@ -230,9 +257,28 @@ public sealed class CardScorer(DataPack pack)
             .Where(s => Commit(s) >= w.CommitThreshold && CoreSecured(s.Archetype, profile))
             .ToList();
         double offBuild = 0;
-        if (committed.Count > 0 && !committed.Any(s => s.Archetype.WeightOf(id) > 0) && need <= 0)
+        string? offBuildDetail = committed.Count > 0
+            ? Loc.T($"{committed[0].Archetype.DisplayName} 밖의 카드", $"Outside {committed[0].Archetype.DisplayName}")
+            : null;
+        // A card that fits a committed build without being one of its roles (on-theme: `onTheme` list or a needed axis tag) is not off-build.
+        if (committed.Count > 0 && !committed.Any(s => s.Archetype.WeightOf(id) > 0 || s.Archetype.IsOnTheme(id, entry, Pack.Canonical))
+            && need <= 0)
         {
             offBuild = -w.OffBuildPenalty;
+            // The committed build's essentials already get the secured floor: penalty + floor stays below two tier steps, so a generic
+            // card two tiers higher still beats an essential (the floor alone already beats one tier higher).
+            var deckFloor = committed.Select(s => SecuredFloor(s, profile, topCommit, emergency).Floor).DefaultIfEmpty(0.0).Max();
+            if (deckFloor > Epsilon)
+            {
+                var twoTiers = 2 * (w.TierValue.GetValueOrDefault(Tier.A) - w.TierValue.GetValueOrDefault(Tier.B));
+                var cap = Math.Max(0.0, twoTiers - deckFloor - TwoTierMargin);
+                if (cap < w.OffBuildPenalty)
+                {
+                    offBuild = -cap;
+                    offBuildDetail += Loc.T($" (빌드 필수 카드 최소 {Num(deckFloor)}점과 합쳐 티어 두 칸 미만)",
+                        $" (with the build essentials' {Num(deckFloor)}-pt floor, under two tier steps)");
+                }
+            }
         }
 
         // ---- saturation (DECK_COMPASS rule 2) ----
@@ -256,7 +302,7 @@ public sealed class CardScorer(DataPack pack)
             }
             if (worstFactor < 1.0)
             {
-                var positive = Math.Max(0, build + coreMissing) + Math.Max(0, comboValue) + Math.Max(0, need);
+                var positive = Math.Max(0, build + coreMissing) + securedEssential + Math.Max(0, comboValue) + Math.Max(0, need);
                 saturation = Finite(-positive * (1 - worstFactor));
             }
         }
@@ -282,8 +328,8 @@ public sealed class CardScorer(DataPack pack)
         Add(parts, ComponentKeys.Build, buildLabel, build, buildDetail);
         Add(parts, ComponentKeys.CoreMissing, ScoringLabels.CoreMissing, coreMissing, coreMissingDetail);
         Add(parts, ComponentKeys.CorePriority, ScoringLabels.CorePriority, corePriority, corePriorityDetail);
-        Add(parts, ComponentKeys.OffBuild, ScoringLabels.OffBuild, offBuild,
-            committed.Count > 0 ? Loc.T($"{committed[0].Archetype.DisplayName} 밖의 카드", $"Outside {committed[0].Archetype.DisplayName}") : null);
+        Add(parts, ComponentKeys.SecuredEssential, ScoringLabels.SecuredEssential, securedEssential, securedDetail);
+        Add(parts, ComponentKeys.OffBuild, ScoringLabels.OffBuild, offBuild, offBuildDetail);
         Add(parts, ComponentKeys.Combo, ScoringLabels.Combo, comboValue, comboNames.Count > 0 ? string.Join(", ", comboNames) : null);
         if (engineMissing)
         {
@@ -373,6 +419,45 @@ public sealed class CardScorer(DataPack pack)
         var coreFactor = core.Target > 0 ? Math.Min(1.0, (double)core.Owned / core.Target) : 1.0;
         var floor = coreFactor < 1.0 ? SynergyUnlock(s, act, pack.Weights) : 1.0;
         return Commit(s) * (floor + (1 - floor) * coreFactor);
+    }
+
+    /// <summary>Points a generic card two tiers higher keeps over a build essential at the floor once the off-build penalty is applied.</summary>
+    public const double TwoTierMargin = 1.0;
+
+    /// <summary>
+    /// Secured-essential floor of build <paramref name="s"/>: 0 unless it has core cards, owns its core target and is the deck's build
+    /// (top commit or within <see cref="Weights.HybridMargin"/> of it). Then the full <c>SecuredEssentialFloor × taper × emergency</c>
+    /// whatever the commit ("once the core arrives, essential synergy gets its points"), never above <see cref="Weights.BuildCapWeak"/>
+    /// on a weak deck in an emergency.
+    /// </summary>
+    private (double Floor, double Taper, double EmergencyFactor) SecuredFloor(
+        ArchetypeStatus s, DeckProfile profile, double topCommit, bool emergency)
+    {
+        var w = Pack.Weights;
+        var cp = w.CorePriority;
+        if (!(Finite(cp.SecuredEssentialFloor) > 0)) return default;
+        var core = ArchetypeDetector.CoreProgress(s.Archetype, Pack, profile.Copies);
+        if (core.Target == 0 || core.Owned < core.Target) return default;
+        if (Commit(s) < topCommit - w.HybridMargin - Epsilon) return default;
+        var essential = ArchetypeDetector.EssentialProgress(s.Archetype, Pack, profile.Copies);
+        var extra = essential.Owned - (essential.Target + cp.SecuredEssentialExtra);
+        var taper = extra <= 0 ? 1.0 : Math.Max(0.0, 1 - extra * Math.Clamp(Finite(cp.SecuredEssentialTaper), 0.0, 1.0));
+        var emergencyFactor = emergency ? Math.Clamp(Finite(cp.EmergencyFactor), 0.0, 1.0) : 1.0;
+        var floor = Finite(cp.SecuredEssentialFloor) * taper * emergencyFactor;
+        if (emergency && profile.IsWeak) floor = Math.Min(floor, w.BuildCapWeak);
+        return (floor, taper, emergencyFactor);
+    }
+
+    /// <summary>
+    /// Emergency: HP below <see cref="SituationWeights.LowHpThreshold"/>, or an <see cref="CorePriorityWeights.EmergencyRoles"/> role
+    /// (block by default) with a gap of at least <see cref="CorePriorityWeights.EmergencyGap"/>. Then a secured build gets the weak cap
+    /// again and its essentials only <see cref="CorePriorityWeights.EmergencyFactor"/> of the floor.
+    /// </summary>
+    public static bool IsEmergency(RunState state, DeckProfile profile, Weights w)
+    {
+        if (state.HpRatio < w.Situation.LowHpThreshold) return true;
+        var cp = w.CorePriority;
+        return cp.EmergencyRoles.Any(r => profile.RoleGap.TryGetValue(r, out var g) && g >= cp.EmergencyGap - Epsilon);
     }
 
     private bool CoreSecured(Archetype a, DeckProfile profile)

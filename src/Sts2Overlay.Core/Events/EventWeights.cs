@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Sts2Overlay.Core.Events;
 
 /// <summary>
@@ -5,9 +7,22 @@ namespace Sts2Overlay.Core.Events;
 /// (a basic card removal ≈ 14, a treasure relic ≈ 18, 100% max HP at full HP = 30). HP itself is priced by
 /// <see cref="Map.PathWeights.HpValue"/> / <see cref="Map.PathWeights.LowHpValueBoost"/> so map and event advice agree.
 /// [추정] values are estimates to be tuned against run history (tools/RunHistoryAnalyzer events).
+/// Overridable from <c>weights.json</c> under <c>"events"</c> (merged like <c>skip</c>/<c>shop</c>).
 /// </summary>
 public sealed class EventWeights
 {
+    /// <summary>
+    /// How much of the measured top-player choice rate (<c>events.stats.json</c>) is added to an option's score:
+    /// <c>score = formula + MeasuredBlend × MeasuredScale × (rate − 1/k)</c>. 0 = the formula alone (no stats used).
+    /// </summary>
+    public double MeasuredBlend { get; set; } = 0.5;
+
+    /// <summary>
+    /// Points for a rate 1.0 above neutral, about the spread of the formula's own values (transform 16–28, relic 13–24).
+    /// With the default blend, a 90% pick on a two-option page adds 0.5 × 20 × 0.4 = 4 points.
+    /// </summary>
+    public double MeasuredScale { get; set; } = 20;
+
     /// <summary>Points per gold. A 75-gold removal is worth ≈ 14 → 0.19; a 50–75-gold shop card ≈ 8–12 → 0.15. [추정]</summary>
     public double GoldValue { get; set; } = 0.15;
 
@@ -18,6 +33,7 @@ public sealed class EventWeights
     /// Max HP is permanent (and rest sites heal a share of it): one max HP is worth this many current HP, by act.
     /// Earlier is worth more because it lasts longer. [추정]
     /// </summary>
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
     public Dictionary<int, double> MaxHpFactor { get; set; } = new() { [1] = 2.2, [2] = 1.8, [3] = 1.4 };
 
     public double MaxHpFactorFor(int act)
@@ -50,13 +66,28 @@ public sealed class EventWeights
     /// <summary>A random card of a pool added without choice (above skip on average only for good pools). [추정]</summary>
     public double RandomCardAdd { get; set; } = 1;
 
-    /// <summary>Relic by tier; an unspecified/random relic uses <see cref="RelicDefault"/>. [추정]</summary>
+    /// <summary>
+    /// Relic by tier; an unspecified/random relic uses <see cref="RelicDefault"/>. [추정]
+    /// A relic with a stable measured rate in <c>relics.json</c> is scaled by <see cref="Data.RelicStats.ValueMultiplier"/>.
+    /// </summary>
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
     public Dictionary<string, double> RelicTier { get; set; } = new(StringComparer.OrdinalIgnoreCase)
     {
         ["common"] = 13, ["uncommon"] = 16, ["rare"] = 20, ["shop"] = 16, ["event"] = 15, ["ancient"] = 24, ["boss"] = 24,
     };
 
     public double RelicDefault { get; set; } = 16;
+
+    /// <summary>
+    /// One relic's value: <see cref="RelicTier"/>[<paramref name="tier"/>] (else <see cref="RelicDefault"/>), times
+    /// <see cref="Data.RelicStats.ValueMultiplier"/> when <paramref name="stats"/> has a usable rate for <paramref name="relicId"/>.
+    /// Without stats (or for an unknown/random relic) it is the rarity value exactly.
+    /// </summary>
+    public double RelicValue(string? tier, string? relicId, Data.RelicStats? stats)
+    {
+        var value = tier is not null && RelicTier.TryGetValue(tier, out var tv) ? tv : RelicDefault;
+        return stats is null ? value : value * stats.ValueMultiplier(relicId);
+    }
 
     /// <summary>Losing a relic. [추정]</summary>
     public double RelicLoss { get; set; } = 14;

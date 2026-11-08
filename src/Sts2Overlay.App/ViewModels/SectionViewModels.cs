@@ -2,6 +2,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using Sts2Overlay.App.Services;
 using Sts2Overlay.Core.Localization;
+using Sts2Overlay.Core.Text;
 
 namespace Sts2Overlay.App.ViewModels;
 
@@ -92,7 +93,8 @@ public sealed record DeckSectionVm
 /// <param name="RarityText">일반 / 고급 / 희귀 …, null when unknown.</param>
 /// <param name="TierText">"S".."D", or "?" when unrated.</param>
 /// <param name="Art">Card portrait; null when the art isn't extracted (the tile shows a placeholder).</param>
-public sealed record BuildCardVm(string Name, string RoleText, string? RarityText, string TierText, bool Owned, CardArtVm? Art)
+/// <param name="Text">Effect text (cost, description, upgraded description) from the game's localization; null when unknown.</param>
+public sealed record BuildCardVm(string Name, string RoleText, string? RarityText, string TierText, bool Owned, CardArtVm? Art, CardText? Text = null)
 {
     /// <summary>"핵심 · 희귀 · 티어 A" line of the hover tooltip.</summary>
     public string DetailText => string.Join(" · ", new[] { RoleText, RarityText, Loc.T($"티어 {TierText}", $"Tier {TierText}") }.Where(s => !string.IsNullOrEmpty(s)));

@@ -40,6 +40,8 @@ public static class ScoringLabels
     public static string CorePriority => Loc.T("코어 확보", "Get core");
     public static string CoreMissing => Loc.T("코어 없음", "No core");
 
+    public static string SecuredEssential => Loc.T("빌드 필수 카드", "Build essential");
+
     /// <summary>"코어", "필수 시너지", "서브 시너지" / "core", "key synergy", "sub synergy".</summary>
     public static string BuildRoleKind(BuildRoleKind kind) => kind switch
     {

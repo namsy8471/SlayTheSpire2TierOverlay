@@ -71,6 +71,17 @@ public sealed class ShopScorer(DataPack pack)
     }
 
     /// <summary>
+    /// Value of a relic on sale: its rarity value (<see cref="Events.EventWeights.RelicTier"/>, the same scale event relics
+    /// use), times <see cref="RelicStats.ValueMultiplier"/> when <c>relics.json</c> has a stable buy rate for it
+    /// (rate ÷ the shop median, clamped to 0.5–1.5; purchases are gold-limited, so the rate is only read relative to the median).
+    /// The shop screen reader does not read relics yet, so <see cref="Evaluate"/> has no relic item; this is the value it will use.
+    /// </summary>
+    /// <param name="relicId"><c>RELIC.X</c>.</param>
+    /// <param name="rarity"><c>common</c>/<c>uncommon</c>/<c>rare</c>/<c>shop</c>; null = <see cref="Events.EventWeights.RelicDefault"/>.</param>
+    public double RelicValue(string relicId, string? rarity)
+        => Pack.Weights.Events.RelicValue(rarity, relicId, Pack.RelicStats);
+
+    /// <summary>
     /// Estimated merchant price of a card when the screen price cannot be read (<see cref="ShopPrices.Estimated"/>).
     /// <paramref name="rarity"/> and <paramref name="colorless"/> default to the catalog / tier data (<see cref="DataPack.CardRarity"/>,
     /// <see cref="DataPack.IsColorless"/>). Null when the rarity is unknown or not sold.
