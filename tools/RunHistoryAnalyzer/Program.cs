@@ -15,6 +15,7 @@ using Sts2Overlay.Tools.RunHistoryAnalyzer;
 //        [--player <steamId>] [--tuned-until <unix>] [--all-players] [--k 5] [--chrono-test <games>] [--min-net 3] [--min-games 2] [--out <file.md>]
 //   dotnet run --project tools/RunHistoryAnalyzer -- calibrate <runs-dir>... --pack <dir> [--catalog <cards.json>] [--sims N] [--noise σ] [--policy greedy|engine] [--emit]
 //   dotnet run --project tools/RunHistoryAnalyzer -- tune-weights <runs-dir|file.run>... --pack <dir> [--player <steamId>] [--tuned-until <unix>] [--all-players] [--lambda 0.005]... [--no-zero] [--out <file.md>]
+//   dotnet run --project tools/RunHistoryAnalyzer -- rest-advice <runs-dir|file.run>... --pack <dir> [--catalog <cards.json>] [--player <steamId>] [--all-players] [--out <file.md>]
 //
 // Run files live in %APPDATA%\SlayTheSpire2\steam\<steamid>\profile1\saves\history\.
 
@@ -90,6 +91,19 @@ internal static class Cli
             }
 
             Write(TuneWeightsCommand.Run(files.Zip(runs).ToArray(), LoadPack(packDir, catalogFile), player, tunedUntil, allPlayers, lambdas.Count > 0 ? lambdas : [0.005], noZero), outFile);
+            return 0;
+        }
+
+        if (command == "rest-advice")
+        {
+            if (packDir is null)
+            {
+                Console.Error.WriteLine("rest-advice 에는 --pack 이 필요합니다.");
+                return 1;
+            }
+
+            // Upgrade limits and card types come from the catalog, so load the committed one when none is given.
+            Write(RestAdviceCommand.Run(files.Zip(runs).ToArray(), LoadPack(packDir, catalogFile ?? FindCommittedCatalog()), player, allPlayers), outFile);
             return 0;
         }
 
@@ -234,6 +248,7 @@ internal static class Cli
                        [--tuned-until <unix>] [--all-players] [--k 5] [--chrono-test <games>] [--min-net 3] [--min-games 2] [--out <file.md>]
               calibrate <runs-dir>... --pack <dir> [--catalog <cards.json>] [--sims N] [--noise σ] [--policy greedy|engine] [--emit] [--out <file.md>]
               tune-weights <runs-dir|file.run>... --pack <dir> [--player <steamId>] [--tuned-until <unix>] [--all-players] [--lambda 0.005]... [--no-zero] [--out <file.md>]
+              rest-advice <runs-dir|file.run>... --pack <dir> [--catalog <cards.json>] [--player <steamId>] [--all-players] [--out <file.md>]
             """);
     }
 }

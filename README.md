@@ -125,6 +125,12 @@ dotnet run --project tools/RunHistoryAnalyzer -c Release -- calibrate "%APPDATA%
 dotnet run --project tools/RunHistoryAnalyzer -- tune-weights "%APPDATA%\SlayTheSpire2\steam\<id>\profile1\saves\history" --pack data/packs/v0.107.1 --player <id> --tuned-until 1794134406 --all-players --lambda 0.005
 ```
 
+휴식처 조언(휴식 vs 강화, 강화할 카드)을 기록의 선택과 비교 (일치율은 대리 지표, 남은 길은 실제로 걸은 방):
+
+```bash
+dotnet run --project tools/RunHistoryAnalyzer -- rest-advice "%APPDATA%\SlayTheSpire2\steam\<id>\profile1\saves\history" --pack data/packs/v0.107.1 [--all-players] [--out rest.md]
+```
+
 ## 저작권
 
 게임 텍스트·이미지는 레포에 넣지 않습니다. 데이터는 게임 내부 ID(`CARD.BALL_LIGHTNING` 등)와 우리 주석만 담고, 이름이 들어간 카탈로그와 카드 그림은 사용자 PC에서만 생성합니다.
