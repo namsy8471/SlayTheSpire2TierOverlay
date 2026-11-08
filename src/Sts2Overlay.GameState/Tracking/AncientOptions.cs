@@ -126,7 +126,7 @@ public static class AncientOptions
         return new AncientDraw(options, seaGlass);
     }
 
-    /// <summary>Every option this ancient can show (events.json order is not assumed), as option-key suffixes.</summary>
+    /// <summary>Every option this ancient can show (Orobas's locked placeholder aside), as option-key suffixes.</summary>
     public static IReadOnlyList<string> AllOptions(string eventId) => Entry(eventId) switch
     {
         "PAEL" => ["PAELS_FLESH", "PAELS_HORN", "PAELS_TEARS", "PAELS_WING", "PAELS_EYE", "PAELS_BLOOD", "PAELS_CLAW", "PAELS_TOOTH", "PAELS_LEGION", "PAELS_GROWTH"],
@@ -138,6 +138,49 @@ public static class AncientOptions
         "DARV" => [.. DarvSets.SelectMany(s => s.Relics), "DUSTY_TOME"],
         _ => [],
     };
+
+    /// <summary>
+    /// The options this player could have drawn at this node (the pool the offered ones came from): every option minus the
+    /// conditional ones the deck, relics, act or modifiers rule out. As text keys; null when the ancient isn't handled.
+    /// </summary>
+    public static IReadOnlyList<string>? PossibleKeys(string eventId, AncientInputs p)
+    {
+        if (!Handles(eventId)) return null;
+        bool touch = TouchAllowed(p), tooth = ArchaicToothAllowed(p);
+        var excluded = new HashSet<string>(StringComparer.Ordinal);
+        void Unless(bool allowed, string option) { if (!allowed) excluded.Add(option); }
+        switch (Entry(eventId))
+        {
+            case "PAEL":
+                Unless(ClawAllowed(p), "PAELS_CLAW");
+                Unless(PaelsToothAllowed(p), "PAELS_TOOTH");
+                Unless(!HasEventPet(p), "PAELS_LEGION");
+                break;
+            case "TEZCATARA":
+                Unless(SoupAllowed(p), "NUTRITIOUS_SOUP");
+                break;
+            case "OROBAS":
+                Unless(touch, "TOUCH_OF_OROBAS");
+                Unless(tooth, "ARCHAIC_TOOTH");
+                break;
+            case "NONUPEIPE":
+                Unless(BraceletAllowed(p), "BEAUTIFUL_BRACELET");
+                break;
+            case "TANX":
+                Unless(BoomerangAllowed(p), "TRI_BOOMERANG");
+                break;
+            case "DARV":
+                Unless(!p.DeckClearingModifier, "PANDORAS_BOX");
+                Unless(p.ActIndex == 1, "ECTOPLASM");
+                Unless(p.ActIndex == 1, "SOZU");
+                Unless(p.ActIndex == 2, "PHILOSOPHERS_STONE");
+                Unless(p.ActIndex == 2, "VELVET_CHOKER");
+                break;
+        }
+        var options = AllOptions(eventId).Where(o => !excluded.Contains(o)).ToList();
+        if (Entry(eventId) == "OROBAS" && !touch && !tooth) options.Add(OrobasLocked);
+        return options.Select(o => KeyPrefix(eventId) + o).ToArray();
+    }
 
     /// <summary><c>PAEL.pages.INITIAL.options.</c> for <c>EVENT.PAEL</c>.</summary>
     public static string KeyPrefix(string eventId) => Entry(eventId) + ".pages.INITIAL.options.";
@@ -152,8 +195,8 @@ public static class AncientOptions
     {
         string first = NextItem(rng, ["PAELS_FLESH", "PAELS_HORN", "PAELS_TEARS"])!;
         var second = new List<string> { "PAELS_WING" };
-        if (p.Deck.Count(c => CanEnchant(c, "Goopy")) >= 3) second.Add("PAELS_CLAW");
-        if (p.Deck.Count(c => !CardRarities.HasCanonicalKeyword(c.Id, "Eternal")) >= 5) second.Add("PAELS_TOOTH");
+        if (ClawAllowed(p)) second.Add("PAELS_CLAW");
+        if (PaelsToothAllowed(p)) second.Add("PAELS_TOOTH");
         second.AddRange(second.ToArray()); // list.AddRange(list): every entry but Growth twice as likely
         second.Add("PAELS_GROWTH");
         string middle = NextItem(rng, second)!;
@@ -165,7 +208,7 @@ public static class AncientOptions
     private static string[] Tezcatara(GameRng rng, AncientInputs p)
     {
         var first = new List<string> { "VERY_HOT_COCOA", "YUMMY_COOKIE" };
-        if (p.Deck.Any(c => CardRarities.HasTag(c.Id, "Strike") && CardRarities.Of(c.Id) == "Basic")) first.Add("NUTRITIOUS_SOUP");
+        if (SoupAllowed(p)) first.Add("NUTRITIOUS_SOUP");
         return
         [
             NextItem(rng, first)!,
@@ -189,8 +232,8 @@ public static class AncientOptions
         if (a != SeaGlass) seaGlass = null;
         string b = NextItem(rng, ["ALCHEMICAL_COFFER", "DRIFTWOOD", "RADIANT_PEARL"])!;
         var third = new List<string>();
-        if (p.Relics.Any(r => RelicTrading.RarityOf(r) == "Starter")) third.Add("TOUCH_OF_OROBAS");
-        if (p.Deck.Any(c => TranscendenceStarters.Contains(c.Id))) third.Add("ARCHAIC_TOOTH");
+        if (TouchAllowed(p)) third.Add("TOUCH_OF_OROBAS");
+        if (ArchaicToothAllowed(p)) third.Add("ARCHAIC_TOOTH");
         if (third.Count == 0) third.Add(OrobasLocked);
         return [a, b, NextItem(rng, third)!];
     }
@@ -203,7 +246,7 @@ public static class AncientOptions
     private static string[] Nonupeipe(GameRng rng, AncientInputs p)
     {
         var list = NonupeipePool.ToList();
-        if (p.Deck.Count(c => CanEnchant(c, "Swift")) >= 4) list.Add("BEAUTIFUL_BRACELET");
+        if (BraceletAllowed(p)) list.Add("BEAUTIFUL_BRACELET");
         rng.Shuffle(list);
         return [.. list.Take(3)];
     }
@@ -216,7 +259,7 @@ public static class AncientOptions
     private static string[] Tanx(GameRng rng, AncientInputs p)
     {
         var list = TanxPool.ToList();
-        if (p.Deck.Count(c => CanEnchant(c, "Instinct")) >= 3) list.Add("TRI_BOOMERANG");
+        if (BoomerangAllowed(p)) list.Add("TRI_BOOMERANG");
         rng.Shuffle(list);
         return [.. list.Take(3)];
     }
@@ -261,6 +304,15 @@ public static class AncientOptions
     }
 
     // ---------------------------------------------------------------------------------------------------------------
+
+    // The conditional options' rules (shared by the draw and by PossibleKeys).
+    private static bool ClawAllowed(AncientInputs p) => p.Deck.Count(c => CanEnchant(c, "Goopy")) >= 3;
+    private static bool PaelsToothAllowed(AncientInputs p) => p.Deck.Count(c => !CardRarities.HasCanonicalKeyword(c.Id, "Eternal")) >= 5; // IsRemovable
+    private static bool SoupAllowed(AncientInputs p) => p.Deck.Any(c => CardRarities.HasTag(c.Id, "Strike") && CardRarities.Of(c.Id) == "Basic");
+    private static bool TouchAllowed(AncientInputs p) => p.Relics.Any(r => RelicTrading.RarityOf(r) == "Starter"); // TouchOfOrobas.SetupForPlayer
+    private static bool ArchaicToothAllowed(AncientInputs p) => p.Deck.Any(c => TranscendenceStarters.Contains(c.Id)); // ArchaicTooth.SetupForPlayer
+    private static bool BraceletAllowed(AncientInputs p) => p.Deck.Count(c => CanEnchant(c, "Swift")) >= 4;
+    private static bool BoomerangAllowed(AncientInputs p) => p.Deck.Count(c => CanEnchant(c, "Instinct")) >= 3;
 
     /// <summary>
     /// EnchantmentModel.CanEnchant for the three enchantments ancients count: never Status / Curse / Quest cards, never an

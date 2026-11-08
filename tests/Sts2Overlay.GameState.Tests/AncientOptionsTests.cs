@@ -117,6 +117,27 @@ public class AncientOptionsTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void Offered_options_always_come_from_the_possible_pool()
+    {
+        // PossibleKeys is what the panel ranks below the offered three: it must hold every option a draw can give.
+        var inputs = s_visits.Value.Select(v => (v.Event, v.Inputs)).ToList();
+        foreach (string seed in Seeds(300))
+            foreach (string ev in new[] { "EVENT.PAEL", "EVENT.TEZCATARA", "EVENT.OROBAS", "EVENT.NONUPEIPE", "EVENT.TANX", "EVENT.VAKUU", "EVENT.DARV" })
+            {
+                inputs.Add((ev, Inputs(seed, IroncladStart)));
+                inputs.Add((ev, Inputs(seed) with { Relics = [], ActIndex = 2 }));
+            }
+        foreach (var (ev, p) in inputs)
+        {
+            var possible = AncientOptions.PossibleKeys(ev, p)!;
+            Assert.All(AncientOptions.Keys(ev, p)!, k => Assert.Contains(k, possible));
+        }
+        // Conditions the deck rules out leave the pool too.
+        Assert.DoesNotContain("PAEL.pages.INITIAL.options.PAELS_CLAW", AncientOptions.PossibleKeys("EVENT.PAEL", Inputs("X"))!);
+        Assert.Contains("OROBAS.pages.INITIAL.options.OPTION_POOL_3_LOCKED", AncientOptions.PossibleKeys("EVENT.OROBAS", Inputs("X") with { Relics = [] })!);
+    }
+
+    [Fact]
     public void Darv_offers_the_act_relics_only_in_their_act()
     {
         foreach (string seed in Seeds(1500))
