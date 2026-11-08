@@ -43,7 +43,8 @@ sealed class RunTruth
     /// </summary>
     public static List<RunTruth> LoadAll(string currentSave, DateTime since)
     {
-        var runs = new List<RunTruth> { Load(currentSave) };
+        // No current_run.save between runs: the finished runs in history/ still count.
+        var runs = File.Exists(currentSave) ? new List<RunTruth> { Load(currentSave) } : [];
         string history = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(currentSave)!, "history");
         if (Directory.Exists(history))
             foreach (string f in Directory.GetFiles(history, "*.run"))

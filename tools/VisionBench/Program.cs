@@ -12,10 +12,13 @@ using VisionBench;
 //   VisionBench selftest  [--db file]                       each portrait shrunk/darkened → still found?
 //   VisionBench recognize <png> [--db file] [--character CHARACTER.X] [--upscale 2]
 //   VisionBench annotate  <png> [out.png]                   draws the found boxes (debugging)
-//   VisionBench bench     [--captures dir] [--save file] [--labels file] [--out dir] [--upscale 2] [--prices file]
+//   VisionBench bench     [--captures dir] [--save file | --saves dir] [--labels file] [--out dir] [--upscale 2] [--partial off] [--prices file]
+//   VisionBench stress    [--captures dir] [--out dir] [--every n] [--pool on] [--rows a,min,s,m]   covers clean cards artificially: recall + impostor accepts
 //   VisionBench price-occlude [--prices file] [--upscale 2] [--dark x] [--no-rarity x]   paints a "hand" (or a dark
 //                         panel) over parts of each price: unknown is fine, wrong is not
 //   VisionBench price-glyphs [--prices file] [--upscale 2]     derive the price digit templates from labelled shops
+//   VisionBench preview   [png ...] [--captures dir] [--out dir]   badges drawn where the overlay would put them
+//                         (4K/150 % and FHD/100 %), with the debug card/price outlines
 //
 // Everything it reads or writes lives outside the repo or in data/local (gitignored).
 
@@ -48,6 +51,19 @@ switch (args.FirstOrDefault())
     case "profile":
         Profile(positional[0]);
         break;
+    case "stress":
+        StressTest();
+        break;
+    case "probe":
+    {
+        // probe <png> <CARD.ID> <cx> <cy> <scale> [radius]: best NCC of that card around a box (reference units)
+        var rec = NewRecognizer(LoadDb());
+        ScreenFrame f = ImageLoader.Load(positional[0]);
+        float P(int i) => float.Parse(positional[i], CultureInfo.InvariantCulture);
+        var b = rec.Probe(f, positional[1], P(2), P(3), P(4), positional.Count > 5 ? P(5) : 12);
+        Console.WriteLine($"best {b.Score:F3} at ({b.X:F0}, {b.Y:F0}) scale {b.Scale:F2}");
+        break;
+    }
     case "price-glyphs":
         PriceGlyphsCommand();
         break;
@@ -57,9 +73,26 @@ switch (args.FirstOrDefault())
     case "price-debug":
         PriceDebug(positional[0]);
         break;
-    default:
-        Console.WriteLine("commands: build-db | selftest | recognize <png> | annotate <png> [out] | bench | price-glyphs");
+    case "preview":
+        PreviewCommand();
         break;
+    default:
+        Console.WriteLine("commands: build-db | selftest | recognize <png> | annotate <png> [out] | bench | stress | probe | price-glyphs | price-occlude | price-debug | preview");
+        break;
+}
+
+// --partial off: disable the occlusion-robust second pass (before/after comparisons).
+// --blocks / --rows agree,minTiles,score,margin[,wholeTopK]: override a partial stage (threshold tuning).
+RecognizerOptions RecognizerOptionsFromArgs()
+{
+    var o = new RecognizerOptions { PartialMatching = opts.GetValueOrDefault("partial") != "off" };
+    static PartialStage Parse(PartialStage d, string? arg)
+    {
+        if (arg == null) return d;
+        float[] v = arg.Split(',').Select(x => float.Parse(x, CultureInfo.InvariantCulture)).ToArray();
+        return d with { Agree = v[0], MinTiles = (int)v[1], AcceptScore = v[2], AcceptMargin = v[3], WholeTopK = v.Length > 4 ? (int)v[4] : d.WholeTopK };
+    }
+    return o with { BlockStage = Parse(o.BlockStage, opts.GetValueOrDefault("blocks")), RowStage = Parse(o.RowStage, opts.GetValueOrDefault("rows")) };
 }
 
 CardArtDatabase LoadDb()
@@ -134,7 +167,7 @@ void Profile(string png)
 {
     // Where does the time go? Repeats each stage to get stable numbers (first call pays JIT).
     CardArtDatabase db = LoadDb();
-    var rec = new CardRecognizer(db);
+    var rec = NewRecognizer(db);
     ScreenFrame frame = ImageLoader.Load(png);
     if (opts.TryGetValue("upscale", out string? up)) frame = Upscale(frame, int.Parse(up));
     var t = RefTransform.For(frame.Width, frame.Height);
@@ -157,10 +190,27 @@ void Profile(string png)
     }
 }
 
+void StressTest()
+{
+    string capturesDir = opts.GetValueOrDefault("captures") ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Sts2Overlay", "captures");
+    string outDir = opts.GetValueOrDefault("out") ?? Path.Combine(repo, "data", "local", "vision-robust");
+    int every = opts.TryGetValue("every", out string? ev) ? int.Parse(ev) : 1;
+    CardArtDatabase db = LoadDb();
+    var rec = new CardRecognizer(db, RecognizerOptionsFromArgs());
+    var files = Directory.GetFiles(capturesDir, "*.png")
+        .Where(f => Path.GetFileName(f).StartsWith("reward_", StringComparison.Ordinal) || Path.GetFileName(f).StartsWith("shop_", StringComparison.Ordinal))
+        .Order(StringComparer.Ordinal).Where((_, i) => i % every == 0).ToList();
+    bool poolOnly = opts.GetValueOrDefault("pool") == "on";
+    string report = Stress.Run(db, rec, files, _ => { }, poolOnly);
+    Directory.CreateDirectory(outDir);
+    File.WriteAllText(Path.Combine(outDir, poolOnly ? "stress-pool.md" : "stress.md"), report);
+    Console.WriteLine(report);
+}
+
 void Annotate(string png, string outPath)
 {
     CardArtDatabase db = LoadDb();
-    var rec = new CardRecognizer(db);
+    var rec = NewRecognizer(db);
     ScreenFrame frame = ImageLoader.Load(png);
     ScreenRecognition r = rec.Recognize(frame, new RecognitionHints(opts.GetValueOrDefault("character")));
     using SKBitmap bmp = SKBitmap.Decode(png);
@@ -185,8 +235,38 @@ void Annotate(string png, string outPath)
     static SKRect ToSk(PixelRect p) => new(p.X, p.Y, p.Right, p.Bottom);
 }
 
+void PreviewCommand()
+{
+    // Badge placement check without running the overlay: given captures, or 4 reward + 2 shop frames picked
+    // evenly across the capture folder (a clean 3-card reward / 7-card shop recognition).
+    var rec = NewRecognizer(LoadDb());
+    string outDir = opts.GetValueOrDefault("out") ?? Path.Combine(repo, "data", "local", "vision-robust", "preview");
+    List<string> files = positional.Count > 0 ? positional : PickPreviewCaptures(rec,
+        opts.GetValueOrDefault("captures") ?? Path.Combine(repo, "data", "local", "vision-robust", "frozen2", "captures"));
+    var tiers = Preview.LoadTiers(Path.Combine(repo, "data", "packs", "v0.107.1", "tiers"));
+    Console.WriteLine(Preview.Run(files, rec, Upscale, tiers, outDir, Console.WriteLine));
+}
+
+static List<string> PickPreviewCaptures(CardRecognizer rec, string dir)
+{
+    var picked = new List<string>();
+    foreach ((string prefix, ScreenKind kind, int cards, int want) in new[] { ("reward_", ScreenKind.RewardCardSelect, 3, 4), ("shop_", ScreenKind.Shop, 7, 2) })
+    {
+        string[] all = Directory.GetFiles(dir, prefix + "*.png").Order(StringComparer.Ordinal).ToArray();
+        for (int q = 0; q < want; q++)
+            for (int i = all.Length * q / want; i < all.Length * (q + 1) / want; i++)
+            {
+                ScreenRecognition r = rec.Recognize(ImageLoader.Load(all[i]));
+                if (r.Kind != kind || r.Cards.Count != cards) continue;
+                picked.Add(all[i]);
+                break;
+            }
+    }
+    return picked;
+}
+
 CardRecognizer NewRecognizer(CardArtDatabase db) =>
-    new(db, new RecognizerOptions { Catalog = File.Exists(catalogPath) ? VisionCatalog.Load(catalogPath) : null });
+    new(db, RecognizerOptionsFromArgs() with { Catalog = File.Exists(catalogPath) ? VisionCatalog.Load(catalogPath) : null });
 
 string PricesPath() => opts.GetValueOrDefault("prices") ?? Path.Combine(repo, "data", "local", "price", "labels.json");
 
@@ -426,7 +506,10 @@ void PriceGlyphsCommand()
 void Bench()
 {
     string capturesDir = opts.GetValueOrDefault("captures") ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Sts2Overlay", "captures");
-    string? savePath = opts.GetValueOrDefault("save") ?? FindCurrentRunSave();
+    // --saves <dir>: a (frozen) copy of the saves folder (current_run.save + history/*.run), so before/after runs
+    // compare against the same ground truth while the game keeps writing the live one.
+    string? savePath = opts.GetValueOrDefault("save")
+        ?? (opts.GetValueOrDefault("saves") is { } savesDir ? Path.Combine(savesDir, "current_run.save") : FindCurrentRunSave());
     string labelsPath = opts.GetValueOrDefault("labels") ?? Path.Combine(repo, "data", "local", "bench", "labels.json");
     string outDir = opts.GetValueOrDefault("out") ?? Path.Combine(repo, "data", "local", "bench");
     int upscale = opts.TryGetValue("upscale", out string? u) ? int.Parse(u) : 1;
@@ -446,7 +529,7 @@ void Bench()
 
     // Ground truth per capture: the run (current save, or a finished run from history/) played at that time.
     // --save pins one file (no history lookup).
-    List<RunTruth> runs = savePath == null || !File.Exists(savePath) ? []
+    List<RunTruth> runs = savePath == null || (!File.Exists(savePath) && !Directory.Exists(Path.Combine(Path.GetDirectoryName(savePath)!, "history"))) ? []
         : opts.ContainsKey("save") ? [RunTruth.Load(savePath)]
         : RunTruth.LoadAll(savePath, files.Count > 0 ? TimeOf(files[0].Ts) : DateTime.MinValue);
     foreach (RunTruth run in runs)
@@ -463,6 +546,7 @@ void Bench()
     // so the hold time is longer than the app's default).
     var tracker = new RecognitionTracker { HoldTime = TimeSpan.FromSeconds(6) };
     var visits = new List<(string First, string Last, TrackedScreen Screen, RunTruth? Run)>();
+    var visitSlots = new Dictionary<int, int>(); // visit index → most slots seen (reward: 2-4 cards, shop: 7)
     int generation = -1;
     foreach ((string path, string ts) in files)
     {
@@ -495,6 +579,7 @@ void Bench()
         {
             if (tracker.Generation != generation) visits.Add((name, name, tracked, truth));
             else visits[^1] = (visits[^1].First, name, tracked, visits[^1].Run);
+            visitSlots[visits.Count - 1] = Math.Max(visitSlots.GetValueOrDefault(visits.Count - 1), r.Slots.Count);
             generation = tracker.Generation;
         }
         Row row = rows[^1];
@@ -528,20 +613,23 @@ void Bench()
     Console.WriteLine($"visit-merged prices: {vRight}/{vSlots} right, {vWrong} wrong, {vUnknown} unknown");
 
     string report = Report(rows, runs, capturesDir, upscale, db.Count,
-        VisitReport(visits) + priceScore.Report($"Shop prices (hand labels: {priceLabels.Visits.Count} visits, every recognised card of a labelled visit)") + visitPrices, coldNotes);
+        VisitReport(visits, visitSlots) + priceScore.Report($"Shop prices (hand labels: {priceLabels.Visits.Count} visits, every recognised card of a labelled visit)") + visitPrices, coldNotes);
     Directory.CreateDirectory(outDir);
     string stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture);
     string file = Path.Combine(outDir, $"report-{stamp}{(upscale > 1 ? $"-x{upscale}" : "")}.md");
     File.WriteAllText(file, report);
     File.WriteAllText(Path.Combine(outDir, upscale > 1 ? $"latest-x{upscale}.md" : "latest.md"), report);
     // Every examined slot with its scores and whether its id belongs to the matched floor: threshold tuning data.
-    var csv = new StringBuilder("capture,kind,slot,card,upgraded,upgradeKnown,score,margin,green,scale,accepted,truth,price,priceText,priceTint,priceScore,priceMargin\n");
+    var csv = new StringBuilder("capture,kind,slot,card,upgraded,upgradeKnown,score,margin,green,scale,accepted,truth,pCard,pScore,pMargin,pVisible,pAccepted,pTruth\n");
     foreach (Row row in rows)
         for (int i = 0; i < row.Result.Slots.Count; i++)
         {
             RecognizedCard c = row.Result.Slots[i];
-            PriceReading? p = c.PriceReading;
-            csv.AppendLine($"{row.Name},{row.Kind},{c.Slot},{c.CardId},{c.Upgraded},{c.UpgradeKnown},{c.Score:F4},{c.Margin:F4},{c.UpgradeEvidence:F4},{c.NodeScale:F2},{c.Accepted},{row.SlotTruth[i]},{c.Price},{p?.Text},{p?.Tint},{p?.MinScore:F3},{p?.MinMargin:F3}");
+            PartialMatch? p = c.Partial;
+            PriceReading? pr = c.PriceReading;
+            csv.AppendLine($"{row.Name},{row.Kind},{c.Slot},{c.CardId},{c.Upgraded},{c.UpgradeKnown},{c.Score:F4},{c.Margin:F4},{c.UpgradeEvidence:F4},{c.NodeScale:F2},{c.Accepted},{row.SlotTruth[i]}," +
+                $"{p?.CardId},{p?.Score:F4},{p?.Margin:F4},{p?.Stage}:{p?.VisibleTiles},{p?.Accepted},{(p == null ? "" : row.FloorCards == null ? "?" : row.FloorCards.Contains(p.CardId) ? "in-floor" : "not-in-floor")}," +
+                $"{c.Price},{pr?.Text},{pr?.Tint},{pr?.MinScore:F3},{pr?.MinMargin:F3}");
         }
     File.WriteAllText(Path.Combine(outDir, upscale > 1 ? $"slots-x{upscale}.csv" : "slots.csv"), csv.ToString());
     Console.WriteLine();
@@ -587,15 +675,17 @@ Row Evaluate(string name, DateTime time, ScreenRecognition r, string? expected, 
         int wrong = recognized.Count(c => !truthIds.Contains(StripUp(c)));
         int badUpgrade = recognized.Count(c => truthIds.Contains(StripUp(c)) && !truthCards.Any(t => KeyMatches(c, t)));
         bool after = truth?.SaveTime is { } st && time > st.LocalDateTime && label?.Cards == null;
-        int total = r.Kind == ScreenKind.Shop ? 7 : truthCards.Count;
+        // Distinct ids: a floor can list a card both as offered and as gained upgraded (X and X+).
+        int total = r.Kind == ScreenKind.Shop ? 7 : Math.Min(r.Slots.Count, truthIds.Count);
         if (wrong > 0) verdict = after ? "unverified" : $"WRONG ({wrong})";
         else if (badUpgrade > 0) verdict = "WRONG-UPG";
-        else if (recognized.Count == Math.Min(total, truthCards.Count)) verdict = "CORRECT";
+        else if (recognized.Count == Math.Min(total, truthIds.Count)) verdict = "CORRECT";
         else verdict = $"PARTIAL {recognized.Count}/{total}";
     }
     var slotTruth = r.Slots.Select(c => c.CardId == null || truthCards == null ? "?" :
         truthCards.Select(StripUp).Contains(c.CardId) ? "in-floor" : "not-in-floor").ToList();
-    return new Row(name, expected, kind, recognized, r, verdict, best != null ? $"{truth!.Tag} {best.Name}" : null, slotTruth);
+    return new Row(name, expected, kind, recognized, r, verdict, best != null ? $"{truth!.Tag} {best.Name}" : null, slotTruth,
+        truthCards?.Select(StripUp).ToHashSet());
 
     static IReadOnlyList<string> TruthSet(Floor f) => f.Offered.Concat(f.Gained).Distinct().ToList();
 }
@@ -605,7 +695,7 @@ static string Key(RecognizedCard c) => c.CardId + (c.Upgraded ? "+" : c.UpgradeK
 static bool KeyMatches(string rec, string truth) =>
     rec.EndsWith('?') ? StripUp(rec) == StripUp(truth) : rec == truth;
 
-string VisitReport(List<(string First, string Last, TrackedScreen Screen, RunTruth? Run)> visits)
+string VisitReport(List<(string First, string Last, TrackedScreen Screen, RunTruth? Run)> visits, Dictionary<int, int> visitSlots)
 {
     var sb = new StringBuilder();
     sb.AppendLine("## Screen visits (frames merged with RecognitionTracker)");
@@ -613,8 +703,9 @@ string VisitReport(List<(string First, string Last, TrackedScreen Screen, RunTru
     sb.AppendLine("| first capture | last capture | kind | merged cards | floor | verdict |");
     sb.AppendLine("|---|---|---|---|---|---|");
     int ok = 0;
-    foreach ((string first, string last, TrackedScreen s, RunTruth? truth) in visits)
+    for (int vi = 0; vi < visits.Count; vi++)
     {
+        (string first, string last, TrackedScreen s, RunTruth? truth) = visits[vi];
         var keys = s.Cards.Select(Key).ToList();
         int Overlap(Floor f) => keys.Count(k => f.Offered.Concat(f.Gained).Select(StripUp).Contains(StripUp(k)));
         Floor? best = (truth?.Floors ?? []).OrderByDescending(Overlap).FirstOrDefault();
@@ -626,7 +717,9 @@ string VisitReport(List<(string First, string Last, TrackedScreen Screen, RunTru
         {
             int wrong = keys.Count(k => !truthCards.Select(StripUp).Contains(StripUp(k)));
             int badUp = keys.Count(k => truthCards.Select(StripUp).Contains(StripUp(k)) && !truthCards.Any(t => KeyMatches(k, t)));
-            int expectedCount = s.Kind == ScreenKind.Shop ? Math.Min(7, truthCards.Count) : truthCards.Count;
+            int distinct = truthCards.Select(StripUp).Distinct().Count();
+            // A floor can list more ids than the screen had slots (a deck card swapped in shows up as gained).
+            int expectedCount = Math.Min(visitSlots.GetValueOrDefault(vi, 7), distinct);
             verdict = wrong > 0 ? $"WRONG ({wrong})" : badUp > 0 ? "WRONG-UPG" : keys.Count == expectedCount ? "CORRECT" : $"PARTIAL {keys.Count}/{expectedCount}";
         }
         if (verdict == "CORRECT") ok++;
@@ -773,4 +866,5 @@ static string FindRepoRoot()
     return dir?.FullName ?? Directory.GetCurrentDirectory();
 }
 
-sealed record Row(string Name, string? Expected, string Kind, List<string> Recognized, ScreenRecognition Result, string Verdict, string? Floor, List<string> SlotTruth);
+sealed record Row(string Name, string? Expected, string Kind, List<string> Recognized, ScreenRecognition Result, string Verdict, string? Floor, List<string> SlotTruth,
+    HashSet<string>? FloorCards);

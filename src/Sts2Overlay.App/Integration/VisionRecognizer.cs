@@ -51,10 +51,12 @@ public sealed class VisionRecognizer : ICardRecognizer
                 // Vision works in frame pixels; the badge layer wants screen pixels, so add the capture origin.
                 new PixelRect(c.CardBounds.X, c.CardBounds.Y, c.CardBounds.Width, c.CardBounds.Height)
                     .Offset(frame.ScreenRect.X, frame.ScreenRect.Y),
-                c.Score,
+                // A card found by the partial match keeps a low whole-art score: its confidence is the partial NCC.
+                c.Partial?.Score ?? c.Score,
                 c.Price,
                 c.Unaffordable,
-                c.PriceReading?.OnSale == true))
+                c.PriceReading?.OnSale == true,
+                c.PriceBounds is { } p ? new PixelRect(p.X, p.Y, p.Width, p.Height).Offset(frame.ScreenRect.X, frame.ScreenRect.Y) : null))
             .ToArray();
         return new RecognitionResult(kind, cards);
     }

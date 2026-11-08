@@ -58,6 +58,13 @@ public sealed record RecognizedCard(
     int? Price,
     IReadOnlyList<ArtMatch> Candidates)
 {
+    /// <summary>
+    /// Occlusion-robust second opinion, present when the whole-art match was rejected on a confirmed screen.
+    /// When it is accepted, <see cref="CardId"/>/<see cref="Margin"/>/<see cref="Accepted"/> come from it,
+    /// while <see cref="Score"/> stays the whole-art NCC (low: part of the card is covered).
+    /// </summary>
+    public PartialMatch? Partial { get; init; }
+
     /// <summary>Shop only: the raw price reading (digits, label colour, scores), also when <see cref="Price"/> is null.</summary>
     public PriceReading? PriceReading { get; init; }
 
@@ -65,7 +72,7 @@ public sealed record RecognizedCard(
     public bool? Unaffordable => PriceReading is { Tint: not PriceTint.Unknown } r ? r.Unaffordable : null;
 
     public override string ToString() =>
-        $"#{Slot} {CardId ?? "-"}{(Upgraded ? "+" : UpgradeKnown ? "" : "?")} s={Score:F3} m={Margin:F3}{(Accepted ? "" : " (rejected)")}{(AmbiguousWith != null ? $" ~{AmbiguousWith}" : "")}{(PriceReading != null ? $" ${PriceReading}" : "")}";
+        $"#{Slot} {CardId ?? "-"}{(Upgraded ? "+" : UpgradeKnown ? "" : "?")} s={Score:F3} m={Margin:F3}{(Accepted ? "" : " (rejected)")}{(AmbiguousWith != null ? $" ~{AmbiguousWith}" : "")}{(Partial != null ? $" [partial {Partial}]" : "")}{(PriceReading != null ? $" ${PriceReading}" : "")}";
 }
 
 /// <summary>Result of the cheap colour-probe test that runs before any card matching.</summary>

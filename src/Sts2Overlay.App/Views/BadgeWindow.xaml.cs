@@ -23,7 +23,7 @@ public partial class BadgeWindow : Window
     private IntPtr _hwnd;
     private PixelRect _layer;
     private IReadOnlyList<BadgeSpec> _specs = [];
-    private (PixelRect Below, string Score)? _skip;
+    private string? _skipScore;
     private bool _showBounds;
 
     public BadgeWindow(bool excludeFromCapture)
@@ -45,7 +45,7 @@ public partial class BadgeWindow : Window
 
     public IntPtr Hwnd => _hwnd;
 
-    public bool HasBadges => _specs.Count > 0 || _skip is not null;
+    public bool HasBadges => _specs.Count > 0 || _skipScore is not null;
 
     /// <summary>
     /// User "UI 배율" relative to auto (override / auto). Badges are sized from the card width, which already follows the
@@ -75,20 +75,13 @@ public partial class BadgeWindow : Window
 
     /// <summary>
     /// Shows badges for the given cards. <paramref name="skipScore"/> non-null adds a "스킵 추천" pill under the cards.
-    /// <paramref name="showBounds"/> draws the card outlines (demo/debug).
+    /// <paramref name="showBounds"/> draws the recognised card and price boxes (demo, and the debug outline mode).
     /// </summary>
     public void ShowBadges(IReadOnlyList<BadgeSpec> specs, string? skipScore, bool showBounds)
     {
         _specs = specs;
         _showBounds = showBounds;
-        _skip = null;
-        if (skipScore is not null && specs.Count > 0)
-        {
-            var l = specs.Min(s => s.CardBounds.X);
-            var r = specs.Max(s => s.CardBounds.Right);
-            var b = specs.Max(s => s.CardBounds.Bottom);
-            _skip = (PixelRect.FromLtrb(l, b, r, b + 1), skipScore);
-        }
+        _skipScore = specs.Count > 0 ? skipScore : null;
         Relayout();
     }
 
@@ -106,35 +99,25 @@ public partial class BadgeWindow : Window
 
         // GetDpiForWindow: the DPI of the monitor this window is on (per-monitor V2), e.g. 144 at 150 %.
         var dpi = Math.Max(1u, GetDpiForWindow(_hwnd)) / 96.0;
-        var area = new Size(_layer.Width / dpi, _layer.Height / dpi);
+        // All placement math lives in BadgeLayout (pure, unit-tested, shared with VisionBench's preview renderer).
+        var frame = BadgeLayout.Compute(
+            _specs.Select(s => ToPx(s.CardBounds)).ToArray(),
+            _specs.Select(s => s.PriceBounds is { } p ? ToPx(p) : (PxBox?)null).ToArray(),
+            ToPx(_layer), dpi, _scaleMultiplier, _skipScore is not null, _showBounds);
 
         var badges = new List<BadgeVm>(_specs.Count);
-        var bounds = new List<BoundsVm>(_specs.Count);
-        foreach (var s in _specs)
+        for (var i = 0; i < _specs.Count; i++)
         {
-            var card = BadgeLayout.ToLayerDips(s.CardBounds, _layer, dpi);
-            var scale = BadgeLayout.ScaleFor(card.Width) * _scaleMultiplier;
-            var size = new Size(BadgeLayout.BaseWidth * scale, BadgeLayout.BaseHeight * scale);
-            var pos = BadgeLayout.Place(card, size, area, gap: 6 * scale);
-            badges.Add(new BadgeVm(pos.X, pos.Y, scale, s.TierText, s.ScoreText, s.IsBest, s.IsEstimate, s.IsUpgraded));
-            if (_showBounds) bounds.Add(new BoundsVm(card.X, card.Y, card.Width, card.Height));
+            var (s, b) = (_specs[i], frame.Badges[i]);
+            badges.Add(new BadgeVm(b.Box.X, b.Box.Y, b.Scale, s.TierText, s.ScoreText, s.IsBest, s.IsEstimate, s.IsUpgraded));
         }
-
-        BadgeVm? skip = null;
-        if (_skip is { } sk)
-        {
-            var row = BadgeLayout.ToLayerDips(sk.Below, _layer, dpi);
-            var scale = badges.Count > 0 ? badges.Min(b => b.Scale) : 1.0;
-            var size = new Size(BadgeLayout.BaseWidth * scale, BadgeLayout.BaseHeight * scale);
-            var left = Math.Clamp(row.X + (row.Width - size.Width) / 2, 2, Math.Max(2, area.Width - size.Width - 2));
-            var top = Math.Min(row.Y + 12 * scale, area.Height - size.Height - 2);
-            skip = new BadgeVm(left, top, scale, "", sk.Score, true, false, false);
-        }
-
         Model.Badges = badges;
-        Model.Bounds = bounds;
-        Model.Skip = skip;
+        Model.Bounds = frame.CardOutlines.Select(r => new BoundsVm(r.X, r.Y, r.Width, r.Height, false))
+            .Concat(frame.PriceOutlines.Select(r => new BoundsVm(r.X, r.Y, r.Width, r.Height, true))).ToArray();
+        Model.Skip = frame.Skip is { } sk ? new BadgeVm(sk.Box.X, sk.Box.Y, sk.Scale, "", _skipScore!, true, false, false) : null;
     }
+
+    private static PxBox ToPx(PixelRect r) => new(r.X, r.Y, r.Width, r.Height);
 
     internal static string FormatScore(double v) => Math.Round(v).ToString("0", CultureInfo.InvariantCulture);
 }

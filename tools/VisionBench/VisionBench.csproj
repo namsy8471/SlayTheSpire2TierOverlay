@@ -12,4 +12,9 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Sts2Overlay.Vision\Sts2Overlay.Vision.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- The overlay's badge placement math (WPF-free), shared by the offline `preview` renderer. -->
+    <Compile Include="..\..\src\Sts2Overlay.App\Views\BadgeLayout.cs" Link="Shared\BadgeLayout.cs" />
+  </ItemGroup>
 </Project>
