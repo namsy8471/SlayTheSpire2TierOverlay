@@ -403,6 +403,7 @@ v0.107.1 캐릭터 풀 크기 (싱글플레이): 모든 캐릭터가 일반 20 /
 | 그 밖 (`n`, `eff_n`, `players`, `bandBoot`, `presenceLift` …) | | 근거 자료 |
 
 - 유물 값 = 희귀도 값 × `clamp(pickRate / 기준, 0.5, 1.5)` (`use: true`일 때만). 기준은 `signal: "shop"`이면 `shopMedianPickRate`, 아니면 `ancientNeutralPickRate`.
+- 고대 선택지에 `events.stats.json`의 `pickRate`가 있어 선택률 블렌드(§9)가 붙으면, 그 선택지의 유물에는 이 배수를 곱하지 않습니다. 두 숫자가 같은 고대 선택에서 잰 값이라 두 번 세게 되기 때문입니다. 배수는 선택지 단위 통계가 없는 유물(선택률 항목이 없는 고대 선택지, 이벤트의 `relic` 효과)에만 씁니다.
 - 쓰는 곳: `EventScorer`가 ID를 아는 유물을 줄 때(`relic` 효과, 고대 선택지), `ShopScorer.RelicValue`. 상점 화면 인식기가 아직 유물을 읽지 않아 상점 추천 목록에는 유물 항목이 없습니다. `RelicValue`는 그 항목이 생기면 쓸 값입니다.
 - 검증 오류(`DataPackValidator`): 유물 ID가 `RELIC.X`가 아님, `use` 없음(참/거짓 필수), `pickRate`가 0..1 밖, `tier`가 S..D나 null이 아님, `signal`이 `shop`이나 `ancient:<ID>`가 아님, `shopMedianPickRate`·`ancientNeutralPickRate`가 (0, 1] 밖.
 

@@ -52,7 +52,7 @@ public sealed class EventStats
         if (page == "INITIAL" && Ancients.TryGetValue(eventId, out var ancient) && ancient.TryGetValue(option, out var a))
         {
             var shown = Math.Max(1, offeredCount ?? DefaultAncientOffered);
-            return new MeasuredChoice(a.PickRate, 1.0 / shown, false);
+            return new MeasuredChoice(a.PickRate, 1.0 / shown, false, FromAncient: true);
         }
 
         return null;
@@ -109,4 +109,8 @@ public sealed class AncientOptionStats
 /// <param name="Rate">Measured share, 0..1.</param>
 /// <param name="Neutral">1/k for events, 1/offered for ancients.</param>
 /// <param name="FromAct">True when the rate is the act-specific one.</param>
-public readonly record struct MeasuredChoice(double Rate, double Neutral, bool FromAct);
+/// <param name="FromAncient">
+/// True for an ancient's <c>pickRate</c>. That rate is measured on the very same pick as the option's relic in
+/// <c>relics.json</c> (<c>signal: "ancient:…"</c>), so it already carries the relic's value.
+/// </param>
+public readonly record struct MeasuredChoice(double Rate, double Neutral, bool FromAct, bool FromAncient = false);

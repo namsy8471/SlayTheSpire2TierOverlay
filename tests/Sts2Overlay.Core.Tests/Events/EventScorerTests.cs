@@ -381,4 +381,40 @@ public class EventScorerTests
         Assert.Equal(ancient * (0.25 / 0.333), Relic("MEH"), 9);     // 0.75
         Assert.Equal(ancient, Relic("UNSURE"));                      // use: false → rarity value
     }
+
+    [Fact]
+    public void AncientOption_WithItsOwnPickRate_GetsOnlyTheBlend_NotTheRelicMultiplier()
+    {
+        // LOVED and MEH both give a relic with a use:true relics.json entry; only LOVED has an option-level pickRate.
+        var catalog = EventCatalog.Parse("""
+        { "events": [ { "id": "EVENT.TEST_IDOLS", "kind": "ancient", "pages": [ { "page": "INITIAL", "options": [
+          { "key": "TEST_IDOLS.pages.INITIAL.options.LOVED", "effects": [ { "type": "relic", "relic": "RELIC.TEST_LOVED", "tier": "ancient" } ] },
+          { "key": "TEST_IDOLS.pages.INITIAL.options.MEH",   "effects": [ { "type": "relic", "relic": "RELIC.TEST_MEH",   "tier": "ancient" } ] },
+          { "key": "TEST_IDOLS.pages.INITIAL.options.GOLD",  "effects": [ { "type": "gold", "amount": 100 } ] }
+        ]}]}]}
+        """);
+        var relics = DataPackLoader.LoadRelicStats("""
+        { "shopMedianPickRate": 0.327, "ancientNeutralPickRate": 0.333, "relics": {
+          "RELIC.TEST_LOVED": { "signal": "ancient:TEST_IDOLS", "use": true, "pickRate": 0.6 },
+          "RELIC.TEST_MEH":   { "signal": "ancient:TEST_IDOLS", "use": true, "pickRate": 0.25 } } }
+        """);
+        var stats = DataPackLoader.LoadEventStats("""
+        { "ancients": { "TEST_IDOLS": { "LOVED": { "pickRate": 0.6 } } } }
+        """);
+        string[] keys = ["TEST_IDOLS.pages.INITIAL.options.LOVED", "TEST_IDOLS.pages.INITIAL.options.MEH", "TEST_IDOLS.pages.INITIAL.options.GOLD"];
+        var eval = new EventScorer(new DataPack { EventStats = stats, RelicStats = relics }, catalog).Evaluate(State(80), "EVENT.TEST_IDOLS", keys)!;
+        EventOptionEvaluation Option(string name) => eval.Options.Single(o => o.Option.ShortName == name);
+        var ancient = new EventWeights().RelicTier["ancient"];
+
+        // LOVED: the plain rarity value plus exactly the blend term 0.5 × 20 × (0.6 − 1/3), no ×1.5 on top.
+        var loved = Option("LOVED");
+        Assert.Equal(ancient, loved.Score.ValueOf(EventComponentKeys.Relic));
+        Assert.Equal(0.5 * 20 * (0.6 - 1.0 / 3), loved.Score.ValueOf(EventComponentKeys.Measured), 9);
+        Assert.Equal(ancient + 0.5 * 20 * (0.6 - 1.0 / 3), loved.Total, 9);
+
+        // MEH has no option-level stat: its relic keeps the relics.json multiplier 0.25 / 0.333.
+        var meh = Option("MEH");
+        Assert.Equal(ancient * (0.25 / 0.333), meh.Score.ValueOf(EventComponentKeys.Relic), 9);
+        Assert.DoesNotContain(meh.Score.Components, c => c.Key == EventComponentKeys.Measured);
+    }
 }
