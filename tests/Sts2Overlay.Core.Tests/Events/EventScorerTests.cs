@@ -417,4 +417,35 @@ public class EventScorerTests
         Assert.Equal(ancient * (0.25 / 0.333), meh.Score.ValueOf(EventComponentKeys.Relic), 9);
         Assert.DoesNotContain(meh.Score.Components, c => c.Key == EventComponentKeys.Measured);
     }
+
+    [Fact]
+    public void AncientRelic_TheLeaningBuildsKeyRelicGetsTheFitAndBecomesTheBest()
+    {
+        var catalog = EventCatalog.Parse("""
+        { "events": [ { "id": "EVENT.TEST_IDOLS", "kind": "ancient", "pages": [ { "page": "INITIAL", "options": [
+          { "key": "TEST_IDOLS.pages.INITIAL.options.PLAIN", "effects": [ { "type": "relic", "relic": "RELIC.TEST_PLAIN", "tier": "rare" } ] },
+          { "key": "TEST_IDOLS.pages.INITIAL.options.KEY",   "effects": [ { "type": "relic", "relic": "RELIC.TEST_KEY",   "tier": "uncommon" } ] }
+        ]}]}]}
+        """);
+        var build = new Archetype { Id = "t.build", Character = "CHARACTER.T", KeyRelics = [new KeyRelic { Id = "RELIC.TEST_KEY", W = 1.0 }] };
+        var pack = new DataPack { Archetypes = [build] };
+        var scorer = new EventScorer(pack, catalog);
+        var w = new EventWeights();
+
+        // No build: rarity decides (rare 20 > uncommon 16), no fit component anywhere.
+        var neutral = scorer.Evaluate(State(80), new Sts2Overlay.Core.Scoring.DeckProfile(), "EVENT.TEST_IDOLS")!;
+        Assert.Equal("PLAIN", neutral.Best!.Option.ShortName);
+        Assert.All(neutral.Options, o => Assert.Equal(0, o.Score.ValueOf(EventComponentKeys.RelicFit)));
+
+        // Committed to the build whose ranker key relic is on offer: 16 × 1.5 = 24 > 20.
+        var profile = new Sts2Overlay.Core.Scoring.DeckProfile
+        {
+            Archetypes = [new Sts2Overlay.Core.Archetypes.ArchetypeStatus { Archetype = build, Commit = 1.0, OwnedCore = 1 }],
+        };
+        var leaning = scorer.Evaluate(State(80), profile, "EVENT.TEST_IDOLS")!;
+        var key = leaning.Options.Single(o => o.Option.ShortName == "KEY");
+        Assert.Equal("KEY", leaning.Best!.Option.ShortName);
+        Assert.Equal(w.RelicTier["uncommon"], key.Score.ValueOf(EventComponentKeys.Relic), 9);
+        Assert.Equal(w.RelicTier["uncommon"] * 0.5, key.Score.ValueOf(EventComponentKeys.RelicFit), 9);
+    }
 }

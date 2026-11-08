@@ -15,6 +15,7 @@ namespace Sts2Overlay.Core.Data;
 /// catalog.json            (optional) CardCatalog; usually passed in instead (catalog / catalogPath)
 /// events.stats.json       (optional) EventStats: measured event/ancient choice rates
 /// relics.json             (optional) RelicStats: measured relic pick rates
+/// relic-fit.json          (optional) RelicFit: measured relic pick rates per build
 /// </code>
 /// JSON uses camelCase, allows comments and trailing commas, and tier letters as strings.
 /// </summary>
@@ -37,6 +38,7 @@ public static class DataPackLoader
     public const string CatalogFile = "catalog.json";
     public const string EventStatsFile = "events.stats.json";
     public const string RelicStatsFile = "relics.json";
+    public const string RelicFitFile = "relic-fit.json";
     public const string TiersDir = "tiers";
     public const string ArchetypesDir = "archetypes";
     public const string CombosDir = "combos";
@@ -166,6 +168,8 @@ public static class DataPackLoader
         var eventStats = File.Exists(eventStatsPath) ? LoadFile(eventStatsPath, LoadEventStats) : null;
         var relicStatsPath = Path.Combine(directory, RelicStatsFile);
         var relicStats = File.Exists(relicStatsPath) ? LoadFile(relicStatsPath, LoadRelicStats) : null;
+        var relicFitPath = Path.Combine(directory, RelicFitFile);
+        var relicFit = File.Exists(relicFitPath) ? LoadFile(relicFitPath, LoadRelicFit) : null;
 
         return new DataPack
         {
@@ -177,6 +181,7 @@ public static class DataPackLoader
             Catalog = catalog,
             EventStats = eventStats,
             RelicStats = relicStats,
+            RelicFit = relicFit,
         };
     }
 
@@ -185,6 +190,9 @@ public static class DataPackLoader
 
     /// <summary><c>relics.json</c>: measured relic pick rates.</summary>
     public static RelicStats LoadRelicStats(string json) => Deserialize<RelicStats>(json, "relic stats");
+
+    /// <summary><c>relic-fit.json</c>: measured relic pick rates per build.</summary>
+    public static RelicFit LoadRelicFit(string json) => Deserialize<RelicFit>(json, "relic fit");
 
     /// <summary>Weights with every value the JSON does not mention left at its default.</summary>
     public static Weights LoadWeights(string json) => Deserialize<Weights>(json, "weights");

@@ -25,6 +25,9 @@ public sealed class DataPack
     /// <summary>Measured relic pick rates (<c>relics.json</c>); null when the pack has none.</summary>
     public RelicStats? RelicStats { get; init; }
 
+    /// <summary>Measured relic pick rates per build (<c>relic-fit.json</c>); null when the pack has none.</summary>
+    public RelicFit? RelicFit { get; init; }
+
     /// <summary>Old id → current id (e.g. ids renamed by the game's RunHistoryV8ToV9 migration).</summary>
     public IReadOnlyDictionary<string, string> IdAliases { get; init; } = new Dictionary<string, string>(StringComparer.Ordinal);
 

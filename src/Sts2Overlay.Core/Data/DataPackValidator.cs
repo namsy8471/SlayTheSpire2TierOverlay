@@ -224,6 +224,7 @@ public static partial class DataPackValidator
         // ---- Measured rates (optional files) ----
         if (pack.EventStats is { } eventStats) ValidateEventStats(eventStats, Error);
         if (pack.RelicStats is { } relicStats) ValidateRelicStats(relicStats, Error);
+        if (pack.RelicFit is { } relicFit) ValidateRelicFit(relicFit, pack, Error);
 
         return issues;
     }
@@ -373,6 +374,26 @@ public static partial class DataPackValidator
             if (r.Signal is null || !(r.Signal == RelicStats.ShopSignal || r.Signal.StartsWith(RelicStats.AncientSignalPrefix, StringComparison.Ordinal)))
             {
                 error($"{where}.signal", $"Signal '{r.Signal}' must be \"shop\" or \"ancient:<ID>\".");
+            }
+        }
+    }
+
+    /// <summary><c>relic-fit.json</c>: known archetype ids, ids <c>RELIC.X</c>, rates within 0..1, <c>use</c> present.</summary>
+    private static void ValidateRelicFit(RelicFit s, DataPack pack, Action<string, string> error)
+    {
+        var archetypes = pack.Archetypes.Select(a => a.Id).ToHashSet(StringComparer.Ordinal);
+        foreach (var (archetype, relics) in s.Archetypes)
+        {
+            if (!archetypes.Contains(archetype)) error($"relic-fit.archetypes[{archetype}]", $"Unknown archetype '{archetype}'.");
+            foreach (var (id, r) in relics)
+            {
+                var where = $"relic-fit.archetypes[{archetype}][{id}]";
+                if (!IsRelicId(id)) error(where, $"Malformed relic id '{id}' (expected RELIC.X).");
+                if (r.Use is null) error($"{where}.use", "\"use\" must be true or false.");
+                if (!InRange(r.PickRateIn, 0, 1)) error($"{where}.pickRateIn", $"Rate {r.PickRateIn} is outside 0..1.");
+                if (!InRange(r.PickRateOut, 0, 1)) error($"{where}.pickRateOut", $"Rate {r.PickRateOut} is outside 0..1.");
+                if (r.PickRateCoreHeld is { } h && !InRange(h, 0, 1)) error($"{where}.pickRateCoreHeld", $"Rate {h} is outside 0..1.");
+                if (r.PickRateNoCore is { } c && !InRange(c, 0, 1)) error($"{where}.pickRateNoCore", $"Rate {c} is outside 0..1.");
             }
         }
     }

@@ -81,6 +81,13 @@ public sealed class ShopScorer(DataPack pack)
         => Pack.Weights.Events.RelicValue(rarity, relicId, Pack.RelicStats);
 
     /// <summary>
+    /// A relic on sale valued for this deck: <see cref="RelicValue"/> plus its fit to the builds the deck leans toward
+    /// (<see cref="RelicScorer"/>, top-player data). Components sum to the total.
+    /// </summary>
+    public RelicEvaluation ScoreRelic(DeckProfile profile, string relicId, string? rarity)
+        => new RelicScorer(Pack).Score(profile, relicId, rarity, Pack.RelicStats);
+
+    /// <summary>
     /// Estimated merchant price of a card when the screen price cannot be read (<see cref="ShopPrices.Estimated"/>).
     /// <paramref name="rarity"/> and <paramref name="colorless"/> default to the catalog / tier data (<see cref="DataPack.CardRarity"/>,
     /// <see cref="DataPack.IsColorless"/>). Null when the rarity is unknown or not sold.

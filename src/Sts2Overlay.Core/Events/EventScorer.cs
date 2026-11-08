@@ -33,6 +33,9 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
     /// <summary>The given weights, else the pack's (<c>weights.json</c> "events").</summary>
     public EventWeights Weights { get; } = weights ?? pack.Weights.Events;
 
+    private RelicScorer Relics => _relics ??= new RelicScorer(Pack, Weights);
+    private RelicScorer? _relics;
+
     /// <summary>
     /// Scores the options of <paramref name="eventId"/>. With <paramref name="offeredKeys"/> (exact text keys from the log) only
     /// those are scored, in that order; otherwise every option of <paramref name="page"/> (default: the first page).
@@ -315,8 +318,12 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
                     var n = Math.Max(1, count);
                     // Rarity value, scaled by the relic's measured pick rate when relics.json has a stable one (relicStats is null
                     // for an ancient option already blended with its own pick rate).
-                    var v = Weights.RelicValue(e.Tier, e.Relic, relicStats) * n * p;
-                    acc.Add(new(EventComponentKeys.Relic, "유물", v, e.Relic));
+                    // Plus the build fit (top players' take rate in the builds this deck leans toward, RelicScorer).
+                    var relic = Relics.Score(profile, e.Relic, e.Tier, relicStats);
+                    var baseValue = relic.Value.Components.Where(c => c.Key == ComponentKeys.RelicBase).Sum(c => c.Value);
+                    acc.Add(new(EventComponentKeys.Relic, "유물", baseValue * n * p, e.Relic));
+                    foreach (var fit in relic.Value.Components.Where(c => c.Key == ComponentKeys.RelicFit))
+                        acc.Add(new(EventComponentKeys.RelicFit, fit.Label, fit.Value * n * p, fit.Detail));
                     texts.Add((e.Relic is null ? "무작위 유물" : "유물") + (n > 1 ? $" {n}개" : "") + chanceText);
                     break;
                 }
@@ -494,6 +501,9 @@ public static class EventComponentKeys
     public const string Card = "ev_card";
     public const string Curse = "ev_curse";
     public const string Relic = "ev_relic";
+
+    /// <summary>A relic's build fit (<see cref="Scoring.RelicScorer"/>).</summary>
+    public const string RelicFit = "ev_relic_fit";
     public const string Potion = "ev_potion";
     public const string Fight = "ev_fight";
     public const string Death = "ev_death";

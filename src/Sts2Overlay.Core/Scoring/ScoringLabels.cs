@@ -27,6 +27,9 @@ public static class ScoringLabels
         => RoleNames.Keys.Concat(Roles.All).FirstOrDefault(r => NeedLabel(r) == label);
 
     public const string OffBuild = "오프빌드";
+    public const string RelicBase = "유물 기본";
+    public const string RelicFit = "빌드 적합 유물";
+    public const string RelicMisfit = "빌드와 안 맞는 유물";
     public const string Combo = "콤보";
     public const string EngineMissing = "엔진 없음";
     public const string BossReward = "보스 보상 빌드";
