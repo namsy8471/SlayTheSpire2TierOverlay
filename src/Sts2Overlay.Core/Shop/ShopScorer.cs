@@ -4,7 +4,10 @@ using Sts2Overlay.Core.Scoring;
 
 namespace Sts2Overlay.Core.Shop;
 
-/// <summary>PLAN §7.3: cards ranked by (score − skip) / price, card removal as a candidate, best affordable bundle.</summary>
+/// <summary>
+/// PLAN §7.3: cards ranked by (score − skip) / price, card removal as a candidate, best affordable bundle.
+/// Unread prices are estimated from rarity (<see cref="ShopPricing"/>); gold is checked against the price colours.
+/// </summary>
 public sealed class ShopScorer(DataPack pack)
 {
     /// <summary>Largest number of candidate items searched exhaustively for the recommended bundle.</summary>
@@ -14,7 +17,7 @@ public sealed class ShopScorer(DataPack pack)
 
     public ShopEvaluation Evaluate(RunState state, DeckProfile profile, ShopOffer offer)
     {
-        var gold = Math.Max(0, state.Gold);
+        var gold = ShopPricing.EffectiveGold(state.Gold, offer.Cards, out var goldCorrected);
         var skip = new SkipScorer(Pack).Score(state, profile);
         var scorer = new CardScorer(Pack);
         var items = new List<ShopItemEvaluation>();
@@ -24,14 +27,18 @@ public sealed class ShopScorer(DataPack pack)
             var eval = scorer.Score(state, profile, sale.Card, OfferContext.Shop);
             var value = new ScoreBreakdown(eval.Score.Components.Append(
                 new ScoreComponent(ComponentKeys.SkipRelative, ScoringLabels.SkipRelative, -skip.Total, $"스킵 {skip.Total:0.#}점")));
+            var price = sale.PriceKnown ? sale.Price : ShopPricing.Estimate(Pack, state.Character, sale.Card);
             items.Add(new ShopItemEvaluation
             {
                 Kind = ShopItemKind.Card,
                 Card = sale.Card,
-                Price = sale.Price,
+                Price = price,
                 Value = value,
                 CardEvaluation = eval,
-                Affordable = sale.Price <= gold,
+                // The label colour is the game's own verdict; trust it over our gold arithmetic.
+                Affordable = sale.PriceKnown && sale.AffordableOnScreen is bool onScreen ? onScreen : price <= gold,
+                PriceEstimated = !sale.PriceKnown,
+                OnSale = sale.OnSale,
             });
         }
 
@@ -44,7 +51,9 @@ public sealed class ShopScorer(DataPack pack)
         {
             Items = sorted,
             RecommendedPurchase = bundle,
-            GoldLeft = gold - bundle.Sum(i => i.Price),
+            Gold = gold,
+            GoldCorrectedByScreen = goldCorrected,
+            GoldLeft = Math.Max(0, gold - bundle.Sum(i => i.Price)),
             Skip = skip,
         };
     }

@@ -67,7 +67,7 @@ public static class ScreenLayouts
 
     /// <summary>
     /// The price label under a shop card (merchant_card.tscn "Cost": x -148..149, y 220..278 in card units).
-    /// Used only to return where the price is; reading the digits is not implemented yet.
+    /// The digits are read by <see cref="ShopPriceReader"/> (which pads this box slightly).
     /// </summary>
     public static RectF ShopPrice(float cx, float cy, float scale) => CardGeometry.Place(new RectF(-148, 220, 297, 58), cx, cy, scale);
 }

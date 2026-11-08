@@ -290,7 +290,7 @@ public sealed partial class AppController : IDisposable
         }
         _lastResult = r;
 
-        var offerKey = r.ScreenKind + ":" + string.Join(",", r.Cards.Select(c => $"{c.Card}${c.Price}"));
+        var offerKey = r.ScreenKind + ":" + string.Join(",", r.Cards.Select(c => $"{c.Card}${c.Price}{(c.Unaffordable == true ? "r" : "")}{(c.OnSale ? "s" : "")}"));
         var evalKey = $"{offerKey}@{_snapshot.UpdatedAt.Ticks}#{_engineVersion}";
         if (evalKey != _lastEvalKey)
         {
@@ -392,7 +392,8 @@ public sealed partial class AppController : IDisposable
     private (OfferSectionVm, IReadOnlyList<BadgeSpec>, string?) EvaluateShop(RecognitionResult r)
     {
         var run = _snapshot.Run ?? UnknownRun;
-        var offer = new ShopOffer(r.Cards.Select(c => new ShopCardOffer(c.Card, c.Price ?? 0)).ToArray());
+        // --- shop prices (m2/shop-price): unread prices are estimated by the scorer; label colours bound the gold ---
+        var offer = new ShopOffer(r.Cards.Select(c => new ShopCardOffer(c.Card, c.Price ?? 0, c.Price is not null, c.Unaffordable is bool u ? !u : null, c.OnSale)).ToArray());
         var eval = _engine.EvaluateShop(run, offer);
         var recommended = eval.RecommendedPurchase.ToHashSet(ReferenceEqualityComparer.Instance);
 
@@ -413,7 +414,7 @@ public sealed partial class AppController : IDisposable
                 IsEstimate = e?.IsEstimate ?? false,
                 IsUpgraded = item.Card?.IsUpgraded ?? false,
                 Unaffordable = !item.Affordable,
-                PriceText = $"{item.Price}골드",
+                PriceText = ShopPriceText(item),
                 SubText = sub,
                 Chips = (e?.Chips.Select(c => Chip(c.Label, c.Value)) ?? item.Value.TopReasons(3).Select(c => Chip(c.Label, c.Value))).ToArray(),
             };
@@ -424,7 +425,7 @@ public sealed partial class AppController : IDisposable
             .ToArray();
         var section = new OfferSectionVm
         {
-            Title = $"상점 · 보유 {run.Gold}골드",
+            Title = eval.GoldCorrectedByScreen ? $"상점 · 보유 ~{eval.Gold}골드 (가격 색으로 보정)" : $"상점 · 보유 {eval.Gold}골드",
             ConfidenceText = "",
             Rows = rows,
             Footer = names.Length > 0 ? $"추천 구매: {string.Join(" + ", names)} · 남는 골드 {eval.GoldLeft}" : "추천 구매 없음 (골드 아끼기)",
@@ -443,6 +444,11 @@ public sealed partial class AppController : IDisposable
         }).ToArray();
         return (section, badges, null);
     }
+
+    /// <summary>"75골드", "~150골드 (추정)" for an unread label, "37골드 세일" for the half-price card.</summary>
+    private static string ShopPriceText(ShopItemEvaluation item)
+        => (item.PriceEstimated ? $"~{item.Price}골드 (추정)" : $"{item.Price}골드") + (item.OnSale ? " 세일" : "");
+    // --- end shop prices ---
 
     private void ClearBadges()
     {

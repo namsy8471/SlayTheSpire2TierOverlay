@@ -18,7 +18,8 @@ public class ShopScorerTests
         ScoreAssert.Consistent(result.Skip);
         foreach (var item in result.Items) ScoreAssert.Consistent(item.Value);
         Assert.True(result.GoldLeft >= 0);
-        Assert.Equal(Math.Max(0, state.Gold) - result.RecommendedPurchase.Sum(i => i.Price), result.GoldLeft);
+        Assert.True(result.GoldCorrectedByScreen || result.Gold == Math.Max(0, state.Gold));
+        Assert.Equal(result.Gold - result.RecommendedPurchase.Sum(i => i.Price), result.GoldLeft);
         Assert.All(result.RecommendedPurchase, i => Assert.True(i.Value.Total > 0 && i.Affordable));
         return result;
     }

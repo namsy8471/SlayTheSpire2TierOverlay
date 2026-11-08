@@ -31,6 +31,10 @@ public sealed record RecognizerOptions
     public int SearchCandidates { get; init; } = 16;
     /// <summary>Pools that can be offered (others are never considered). Null = all database entries.</summary>
     public IReadOnlySet<string>? CandidatePools { get; init; } = VisionCatalog.OfferablePools;
+    /// <summary>Card catalog (rarity): lets the shop price check use the card's own price range. Optional.</summary>
+    public VisionCatalog? Catalog { get; init; }
+    /// <summary>Shop price reading; null disables it.</summary>
+    public PriceReaderOptions? Price { get; init; } = new();
 }
 
 /// <summary>
@@ -48,6 +52,7 @@ public sealed class CardRecognizer
 {
     private readonly CardArtDatabase _db;
     private readonly bool[] _offerable;
+    private readonly ShopPriceReader? _priceReader;
 
     public RecognizerOptions Options { get; }
     public CardArtDatabase Database => _db;
@@ -57,6 +62,7 @@ public sealed class CardRecognizer
         _db = db;
         Options = options ?? new RecognizerOptions();
         _offerable = db.Entries.Select(e => Options.CandidatePools?.Contains(e.Pool) ?? true).ToArray();
+        _priceReader = Options.Price is { } po ? new ShopPriceReader(options: po) : null;
     }
 
     public ScreenRecognition Recognize(in ScreenFrame frame, RecognitionHints? hints = null)
@@ -149,11 +155,12 @@ public sealed class CardRecognizer
         using IntegralImage bottom = IntegralImage.Build(frame, t.ToPixelRect(new RectF(375, 563, 535, 235)), step);
         SlotLayout[] slots = ScreenLayouts.Shop();
         var cards = new RecognizedCard[slots.Length];
+        ScreenFrame f = frame; // an `in` parameter cannot be captured by the lambda; the struct copy is cheap
         // 7 independent slots reading two immutable tables: one task per slot (~2-3 ms each at 4K).
         Parallel.For(0, slots.Length, i =>
         {
             IntegralImage img = slots[i].Kind == CardSlotKind.ShopColorless ? bottom : top;
-            cards[i] = MatchSlot(img, t, slots[i], 0.61f, 0.84f, hints);
+            cards[i] = MatchSlot(img, t, slots[i], 0.61f, 0.84f, hints, f);
         });
         return [.. cards];
     }
@@ -202,7 +209,8 @@ public sealed class CardRecognizer
     /// (4) 1-px refinement. Steps 2-4 only score the kept candidates, so each probe costs ~16 short dot
     /// products instead of a full scan. (5) One full-resolution scan at the best box decides the card.
     /// </summary>
-    private RecognizedCard MatchSlot(IntegralImage img, RefTransform t, SlotLayout slot, float minScale, float maxScale, RecognitionHints? hints)
+    private RecognizedCard MatchSlot(IntegralImage img, RefTransform t, SlotLayout slot, float minScale, float maxScale, RecognitionHints? hints,
+        ScreenFrame? priceFrame = null)
     {
         Span<float> coarse = stackalloc float[Ncc.CoarseLength];
 
@@ -265,11 +273,29 @@ public sealed class CardRecognizer
         // A clean art match means nothing covers the card, so a title without green really is not upgraded.
         bool upgradeKnown = upgraded || pick.Score >= Options.UnoccludedScore;
         PixelRect? price = slot.Kind == CardSlotKind.Reward ? null : t.ToPixelRect(ScreenLayouts.ShopPrice(bx, by, bs));
+        // Shop: read the price label under the card box we just found (it moves and scales with the card).
+        PriceReading? reading = null;
+        if (priceFrame is { } pf && _priceReader != null && slot.Kind != CardSlotKind.Reward)
+        {
+            string? rarity = Options.Catalog?.Find(pick.CardId)?.Rarity;
+            reading = _priceReader.Read(pf, bx, by, bs, slot.Kind, rarity);
+            // A card mostly under the merchant's hand gets an unreliable box, but its label usually still sits at
+            // the slot's resting place: retry there (resting, then hovered size).
+            foreach (float s in (float[])[slot.SmallScale, slot.HoverScale])
+            {
+                if (reading?.Value != null) break;
+                PriceReading? retry = _priceReader.Read(pf, slot.CenterX, slot.CenterY, s, slot.Kind, rarity);
+                if (retry?.Value != null || reading == null) reading = retry;
+            }
+        }
         return new RecognizedCard(slot.Index, slot.Kind, pick.CardId, upgraded, pick.Score, margin, accepted,
             ambiguous, green, upgradeKnown, bs,
             t.ToPixelRect(CardGeometry.Place(CardGeometry.Art, bx, by, bs)),
             t.ToPixelRect(CardGeometry.Place(CardGeometry.Card, bx, by, bs)),
-            price, null, top.Take(3).ToArray());
+            price, reading?.Value, top.Take(3).ToArray())
+        {
+            PriceReading = reading,
+        };
     }
 
     /// <summary>
