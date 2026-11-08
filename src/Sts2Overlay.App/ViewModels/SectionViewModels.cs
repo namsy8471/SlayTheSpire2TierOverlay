@@ -60,6 +60,12 @@ public sealed record OfferSectionVm
     public string? FlipHint { get; init; }
     public IReadOnlyList<OfferRowVm> Rows { get; init; } = [];
     public string? Footer { get; init; }
+
+    /// <summary>Heading of a second, dimmed block under the footer (an ancient's options not offered this time); null = no block.</summary>
+    public string? ExtraTitle { get; init; }
+
+    /// <summary>Rows of that block, ranked among themselves.</summary>
+    public IReadOnlyList<OfferRowVm> ExtraRows { get; init; } = [];
 }
 
 /// <param name="Doubt">Why the log-only rebuild is unsure of this card (shown as a "?" with this tooltip); null = certain.</param>
