@@ -29,23 +29,20 @@ public sealed class PathWeights
     /// <summary>Used in place of (1 − mean gap) when the deck has no role targets at all (no data). [추정]</summary>
     public double StrengthUnknown { get; set; } = 0.5;
 
-    // ---- Expected HP loss per room, fraction of max HP, for a deck of strength 0.5 in act 1 ----
+    // ---- Expected HP loss per room, fraction of max HP, for a deck of strength 0.5 ----
 
-    /// <summary>Hallway fight. [추정]</summary>
-    public double MonsterHpLoss { get; set; } = 0.08;
-
-    /// <summary>Elite fight. [추정]</summary>
-    public double EliteHpLoss { get; set; } = 0.20;
-
-    /// <summary>"?" room: mostly events, sometimes a fight. Expected value, so small. [추정]</summary>
-    public double UnknownHpLoss { get; set; } = 0.03;
-
-    /// <summary>Boss fight; only used for the death-risk term at the end of the path. [추정]</summary>
-    public double BossHpLoss { get; set; } = 0.35;
-
-    /// <summary>Damage multiplier per act (enemies hit harder later). [추정]</summary>
+    /// <summary>
+    /// Expected HP loss per room type and act: single player, and co-op too when <see cref="CoopHpLoss"/> is null.
+    /// [추정] act-1 guesses × act multiplier (<see cref="PathHpLoss.Legacy"/>).
+    /// </summary>
     [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
-    public Dictionary<int, double> ActDamage { get; set; } = new() { [1] = 1.0, [2] = 1.25, [3] = 1.45 };
+    public PathHpLoss HpLoss { get; set; } = PathHpLoss.Legacy();
+
+    /// <summary>Co-op (2+ players) table; null = use <see cref="HpLoss"/> for co-op as well.</summary>
+    public PathHpLoss? CoopHpLoss { get; set; }
+
+    /// <summary>The HP-loss table for a single-player or co-op run.</summary>
+    public PathHpLoss HpLossFor(bool multiplayer) => multiplayer && CoopHpLoss is { } coop ? coop : HpLoss;
 
     /// <summary>Damage multiplier = <c>1 + slope × (0.5 − strength)</c>: a strong deck (1.0) takes half, a weak one (0.0) 1.5×. [추정]</summary>
     public double StrengthDamageSlope { get; set; } = 1.0;
@@ -118,6 +115,9 @@ public sealed class PathWeights
     public int EliteGold { get; set; } = 30;
     public int UnknownGold { get; set; } = 8;
 
+    /// <summary>Gold found in a treasure room (the chest also holds the relic of <see cref="TreasureReward"/>). [추정] not modelled yet.</summary>
+    public int TreasureGold { get; set; } = 0;
+
     /// <summary>Gold at which a shop visit is worth it for cards/relics (beyond a removal). [추정]</summary>
     public int ShopGoldThreshold { get; set; } = 150;
 
@@ -142,4 +142,58 @@ public sealed class PathWeights
 
     /// <summary>Two elites in a row. [추정]</summary>
     public double EliteChainPenalty { get; set; } = 6;
+}
+
+/// <summary>
+/// Expected HP loss of one room, as a fraction of max HP, per act (key 1..3), for a deck of strength 0.5.
+/// The scorer multiplies it by the deck-strength factor <c>1 + StrengthDamageSlope × (0.5 − strength)</c>.
+/// Missing acts fall back like <see cref="Data.Weights.ForAct{T}"/> (closest lower act).
+/// </summary>
+public sealed class PathHpLoss
+{
+    /// <summary>Hallway fight.</summary>
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+    public Dictionary<int, double> Monster { get; set; } = new();
+
+    /// <summary>Elite fight.</summary>
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+    public Dictionary<int, double> Elite { get; set; } = new();
+
+    /// <summary>"?" room: mostly events, sometimes a fight. Expected value over everything it resolved into.</summary>
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+    public Dictionary<int, double> Unknown { get; set; } = new();
+
+    /// <summary>Boss fight; only used for the death-risk term at the end of the path.</summary>
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+    public Dictionary<int, double> Boss { get; set; } = new();
+
+    /// <summary>Expected loss for <paramref name="type"/> in <paramref name="act"/>; 0 for rooms without a fight.</summary>
+    public double For(MapNodeType type, int act) => type switch
+    {
+        MapNodeType.Monster => Data.Weights.ForAct(Monster, act, 0.0),
+        MapNodeType.Elite => Data.Weights.ForAct(Elite, act, 0.0),
+        MapNodeType.Unknown => Data.Weights.ForAct(Unknown, act, 0.0),
+        MapNodeType.Boss => Data.Weights.ForAct(Boss, act, 0.0),
+        _ => 0.0,
+    };
+
+    /// <summary>
+    /// The first guesses (before run-history measurement): act-1 values 0.08 / 0.20 / 0.03 / 0.35 for monster / elite /
+    /// "?" / boss, times an act multiplier 1.0 / 1.25 / 1.45. Kept as the prior that small samples shrink toward
+    /// (<c>tools/PathStats</c>) and as the "old" side of the backtest.
+    /// </summary>
+    public static PathHpLoss Legacy() => new()
+    {
+        Monster = ByAct(0.08),
+        Elite = ByAct(0.20),
+        Unknown = ByAct(0.03),
+        Boss = ByAct(0.35),
+    };
+
+    private static Dictionary<int, double> ByAct(double act1) => new()
+    {
+        [1] = act1,
+        [2] = Math.Round(act1 * 1.25, 4),
+        [3] = Math.Round(act1 * 1.45, 4),
+    };
 }

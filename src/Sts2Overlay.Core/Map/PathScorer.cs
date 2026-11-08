@@ -11,8 +11,8 @@ namespace Sts2Overlay.Core.Map;
 /// score = Σ room rewards − HP cost − death risk − boss risk − risk patterns
 /// </code>
 /// <list type="bullet">
-/// <item><b>HP is simulated, not counted.</b> Each fight removes an expected fraction of max HP (scaled by act and deck
-/// strength); rest sites heal or upgrade, whichever is worth more right then. That is why the same "elite" costs
+/// <item><b>HP is simulated, not counted.</b> Each fight removes an expected fraction of max HP (measured per room type
+/// and act from run history, <see cref="PathHpLoss"/>, separately for co-op, then scaled by deck strength); rest sites heal or upgrade, whichever is worth more right then. That is why the same "elite" costs
 /// little at 90% HP and a lot at 30%: the cost depends on the HP you walk in with.</item>
 /// <item><b>HP is worth more when low.</b> Losing 10% at full HP costs <c>HpValue × 0.1</c>; at 20% HP it costs up to
 /// twice that (<see cref="PathWeights.LowHpValueBoost"/>).</item>
@@ -22,7 +22,7 @@ namespace Sts2Overlay.Core.Map;
 /// <item><b>Rewards need survival.</b> The simulation carries P(still alive); every later reward is multiplied by it,
 /// so an elite you would probably not survive also wipes out the value of the rooms after it.</item>
 /// </list>
-/// All numbers come from <see cref="PathWeights"/> (mostly [추정]).
+/// All numbers come from <see cref="PathWeights"/>: room HP loss, gold and heal are measured from run history ([측정]), point values are estimates ([추정]).
 /// </summary>
 public sealed class PathScorer
 {
@@ -32,6 +32,10 @@ public sealed class PathScorer
     private readonly double _cardReward;
     private readonly double _eliteReward;
     private readonly int _targetElites;
+    private readonly double _monsterLoss;
+    private readonly double _eliteLoss;
+    private readonly double _unknownLoss;
+    private readonly double _bossLoss;
     private readonly int _removalPrice0;
     private readonly int _removalStep;
     private Sim _start; // not readonly: WithHp() changes it on a clone
@@ -45,7 +49,14 @@ public sealed class PathScorer
 
         DeckStrength = ComputeDeckStrength(profile, _p);
         // Strong decks take less damage: ×0.5 at strength 1, ×1.5 at strength 0 (default slope).
-        DamageMultiplier = Weights.ForAct(_p.ActDamage, act, 1.0) * Math.Max(0.1, 1 + _p.StrengthDamageSlope * (0.5 - DeckStrength));
+        DamageMultiplier = StrengthDamageFactor(DeckStrength, _p);
+
+        // Act and player count pick the measured per-room loss (co-op fights are longer and hit harder).
+        var loss = _p.HpLossFor(state.IsMultiplayer);
+        _monsterLoss = loss.For(MapNodeType.Monster, act);
+        _eliteLoss = loss.For(MapNodeType.Elite, act);
+        _unknownLoss = loss.For(MapNodeType.Unknown, act);
+        _bossLoss = loss.For(MapNodeType.Boss, act);
 
         // A weak deck needs card rewards more; later acts need them less.
         _cardReward = (_p.MonsterReward + _p.WeakDeckCardBonus * (1 - DeckStrength)) * Weights.ForAct(_p.CardRewardActFactor, act, 1.0);
@@ -71,8 +82,12 @@ public sealed class PathScorer
     /// <summary>Deck strength 0..1 used to scale damage and card-reward value.</summary>
     public double DeckStrength { get; }
 
-    /// <summary>Act × deck-strength multiplier applied to every expected HP loss.</summary>
+    /// <summary>Deck-strength multiplier applied to every expected HP loss (the act is already in <see cref="PathHpLoss"/>).</summary>
     public double DamageMultiplier { get; }
+
+    /// <summary><c>1 + slope × (0.5 − strength)</c>, at least 0.1. Shared with the run-history statistics so both agree.</summary>
+    public static double StrengthDamageFactor(double strength, PathWeights p)
+        => Math.Max(0.1, 1 + p.StrengthDamageSlope * (0.5 - strength));
 
     /// <summary>
     /// PLAN §7.6: <c>(1 − mean role gap) × 0.6 + max commit × 0.4</c>, clamped to 0..1. "Role gap" is how far each
@@ -122,7 +137,7 @@ public sealed class PathScorer
     public double Total(IReadOnlyList<MapNodeType> types)
     {
         var acc = new Accumulator();
-        Run(types, acc, risks: null, out _);
+        Run(types, acc, risks: null, out _, out _);
         return acc.Sum;
     }
 
@@ -132,7 +147,7 @@ public sealed class PathScorer
         var types = TypesOf(coords);
         var acc = new Accumulator();
         var risks = new List<string>();
-        var bossHp = Run(types, acc, risks, out var end);
+        var bossHp = Run(types, acc, risks, out var end, out var bossAlive);
 
         return new PathOption
         {
@@ -141,16 +156,18 @@ public sealed class PathScorer
             Counts = types.GroupBy(t => t).ToDictionary(g => g.Key, g => g.Count()),
             Score = acc.ToBreakdown(),
             ExpectedBossHp = bossHp,
+            BossArrivalChance = bossAlive,
             ShopPurchases = end.ShopPurchases,
             Risks = risks,
         };
     }
 
     /// <summary>Walks the path; returns the HP ratio on arrival at the boss (or at the end if there is no boss).</summary>
-    private double Run(IReadOnlyList<MapNodeType> types, Accumulator acc, List<string>? risks, out Sim end)
+    private double Run(IReadOnlyList<MapNodeType> types, Accumulator acc, List<string>? risks, out Sim end, out double bossAlive)
     {
         var sim = _start;
         double? bossHp = null;
+        double? alive = null;
         for (var i = 0; i < types.Count; i++)
         {
             var t = types[i];
@@ -168,10 +185,15 @@ public sealed class PathScorer
                     AddOnce(risks, PathRisks.EliteNoRest);
                 }
             }
-            if (t == MapNodeType.Boss) bossHp = sim.Hp;
+            if (t == MapNodeType.Boss)
+            {
+                bossHp = sim.Hp;
+                alive = sim.Alive;
+            }
             Step(ref sim, t, acc);
         }
         end = sim;
+        bossAlive = alive ?? sim.Alive;
         return bossHp ?? sim.Hp;
     }
 
@@ -197,14 +219,14 @@ public sealed class PathScorer
         switch (type)
         {
             case MapNodeType.Monster:
-                Fight(ref s, _p.MonsterHpLoss, acc);
+                Fight(ref s, _monsterLoss, acc);
                 // Rewards are multiplied by s.Alive: you only collect them if you survived to this room.
                 acc.Add(PathComponentKeys.Monster, s.Alive * _cardReward);
                 s.Gold += _p.MonsterGold;
                 break;
 
             case MapNodeType.Elite:
-                Fight(ref s, _p.EliteHpLoss, acc);
+                Fight(ref s, _eliteLoss, acc);
                 // Diminishing returns past the act's target elite count.
                 var relic = _eliteReward * (s.Elites < _targetElites ? 1.0 : _p.ExtraEliteFactor);
                 acc.Add(PathComponentKeys.Elite, s.Alive * (_cardReward + relic));
@@ -215,7 +237,7 @@ public sealed class PathScorer
             case MapNodeType.Unknown:
                 // "?" is low-variance, which matters more when HP is low.
                 var lowness = 1 - s.Hp;
-                Fight(ref s, _p.UnknownHpLoss, acc);
+                Fight(ref s, _unknownLoss, acc);
                 acc.Add(PathComponentKeys.Unknown, s.Alive * (_p.UnknownReward + _p.UnknownLowHpBonus * lowness));
                 s.Gold += _p.UnknownGold;
                 break;
@@ -243,10 +265,11 @@ public sealed class PathScorer
 
             case MapNodeType.Treasure:
                 acc.Add(PathComponentKeys.Treasure, s.Alive * _p.TreasureReward);
+                s.Gold += _p.TreasureGold;
                 break;
 
             case MapNodeType.Boss:
-                acc.Add(PathComponentKeys.BossRisk, -_p.BossDeathCost * s.Alive * DeathChance(s.Hp, _p.BossHpLoss * DamageMultiplier));
+                acc.Add(PathComponentKeys.BossRisk, -_p.BossDeathCost * s.Alive * DeathChance(s.Hp, _bossLoss * DamageMultiplier));
                 break;
 
             default: // Ancient (act start) or anything new: no value either way.

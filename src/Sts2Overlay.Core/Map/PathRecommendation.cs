@@ -62,6 +62,9 @@ public sealed record PathOption
     /// <summary>Simulated HP ratio (0..1) when reaching the boss.</summary>
     public double ExpectedBossHp { get; init; }
 
+    /// <summary>Simulated probability (0..1) of reaching the boss alive (1 − chance to die in the rooms before it).</summary>
+    public double BossArrivalChance { get; init; } = 1;
+
     /// <summary>Shops on the path where the simulation expects to spend gold (removal and/or a purchase).</summary>
     public int ShopPurchases { get; init; }
 
