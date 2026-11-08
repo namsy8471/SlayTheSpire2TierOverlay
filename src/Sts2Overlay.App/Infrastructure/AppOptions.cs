@@ -6,9 +6,14 @@ namespace Sts2Overlay.App.Infrastructure;
 /// Command line:
 /// <code>
 /// Sts2Overlay.exe [--demo [reward|shop|other]] [--pack &lt;dir&gt;] [--catalog &lt;file&gt;] [--show-in-capture] [--selftest]
+/// Sts2Overlay.exe --bench-capture [frames] [--bench-target &lt;process|pid&gt;] [--bench-out &lt;dir&gt;] [--bench-soak &lt;seconds&gt;]
+/// Sts2Overlay.exe --verify-capture [count] [--verify-dir &lt;dir&gt;] [--verify-gdi-on-top] [--bench-target &lt;process|pid&gt;] [--bench-out &lt;dir&gt;]
 /// </code>
 /// <c>--demo</c> uses fake game-state/recognition so the UI can be seen without the game.
 /// <c>--show-in-capture</c> keeps our windows visible to screenshots (for checking the layout).
+/// <c>--bench-capture</c> times GDI and Windows.Graphics.Capture on the game window, writes a report and two PNGs, and exits
+/// (see <see cref="Services.CaptureBench"/>). <c>--verify-capture</c> checks that both backends give identical pixels and
+/// recognition results (see <see cref="Services.CaptureVerify"/>); exit code 0 = pass.
 /// </summary>
 public sealed record AppOptions
 {
@@ -19,6 +24,32 @@ public sealed record AppOptions
 
     /// <summary>Saves one capture + runs one recognition after start-up, logs the result and exits (checks the capture path).</summary>
     public bool SelfTest { get; init; }
+
+    /// <summary>Run the capture benchmark instead of the overlay.</summary>
+    public bool BenchCapture { get; init; }
+
+    public int BenchFrames { get; init; } = 60;
+
+    /// <summary>Process name or id whose main window is captured; null = the game.</summary>
+    public string? BenchTarget { get; init; }
+
+    /// <summary>Report/PNG folder; null = the captures folder.</summary>
+    public string? BenchOut { get; init; }
+
+    /// <summary>Run the capture accuracy check (WGC vs GDI vs saved captures) instead of the overlay.</summary>
+    public bool VerifyCapture { get; init; }
+
+    /// <summary>How many saved reward/shop captures the accuracy check replays.</summary>
+    public int VerifyCount { get; init; } = 12;
+
+    /// <summary>Folder with saved captures to replay; null = the captures folder.</summary>
+    public string? VerifyDir { get; init; }
+
+    /// <summary>Also compare GDI and WGC on one static image shown ON TOP of everything for ~0.15 s (click-through).</summary>
+    public bool VerifyGdiOnTop { get; init; }
+
+    /// <summary>After timing: run the app's real capturer (WGC with GDI fallback) at 3 Hz for this many seconds.</summary>
+    public int BenchSoakSeconds { get; init; }
 
     public static AppOptions Parse(IReadOnlyList<string> args)
     {
@@ -52,6 +83,37 @@ public sealed record AppOptions
                     break;
                 case "--selftest":
                     o = o with { SelfTest = true };
+                    break;
+                case "--bench-capture":
+                    o = o with { BenchCapture = true };
+                    if (int.TryParse(i + 1 < args.Count ? args[i + 1] : null, out var frames) && frames > 0)
+                    {
+                        o = o with { BenchFrames = frames };
+                        i++;
+                    }
+                    break;
+                case "--bench-target":
+                    o = o with { BenchTarget = Next() };
+                    break;
+                case "--bench-out":
+                    o = o with { BenchOut = Next() };
+                    break;
+                case "--verify-capture":
+                    o = o with { VerifyCapture = true };
+                    if (int.TryParse(i + 1 < args.Count ? args[i + 1] : null, out var count) && count > 0)
+                    {
+                        o = o with { VerifyCount = count };
+                        i++;
+                    }
+                    break;
+                case "--verify-gdi-on-top":
+                    o = o with { VerifyGdiOnTop = true };
+                    break;
+                case "--verify-dir":
+                    o = o with { VerifyDir = Next() };
+                    break;
+                case "--bench-soak":
+                    o = o with { BenchSoakSeconds = int.TryParse(Next(), out var soak) ? soak : 30 };
                     break;
                 default:
                     AppLog.Warn($"unknown argument '{a}'");

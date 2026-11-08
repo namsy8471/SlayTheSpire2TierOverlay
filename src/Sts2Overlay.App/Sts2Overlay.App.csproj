@@ -1,12 +1,20 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    The overlay app (PLAN §5.0 / §5.4): game window tracking, GDI capture, badge layer, panel, tray, hotkeys.
+    The overlay app (PLAN §5.0 / §5.4): game window tracking, WGC/GDI capture, badge layer, panel, tray, hotkeys.
     Game-state reading and card recognition are plugged in through Integration/ interfaces.
   -->
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <!--
+      The Windows 10 SDK version in the TFM brings the C#/WinRT projection of Windows.Graphics.Capture (no NuGet package:
+      it is a targeting pack of the .NET SDK). 22621 is needed to see GraphicsCaptureSession.IsBorderRequired; the app
+      still runs on Windows 10 2004 (19041), and the platform analyzer makes us guard anything newer.
+    -->
+    <TargetFramework>net10.0-windows10.0.22621.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <!-- Direct3D 11 calls through COM vtable function pointers (Interop/D3D11Interop.cs). -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <UseWPF>true</UseWPF>
     <!-- Only for the tray icon (System.Windows.Forms.NotifyIcon) and drawing its icon (System.Drawing). -->
     <UseWindowsForms>true</UseWindowsForms>
@@ -33,6 +41,10 @@
     <ProjectReference Include="..\Sts2Overlay.Core\Sts2Overlay.Core.csproj" />
     <ProjectReference Include="..\Sts2Overlay.GameState\Sts2Overlay.GameState.csproj" />
     <ProjectReference Include="..\Sts2Overlay.Vision\Sts2Overlay.Vision.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Sts2Overlay.App.Tests" />
   </ItemGroup>
 
 </Project>

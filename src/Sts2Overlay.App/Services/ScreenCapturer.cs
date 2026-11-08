@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Sts2Overlay.App.Integration;
 using static Sts2Overlay.App.Interop.NativeMethods;
@@ -19,9 +20,13 @@ namespace Sts2Overlay.App.Services;
 /// Layered windows (our overlays) are not included because we don't pass CAPTUREBLT, and they additionally opt out
 /// with WDA_EXCLUDEFROMCAPTURE.
 ///
+/// Why this is slow at 4K (~50 ms): the game is drawn by the GPU and composed by DWM in VRAM. A desktop-DC BitBlt makes
+/// Windows read the composed desktop back from the GPU into system memory through GDI, synchronously, every call.
+/// <see cref="WgcCapturer"/> asks DWM for the window's own GPU texture instead; this class is the fallback.
+///
 /// Not thread-safe: used only by the capture worker thread.
 /// </summary>
-internal sealed class ScreenCapturer : IDisposable
+internal sealed class ScreenCapturer : IFrameCapturer
 {
     private IntPtr _memDc;
     private IntPtr _dib;
@@ -31,9 +36,16 @@ internal sealed class ScreenCapturer : IDisposable
     private int _height;
     private byte[] _buffer = [];
 
+    public string Name => "gdi";
+
+    public CaptureTimings LastTimings { get; private set; }
+
+    public CapturedFrame Capture(GameWindowInfo target) => Capture(target.CaptureRect);
+
     public CapturedFrame Capture(PixelRect rect)
     {
         if (rect.IsEmpty) throw new ArgumentException("empty capture rect", nameof(rect));
+        var t0 = Stopwatch.GetTimestamp();
         EnsureSurface(rect.Width, rect.Height);
 
         var screenDc = GetDC(IntPtr.Zero);
@@ -50,8 +62,11 @@ internal sealed class ScreenCapturer : IDisposable
             ReleaseDC(IntPtr.Zero, screenDc);
         }
 
+        var acquireMs = Stopwatch.GetElapsedTime(t0).TotalMilliseconds;
+        var t1 = Stopwatch.GetTimestamp();
         var stride = rect.Width * 4;
         Marshal.Copy(_bits, _buffer, 0, stride * rect.Height);
+        LastTimings = new CaptureTimings(acquireMs, Stopwatch.GetElapsedTime(t1).TotalMilliseconds);
         return new CapturedFrame(_buffer, rect.Width, rect.Height, stride, rect, DateTime.Now);
     }
 
@@ -97,6 +112,11 @@ internal sealed class ScreenCapturer : IDisposable
         if (_dib != IntPtr.Zero) DeleteObject(_dib);
         _memDc = _dib = _oldBitmap = _bits = IntPtr.Zero;
         _width = _height = 0;
+    }
+
+    /// <summary>Nothing to stop: GDI keeps no session. The DIB is kept for the next capture.</summary>
+    public void Suspend()
+    {
     }
 
     public void Dispose() => ReleaseSurface();
