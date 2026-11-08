@@ -29,7 +29,7 @@ dotnet test SlayTheSpire2TierOverlay.sln
 
 ```bash
 # 추천 엔진으로 내 런 기록을 리플레이 (데이터 팩 지정)
-dotnet run --project tools/RunHistoryAnalyzer -- replay "%APPDATA%\SlayTheSpire2\steam\<id>\profile1\saves\history" --pack data/packs/sample --out replay.md
+dotnet run --project tools/RunHistoryAnalyzer -- replay "%APPDATA%\SlayTheSpire2\steam\<id>\profile1\saves\history" --pack data/packs/sample --catalog data/catalog/cards.v0.107.1.json --out replay.md
 
 # 캐릭터별 승률, 카드 선택률
 dotnet run --project tools/RunHistoryAnalyzer -- stats "%APPDATA%\SlayTheSpire2\steam\<id>\profile1\saves\history"

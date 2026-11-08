@@ -6,7 +6,7 @@ using Sts2Overlay.Core.Replay;
 // RunHistoryAnalyzer: replays .run history files through the recommendation engine and prints
 // a Korean Markdown report (agreement with your picks) or personal statistics.
 //
-//   dotnet run --project tools/RunHistoryAnalyzer -- replay <runs-dir|file.run>... [--pack <dir>] [--player <steamId>] [--out <file.md>] [--summary]
+//   dotnet run --project tools/RunHistoryAnalyzer -- replay <runs-dir|file.run>... [--pack <dir>] [--catalog <cards.json>] [--player <steamId>] [--out <file.md>] [--summary]
 //   dotnet run --project tools/RunHistoryAnalyzer -- stats  <runs-dir|file.run>... [--player <steamId>]
 //
 // Run files live in %APPDATA%\SlayTheSpire2\steam\<steamid>\profile1\saves\history\.
@@ -25,7 +25,7 @@ internal static class Cli
 
         var command = args[0];
         var inputs = new List<string>();
-        string? packDir = null, outFile = null;
+        string? packDir = null, outFile = null, catalogPath = null;
         long? player = null;
         var summaryOnly = false;
 
@@ -35,6 +35,7 @@ internal static class Cli
             {
                 case "--pack": packDir = Next(args, ref i); break;
                 case "--out": outFile = Next(args, ref i); break;
+                case "--catalog": catalogPath = Next(args, ref i); break;
                 case "--player": player = long.Parse(Next(args, ref i), CultureInfo.InvariantCulture); break;
                 case "--summary": summaryOnly = true; break;
                 default: inputs.Add(args[i]); break;
@@ -54,7 +55,7 @@ internal static class Cli
         {
             case "replay":
             {
-                var pack = LoadPack(packDir);
+                var pack = LoadPack(packDir, catalogPath);
                 var analyzer = new ReplayAnalyzer(pack);
                 var replays = runs.Select(r => analyzer.Replay(r, player is { } p && r.FindPlayer(p) is not null ? p : null)).ToArray();
                 Write(ReplayReport.ToMarkdown(replays, includeDecisions: !summaryOnly), outFile);
@@ -88,14 +89,14 @@ internal static class Cli
         }
     }
 
-    private static DataPack LoadPack(string? dir)
+    private static DataPack LoadPack(string? dir, string? catalogPath)
     {
         if (dir is null)
         {
             Console.Error.WriteLine("경고: --pack 이 없어 빈 데이터 팩으로 실행합니다 (모든 카드가 미평가).");
-            return new DataPack();
+            return new DataPack { Catalog = catalogPath is null ? null : DataPackLoader.LoadCatalogFile(catalogPath) };
         }
-        var pack = DataPackLoader.LoadDirectory(dir);
+        var pack = DataPackLoader.LoadDirectory(dir, catalogPath: catalogPath);
         foreach (var issue in DataPackValidator.Validate(pack))
         {
             Console.Error.WriteLine($"[{issue.Severity}] {issue.Where}: {issue.Message}");
@@ -128,7 +129,7 @@ internal static class Cli
     {
         Console.Error.WriteLine("""
             RunHistoryAnalyzer
-              replay <runs-dir|file.run>... [--pack <dir>] [--player <steamId>] [--out <file.md>] [--summary]
+              replay <runs-dir|file.run>... [--pack <dir>] [--catalog <cards.json>] [--player <steamId>] [--out <file.md>] [--summary]
               stats  <runs-dir|file.run>... [--player <steamId>] [--out <file.md>]
             """);
     }
