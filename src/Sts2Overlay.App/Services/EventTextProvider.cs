@@ -2,44 +2,74 @@ using System.Globalization;
 using System.IO;
 using System.Text.Json;
 using Sts2Overlay.App.Infrastructure;
+using Sts2Overlay.Core.Localization;
 
 namespace Sts2Overlay.App.Services;
 
 /// <summary>
-/// Korean event and option titles from the localization extracted out of the game's pck
-/// (<c>data/local/pck/localization/kor/{events,ancients,relics}.json</c>, gitignored). Game text never enters the repo:
-/// the committed <c>events.json</c> only has keys, and this class turns keys into titles at runtime.
-/// Without the extracted files, keys are prettified (<c>NEOW.pages.INITIAL.options.NEW_LEAF</c> → <c>New Leaf</c>).
+/// Event and option titles in the overlay language (<see cref="Loc.Current"/>), from the localization extracted out of the
+/// game's pck (<c>data/local/pck/localization/{kor,eng}/{events,ancients,relics}.json</c>, gitignored). Game text never
+/// enters the repo: the committed <c>events.json</c> only has keys, and this class turns keys into titles at runtime.
+/// Both languages are loaded once; every lookup picks the current one, so a language switch needs no reload. A key the
+/// current language lacks falls back to the other language, then to the prettified key
+/// (<c>NEOW.pages.INITIAL.options.NEW_LEAF</c> → <c>New Leaf</c>).
 /// </summary>
 public sealed class EventTextProvider
 {
-    private readonly Dictionary<string, string> _events;
-    private readonly Dictionary<string, string> _relics;
-
-    private EventTextProvider(Dictionary<string, string> events, Dictionary<string, string> relics)
+    private sealed record Texts(Dictionary<string, string> Events, Dictionary<string, string> Relics)
     {
-        _events = events;
-        _relics = relics;
+        public static Texts New() => new(new(StringComparer.Ordinal), new(StringComparer.Ordinal));
     }
 
-    public static EventTextProvider Empty { get; } = new(new(StringComparer.Ordinal), new(StringComparer.Ordinal));
+    private readonly Texts _kor;
+    private readonly Texts _eng;
 
-    public int Count => _events.Count;
-
-    /// <summary>Reads <paramref name="localizationDir"/>/<paramref name="lang"/>/*.json; missing files are skipped.</summary>
-    public static EventTextProvider Load(string localizationDir, string lang = "kor")
+    private EventTextProvider(Texts kor, Texts eng)
     {
-        var events = new Dictionary<string, string>(StringComparer.Ordinal);
-        var relics = new Dictionary<string, string>(StringComparer.Ordinal);
-        Read(Path.Combine(localizationDir, lang, "events.json"), events);
-        Read(Path.Combine(localizationDir, lang, "ancients.json"), events);
-        Read(Path.Combine(localizationDir, lang, "relics.json"), relics);
-        if (events.Count > 0) AppLog.Info($"event text: {events.Count} strings from {Path.Combine(localizationDir, lang)}");
-        return new EventTextProvider(events, relics);
+        _kor = kor;
+        _eng = eng;
+    }
+
+    public static EventTextProvider Empty { get; } = new(Texts.New(), Texts.New());
+
+    /// <summary>Strings loaded for the current language.</summary>
+    public int Count => Current.Events.Count;
+
+    private Texts Current => Loc.IsEnglish ? _eng : _kor;
+
+    private Texts Other => Loc.IsEnglish ? _kor : _eng;
+
+    /// <summary>Reads <paramref name="localizationDir"/>/{kor,eng}/*.json; missing files are skipped.</summary>
+    public static EventTextProvider Load(string localizationDir)
+        => new(LoadLang(localizationDir, "kor"), LoadLang(localizationDir, "eng"));
+
+    private static Texts LoadLang(string localizationDir, string lang)
+    {
+        var t = Texts.New();
+        Read(Path.Combine(localizationDir, lang, "events.json"), t.Events);
+        Read(Path.Combine(localizationDir, lang, "ancients.json"), t.Events);
+        Read(Path.Combine(localizationDir, lang, "relics.json"), t.Relics);
+        if (t.Events.Count > 0) AppLog.Info($"event text: {t.Events.Count} strings from {Path.Combine(localizationDir, lang)}");
+        return t;
     }
 
     /// <summary>The default location next to the data packs (<see cref="AppPaths.LocalDataDir"/>).</summary>
     public static EventTextProvider ForLocalData() => Load(Path.Combine(AppPaths.LocalDataDir, "pck", "localization"));
+
+    private bool TryEvent(string key, out string text) => TryGet(Current.Events, key, out text) || TryGet(Other.Events, key, out text);
+
+    private bool TryRelic(string key, out string text) => TryGet(Current.Relics, key, out text) || TryGet(Other.Relics, key, out text);
+
+    private static bool TryGet(Dictionary<string, string> d, string key, out string text)
+    {
+        if (d.TryGetValue(key, out var t) && t.Length > 0)
+        {
+            text = t;
+            return true;
+        }
+        text = "";
+        return false;
+    }
 
     private static void Read(string path, Dictionary<string, string> into)
     {
@@ -62,7 +92,7 @@ public sealed class EventTextProvider
     public string EventTitle(string eventId)
     {
         var entry = eventId.StartsWith("EVENT.", StringComparison.Ordinal) ? eventId[6..] : eventId;
-        return _events.TryGetValue(entry + ".title", out var t) && t.Length > 0 ? Clean(t) : Prettify(entry);
+        return TryEvent(entry + ".title", out var t) ? Clean(t) : Prettify(entry);
     }
 
     /// <summary>
@@ -71,9 +101,12 @@ public sealed class EventTextProvider
     /// </summary>
     public string OptionTitle(string optionKey)
     {
-        if (_events.TryGetValue(optionKey + ".title", out var t) && t.Length > 0) return Clean(t);
         var last = optionKey[(optionKey.LastIndexOf('.') + 1)..];
-        if (_relics.TryGetValue(last + ".title", out var r) && r.Length > 0) return Clean(r);
+        foreach (var texts in new[] { Current, Other })
+        {
+            if (TryGet(texts.Events, optionKey + ".title", out var t)) return Clean(t);
+            if (TryGet(texts.Relics, last + ".title", out var r)) return Clean(r);
+        }
         return Prettify(last);
     }
 
@@ -81,7 +114,7 @@ public sealed class EventTextProvider
     public string? RelicTitle(string relicId)
     {
         var entry = relicId.StartsWith("RELIC.", StringComparison.Ordinal) ? relicId[6..] : relicId;
-        return _relics.TryGetValue(entry + ".title", out var r) && r.Length > 0 ? Clean(r) : null;
+        return TryRelic(entry + ".title", out var r) ? Clean(r) : null;
     }
 
     /// <summary>Strips the game's BBCode tags (<c>[gold]</c>, <c>[/red]</c>).</summary>

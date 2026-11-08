@@ -2,22 +2,24 @@ using System.Globalization;
 using System.IO;
 using System.Text.Json;
 using Sts2Overlay.Core.Data;
+using Sts2Overlay.Core.Localization;
 using Sts2Overlay.Core.Model;
 using Sts2Overlay.App.Infrastructure;
 
 namespace Sts2Overlay.App.Services;
 
 /// <summary>
-/// Display names and card types for the UI. Korean names come from the locally generated catalog
+/// Display names and card types for the UI. Names follow the overlay language (<see cref="Loc.Current"/>, looked up on
+/// every call so a language switch needs no reload). Korean/English names come from the locally generated catalog
 /// (<c>data/local/catalog.&lt;version&gt;.json</c>, gitignored, built by tools/CatalogBuilder + PckTool) or the pack's own
 /// catalog; without either, ids are prettified (<c>CARD.BALL_LIGHTNING</c> → <c>Ball Lightning</c>).
 /// </summary>
 public sealed class CardInfoProvider
 {
-    private readonly Dictionary<string, (string? Kor, string? Type, string? Rarity)> _local;
+    private readonly Dictionary<string, (string? Kor, string? Eng, string? Type, string? Rarity)> _local;
     private readonly DataPack _pack;
 
-    private CardInfoProvider(DataPack pack, Dictionary<string, (string?, string?, string?)> local)
+    private CardInfoProvider(DataPack pack, Dictionary<string, (string?, string?, string?, string?)> local)
     {
         _pack = pack;
         _local = local;
@@ -27,7 +29,7 @@ public sealed class CardInfoProvider
 
     public static CardInfoProvider Load(string? catalogPath, DataPack pack)
     {
-        var map = new Dictionary<string, (string?, string?, string?)>(StringComparer.Ordinal);
+        var map = new Dictionary<string, (string?, string?, string?, string?)>(StringComparer.Ordinal);
         if (catalogPath is not null)
         {
             try
@@ -39,9 +41,13 @@ public sealed class CardInfoProvider
                     {
                         var id = Str(c, "id");
                         if (id is null) continue;
-                        string? kor = null;
-                        if (c.TryGetProperty("names", out var names) && names.ValueKind == JsonValueKind.Object) kor = Str(names, "kor");
-                        map[id] = (kor, Str(c, "type")?.ToLowerInvariant(), Str(c, "rarity")?.ToLowerInvariant());
+                        string? kor = null, eng = null;
+                        if (c.TryGetProperty("names", out var names) && names.ValueKind == JsonValueKind.Object)
+                        {
+                            kor = Str(names, "kor");
+                            eng = Str(names, "eng");
+                        }
+                        map[id] = (kor, eng, Str(c, "type")?.ToLowerInvariant(), Str(c, "rarity")?.ToLowerInvariant());
                     }
                 }
                 AppLog.Info($"card names: {map.Count} cards from {catalogPath}");
@@ -57,7 +63,7 @@ public sealed class CardInfoProvider
     private static string? Str(JsonElement e, string name)
         => e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
 
-    /// <summary>Korean name, with "+" (or "+2") for upgrades.</summary>
+    /// <summary>Name in the overlay language, with "+" (or "+2") for upgrades.</summary>
     public string Name(CardRef card)
         => card.Upgrade switch
         {
@@ -66,12 +72,22 @@ public sealed class CardInfoProvider
             _ => Name(card.Id) + "+" + card.Upgrade.ToString(CultureInfo.InvariantCulture),
         };
 
+    /// <summary>
+    /// Name in the overlay language: the local catalog, then the pack catalog, in the current language first and the
+    /// other language only when neither has it; the prettified id last.
+    /// </summary>
     public string Name(string id)
     {
         var canonical = _pack.Canonical(id);
-        if (_local.TryGetValue(canonical, out var info) && !string.IsNullOrEmpty(info.Kor)) return info.Kor;
-        if (_pack.FindCatalog(canonical)?.Names.TryGetValue("kor", out var k) == true && !string.IsNullOrEmpty(k)) return k;
-        return Prettify(canonical);
+        var english = Loc.IsEnglish;
+        _local.TryGetValue(canonical, out var info);
+        var packNames = _pack.FindCatalog(canonical)?.Names;
+        string? PackName(string code) => packNames is not null && packNames.TryGetValue(code, out var n) && !string.IsNullOrEmpty(n) ? n : null;
+        var current = english ? info.Eng.NullIfEmpty() ?? PackName("eng") : info.Kor.NullIfEmpty() ?? PackName("kor");
+        if (current is not null) return current;
+        // English players get the prettified id (already English) before any Korean text.
+        if (english) return Prettify(canonical);
+        return info.Eng.NullIfEmpty() ?? PackName("eng") ?? Prettify(canonical);
     }
 
     /// <summary>attack | skill | power | status | curse | quest, or null.</summary>
@@ -81,17 +97,21 @@ public sealed class CardInfoProvider
     public string? Rarity(string character, string id)
         => _pack.CardRarity(character, id) ?? (_local.TryGetValue(_pack.Canonical(id), out var info) ? info.Rarity : null);
 
-    public static string RarityKorean(string? rarity) => rarity switch
+    /// <summary>Rarity label in the overlay language (the game's own terms), "?" when unknown.</summary>
+    public static string RarityName(string? rarity) => rarity switch
     {
-        "basic" => "기본",
-        "common" => "일반",
-        "uncommon" => "고급",
-        "rare" => "희귀",
-        "ancient" => "고대",
-        "special" => "특수",
-        "curse" => "저주",
+        "basic" => Loc.T("기본", "Basic"),
+        "common" => Loc.T("일반", "Common"),
+        "uncommon" => Loc.T("고급", "Uncommon"),
+        "rare" => Loc.T("희귀", "Rare"),
+        "ancient" => Loc.T("고대", "Ancient"),
+        "special" => Loc.T("특수", "Special"),
+        "curse" => Loc.T("저주", "Curse"),
         _ => "?",
     };
+
+    /// <summary>Old name of <see cref="RarityName"/>; kept until every caller has moved.</summary>
+    public static string RarityKorean(string? rarity) => RarityName(rarity);
 
     private static string Prettify(string id)
     {
@@ -99,4 +119,9 @@ public sealed class CardInfoProvider
         var raw = dot >= 0 ? id[(dot + 1)..] : id;
         return CultureInfo.InvariantCulture.TextInfo.ToTitleCase(raw.Replace('_', ' ').ToLowerInvariant());
     }
+}
+
+internal static class StringExtensions
+{
+    public static string? NullIfEmpty(this string? s) => string.IsNullOrEmpty(s) ? null : s;
 }
