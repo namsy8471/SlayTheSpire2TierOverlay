@@ -37,14 +37,15 @@
       "color": "#a569bd",
       // OP.GG 랭킹 1위 플레이어 빌드: 그의 리젠트 승리 79판 중 별 덱 65판(모두 v0.107.x). 1위 플레이어 빌드 규칙(그의 승리 15판 이상)으로 인정, 카드는 그의 덱 50% 이상 + lift 1.5 이상, 그의 런 재표본 부트스트랩 80% 이상으로 판정.
       // core CHILD_OF_THE_STARS 그의 덱 53%(31/59)·lift 2.3·런 재표본 부트스트랩 70%.
-      // 불확실(부트스트랩 80% 미만, v1 역할 유지): BEGONE support(32%), CHILD_OF_THE_STARS core(70%), RADIATE payoff(30%).
+      // 불확실(부트스트랩 80% 미만, v1 역할 유지): CHILD_OF_THE_STARS core(70%), RADIATE payoff(30%).
+      // 제거(2026-11 감사): BEGONE support(부트스트랩 32%). 카드 하나를 미니언 타격으로 바꾸는 카드 생성 카드라 별을 만들지도 쓰지도 않음(카드 생성 빌드의 enabler로는 남음). 랭커 2,155판 승리 덱에서도 이 빌드 카드 2장 이상 덱 대비 lift 0.81(좋은 플레이어 별 축 덱 1.16).
       // 보조 근거(Baalorlord A10 리젠트 9판 중 5판 이상 + 축 카드 + OP.GG lift 1.0 이상이 부트스트랩 80% 이상): REFLECT 5/9.
       // 예: https://op.gg/slay-the-spire2/history/6636495 https://op.gg/slay-the-spire2/history/6669199 https://op.gg/slay-the-spire2/history/6669204 https://op.gg/slay-the-spire2/history/6669185
       "cards": {
         "core": ["CARD.CHILD_OF_THE_STARS"],
         "enabler": ["CARD.ROYAL_GAMBLE"],
         "payoff": ["CARD.REFLECT", "CARD.RADIATE"],
-        "support": ["CARD.HIDDEN_CACHE", "CARD.BEGONE"]
+        "support": ["CARD.HIDDEN_CACHE"]
       },
       "fullWeight": 4.0,
       // 핵심 유물: 1위 플레이어 덱 절반 이상 + lift 1.5 이상인 유물이 없습니다.

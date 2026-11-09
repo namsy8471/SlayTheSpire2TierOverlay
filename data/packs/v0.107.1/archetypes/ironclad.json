@@ -25,7 +25,8 @@
       "keyRelics": [],
       "needs": [{ "tag": "STRENGTH", "min": 2 }, { "role": "block", "min": 3 }],
       "desc": "힘을 영구히 쌓고 다단 공격으로 한꺼번에 터뜨리는 정석 빌드. 방어를 소홀히 하기 쉬우니 주의",
-      "guideHeroCard": "CARD.BLOOD_WALL"
+      // 대표 카드(2026-11 감사): BLOOD_WALL은 체력을 깎아 방어도를 얻는 자해 카드라 힘 빌드의 얼굴로 맞지 않음 → 이 빌드의 유일한 payoff(다단 광역 공격)로 바꿈.
+      "guideHeroCard": "CARD.CONFLAGRATION"
     },
     {
       "id": "ironclad.exhaust",
@@ -119,10 +120,11 @@
       // Baalorlord 보조 출처(core 불가): VICIOUS.
       // v1에서 제외(부트스트랩 80% 이상 기준 미달): FIGHT_ME, FLAME_BARRIER, HEADBUTT, SETUP_STRIKE, UNMOVABLE.
       // 예: https://op.gg/slay-the-spire2/history/3977656 https://op.gg/slay-the-spire2/history/4038599
+      // 추가(2026-11 재판정): DOMINATE payoff. 위 표본에서는 불확실(우수 55%·lift 1.48·부트 52%)이었으나, 카드 보정용 랭커 코퍼스(승리 300판, 같은 규칙: 축 카드 2장 이상·leave-one-out·v0.107 런만·플레이어 균형·부트스트랩 200회)에서 우수 플레이어 70%·lift 2.12·9명·부트 87%(전체 63%·lift 2.26·15명·95%)로 통과. 취약을 걸고 적의 취약만큼 힘을 얻어 취약을 소비하므로 payoff. 근거: docs/research/BUILD_UPGRADE_AUDIT.md §6
       "cards": {
         "core": [],
         "enabler": ["CARD.TREMBLE", "CARD.TAUNT"],
-        "payoff": ["CARD.MOLTEN_FIST", "CARD.COLOSSUS", "CARD.VICIOUS", "CARD.CRUELTY"],
+        "payoff": ["CARD.MOLTEN_FIST", "CARD.COLOSSUS", "CARD.VICIOUS", "CARD.CRUELTY", "CARD.DOMINATE"],
         "support": []
       },
       // onTheme(빌드 밖 감점 면제, 빌드 점수 없음): 빌드 확정 덱(commit ≥ 0.7)에 다른 승리 덱보다 1.5배 이상 자주 있고 5명 이상이 들었으며(부트스트랩 80%) 역할 목록에는 없는 카드. 근거: docs/research/v2-stats/on-theme.md
