@@ -157,4 +157,87 @@ public class EventScreenTrackerTests
         Assert.Equal(168 / 1.5 * 0.5 / EventMarkerLayout.PillHeight, scale, 3);
         Assert.Equal(1208 / 1.5 + (168 / 1.5 - EventMarkerLayout.PillHeight * scale) / 2, top, 3);
     }
+
+    // ---- Text ink (what the app's detector gives): every button's text is compared, hovered or not. ----
+
+    /// <summary>
+    /// A button's text ink: 2 px dots on a 4 px grid, half of them set by the text's name, so other text is another
+    /// dot set. <paramref name="every"/> keeps one dot in that many (a fading text).
+    /// </summary>
+    private static TextInk Ink(string text, int every = 1)
+    {
+        const int w = 160, h = 24;
+        var ink = new bool[w * h];
+        int n = 0;
+        for (int gy = 0; gy < h / 4; gy++)
+            for (int gx = 0; gx < w / 4; gx++)
+            {
+                uint k = (uint)HashCode.Combine(text, gx, gy) * 2654435761u;
+                if (((k >> 11) & 1) == 0 || n++ % every != 0) continue;
+                for (int y = 0; y < 2; y++)
+                    for (int x = 0; x < 2; x++)
+                        ink[(gy * 4 + y) * w + gx * 4 + x] = true;
+            }
+        return new TextInk(ink, w, h, w / 2f, h / 2f);
+    }
+
+    /// <summary>A screen whose buttons show <paramref name="texts"/> (as ink); the signatures are all the same.</summary>
+    private static EventScreen InkScreen(string[] texts, int hover = -1, int every = 1)
+        => new(texts.Select((text, i) => new EventButton(i, new PixelRect(930, 604 + 104 * i, 784, 84),
+            i == hover ? EventButtonState.Hovered : EventButtonState.Idle, new float[96], Ink(text, every))).ToArray());
+
+    /// <summary>
+    /// The click leaves the mouse on the next page's button in the same place, and the other button keeps its text:
+    /// no button is idle with new text, which the signature check could not see. Ink sees the hovered one change.
+    /// </summary>
+    [Fact]
+    public void A_page_change_under_the_mouse_is_seen_and_hides_the_old_markers_at_once()
+    {
+        var t = Start();
+        t.OnScreen(InkScreen(["open", "knock"], hover: 0));
+        Assert.Equal(["OPEN", "KNOCK"], Short(t.Current));
+        Assert.True(t.OnScreen(InkScreen(["take", "knock"], hover: 0)));
+        Assert.Null(t.Current); // other text: the old page's markers would be wrong
+        t.OnScreen(InkScreen(["take", "knock"], hover: 0));
+        Assert.Equal(["TAKE", "LEAVE"], Short(t.Current));
+    }
+
+    [Fact]
+    public void Without_ink_the_same_change_goes_unseen()
+    {
+        // the coarse fallback (no ink): a hovered button is not compared, so the page seems unchanged
+        var t = Start();
+        t.OnScreen(Screen(2, hover: 0, text: 0));
+        var next = new EventScreen(Screen(2, hover: 0, text: 1).Buttons.Select((b, i) => i == 1 ? Screen(2, text: 0).Buttons[1] : b).ToArray());
+        t.OnScreen(next);
+        t.OnScreen(next);
+        Assert.Equal(["OPEN", "KNOCK"], Short(t.Current));
+    }
+
+    [Fact]
+    public void A_page_fading_in_and_out_keeps_its_markers()
+    {
+        var t = Start();
+        t.OnScreen(InkScreen(["open", "knock"], every: 3));  // fading in: a third of the ink
+        Assert.NotNull(t.Current);
+        t.OnScreen(InkScreen(["open", "knock"]));            // full: becomes the reference
+        t.OnScreen(InkScreen(["open", "knock"], hover: 1, every: 2)); // fading out: half
+        Assert.Equal(["OPEN", "KNOCK"], Short(t.Current));
+    }
+
+    [Fact]
+    public void Unsure_text_hides_the_markers_and_stops_them_when_it_lasts()
+    {
+        Assert.Equal(TextVerdict.Unsure, TextInk.Judge(Ink("open"), Ink("open", every: 12))); // not "changed"
+        var t = Start();
+        t.OnScreen(InkScreen(["open", "knock"], hover: 1));
+        Assert.True(t.OnScreen(InkScreen(["open", "knock"], every: 12))); // almost all ink gone: nothing to tell
+        Assert.Null(t.Current);
+        Assert.True(t.OnScreen(InkScreen(["open", "knock"])));            // the same again: back
+        Assert.Equal(["OPEN", "KNOCK"], Short(t.Current));
+        for (int i = 0; i < EventScreenTracker.UnsureFrames; i++) t.OnScreen(InkScreen(["open", "knock"], every: 12));
+        Assert.Null(t.Current);
+        t.OnScreen(InkScreen(["open", "knock"]));                         // stopped for the room
+        Assert.Null(t.Current);
+    }
 }

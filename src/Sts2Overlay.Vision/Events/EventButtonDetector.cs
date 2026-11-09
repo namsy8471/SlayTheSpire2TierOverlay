@@ -18,10 +18,14 @@ public enum EventButtonState
 /// <param name="Bounds">The button's visible texture, frame pixels.</param>
 /// <param name="State">Idle, hovered or locked.</param>
 /// <param name="TextSignature">
-/// Where the button's light text pixels are (24x4 cells, fraction 0..1). Two frames show the same buttons when the
-/// signatures of their idle buttons agree; a new page of the same event has other text.
+/// Where the button's light text pixels are (24x4 cells, fraction 0..1): a coarse summary, kept for tools and for
+/// buttons without <paramref name="Ink"/>.
 /// </param>
-public sealed record EventButton(int Index, PixelRect Bounds, EventButtonState State, float[] TextSignature);
+/// <param name="Ink">
+/// The button's text pixel by pixel (null when not read). Two frames show the same page when the ink of every button
+/// reads the same (<see cref="TextInk.Judge"/>); a new page of the same event has other text.
+/// </param>
+public sealed record EventButton(int Index, PixelRect Bounds, EventButtonState State, float[] TextSignature, TextInk? Ink = null);
 
 /// <summary>The option buttons of an event screen, top to bottom.</summary>
 public sealed record EventScreen(IReadOnlyList<EventButton> Buttons)
@@ -67,6 +71,10 @@ public static class EventButtonDetector
     private const int HoverGreen = 80; // mean green of the bottom stripe: idle 59..69, hovered 85..89
     private const int HoverGlow = 60;  // mean green just above the button: hovered 82..120, otherwise 1..34
 
+    // Text ink area (the label is node x 42..764, y 13..87, i.e. x 964..1686, texture y 5..79; with a margin for the
+    // hover scale) and the node's scale pivot (400, 50): x 1322, texture y 42.
+    private const float InkX0 = 954, InkX1 = 1692, InkY0 = 6, InkY1 = 80, PivotX = 1322, PivotDy = 42;
+
     // Text signature area and grid.
     private const float TextX0 = 950, TextX1 = 1690, TextY0 = 14, TextY1 = 70;
     private const int SigCols = 24, SigRows = 4, TextLight = 150;
@@ -92,7 +100,8 @@ public static class EventButtonDetector
 
     /// <summary>
     /// How far (reference px, >= 0) the option column sits below <see cref="RefTop"/>: from the centre of the first
-    /// run of button-fill rows. 0 when that run is not button-sized or is within 2 px of the plain place.
+    /// run of button-fill rows. 0 when that run is not button-sized or is within 4 px of the plain place (the stripes
+    /// allow 5, and a hovered or fading top button moves the run's centre by up to 3).
     /// </summary>
     internal static int ColumnOffset(ReadOnlySpan<byte> px, in ScreenFrame f, RefTransform t)
     {
@@ -119,7 +128,7 @@ public static class EventButtonDetector
                 while (fall > rise && RowFillAt(px, f, t, fall - 1) < RunKeep) fall--;
                 float centre = ((rise + fall) / 2f - t.OffsetY) / t.Scale;
                 int d = (int)MathF.Round(centre - RefHeight / 2 - RefTop);
-                return d <= 2 ? 0 : d;
+                return d <= 4 ? 0 : d;
             }
             // The first run decides: one too thin or too tall is not a button, and looking further down could
             // only find a lower button and take it for the top one.
@@ -169,7 +178,8 @@ public static class EventButtonDetector
             else break;
 
             var bounds = t.ToPixelRect(new RectF(RefLeft, top, RefWidth, RefHeight)).Intersect(frame.Width, frame.Height);
-            buttons.Add(new EventButton(i, bounds, state, Signature(px, frame, t, new RectF(TextX0, top + TextY0, TextX1 - TextX0, TextY1 - TextY0))));
+            buttons.Add(new EventButton(i, bounds, state, Signature(px, frame, t, new RectF(TextX0, top + TextY0, TextX1 - TextX0, TextY1 - TextY0)),
+                TextInk.Read(px, frame, t, new RectF(InkX0, top + InkY0, InkX1 - InkX0, InkY1 - InkY0), PivotX, top + PivotDy)));
         }
         return buttons.Count > 0 ? new EventScreen(buttons) : null;
     }
