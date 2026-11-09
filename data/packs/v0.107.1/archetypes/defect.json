@@ -81,10 +81,11 @@
       // support: FTL 26%·lift 1.2·7명·부트 23%(우수) 불확실.
       // COMPACT는 core 판정이 불안정(부트 57%)해 v1 core 유지(불확실). ITERATION(v1 payoff)은 우수 플레이어 lift 0.9997(1.0 미만)·부트 0%라 Baalorlord 구제(lift ≥1.0)도 안 됨 → 제외(경계선).
       // 예: https://op.gg/slay-the-spire2/history/4722246 https://op.gg/slay-the-spire2/history/7052834 https://op.gg/slay-the-spire2/history/6651591 https://op.gg/slay-the-spire2/history/6131585
+      // 추가(2026-11 재판정): FIGHT_THROUGH enabler(상태이상 공급), FLAK_CANNON payoff(상태이상 소멸·소비). 위 표본에서는 불확실(부트 56%·64%)이었으나, 카드 보정용 랭커 코퍼스(승리 180판, 같은 규칙: 서명 카드 3장 이상·leave-one-out·플레이어 균형·부트스트랩 200회; 우수 플레이어 부트 45%·44%로 미결 → 전체 플레이어로 판정)에서 전체 46%·lift 3.06·15명·부트 98% / 37%·lift 1.91·16명·85%로 통과. ITERATION은 이 코퍼스에서도 불확실(전체 부트 44%)이라 넣지 않음. 근거: docs/research/BUILD_UPGRADE_AUDIT.md §6
       "cards": {
         "core": ["CARD.COMPACT", "CARD.ROCKET_PUNCH"],
-        "enabler": ["CARD.TURBO", "CARD.BOOST_AWAY", "CARD.OVERCLOCK", "CARD.GUNK_UP"],
-        "payoff": ["CARD.SMOKESTACK", "CARD.TRASH_TO_TREASURE"],
+        "enabler": ["CARD.TURBO", "CARD.BOOST_AWAY", "CARD.OVERCLOCK", "CARD.GUNK_UP", "CARD.FIGHT_THROUGH"],
+        "payoff": ["CARD.SMOKESTACK", "CARD.TRASH_TO_TREASURE", "CARD.FLAK_CANNON"],
         "support": ["CARD.FTL"]
       },
       // onTheme(빌드 밖 감점 면제, 빌드 점수 없음): 빌드 확정 덱(commit ≥ 0.7)에 다른 승리 덱보다 1.5배 이상 자주 있고 5명 이상이 들었으며(부트스트랩 80%) 역할 목록에는 없는 카드. 좋은 플레이어 표본이 얇아 전체 플레이어로 판정: SUPERCRITICAL. 근거: docs/research/v2-stats/on-theme.md
