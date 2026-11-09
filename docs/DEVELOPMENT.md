@@ -53,8 +53,8 @@ dotnet run --project src/Sts2Overlay.App
 - 다른 데이터 팩·카탈로그: `-- --pack <폴더> --catalog <파일>`
 - 리소스만 준비하고 끝내기: `-- --prepare [--force] [--game-dir <폴더>]`
 - UI 배율: 게임 해상도에 맞춰 자동 (FHD 100%, 1440p 125%, 4K 150%). 트레이 메뉴 "UI 배율"에서 바꿀 수 있습니다.
-- 단축키: `Ctrl+F5` 맵·휴식처 위 추천, `Ctrl+F6` 항상 맨 앞, `Ctrl+F7` 패널 클릭 통과, `Ctrl+F8` 모두 숨기기, `Ctrl+F9` 캡처 저장, `Ctrl+F10` 지금 인식, `Ctrl+F11` 인식 영역 표시(카드·가격 상자, 디버그)
-- 기록: `%LOCALAPPDATA%\Sts2Overlay\app.log`, 설정: 같은 폴더의 `settings.json`, 캡처: `captures\`
+- 단축키: `Ctrl+F5` 맵·휴식처 위 추천, `Ctrl+F6` 항상 맨 앞, `Ctrl+F7` 패널 클릭 통과, `Ctrl+F8` 모두 숨기기, `Ctrl+F9` 캡처 저장(`debugCaptures` 켰을 때만), `Ctrl+F10` 지금 인식, `Ctrl+F11` 인식 영역 표시(카드·가격 상자, 디버그)
+- 기록: `%LOCALAPPDATA%\Sts2Overlay\app.log`, 설정: 같은 폴더의 `settings.json`, 캡처: `captures\` (`settings.json`의 `"debugCaptures": true`일 때만 남음. 꺼져 있으면 오버레이를 켤 때 폴더를 비우므로, Vision 테스트·VisionBench용 캡처는 이 값을 켜 두거나 다른 폴더에 보관하세요)
 - 캡처 방식: 기본은 Windows.Graphics.Capture(4K 한 장 약 4 ms). 지원되지 않거나 실패하면 GDI(약 50 ms)로 자동 전환합니다. `settings.json`의 `"captureBackend": "gdi"`로 GDI를 강제할 수 있고, 실제로 쓰인 방식은 app.log의 `capture backend` 줄에 남습니다.
 - 한 번에 하나만 실행됩니다(뮤텍스 `Local\Sts2Overlay.App`). `--prepare`, `--bench-capture`, `--verify-capture`는 오버레이가 켜져 있어도 돌릴 수 있습니다.
 

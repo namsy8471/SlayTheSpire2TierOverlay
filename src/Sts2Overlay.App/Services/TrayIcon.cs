@@ -22,7 +22,7 @@ public sealed class TrayIcon : IDisposable
     private readonly bool _devBuild;
     private readonly ToolStripMenuItem _demoReward, _demoShop, _demoOther, _demoOff, _toggle, _scaleAuto, _outlines, _onTop, _mapOverlay, _inCapture;
     private readonly ToolStripMenuItem _applyUpdate;
-    private readonly ToolStripMenuItem _demo, _scaleMenu, _recognize, _saveCapture, _reloadPack, _openCaptures, _openLog, _version, _checkUpdate, _exit;
+    private readonly ToolStripMenuItem _demo, _scaleMenu, _recognize, _reloadPack, _version, _checkUpdate, _exit;
     private readonly ToolStripMenuItem _languageMenu, _languageAuto, _languageKor, _languageEng;
     private readonly List<ToolStripMenuItem> _scaleItems = [];
 
@@ -74,10 +74,8 @@ public sealed class TrayIcon : IDisposable
         _mapOverlay = new ToolStripMenuItem("", null, (_, _) => MapOverlayRequested?.Invoke());
         _inCapture = new ToolStripMenuItem("", null, (_, _) => ShowInCaptureRequested?.Invoke());
         _recognize = new ToolStripMenuItem("", null, (_, _) => RecognizeRequested?.Invoke());
-        _saveCapture = new ToolStripMenuItem("", null, (_, _) => SaveCaptureRequested?.Invoke());
+        // No capture / log items: players never need them. Debug captures are a settings.json switch (debugCaptures).
         _reloadPack = new ToolStripMenuItem("", null, (_, _) => ReloadPackRequested?.Invoke());
-        _openCaptures = new ToolStripMenuItem("", null, (_, _) => OpenCapturesRequested?.Invoke());
-        _openLog = new ToolStripMenuItem("", null, (_, _) => OpenLogRequested?.Invoke());
         _version = new ToolStripMenuItem("") { Enabled = false };
         _checkUpdate = new ToolStripMenuItem("", null, (_, _) => CheckUpdateRequested?.Invoke());
         _applyUpdate = new ToolStripMenuItem("", null, (_, _) => ApplyUpdateRequested?.Invoke()) { Visible = false };
@@ -93,13 +91,10 @@ public sealed class TrayIcon : IDisposable
             _scaleMenu,
             _languageMenu,
             _recognize,
-            _saveCapture,
             _outlines,
             _demo,
             new ToolStripSeparator(),
             _reloadPack,
-            _openCaptures,
-            _openLog,
             new ToolStripSeparator(),
             _version,
             _checkUpdate,
@@ -136,10 +131,7 @@ public sealed class TrayIcon : IDisposable
         _mapOverlay.Text = Loc.T("맵·휴식처 위 추천 표시 (Ctrl+F5)", "Show advice on Map / Rest Site (Ctrl+F5)");
         _inCapture.Text = InCaptureLabel(_inCapture.Checked, _inCaptureForcedHidden);
         _recognize.Text = Loc.T("지금 인식 (Ctrl+F10)", "Recognize now (Ctrl+F10)");
-        _saveCapture.Text = Loc.T("캡처 저장 (Ctrl+F9)", "Save capture (Ctrl+F9)");
         _reloadPack.Text = Loc.T("데이터 팩 다시 읽기", "Reload data pack");
-        _openCaptures.Text = Loc.T("캡처 폴더 열기", "Open captures folder");
-        _openLog.Text = Loc.T("로그 열기", "Open log");
         _version.Text = Loc.T($"버전 {_versionText}", $"Version {_versionText}") + (_devBuild ? Loc.T(" (개발용)", " (dev)") : "");
         _checkUpdate.Text = CheckUpdateLabel();
         _applyUpdate.Text = ApplyUpdateText(_updateVersion);
@@ -149,13 +141,10 @@ public sealed class TrayIcon : IDisposable
     public event Action? ExitRequested;
     public event Action? ToggleVisibilityRequested;
     public event Action? RecognizeRequested;
-    public event Action? SaveCaptureRequested;
 
     /// <summary>UI 배율 chosen: null = auto, else 1.0 / 1.25 / ...</summary>
     public event Action<double?>? UiScaleRequested;
     public event Action? ReloadPackRequested;
-    public event Action? OpenCapturesRequested;
-    public event Action? OpenLogRequested;
 
     /// <summary>Null = demo off.</summary>
     public event Action<DemoScreen?>? DemoRequested;

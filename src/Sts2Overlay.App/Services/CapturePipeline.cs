@@ -94,7 +94,11 @@ public sealed class CapturePipeline : IDisposable
         _wake.Set();
     }
 
-    /// <summary>Capture and save a PNG to the captures folder (debug, for building the vision test set).</summary>
+    /// <summary>
+    /// Capture and save a PNG to the captures folder (debug, for bug reports and the vision test set). The only disk
+    /// write of the pipeline: periodic and manual recognition work on the in-memory frame. Callers check the
+    /// "debugCaptures" setting (<see cref="Controllers.AppController.SaveCapture"/>).
+    /// </summary>
     public void RequestSave()
     {
         Interlocked.Exchange(ref _saveRequested, 1);

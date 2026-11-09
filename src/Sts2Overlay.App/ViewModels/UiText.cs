@@ -98,8 +98,8 @@ public sealed class UiText : INotifyPropertyChanged
     public string DisagreementsHeading => Loc.T("추천과 가장 크게 다른 선택", "Biggest differences from the advice");
 
     // ---- footer ----
-    public string HotkeyHint => Loc.T("Ctrl+F7 클릭 통과 · F8 숨기기 · F9 캡처 · F10 인식",
-        "Ctrl+F7 click-through · F8 hide · F9 capture · F10 recognize");
+    public string HotkeyHint => Loc.T("Ctrl+F7 클릭 통과 · F8 숨기기 · F10 인식",
+        "Ctrl+F7 click-through · F8 hide · F10 recognize");
 
     // ---- badges / markers over the game ----
     public string PickTag => Loc.T("추천", "Pick");

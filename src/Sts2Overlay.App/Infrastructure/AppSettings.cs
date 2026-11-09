@@ -71,6 +71,13 @@ public sealed class AppSettings
     /// </summary>
     public string Language { get; set; } = "auto";
 
+    /// <summary>
+    /// Developer switch (settings.json only, no menu item): Ctrl+F9 saves the game screen as a PNG in <c>captures\</c>
+    /// (for the vision test set), and the folder is kept. Off (default): nothing is saved, and the folder is emptied at
+    /// start (<see cref="Services.CaptureCleanup"/>). Recognition works in memory either way.
+    /// </summary>
+    public bool DebugCaptures { get; set; }
+
     /// <summary>Panel background opacity 0..1.</summary>
     public double PanelOpacity { get; set; } = 0.86;
 
