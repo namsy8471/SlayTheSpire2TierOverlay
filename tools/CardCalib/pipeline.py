@@ -78,8 +78,14 @@ def _parse_dup(s):
     return 0.0
 
 
-def fit_dupfactors(csvpath, index_path, cur_tiers, cur_df, edits2, notes):
+def fit_dupfactors(csvpath, index_path, cur_tiers, cur_df, edits2, notes, floor=0.2):
+    """Per-card dupFactor from screens where the card came up again while the deck already had a copy (duplicate < 0).
+    Counts how often the engine (after this fit's baseAdjust / tier edits) and the ranker take that second copy, and moves
+    dupFactor on a grid only when both halves of the training players keep or gain top-1 hits and the gap shrinks.
+    Raising it (fewer copies) is allowed only for cards rankers rarely double (<= 12 %): the engine's argmax overshoots
+    on cards rankers take about half the time, so E > R alone is not evidence. CARD_CALIBRATION.md §9.1."""
     idx = {r['runId']: r for r in csv.DictReader(open(index_path, encoding='utf-8'))}
+    player = lambda run: idx.get(run, {}).get('player_key') or ('run:' + run)
     sc = collections.OrderedDict()
     for r in csv.DictReader(open(csvpath, encoding='utf-8')):
         if r['context'] == 'Shop' or idx.get(r['run'], {}).get('keep', '1') != '1': continue
@@ -94,18 +100,18 @@ def fit_dupfactors(csvpath, index_path, cur_tiers, cur_df, edits2, notes):
         for r in cs:
             if r['_dup'] < 0:
                 card_sc[(r['character'], r['card'])].append((key, cs))
-    tr_players = sorted({idx[k[0]]['player_key'] or ('run:' + k[0]) for k in sc.keys()})
+    tr_players = sorted({player(k[0]) for k in sc.keys()})
     sub_half = set(tr_players[::2])
-    grid = (0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1.0, 1.3, 1.5, 1.8, 2.0, 2.5)
+    grid = tuple(g for g in (0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1.0, 1.3, 1.5, 1.8, 2.0, 2.5) if g >= floor)
     for ck, sc_list in sorted(card_sc.items()):
         uniq_sc = list({k: cs for k, cs in sc_list}.items())
         if len(uniq_sc) < 15: continue
-        pls = {idx[k[0]]['player_key'] or ('run:' + k[0]) for k, _ in uniq_sc}
+        pls = {player(k[0]) for k, _ in uniq_sc}
         if len(pls) < 4: continue
         df0 = cur_df.get(ck, 1.0)
         if df0 <= 0: continue
-        sc_A = [cs for k, cs in uniq_sc if (idx[k[0]]['player_key'] or ('run:' + k[0])) in sub_half]
-        sc_B = [cs for k, cs in uniq_sc if (idx[k[0]]['player_key'] or ('run:' + k[0])) not in sub_half]
+        sc_A = [cs for k, cs in uniq_sc if player(k[0]) in sub_half]
+        sc_B = [cs for k, cs in uniq_sc if player(k[0]) not in sub_half]
         if not sc_A or not sc_B: continue
         def stats_for(sub, df_val, c_key=ck, d0=df0):
             h = ep = rp = 0
@@ -293,7 +299,8 @@ def fit(a, train_ids, out_pack, log):
         if tier != cur[k]: e['tier'] = tier
         if adj: e['baseAdjust'] = adj
         edits2[k] = e
-    fit_dupfactors(c1, a.index, cur, read_dupfactors(out_pack), edits2, notes)
+    if a.dupfactor:
+        fit_dupfactors(c1, a.index, cur, read_dupfactors(out_pack), edits2, notes, a.dup_floor)
     write_cards(out_pack, edits2)
     json.dump({'tierMoves1': {f'{k[0]}|{k[1]}': v for k, v in edits.items()},
                'cards': {f'{k[0]}|{k[1]}': v for k, v in edits2.items()}, 'urgency': urg, 'beta': beta, 'notes': notes,
@@ -386,6 +393,8 @@ def main():
     ap.add_argument('--patched', type=int, default=1, help='1: known list + drift check, 0: known list only')
     ap.add_argument('--tier-allow', default='', help='json list of CHAR|CARD keys allowed to change tier (e.g. moves both CV halves agree on)')
     ap.add_argument('--guides-csv', default='', help='guide tier letters (Baalorlord / Jorbs); without it no guide rule is applied')
+    ap.add_argument('--dupfactor', type=int, default=1, help='1: also fit per-card dupFactor (fit_dupfactors), 0: leave dupFactor as in --base')
+    ap.add_argument('--dup-floor', type=float, default=0.2, help='lowest per-card dupFactor fit_dupfactors may pick')
     ap.add_argument('--v2status', default='', help='json from v2status.py; built from docs/research/v2-stats/tiers.md when left out')
     a = ap.parse_args()
     global V2STATUS, GUIDES_CSV
