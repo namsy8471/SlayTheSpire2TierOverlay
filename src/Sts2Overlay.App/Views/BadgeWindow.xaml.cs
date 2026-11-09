@@ -97,12 +97,15 @@ public partial class BadgeWindow : Window, IHoverYield
 
     public bool IsShowingMarks => IsVisible && HasBadges;
 
-    /// <summary>The cards and their shop price labels, and the removal coin: the game shows a hover tip for each.</summary>
+    /// <summary>
+    /// The cards and their shop price labels, and the removal coin: the game shows a hover tip for each. Cards count at
+    /// their hovered size (<see cref="HoverGeometry.CardHoverZoom"/>): the recogniser mostly saw them resting.
+    /// </summary>
     public IEnumerable<PxBox> HoverZones()
     {
         foreach (var s in _specs)
         {
-            yield return ToPx(s.CardBounds);
+            yield return HoverGeometry.Zoom(ToPx(s.CardBounds), HoverGeometry.CardHoverZoom);
             if (s.PriceBounds is { } p) yield return ToPx(p);
         }
         if (_removal is { } rm) yield return ToPx(rm.Coin);

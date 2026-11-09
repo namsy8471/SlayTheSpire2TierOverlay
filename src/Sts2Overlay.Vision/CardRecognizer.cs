@@ -133,6 +133,10 @@ public sealed class CardRecognizer
         var notes = new List<string>();
         IReadOnlyList<RecognizedCard> examined = [];
 
+        // The inspect view dims the screen it opened from; its cards still match, but nothing should be marked.
+        if (gate.InspectLikely)
+            return new ScreenRecognition(ScreenKind.Other, [], [], gate, sw.Elapsed.TotalMilliseconds, "inspect view");
+
         if (gate.RewardLikely)
         {
             (List<RecognizedCard> slots, string detail, ScreenKind kind) = RecognizeReward(frame, t, step, hints);

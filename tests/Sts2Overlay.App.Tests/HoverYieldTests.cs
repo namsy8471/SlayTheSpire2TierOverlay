@@ -39,6 +39,34 @@ public class HoverYieldTests
         Assert.True(HoverGeometry.Contains(cards, cx, cy));
     }
 
+    // ---- why: the game enlarges the card under the mouse ----
+
+    [Fact]
+    public void The_edge_of_a_hovered_card_counts_although_the_recogniser_saw_it_resting()
+    {
+        // Reward card at rest (scale 0.8) as last recognised; the mouse touches it and it snaps to 1.0 at once.
+        var resting = Card(960, 616, 0.8);
+        var hovered = Card(960, 616, 1.0);
+        var zone = HoverGeometry.Zoom(resting, HoverGeometry.CardHoverZoom);
+
+        // A point just inside the hovered card's right edge: the game shows the tip, so the overlay must step aside.
+        var x = hovered.Right - 4;
+        var y = hovered.Y + hovered.Height / 2;
+        Assert.False(HoverGeometry.Contains([resting], x, y)); // the old zone (resting size + 6 %) missed it
+        Assert.True(HoverGeometry.Contains([zone], x, y));
+
+        // ... without reaching the neighbour 350 px away (its badge must come back once the mouse moves there).
+        var neighbour = Card(1310, 616, 0.8);
+        Assert.False(HoverGeometry.Contains([zone], neighbour.X + 2, y));
+    }
+
+    [Fact]
+    public void Zoom_scales_about_the_centre()
+    {
+        Assert.Equal(new PxBox(75, 75, 250, 250), HoverGeometry.Zoom(new PxBox(100, 100, 200, 200), 1.25));
+        Assert.Equal(new PxBox(0, 0, 0, 0), HoverGeometry.Zoom(new PxBox(0, 0, 0, 0), 1.25)); // empty stays empty
+    }
+
     // ---- geometry ----
 
     [Fact]
@@ -106,6 +134,41 @@ public class HoverYieldTests
         Assert.False(s.Update(false, 650));
         Assert.True(s.Hidden);
         Assert.True(s.Update(false, 700));
+    }
+
+    [Fact]
+    public void Zones_outlive_a_recognition_that_comes_back_empty_for_a_moment()
+    {
+        var m = new HoverZoneMemory(holdMs: 1500);
+        PxBox[] cards = [new(100, 100, 300, 400)];
+        Assert.Equal(cards, m.Zones(cards, 0));
+        // Hovering the card hid the badges' recognition for a beat: the zones stay, so the overlay stays aside.
+        Assert.Equal(cards, m.Zones([], 1000));
+        Assert.Equal(cards, m.Zones([], 1500));
+        // Long gone (the screen really closed): nothing left to test against.
+        Assert.Empty(m.Zones([], 1501));
+        // New marks replace the memory.
+        PxBox[] next = [new(500, 100, 300, 400)];
+        Assert.Equal(next, m.Zones(next, 2000));
+        m.Clear();
+        Assert.Empty(m.Zones([], 2001));
+    }
+
+    [Fact]
+    public void Reading_a_card_while_its_badge_flickers_keeps_the_overlay_aside()
+    {
+        // The full loop at 50 ms polls: the mouse never leaves the card, the badges vanish for 600 ms in between.
+        var state = new HoverYieldState(showDelayMs: 300);
+        var memory = new HoverZoneMemory();
+        PxBox[] card = [new(100, 100, 300, 400)];
+        var changes = 0;
+        for (long t = 0; t <= 2000; t += 50)
+        {
+            var current = t is >= 500 and < 1100 ? [] : card;
+            if (state.Update(HoverGeometry.Contains(memory.Zones(current, t), 250, 300), t)) changes++;
+            Assert.True(t == 0 || state.Hidden, $"overlay came back at {t} ms");
+        }
+        Assert.Equal(1, changes); // hidden once, never shown again while the card is read
     }
 
     [Fact]

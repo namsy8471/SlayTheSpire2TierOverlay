@@ -19,7 +19,7 @@ public sealed record TrackedScreen(ScreenKind Kind, IReadOnlyList<RecognizedCard
 /// 2-4 times per second, so remembering the best accepted result per slot fills the gaps within a second.
 /// A different card accepted in an already known slot means a new screen (next reward, rerolled reward):
 /// the memory is reset. Short "Other" blips (a frame with a big tooltip) keep the last state for
-/// <see cref="HoldTime"/>.
+/// <see cref="HoldTime"/>; the inspect view (right-click on a card) does not: it is a different screen.
 /// Not thread-safe: call from the polling loop only.
 /// </summary>
 public sealed class RecognitionTracker
@@ -41,6 +41,12 @@ public sealed class RecognitionTracker
 
     public TrackedScreen Update(ScreenRecognition frame, DateTime now)
     {
+        // The inspect view covers the screen at once: drop the marks now instead of holding them for HoldTime.
+        if (frame.Gate.InspectLikely)
+        {
+            if (_kind != ScreenKind.Other) Reset(ScreenKind.Other, 0);
+            return Current;
+        }
         if (frame.Kind == ScreenKind.Other)
         {
             if (_kind != ScreenKind.Other && now - _lastSeen > HoldTime) Reset(ScreenKind.Other, 0);

@@ -44,6 +44,26 @@ public static class ScreenClassifier
         new("rugR", new RectF(1600, 300, 100, 200), 80, 114, 97),
     ];
 
+    // Inspect view (NInspectCardScreen / NInspectRelicScreen): a black backstop at 0.9 alpha over the WHOLE frame,
+    // the top bar too, with the card drawn twice its size in the middle. The dimmed cards behind it still match (NCC
+    // ignores brightness), so without this test a card grid under the inspect view kept its badges over the big card.
+    // The top bar is the telling part: every other dark screen (reward backstop, shop) leaves it lit.
+    private static readonly RectF[] InspectDark =
+    [
+        new(0, 0, 1632, 76), // top bar, minus the top-right corner
+        new(0, 270, 192, 702), // left edge, middle
+        new(0, 1004, 768, 76), // bottom strip, left
+    ];
+
+    private static readonly RectF InspectCard = new(691, 162, 538, 756);
+
+    /// <summary>Brightest mean (0..255) a backstop strip may have on the inspect view (measured 6.8..10.0; 19.7 is the
+    /// darkest such strip on 2012 other captures).</summary>
+    public const float InspectDarkMax = 14f;
+
+    /// <summary>Darkest mean the middle may have with the big card in it (measured 79..90; black and loading frames ≤ 18.5).</summary>
+    public const float InspectCardMin = 50f;
+
     /// <summary>Max per-channel difference (0..255) for a colour probe to count as matching.</summary>
     public const float ColourTolerance = 32f;
 
@@ -67,8 +87,25 @@ public static class ScreenClassifier
         foreach (ColourProbe p in ShopRug)
             if (Check(frame, t, p, detail)) rug++;
 
+        bool inspect = IsInspectView(frame, t, detail);
+
         // Rug: 2 of 3 so a hover tooltip or the merchant's speech bubble over one patch does not hide the shop.
-        return new ScreenGate(banner && dark, rug >= 2, detail.ToString().TrimEnd());
+        return new ScreenGate(banner && dark && !inspect, rug >= 2 && !inspect, detail.ToString().TrimEnd()) { InspectLikely = inspect };
+    }
+
+    private static bool IsInspectView(in ScreenFrame frame, RefTransform t, StringBuilder detail)
+    {
+        float darkest = 0;
+        foreach (RectF box in InspectDark)
+        {
+            (float r, float g, float b) = MeanRgb(frame, t.ToPixelRect(box));
+            darkest = Math.Max(darkest, (r + g + b) / 3);
+            if (darkest > InspectDarkMax) return false; // the usual case: stop at the first lit strip
+        }
+        (float cr, float cg, float cb) = MeanRgb(frame, t.ToPixelRect(InspectCard));
+        float card = (cr + cg + cb) / 3;
+        detail.Append(CultureInfo.InvariantCulture, $"inspect={darkest:F0}/{card:F0} ");
+        return card >= InspectCardMin;
     }
 
     private static bool Check(in ScreenFrame frame, RefTransform t, ColourProbe p, StringBuilder detail)

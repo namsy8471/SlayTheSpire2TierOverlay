@@ -100,7 +100,14 @@ public sealed record RecognizedCard(
 /// <param name="RewardLikely">Reward banner + dimmed backdrop found.</param>
 /// <param name="ShopLikely">Merchant rug found.</param>
 /// <param name="Detail">Per-probe distances, for logs and the bench.</param>
-public sealed record ScreenGate(bool RewardLikely, bool ShopLikely, string Detail);
+public sealed record ScreenGate(bool RewardLikely, bool ShopLikely, string Detail)
+{
+    /// <summary>
+    /// The full-screen "inspect" view (right-click on a card or relic): the game dims everything, its own top bar
+    /// included, and shows one big card with its tips in the middle. No overlay mark belongs on it.
+    /// </summary>
+    public bool InspectLikely { get; init; }
+}
 
 /// <param name="Kind">Screen class (confirmed by card matching, not just the probes).</param>
 /// <param name="Cards">Accepted cards, left to right (what the overlay should annotate).</param>
