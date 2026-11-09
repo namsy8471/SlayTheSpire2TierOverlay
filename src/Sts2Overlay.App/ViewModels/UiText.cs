@@ -87,6 +87,7 @@ public sealed class UiText : INotifyPropertyChanged
     public string BuildCardsToolTip => Loc.T("빌드 카드 보기/접기", "Show/hide build cards");
     public string ShowBuildCards => Loc.T("▸ 빌드 카드 보기", "▸ Show build cards");
     public string HideBuildCards => Loc.T("▾ 빌드 카드 접기", "▾ Hide build cards");
+    public string BuildRelics => Loc.T("어울리는 유물", "Relics for this build");
 
     // ---- 경로 tab ----
     public string PathEmpty => Loc.T("경로 추천 준비 중\n지도 정보가 연결되면 표시됩니다.", "Path advice not ready\nShown once map info is available.");

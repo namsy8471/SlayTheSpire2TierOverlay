@@ -1,0 +1,2035 @@
+{
+  "gameVersion": "v0.107.1",
+  "source": "static-il",
+  "note": "Game facts only (numbers and variable names, no text). vars = CanonicalVars base values (what a fresh relic shows). strings = StringVars whose text is another model's title (value = model id + \".title\"). changedAtRuntime = vars the relic's own code rewrites during a run (counters, card/relic names filled in on pickup) or that start from a saved property; the listed value is the fresh relic's. unresolved = variables only known at runtime. contextVars = variables RelicModel.DynamicDescription adds to every relic description. Regenerate: dotnet run --project tools/CatalogBuilder -- --relic-vars data/catalog/relic-vars.<version>.json [--loc <localization dir> to also check the templates]",
+  "contextVars": {
+    "energyPrefix": "string: EnergyIconHelper.GetPrefix(relic) = energy icon colour of the owner's character card pool during a run, else of the relic's pool (ironclad, silent, ..., colorless); used as {energyPrefix:energyIcons(n)} = n energy icons. Every EnergyVar of the relic gets the same colour",
+    "singleStarIcon": "string: one star icon image tag"
+  },
+  "relics": [
+    {
+      "id": "RELIC.AKABEKO",
+      "vars": {
+        "VigorPower": 8
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.ALCHEMICAL_COFFER",
+      "vars": {
+        "PotionSlots": 4
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.AMETHYST_AUBERGINE",
+      "vars": {
+        "Gold": 15
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.ANCHOR",
+      "vars": {
+        "Block": 10
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.ARCANE_SCROLL",
+      "vars": {
+        "Cards": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.ARCHAIC_TOOTH",
+      "vars": {},
+      "changedAtRuntime": [
+        "StarterCard",
+        "AncientCard"
+      ],
+      "unresolved": [
+        "StarterCard",
+        "AncientCard"
+      ]
+    },
+    {
+      "id": "RELIC.ART_OF_WAR",
+      "vars": {
+        "Energy": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.ASTROLABE",
+      "vars": {
+        "Cards": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.BAG_OF_MARBLES",
+      "vars": {
+        "VulnerablePower": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.BAG_OF_PREPARATION",
+      "vars": {
+        "Cards": 2
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.BEATING_REMNANT",
+      "vars": {
+        "MaxHpLoss": 20
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.BEAUTIFUL_BRACELET",
+      "vars": {
+        "Cards": 3,
+        "Swift": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.BELLOWS",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.BELT_BUCKLE",
+      "vars": {
+        "DexterityPower": 2
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.BIG_HAT",
+      "vars": {
+        "Cards": 2
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.BIG_MUSHROOM",
+      "vars": {
+        "MaxHp": 20,
+        "Cards": 2
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.BIIIG_HUG",
+      "vars": {
+        "Cards": 4
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.BING_BONG",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.BLACK_BLOOD",
+      "vars": {
+        "Heal": 12
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.BLACK_STAR",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.BLESSED_ANTLER",
+      "vars": {
+        "Energy": 1,
+        "Cards": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.BLOOD_SOAKED_ROSE",
+      "vars": {
+        "Energy": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.BLOOD_VIAL",
+      "vars": {
+        "Heal": 2
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.BONE_FLUTE",
+      "vars": {
+        "Block": 2
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.BONE_TEA",
+      "vars": {
+        "Combats": 1
+      },
+      "changedAtRuntime": [
+        "Combats"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.BOOKMARK",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.BOOK_OF_FIVE_RINGS",
+      "vars": {
+        "Cards": 5,
+        "Heal": 20
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.BOOK_REPAIR_KNIFE",
+      "vars": {
+        "Heal": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.BOOMING_CONCH",
+      "vars": {
+        "Cards": 2,
+        "Energy": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.BOUND_PHYLACTERY",
+      "vars": {
+        "Summon": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.BOWLER_HAT",
+      "vars": {
+        "GoldIncrease": 1.25
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.BREAD",
+      "vars": {
+        "GainEnergy": 1,
+        "LoseEnergy": 2
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.BRILLIANT_SCARF",
+      "vars": {
+        "Cards": 5
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.BRIMSTONE",
+      "vars": {
+        "SelfStrength": 2,
+        "EnemyStrength": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.BRONZE_SCALES",
+      "vars": {
+        "ThornsPower": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.BURNING_BLOOD",
+      "vars": {
+        "Heal": 6
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.BURNING_STICKS",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.BYRDPIP",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.CALLING_BELL",
+      "vars": {
+        "Relics": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.CANDELABRA",
+      "vars": {
+        "Energy": 2
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.CAPTAINS_WHEEL",
+      "vars": {
+        "Block": 18
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.CAULDRON",
+      "vars": {
+        "Potions": 5
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.CENTENNIAL_PUZZLE",
+      "vars": {
+        "Cards": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.CHANDELIER",
+      "vars": {
+        "Energy": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.CHARONS_ASHES",
+      "vars": {
+        "Damage": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.CHEMICAL_X",
+      "vars": {
+        "Increase": 2
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.CHOICES_PARADOX",
+      "vars": {
+        "Cards": 5
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.CHOSEN_CHEESE",
+      "vars": {
+        "MaxHp": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.CIRCLET",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.CLAWS",
+      "vars": {
+        "Cards": 6
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.CLOAK_CLASP",
+      "vars": {
+        "Block": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.CRACKED_CORE",
+      "vars": {
+        "Lightning": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.CROSSBOW",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.CURSED_PEARL",
+      "vars": {
+        "Gold": 333
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.DARKSTONE_PERIAPT",
+      "vars": {
+        "MaxHp": 6
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.DATA_DISK",
+      "vars": {
+        "FocusPower": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.DAUGHTER_OF_THE_WIND",
+      "vars": {
+        "Block": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.DELICATE_FROND",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.DEMON_TONGUE",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.DEPRECATED_RELIC",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.DIAMOND_DIADEM",
+      "vars": {
+        "CardThreshold": 2
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.DINGY_RUG",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.DISTINGUISHED_CAPE",
+      "vars": {
+        "HpLoss": 9,
+        "Cards": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.DIVINE_DESTINY",
+      "vars": {
+        "Stars": 6
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.DIVINE_RIGHT",
+      "vars": {
+        "Stars": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.DOLLYS_MIRROR",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.DRAGON_FRUIT",
+      "vars": {
+        "MaxHp": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.DREAM_CATCHER",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.DRIFTWOOD",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.DUSTY_TOME",
+      "vars": {},
+      "changedAtRuntime": [
+        "AncientCard"
+      ],
+      "unresolved": [
+        "AncientCard"
+      ]
+    },
+    {
+      "id": "RELIC.ECTOPLASM",
+      "vars": {
+        "Energy": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.ELECTRIC_SHRYMP",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.EMBER_TEA",
+      "vars": {
+        "Combats": 5,
+        "StrengthPower": 2
+      },
+      "changedAtRuntime": [
+        "Combats"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.EMOTION_CHIP",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.EMPTY_CAGE",
+      "vars": {
+        "Cards": 2
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.ETERNAL_FEATHER",
+      "vars": {
+        "Cards": 5,
+        "Heal": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.FAKE_ANCHOR",
+      "vars": {
+        "Block": 4
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.FAKE_BLOOD_VIAL",
+      "vars": {
+        "Heal": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.FAKE_HAPPY_FLOWER",
+      "vars": {
+        "Energy": 1,
+        "Turns": 5
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.FAKE_LEES_WAFFLE",
+      "vars": {
+        "Heal": 10
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.FAKE_MANGO",
+      "vars": {
+        "MaxHp": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.FAKE_MERCHANTS_RUG",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.FAKE_ORICHALCUM",
+      "vars": {
+        "Block": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.FAKE_SNECKO_EYE",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.FAKE_STRIKE_DUMMY",
+      "vars": {
+        "ExtraDamage": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.FAKE_VENERABLE_TEA_SET",
+      "vars": {
+        "Energy": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.FENCING_MANUAL",
+      "vars": {
+        "Forge": 10
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.FESTIVE_POPPER",
+      "vars": {
+        "Damage": 9
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.FIDDLE",
+      "vars": {
+        "Cards": 2
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.FISHING_ROD",
+      "vars": {
+        "Combats": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.FORGOTTEN_SOUL",
+      "vars": {
+        "Damage": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.FRAGRANT_MUSHROOM",
+      "vars": {
+        "HpLoss": 15,
+        "Cards": 2
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.FRESNEL_LENS",
+      "vars": {
+        "NimbleAmount": 2
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.FROZEN_EGG",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.FUNERARY_MASK",
+      "vars": {
+        "Cards": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.FUR_COAT",
+      "vars": {
+        "Combats": 7
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.GALACTIC_DUST",
+      "vars": {
+        "Stars": 10,
+        "Block": 10
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.GAMBLING_CHIP",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.GAME_PIECE",
+      "vars": {
+        "Cards": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.GHOST_SEED",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.GIRYA",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.GLASS_EYE",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.GLITTER",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.GNARLED_HAMMER",
+      "vars": {
+        "Cards": 3,
+        "SharpAmount": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.GOLDEN_COMPASS",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.GOLDEN_PEARL",
+      "vars": {
+        "Gold": 150
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.GOLD_PLATED_CABLES",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.GORGET",
+      "vars": {
+        "PlatingPower": 4
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.GREMLIN_HORN",
+      "vars": {
+        "Energy": 1,
+        "Cards": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.HAND_DRILL",
+      "vars": {
+        "VulnerablePower": 2
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.HAPPY_FLOWER",
+      "vars": {
+        "Energy": 1,
+        "Turns": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.HEFTY_TABLET",
+      "vars": {
+        "Cards": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.HELICAL_DART",
+      "vars": {
+        "DexterityPower": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.HISTORY_COURSE",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.HORN_CLEAT",
+      "vars": {
+        "Block": 14
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.ICE_CREAM",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.INFUSED_CORE",
+      "vars": {
+        "Lightning": 3,
+        "ExtraDamage": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.INTIMIDATING_HELMET",
+      "vars": {
+        "Block": 4,
+        "Energy": 2
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.IRON_CLUB",
+      "vars": {
+        "Cards": 4
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.IVORY_TILE",
+      "vars": {
+        "Energy": 1,
+        "EnergyThreshold": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.JEWELED_MASK",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.JEWELRY_BOX",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.JOSS_PAPER",
+      "vars": {
+        "ExhaustAmount": 5,
+        "Cards": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.JUZU_BRACELET",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.KALEIDOSCOPE",
+      "vars": {
+        "Cards": 2
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.KIFUDA",
+      "vars": {
+        "Cards": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.KUNAI",
+      "vars": {
+        "Cards": 3,
+        "DexterityPower": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.KUSARIGAMA",
+      "vars": {
+        "Cards": 3,
+        "Damage": 6
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.LANTERN",
+      "vars": {
+        "Energy": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.LARGE_CAPSULE",
+      "vars": {
+        "Relics": 2
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.LASTING_CANDY",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.LAVA_LAMP",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.LAVA_ROCK",
+      "vars": {
+        "Relics": 2
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.LEAD_PAPERWEIGHT",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.LEAFY_POULTICE",
+      "vars": {
+        "MaxHp": 12
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.LEES_WAFFLE",
+      "vars": {
+        "MaxHp": 7
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.LETTER_OPENER",
+      "vars": {
+        "Cards": 3,
+        "Damage": 5
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.LIZARD_TAIL",
+      "vars": {
+        "Heal": 50
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.LOOMING_FRUIT",
+      "vars": {
+        "MaxHp": 31
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.LORDS_PARASOL",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.LOST_COFFER",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.LOST_WISP",
+      "vars": {
+        "Damage": 8
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.LUCKY_FYSH",
+      "vars": {
+        "Gold": 15
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.LUNAR_PASTRY",
+      "vars": {
+        "Stars": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.MANGO",
+      "vars": {
+        "MaxHp": 14
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.MASSIVE_SCROLL",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.MAW_BANK",
+      "vars": {
+        "Gold": 12
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.MEAL_TICKET",
+      "vars": {
+        "Heal": 15
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.MEAT_CLEAVER",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.MEAT_ON_THE_BONE",
+      "vars": {
+        "HpThreshold": 50,
+        "Heal": 12
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.MEMBERSHIP_CARD",
+      "vars": {
+        "Discount": 50
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.MERCURY_HOURGLASS",
+      "vars": {
+        "Damage": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.METRONOME",
+      "vars": {
+        "Damage": 30,
+        "OrbCount": 7
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.MINIATURE_CANNON",
+      "vars": {
+        "ExtraDamage": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.MINIATURE_TENT",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.MINI_REGENT",
+      "vars": {
+        "StrengthPower": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.MOLTEN_EGG",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.MR_STRUGGLES",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.MUMMIFIED_HAND",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.MUSIC_BOX",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.MYSTIC_LIGHTER",
+      "vars": {
+        "Damage": 9
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.NEOWS_BONES",
+      "vars": {
+        "Relics": 2,
+        "Curses": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.NEOWS_TALISMAN",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.NEOWS_TORMENT",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.NEW_LEAF",
+      "vars": {
+        "Cards": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.NINJA_SCROLL",
+      "vars": {
+        "Shivs": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.NUNCHAKU",
+      "vars": {
+        "Cards": 10,
+        "Energy": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.NUTRITIOUS_OYSTER",
+      "vars": {
+        "MaxHp": 11
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.NUTRITIOUS_SOUP",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.ODDLY_SMOOTH_STONE",
+      "vars": {
+        "DexterityPower": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.OLD_COIN",
+      "vars": {
+        "Gold": 300
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.ORANGE_DOUGH",
+      "vars": {
+        "Cards": 2
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.ORICHALCUM",
+      "vars": {
+        "Block": 6
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.ORNAMENTAL_FAN",
+      "vars": {
+        "Cards": 3,
+        "Block": 4
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.ORRERY",
+      "vars": {
+        "Cards": 5
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.PAELS_BLOOD",
+      "vars": {
+        "Cards": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.PAELS_CLAW",
+      "vars": {
+        "Cards": 3
+      },
+      "strings": {
+        "EnchantmentName": "ENCHANTMENT.GOOPY.title"
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.PAELS_EYE",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.PAELS_FLESH",
+      "vars": {
+        "Energy": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.PAELS_GROWTH",
+      "vars": {},
+      "strings": {
+        "EnchantmentName": "ENCHANTMENT.CLONE.title"
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.PAELS_HORN",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.PAELS_LEGION",
+      "vars": {
+        "Turns": 2
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.PAELS_TEARS",
+      "vars": {
+        "Energy": 2
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.PAELS_TOOTH",
+      "vars": {
+        "Cards": 5
+      },
+      "changedAtRuntime": [
+        "CardTitles"
+      ],
+      "unresolved": [
+        "CardTitles"
+      ]
+    },
+    {
+      "id": "RELIC.PAELS_WING",
+      "vars": {
+        "Sacrifices": 2
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.PANDORAS_BOX",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.PANTOGRAPH",
+      "vars": {
+        "Heal": 25
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.PAPER_KRANE",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.PAPER_PHROG",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.PARRYING_SHIELD",
+      "vars": {
+        "Block": 10,
+        "Damage": 6
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.PEAR",
+      "vars": {
+        "MaxHp": 10
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.PENDULUM",
+      "vars": {
+        "Cards": 1,
+        "Turns": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.PEN_NIB",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.PERMAFROST",
+      "vars": {
+        "Block": 7
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.PETRIFIED_TOAD",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.PHIAL_HOLSTER",
+      "vars": {
+        "PotionSlots": 1,
+        "Potions": 2
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.PHILOSOPHERS_STONE",
+      "vars": {
+        "StrengthPower": 1,
+        "Energy": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.PHYLACTERY_UNBOUND",
+      "vars": {
+        "StartOfCombat": 5,
+        "StartOfTurn": 2
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.PLANISPHERE",
+      "vars": {
+        "Heal": 5
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.POCKETWATCH",
+      "vars": {
+        "CardThreshold": 3,
+        "Cards": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.POLLINOUS_CORE",
+      "vars": {
+        "Cards": 2,
+        "Turns": 4
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.POMANDER",
+      "vars": {
+        "Cards": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.POTION_BELT",
+      "vars": {
+        "PotionSlots": 2
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.POWER_CELL",
+      "vars": {
+        "Cards": 2
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.PRAYER_WHEEL",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.PRECARIOUS_SHEARS",
+      "vars": {
+        "Cards": 2,
+        "Damage": 16
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.PRECISE_SCISSORS",
+      "vars": {
+        "Cards": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.PRESERVED_FOG",
+      "vars": {
+        "Cards": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.PRISMATIC_GEM",
+      "vars": {
+        "Energy": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.PUMPKIN_CANDLE",
+      "vars": {
+        "CombatCount": 5,
+        "Energy": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.PUNCH_DAGGER",
+      "vars": {
+        "Momentum": 5
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.RADIANT_PEARL",
+      "vars": {
+        "Cards": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.RAINBOW_RING",
+      "vars": {
+        "StrengthPower": 1,
+        "DexterityPower": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.RAZOR_TOOTH",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.RED_MASK",
+      "vars": {
+        "WeakPower": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.RED_SKULL",
+      "vars": {
+        "HpThreshold": 50,
+        "StrengthPower": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.REGALITE",
+      "vars": {
+        "Block": 2
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.REGAL_PILLOW",
+      "vars": {
+        "Heal": 15
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.REPTILE_TRINKET",
+      "vars": {
+        "StrengthPower": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.RINGING_TRIANGLE",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.RING_OF_THE_DRAKE",
+      "vars": {
+        "Cards": 2,
+        "Turns": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.RING_OF_THE_SNAKE",
+      "vars": {
+        "Cards": 2
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.RIPPLE_BASIN",
+      "vars": {
+        "Block": 4
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.ROYAL_POISON",
+      "vars": {
+        "Damage": 4
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.ROYAL_STAMP",
+      "vars": {
+        "Cards": 1
+      },
+      "strings": {
+        "Enchantment": "ENCHANTMENT.ROYALLY_APPROVED.title"
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.RUINED_HELMET",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.RUNIC_CAPACITOR",
+      "vars": {
+        "Repeat": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.RUNIC_PYRAMID",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.SAI",
+      "vars": {
+        "Block": 7
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.SAND_CASTLE",
+      "vars": {
+        "Cards": 6
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.SCREAMING_FLAGON",
+      "vars": {
+        "Damage": 20
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.SCROLL_BOXES",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.SEAL_OF_GOLD",
+      "vars": {
+        "Energy": 1,
+        "Gold": 5
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.SEA_GLASS",
+      "vars": {
+        "Cards": 15
+      },
+      "changedAtRuntime": [
+        "Character"
+      ],
+      "unresolved": [
+        "Character"
+      ]
+    },
+    {
+      "id": "RELIC.SELF_FORMING_CLAY",
+      "vars": {
+        "BlockNextTurn": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.SERE_TALON",
+      "vars": {
+        "Curses": 2,
+        "Wishes": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.SHOVEL",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.SHURIKEN",
+      "vars": {
+        "Cards": 3,
+        "StrengthPower": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.SIGNET_RING",
+      "vars": {
+        "Gold": 999
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.SILKEN_TRESS",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.SILVER_CRUCIBLE",
+      "vars": {
+        "Cards": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.SLING_OF_COURAGE",
+      "vars": {
+        "StrengthPower": 2
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.SMALL_CAPSULE",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.SNECKO_EYE",
+      "vars": {
+        "Cards": 2
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.SNECKO_SKULL",
+      "vars": {
+        "PoisonPower": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.SOZU",
+      "vars": {
+        "Energy": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.SPARKLING_ROUGE",
+      "vars": {
+        "StrengthPower": 1,
+        "DexterityPower": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.SPIKED_GAUNTLETS",
+      "vars": {
+        "Energy": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.STONE_CALENDAR",
+      "vars": {
+        "Damage": 52,
+        "DamageTurn": 7
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.STONE_CRACKER",
+      "vars": {
+        "Cards": 2
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.STONE_HUMIDIFIER",
+      "vars": {
+        "MaxHp": 5
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.STORYBOOK",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.STRAWBERRY",
+      "vars": {
+        "MaxHp": 7
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.STRIKE_DUMMY",
+      "vars": {
+        "ExtraDamage": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.STURDY_CLAMP",
+      "vars": {
+        "Block": 10
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.SWORD_OF_JADE",
+      "vars": {
+        "StrengthPower": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.SWORD_OF_STONE",
+      "vars": {
+        "Elites": 5
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.SYMBIOTIC_VIRUS",
+      "vars": {
+        "Dark": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.TANXS_WHISTLE",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.TEA_OF_DISCOURTESY",
+      "vars": {
+        "Heal": 1,
+        "Combats": 1,
+        "DazedCount": 2
+      },
+      "changedAtRuntime": [
+        "Combats"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.THE_ABACUS",
+      "vars": {
+        "Block": 6
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.THE_BOOT",
+      "vars": {
+        "DamageMinimum": 5,
+        "DamageThreshold": 4
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.THE_COURIER",
+      "vars": {
+        "Discount": 20
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.THROWING_AXE",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.TINGSHA",
+      "vars": {
+        "Damage": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.TINY_MAILBOX",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.TOASTY_MITTENS",
+      "vars": {
+        "StrengthPower": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.TOOLBOX",
+      "vars": {
+        "Cards": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.TOUCH_OF_OROBAS",
+      "vars": {},
+      "changedAtRuntime": [
+        "StarterRelic",
+        "UpgradedRelic"
+      ],
+      "unresolved": [
+        "StarterRelic",
+        "UpgradedRelic"
+      ]
+    },
+    {
+      "id": "RELIC.TOUGH_BANDAGES",
+      "vars": {
+        "Block": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.TOXIC_EGG",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.TOY_BOX",
+      "vars": {
+        "Relics": 4,
+        "Combats": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.TRI_BOOMERANG",
+      "vars": {
+        "Cards": 3
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.TUNGSTEN_ROD",
+      "vars": {
+        "HpLossReduction": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.TUNING_FORK",
+      "vars": {
+        "Cards": 10,
+        "Block": 7
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.TWISTED_FUNNEL",
+      "vars": {
+        "PoisonPower": 4
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.UNCEASING_TOP",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.UNDYING_SIGIL",
+      "vars": {
+        "DamageDecrease": 0.5
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.UNSETTLING_LAMP",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.VAJRA",
+      "vars": {
+        "StrengthPower": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.VAMBRACE",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.VELVET_CHOKER",
+      "vars": {
+        "Cards": 6,
+        "Energy": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.VENERABLE_TEA_SET",
+      "vars": {
+        "Energy": 2
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.VERY_HOT_COCOA",
+      "vars": {
+        "Energy": 4
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.VEXING_PUZZLEBOX",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.VITRUVIAN_MINION",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.WAR_HAMMER",
+      "vars": {
+        "Cards": 4
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.WAR_PAINT",
+      "vars": {
+        "Cards": 2
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.WHETSTONE",
+      "vars": {
+        "Cards": 2
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.WHISPERING_EARRING",
+      "vars": {
+        "Energy": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.WHITE_BEAST_STATUE",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.WHITE_STAR",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.WINGED_BOOTS",
+      "vars": {
+        "Rooms": 3
+      },
+      "changedAtRuntime": [
+        "Rooms"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.WING_CHARM",
+      "vars": {
+        "SwiftAmount": 1
+      },
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.WONGOS_MYSTERY_TICKET",
+      "vars": {
+        "Repeat": 3,
+        "RemainingCombats": 5
+      },
+      "changedAtRuntime": [
+        "RemainingCombats"
+      ],
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.WONGO_CUSTOMER_APPRECIATION_BADGE",
+      "vars": {},
+      "unresolved": []
+    },
+    {
+      "id": "RELIC.YUMMY_COOKIE",
+      "vars": {
+        "Cards": 4
+      },
+      "unresolved": []
+    }
+  ]
+}

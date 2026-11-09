@@ -115,6 +115,92 @@
     </DataTemplate>
 
     <!--
+      Relic hover text: large icon + name, then the effect text as the game words it (gold terms, blue numbers, energy icons).
+      The effect box is hidden when the game's localization isn't extracted.
+    -->
+    <DataTemplate x:Key="RelicTipContentTemplate" DataType="{x:Type svc:RelicTipVm}">
+      <StackPanel MaxWidth="340">
+        <DockPanel>
+          <Image DockPanel.Dock="Left" Source="{Binding Large}" Width="56" Height="56" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality"
+                 Visibility="{Binding Large, Converter={StaticResource BoolVis}}" />
+          <TextBlock Text="{Binding Title}" FontSize="15" FontWeight="Bold" VerticalAlignment="Center" TextWrapping="Wrap" />
+        </DockPanel>
+        <Border Padding="7,6" Margin="0,5,0,0" CornerRadius="3" Background="#26FFFFFF"
+                Visibility="{Binding HasBody, Converter={StaticResource BoolVis}}">
+          <TextBlock views:CardTextView.Runs="{Binding Body}" TextWrapping="Wrap" FontSize="13" LineHeight="18" />
+        </Border>
+      </StackPanel>
+    </DataTemplate>
+
+    <!-- Relic icon next to a row's name; hovering shows the relic's name and effect (RelicTipContentTemplate) -->
+    <DataTemplate x:Key="RelicIconTemplate" DataType="{x:Type svc:RelicTipVm}">
+      <Border CornerRadius="4" BorderBrush="#66FFFFFF" BorderThickness="1" Background="#40000000" Cursor="Help" Margin="0,0,3,0"
+              ToolTipService.InitialShowDelay="120" ToolTipService.ShowDuration="60000" ToolTipService.Placement="Left">
+        <Grid>
+          <TextBlock Text="?" FontSize="13" FontWeight="Bold" Foreground="{StaticResource TextDim}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                     Visibility="{Binding Thumb, Converter={StaticResource BoolVis}, ConverterParameter=!}" />
+          <Image Source="{Binding Thumb}" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" />
+        </Grid>
+        <Border.ToolTip>
+          <ToolTip Padding="7" Background="#F0101318" BorderBrush="{StaticResource Gold}" BorderThickness="1.5" Foreground="{StaticResource TextMain}">
+            <ContentControl Content="{Binding}" ContentTemplate="{StaticResource RelicTipContentTemplate}" Focusable="False" />
+          </ToolTip>
+        </Border.ToolTip>
+      </Border>
+    </DataTemplate>
+
+    <ItemsPanelTemplate x:Key="HorizontalPanelTemplate">
+      <StackPanel Orientation="Horizontal" />
+    </ItemsPanelTemplate>
+
+    <!--
+      Build tab relic tile: icon with a gold frame when owned, dimmed when not. Hover: relic text, why it suits the build, owned or not.
+    -->
+    <DataTemplate x:Key="BuildRelicTileTemplate" DataType="{x:Type vm:BuildRelicVm}">
+      <Border x:Name="Frame" Width="36" Height="36" Margin="0,0,4,4" CornerRadius="4" BorderThickness="1" BorderBrush="#40FFFFFF" Background="#40000000"
+              Cursor="Help" ToolTipService.InitialShowDelay="120" ToolTipService.ShowDuration="60000" ToolTipService.Placement="Left">
+        <Grid>
+          <TextBlock Text="?" FontSize="13" FontWeight="Bold" Foreground="{StaticResource TextDim}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                     Visibility="{Binding Relic.Thumb, Converter={StaticResource BoolVis}, ConverterParameter=!}" />
+          <Image x:Name="Icon" Source="{Binding Relic.Thumb}" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" />
+          <Border Width="12" Height="12" CornerRadius="6" HorizontalAlignment="Right" VerticalAlignment="Top" Background="{StaticResource Gold}"
+                  Visibility="{Binding Owned, Converter={StaticResource BoolVis}}">
+            <TextBlock Text="&#x2713;" FontSize="8.5" FontWeight="Bold" Foreground="#1A1A1A" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+        </Grid>
+        <Border.ToolTip>
+          <ToolTip Padding="7" Background="#F0101318" BorderBrush="{StaticResource Gold}" BorderThickness="1.5" Foreground="{StaticResource TextMain}">
+            <StackPanel MaxWidth="340">
+              <ContentControl Content="{Binding Relic}" ContentTemplate="{StaticResource RelicTipContentTemplate}" Focusable="False" />
+              <TextBlock Text="{Binding ReasonText}" FontSize="12" Foreground="{StaticResource TextDim}" Margin="0,5,0,0" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding OwnedText}" FontSize="12" FontWeight="SemiBold" Margin="0,1,0,0">
+                <TextBlock.Style>
+                  <Style TargetType="TextBlock">
+                    <Setter Property="Foreground" Value="#E59866" />
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding Owned}" Value="True">
+                        <Setter Property="Foreground" Value="{StaticResource Gold}" />
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </TextBlock.Style>
+              </TextBlock>
+            </StackPanel>
+          </ToolTip>
+        </Border.ToolTip>
+      </Border>
+      <DataTemplate.Triggers>
+        <DataTrigger Binding="{Binding Owned}" Value="True">
+          <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource Gold}" />
+          <Setter TargetName="Frame" Property="BorderThickness" Value="1.5" />
+        </DataTrigger>
+        <DataTrigger Binding="{Binding Owned}" Value="False">
+          <Setter TargetName="Icon" Property="Opacity" Value="0.55" />
+        </DataTrigger>
+      </DataTemplate.Triggers>
+    </DataTemplate>
+
+    <!--
       One face (base or upgraded) of a card's effect text: energy-cost orb (green when the upgrade changed it), star cost
       for Regent cards, then the description as the game composes it (keyword lines, gold terms, green upgraded numbers).
     -->
@@ -238,6 +324,14 @@
             </Border>
             <ContentControl Content="{Binding Art}" ContentTemplate="{StaticResource CardThumbTemplate}" Width="46" Height="35" Margin="6,0,0,0"
                             Visibility="{Binding Art, Converter={StaticResource BoolVis}}" />
+            <ItemsControl ItemsSource="{Binding Relics}" ItemsPanel="{StaticResource HorizontalPanelTemplate}" Margin="6,0,0,0" Focusable="False"
+                          Visibility="{Binding HasRelics, Converter={StaticResource BoolVis}}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="{x:Type svc:RelicTipVm}">
+                  <ContentControl Content="{Binding}" ContentTemplate="{StaticResource RelicIconTemplate}" Width="35" Height="35" Focusable="False" />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
           </StackPanel>
 
           <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
@@ -290,7 +384,17 @@
             <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
           <TextBlock Text="{Binding SubText}" Style="{StaticResource Dim}" VerticalAlignment="Center" TextWrapping="NoWrap" />
-          <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+          <DockPanel Grid.Column="1">
+            <ItemsControl DockPanel.Dock="Left" ItemsSource="{Binding Relics}" ItemsPanel="{StaticResource HorizontalPanelTemplate}" Margin="0,0,5,0" Focusable="False"
+                          VerticalAlignment="Center" Visibility="{Binding HasRelics, Converter={StaticResource BoolVis}}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="{x:Type svc:RelicTipVm}">
+                  <ContentControl Content="{Binding}" ContentTemplate="{StaticResource RelicIconTemplate}" Width="22" Height="22" Focusable="False" />
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+          </DockPanel>
           <TextBlock Grid.Column="2" Text="{Binding ScoreText}" FontSize="13" FontWeight="Bold" VerticalAlignment="Center" Margin="8,0,0,0" />
         </Grid>
       </Border>
@@ -607,6 +711,26 @@
                                 </DataTemplate>
                               </ItemsControl.ItemTemplate>
                             </ItemsControl>
+                            <!-- relics that suit this build (key relics, ranker favourites); shown with the card tiles -->
+                            <StackPanel Margin="0,4,0,0">
+                              <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                  <Setter Property="Visibility" Value="Collapsed" />
+                                  <Style.Triggers>
+                                    <MultiDataTrigger>
+                                      <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding IsExpanded}" Value="True" />
+                                        <Condition Binding="{Binding HasRelics}" Value="True" />
+                                      </MultiDataTrigger.Conditions>
+                                      <Setter Property="Visibility" Value="Visible" />
+                                    </MultiDataTrigger>
+                                  </Style.Triggers>
+                                </Style>
+                              </StackPanel.Style>
+                              <TextBlock Text="{Binding BuildRelics, Source={x:Static vm:UiText.Instance}}" FontSize="11" FontWeight="Bold" Foreground="{StaticResource TextDim}" Margin="1,0,0,3" />
+                              <ItemsControl ItemsSource="{Binding Relics}" ItemsPanel="{StaticResource WrapPanelTemplate}"
+                                            ItemTemplate="{StaticResource BuildRelicTileTemplate}" Focusable="False" />
+                            </StackPanel>
                           </StackPanel>
                         </Border>
                         <DataTemplate.Triggers>

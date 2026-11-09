@@ -39,6 +39,12 @@ public sealed record OfferRowVm
 
     /// <summary>Card portrait (thumbnail + hover image); null for Skip/removal or when the art isn't extracted.</summary>
     public CardArtVm? Art { get; init; }
+
+    /// <summary>Relics this row is about (a shop relic, an ancient's relic, an event option's relic): icon + hover effect text.</summary>
+    public IReadOnlyList<RelicTipVm> Relics { get; init; } = [];
+
+    public bool HasRelics => Relics.Count > 0;
+
     public IReadOnlyList<ChipVm> Chips { get; init; } = [];
 }
 
@@ -102,6 +108,13 @@ public sealed record BuildCardVm(string Name, string RoleText, string? RarityTex
     public string OwnedText => Owned ? Loc.T("보유 중", "Owned") : Loc.T("아직 없음", "Not yet");
 }
 
+/// <summary>A relic that suits an archetype in the 빌드 tab (icon tile; dimmed while not owned).</summary>
+/// <param name="ReasonText">Why it is listed: the build's key relic, or how much more often top players take it in this build.</param>
+public sealed record BuildRelicVm(RelicTipVm Relic, bool Owned, string ReasonText)
+{
+    public string OwnedText => Owned ? Loc.T("보유 중", "Owned") : Loc.T("아직 없음", "Not yet");
+}
+
 /// <summary>Cards of one archetype role, e.g. "핵심 2/3".</summary>
 public sealed record BuildCardGroupVm(string Title, IReadOnlyList<BuildCardVm> Cards);
 
@@ -122,6 +135,11 @@ public sealed record ArchetypeVm
 
     /// <summary>The archetype's cards by role (핵심 → 완성 → 조력 → 보조), empty roles left out.</summary>
     public IReadOnlyList<BuildCardGroupVm> CardGroups { get; init; } = [];
+
+    /// <summary>Relics that suit the build (key relics, then the ones top players favour in it); shown with the card tiles.</summary>
+    public IReadOnlyList<BuildRelicVm> Relics { get; init; } = [];
+
+    public bool HasRelics => Relics.Count > 0;
 
     /// <summary>Card tiles shown; the controller remembers the user's choice per <see cref="Id"/>.</summary>
     public bool IsExpanded { get; init; }
