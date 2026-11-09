@@ -1,6 +1,7 @@
 using System.IO;
 using System.Net;
 using System.Net.Http;
+using System.Net.Sockets;
 using Sts2Overlay.App.Infrastructure;
 using Sts2Overlay.App.Services;
 
@@ -19,18 +20,28 @@ public class UpdateServiceTests
         public Exception? CheckError { get; set; }
         public Exception? DownloadError { get; set; }
         public TaskCompletionSource? CheckGate { get; set; }
+        /// <summary>Thrown by the next checks, one per call, before <see cref="CheckError"/> / success.</summary>
+        public Queue<Exception> CheckFailures { get; } = new();
+        public Queue<Exception> DownloadFailures { get; } = new();
         public int Checks { get; private set; }
+        public int Downloads { get; private set; }
         public bool? AppliedWithRestart { get; private set; }
 
         public async Task<string?> CheckAsync()
         {
             Checks++;
             if (CheckGate is not null) await CheckGate.Task;
+            if (CheckFailures.TryDequeue(out var failure)) throw failure;
             if (CheckError is not null) throw CheckError;
             return Available;
         }
 
-        public Task DownloadAsync() => DownloadError is null ? Task.CompletedTask : Task.FromException(DownloadError);
+        public Task DownloadAsync()
+        {
+            Downloads++;
+            if (DownloadFailures.TryDequeue(out var failure)) return Task.FromException(failure);
+            return DownloadError is null ? Task.CompletedTask : Task.FromException(DownloadError);
+        }
 
         public string? ReleaseNotes { get; set; }
 
@@ -39,9 +50,12 @@ public class UpdateServiceTests
 
     private DateTime _now = new(2026, 11, 9, 0, 0, 0, DateTimeKind.Utc);
 
+    /// <summary>Retry waits the service asked for (they do not really wait in tests).</summary>
+    private readonly List<TimeSpan> _waits = [];
+
     private (UpdateService Service, List<string> Messages) Create(FakeClient client)
     {
-        var service = new UpdateService(new AppSettings(), client, () => _now);
+        var service = new UpdateService(new AppSettings(), client, () => _now, d => { lock (_waits) _waits.Add(d); return Task.CompletedTask; });
         var messages = new List<string>();
         service.Message += m => { lock (messages) messages.Add(m); };
         return (service, messages);
@@ -243,7 +257,9 @@ public class UpdateServiceTests
     [InlineData(HttpStatusCode.Forbidden, "GitHub 요청 한도를 넘었습니다. 1시간쯤 뒤에 다시 시도해 주세요.")]
     [InlineData(HttpStatusCode.TooManyRequests, "GitHub 요청 한도를 넘었습니다. 1시간쯤 뒤에 다시 시도해 주세요.")]
     [InlineData(HttpStatusCode.NotFound, "업데이트 주소에서 릴리스를 찾지 못했습니다 (설정의 updateUrl 확인).")]
-    [InlineData(HttpStatusCode.BadGateway, "서버 응답 오류 (502).")]
+    [InlineData(HttpStatusCode.BadGateway, "GitHub 서버 응답 없음 (502) — 잠시 후 다시 시도해 주세요.")]
+    [InlineData(HttpStatusCode.GatewayTimeout, "GitHub 서버 응답 없음 (504) — 잠시 후 다시 시도해 주세요.")]
+    [InlineData(HttpStatusCode.Unauthorized, "서버 응답 오류 (401).")]
     public void Http_errors_are_explained_even_when_wrapped(HttpStatusCode code, string expected)
     {
         var wrapped = new InvalidOperationException("velopack", new HttpRequestException("x", null, code));
@@ -258,5 +274,118 @@ public class UpdateServiceTests
 
         Assert.EndsWith("… (자세한 내용은 로그)", text);
         Assert.True(text.Length < 150);
+    }
+
+    private static HttpRequestException Http(HttpStatusCode code) => new($"Response status code does not indicate success: {(int)code}.", null, code);
+
+    [Fact]
+    public async Task A_504_then_success_retries_quietly_and_finds_the_update()
+    {
+        var client = new FakeClient { Available = "0.1.4" };
+        client.CheckFailures.Enqueue(Http(HttpStatusCode.GatewayTimeout));
+        client.CheckFailures.Enqueue(Http(HttpStatusCode.GatewayTimeout));
+        var (service, messages) = Create(client);
+
+        await service.CheckNowAsync();
+
+        Assert.Equal(3, client.Checks);
+        Assert.Equal([TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5)], _waits);
+        Assert.Equal("업데이트 확인 중…", messages[0]);
+        Assert.Equal("GitHub 응답이 늦어 다시 시도하는 중…", messages[1]);
+        Assert.DoesNotContain(messages, m => m.Contains("실패"));
+        Assert.Equal("0.1.4", service.ReadyVersion);
+    }
+
+    [Fact]
+    public async Task Persistent_504_gives_up_after_four_attempts_with_the_reason()
+    {
+        var client = new FakeClient { CheckError = Http(HttpStatusCode.GatewayTimeout) };
+        var (service, messages) = Create(client);
+
+        await service.CheckNowAsync();
+
+        Assert.Equal(4, client.Checks);
+        Assert.Equal([TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10)], _waits);
+        Assert.Equal(
+            ["업데이트 확인 중…", "GitHub 응답이 늦어 다시 시도하는 중…", "업데이트 확인 실패: GitHub 서버 응답 없음 (504) — 잠시 후 다시 시도해 주세요."],
+            messages);
+        Assert.False(service.IsChecking);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.NotFound)]
+    [InlineData(HttpStatusCode.Forbidden)]
+    [InlineData(HttpStatusCode.Unauthorized)]
+    public async Task Client_errors_other_than_429_are_not_retried(HttpStatusCode code)
+    {
+        var client = new FakeClient { CheckError = Http(code) };
+        var (service, messages) = Create(client);
+
+        await service.CheckNowAsync();
+
+        Assert.Equal(1, client.Checks);
+        Assert.Empty(_waits);
+        Assert.Equal(2, messages.Count);
+    }
+
+    [Fact]
+    public async Task Offline_is_not_retried()
+    {
+        var client = new FakeClient
+        {
+            CheckError = new HttpRequestException(HttpRequestError.NameResolutionError, "No such host is known."),
+        };
+        var (service, _) = Create(client);
+
+        await service.CheckNowAsync();
+
+        Assert.Equal(1, client.Checks);
+    }
+
+    [Fact]
+    public async Task Download_is_retried_on_its_own_without_checking_again()
+    {
+        var client = new FakeClient { Available = "0.1.4" };
+        client.DownloadFailures.Enqueue(new HttpRequestException(HttpRequestError.ResponseEnded, "reset", new IOException("reset", new SocketException((int)SocketError.ConnectionReset))));
+        client.DownloadFailures.Enqueue(new TaskCanceledException("timeout"));
+        var (service, messages) = Create(client);
+
+        await service.CheckNowAsync();
+
+        Assert.Equal(1, client.Checks);
+        Assert.Equal(3, client.Downloads);
+        Assert.Equal("0.1.4", service.ReadyVersion);
+        Assert.Single(messages, m => m.StartsWith("GitHub 응답이 늦어", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Disk_errors_during_download_are_not_retried()
+    {
+        var client = new FakeClient { Available = "0.1.4", DownloadError = new IOException("disk full") };
+        var (service, _) = Create(client);
+
+        await service.CheckNowAsync();
+
+        Assert.Equal(1, client.Downloads);
+        Assert.Empty(_waits);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.InternalServerError, true)]
+    [InlineData(HttpStatusCode.BadGateway, true)]
+    [InlineData(HttpStatusCode.ServiceUnavailable, true)]
+    [InlineData(HttpStatusCode.GatewayTimeout, true)]
+    [InlineData(HttpStatusCode.TooManyRequests, true)]
+    [InlineData(HttpStatusCode.NotFound, false)]
+    [InlineData(HttpStatusCode.Forbidden, false)]
+    [InlineData(HttpStatusCode.BadRequest, false)]
+    public void Status_codes_worth_retrying(HttpStatusCode code, bool transient)
+        => Assert.Equal(transient, UpdateRetry.IsTransient(new InvalidOperationException("velopack", Http(code))));
+
+    [Fact]
+    public void Jitter_adds_at_most_a_fifth()
+    {
+        Assert.Equal(TimeSpan.FromSeconds(10), UpdateRetry.WithJitter(TimeSpan.FromSeconds(10), 0));
+        Assert.Equal(TimeSpan.FromSeconds(12), UpdateRetry.WithJitter(TimeSpan.FromSeconds(10), 1));
     }
 }

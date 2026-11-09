@@ -19,7 +19,9 @@ namespace Sts2Overlay.App.Services;
 /// <item>A downloaded update is applied when the overlay exits normally (silently, no restart), or right away from the
 /// tray ("업데이트 적용 (재시작)"). It never restarts the overlay on its own.</item>
 /// <item>The tray "업데이트 확인" always answers with a <see cref="Message"/>: checking, up to date, downloading,
-/// downloaded (restart to apply), already ready, too soon, failed (with the reason) or not installed. A finished
+/// downloaded (restart to apply), already ready, too soon, failed (with the reason) or not installed. A passing error
+/// (GitHub 5xx/429, timeout, reset connection; <see cref="UpdateRetry"/>) is retried up to 3 times, the check and the
+/// download separately, and only the last failure is shown; an automatic check that still fails comes back in 30 min. A finished
 /// download is announced even when an automatic check found it. Automatic checks are otherwise silent (app.log only).</item>
 /// </list>
 /// All public members are called on the UI thread; events are raised there too (in tests: on whichever thread the
@@ -32,6 +34,7 @@ public sealed class UpdateService : IDisposable
     private readonly IUpdateClient? _client;
     private readonly UpdateSourceSpec _source;
     private readonly Func<DateTime> _utcNow;
+    private readonly Func<TimeSpan, Task> _delay;
     private DispatcherTimer? _timer;
     private bool _restartRequested;
 
@@ -41,10 +44,12 @@ public sealed class UpdateService : IDisposable
     }
 
     /// <param name="client">Null = the real Velopack client for the <c>updateUrl</c> setting.</param>
-    internal UpdateService(AppSettings settings, IUpdateClient? client, Func<DateTime> utcNow)
+    /// <param name="delay">Waits between retries (<see cref="UpdateRetry.Delays"/>); null = Task.Delay with jitter. Tests pass a no-wait recorder.</param>
+    internal UpdateService(AppSettings settings, IUpdateClient? client, Func<DateTime> utcNow, Func<TimeSpan, Task>? delay = null)
     {
         _settings = settings;
         _utcNow = utcNow;
+        _delay = delay ?? (d => Task.Delay(UpdateRetry.WithJitter(d, Random.Shared.NextDouble())));
         var spec = UpdateSourceSpec.TryParse(settings.UpdateUrl);
         if (spec is null)
         {
@@ -159,7 +164,7 @@ public sealed class UpdateService : IDisposable
             if (manual) Message?.Invoke(Loc.T("업데이트 확인 중…", "Checking for updates…"));
             AppLog.Info($"update: checking {_source}");
             // Off the UI thread: the check/download do file and network I/O. The awaits resume on the UI thread.
-            target = await Task.Run(_client.CheckAsync);
+            target = await WithRetryAsync("check", _client.CheckAsync, manual);
             if (target is null)
             {
                 AppLog.Info($"update: up to date (v{CurrentVersion})");
@@ -169,7 +174,7 @@ public sealed class UpdateService : IDisposable
             AppLog.Info($"update: v{target} available; downloading");
             if (manual) Message?.Invoke(Loc.T($"새 버전 v{target} 다운로드 중…", $"Downloading v{target}…"));
             downloading = true;
-            await Task.Run(_client.DownloadAsync);
+            await WithRetryAsync("download", async () => { await _client.DownloadAsync(); return true; }, manual);
             ReadySummary = ReleaseNotesSummary.FromMarkdown(_client.ReleaseNotes);
             ReadyVersion = target;
             AppLog.Info($"update: v{target} downloaded; applied on exit or from the tray");
@@ -178,8 +183,12 @@ public sealed class UpdateService : IDisposable
         }
         catch (Exception ex)
         {
-            // Offline, GitHub rate limit, a broken feed...: the next periodic check tries again.
-            AppLog.Warn($"update: {(downloading ? "download" : "check")} failed ({ex.GetType().Name}: {ex.Message})");
+            // Offline, GitHub rate limit, a broken feed...: the next periodic check tries again, in 30 min instead of
+            // 6 h when the error was a passing one (GitHub 5xx, timeout).
+            var transient = UpdateRetry.IsTransient(ex);
+            if (transient) _schedule.MarkTransientFailure();
+            AppLog.Warn($"update: {(downloading ? "download" : "check")} failed ({ex.GetType().Name}: {ex.Message})"
+                        + (transient ? $"; next automatic check in {UpdateSchedule.RetryAfterTransientFailure.TotalMinutes:0} min" : ""));
             if (manual)
             {
                 Message?.Invoke(downloading
@@ -190,6 +199,32 @@ public sealed class UpdateService : IDisposable
         finally
         {
             SetChecking(false);
+        }
+    }
+
+    /// <summary>
+    /// Runs <paramref name="operation"/> off the UI thread, up to 1 + <see cref="UpdateRetry.Delays"/>.Count times while it
+    /// fails with a passing error (<see cref="UpdateRetry.IsTransient"/>). Any other error, or the last one, is thrown.
+    /// A manual check gets one extra balloon on the first retry, so a slow GitHub does not look like a hang.
+    /// </summary>
+    private async Task<T> WithRetryAsync<T>(string what, Func<Task<T>> operation, bool manual)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return await Task.Run(operation);
+            }
+            catch (Exception ex) when (attempt <= UpdateRetry.Delays.Count && UpdateRetry.IsTransient(ex))
+            {
+                var wait = UpdateRetry.Delays[attempt - 1];
+                AppLog.Info($"update: {what} attempt {attempt} failed ({ex.GetType().Name}: {ex.Message}); retrying in ~{wait.TotalSeconds:0} s");
+                if (manual && attempt == 1)
+                {
+                    Message?.Invoke(Loc.T("GitHub 응답이 늦어 다시 시도하는 중…", "GitHub is slow to answer; trying again…"));
+                }
+                await _delay(wait);
+            }
         }
     }
 
@@ -211,8 +246,12 @@ public sealed class UpdateService : IDisposable
                     return Loc.T("GitHub 요청 한도를 넘었습니다. 1시간쯤 뒤에 다시 시도해 주세요.", "GitHub rate limit reached. Try again in about an hour.");
                 case HttpRequestException { StatusCode: HttpStatusCode.NotFound }:
                     return Loc.T("업데이트 주소에서 릴리스를 찾지 못했습니다 (설정의 updateUrl 확인).", "No release found at the update address (check updateUrl in settings).");
+                case HttpRequestException { StatusCode: { } code } when (int)code >= 500:
+                    return Loc.T($"GitHub 서버 응답 없음 ({(int)code}) — 잠시 후 다시 시도해 주세요.", $"GitHub server not responding ({(int)code}) — please try again later.");
                 case HttpRequestException { StatusCode: { } code }:
                     return Loc.T($"서버 응답 오류 ({(int)code}).", $"Server error ({(int)code}).");
+                case HttpRequestException when UpdateRetry.IsTransient(e):
+                    return Loc.T("GitHub 연결이 끊겼습니다 — 잠시 후 다시 시도해 주세요.", "The connection to GitHub dropped — please try again later.");
                 case HttpRequestException:
                     return Loc.T("인터넷에 연결할 수 없습니다.", "Cannot connect to the internet.");
                 case TaskCanceledException or TimeoutException:
