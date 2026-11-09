@@ -1059,7 +1059,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
     /// </summary>
     private long CutoffSeq(SaveSnapshot save)
     {
-        string name = Path.GetFileName(save.Path);
+        string name = SaveFileName(save);
         for (int i = _saveMarks.Count - 1; i >= 0; i--)
             if (_saveMarks[i].Bytes == save.FileBytes && _saveMarks[i].FileName.Equals(name, StringComparison.OrdinalIgnoreCase))
                 return _saveMarks[i].Seq;
@@ -1072,12 +1072,15 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
     /// </summary>
     private bool IsBehindLog(SaveSnapshot save)
     {
-        string name = Path.GetFileName(save.Path);
+        string name = SaveFileName(save);
         for (int i = _saveMarks.Count - 1; i >= 0; i--)
             if (_saveMarks[i].FileName.Equals(name, StringComparison.OrdinalIgnoreCase))
                 return _saveMarks[i].Bytes != save.FileBytes;
         return false;
     }
+
+    /// <summary>The save's file name. Splits on both separators: a Windows save path seen on another OS (tests in CI) too.</summary>
+    private static string SaveFileName(SaveSnapshot save) => save.Path[(save.Path.LastIndexOfAny(['/', '\\']) + 1)..];
 
     private TrackedRun? Recompute()
     {
