@@ -17,10 +17,15 @@
 //   --card-vars <file>  also write the names-free card description variables (base values, upgrade deltas,
 //                       cost/keyword changes), e.g. data/catalog/card-vars.v0.107.1.json (committed), and check
 //                       them against the kor/eng description templates found under --loc (exit code 2 if any is missing)
+//   --relic-vars <file>  also write the names-free relic description variables (CanonicalVars base values, string vars
+//                        that name another model's title, vars the relic rewrites at runtime), e.g.
+//                        data/catalog/relic-vars.v0.107.1.json (committed), and check them against the kor/eng
+//                        relics.json "<ENTRY>.description" templates under --loc (exit code 2 if any is missing)
 //
 // The output contains game text when localization is present, so it goes to data/local/ (gitignored).
 
 using CatalogBuilder.CardVars;
+using CatalogBuilder.RelicVars;
 using Sts2Overlay.Resources;
 using Sts2Overlay.Resources.Catalog;
 
@@ -33,6 +38,7 @@ string? outPath = null;
 string? startingDecksPath = null;
 string? relicsPath = null;
 string? cardVarsPath = null;
+string? relicVarsPath = null;
 bool includeAll = false;
 
 // --- very small argument parser ---------------------------------------------------------------
@@ -49,6 +55,7 @@ for (int i = 0; i < args.Length; i++)
         case "--starting-decks": startingDecksPath = Next(); break;
         case "--relics": relicsPath = Next(); break;
         case "--card-vars": cardVarsPath = Next(); break;
+        case "--relic-vars": relicVarsPath = Next(); break;
         default:
             Console.Error.WriteLine($"Unknown argument: {args[i]}");
             return 1;
@@ -83,6 +90,11 @@ int exitCode = 0;
 if (cardVarsPath != null)
 {
     exitCode = CardVarsCommand.Run(dllPath, gameVersion, rows, cardVarsPath);
+    Console.WriteLine();
+}
+if (relicVarsPath != null)
+{
+    exitCode = Math.Max(exitCode, RelicVarsCommand.Run(dllPath, gameVersion, locDir, relicVarsPath));
     Console.WriteLine();
 }
 
