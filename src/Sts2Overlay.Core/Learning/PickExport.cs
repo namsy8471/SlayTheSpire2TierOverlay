@@ -5,8 +5,13 @@ using Sts2Overlay.Core.Scoring;
 
 namespace Sts2Overlay.Core.Learning;
 
-/// <summary>One option on a pick screen: the offered card with the engine's score split into components.</summary>
-public sealed record PickOption(string Card, int Upgrade, int Copies, double Total, IReadOnlyDictionary<string, double> Components);
+/// <summary>
+/// One option on a pick screen: the offered card with the engine's score split into components. <paramref name="BaseAdjust"/> and
+/// <paramref name="DupFactor"/> are the pack's data-fit values (already inside <c>base</c> / <c>duplicate</c>); a model trained on
+/// the same runs they were fit on takes them out to avoid scoring itself on its own training data.
+/// </summary>
+public sealed record PickOption(string Card, int Upgrade, int Copies, double Total, IReadOnlyDictionary<string, double> Components,
+    double BaseAdjust, double DupFactor);
 
 /// <summary>
 /// One card reward screen of a recorded run, as training data for a learned pick model: the state right before the
@@ -231,7 +236,9 @@ public sealed class PickExport
         {
             var e = eval.Cards[i];
             var id = _pack.Canonical(e.Card.Id);
-            options.Add(new PickOption(id, e.Card.Upgrade, profile.Copies.GetValueOrDefault(id), e.Total, ComponentsOf(e.Score)));
+            var tier = _pack.FindTier(state.Character, id);
+            options.Add(new PickOption(id, e.Card.Upgrade, profile.Copies.GetValueOrDefault(id), e.Total, ComponentsOf(e.Score),
+                tier?.BaseAdjust ?? 0, tier?.DupFactor ?? 1));
         }
 
         var pick = d.Picked.Count == 0 ? -1 : IndexOf(d.Offered, d.Picked[0]);
