@@ -321,7 +321,7 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
                 case EventEffectTypes.Curse:
                 {
                     var n = Math.Max(1, count);
-                    var v = -Weights.CursePenalty * n * p;
+                    var v = -Weights.CursePenaltyFor(e.Card) * n * p;
                     acc.Add(new(EventComponentKeys.Curse, n > 1 ? Loc.T($"저주 {n}장", $"{n} Curses") : Loc.T("저주", "Curse"), v, e.Card));
                     texts.Add((n > 1 ? Loc.T($"저주 {n}장 받음", $"Gain {n} Curses") : Loc.T("저주 받음", "Gain a Curse")) + chanceText);
                     break;
@@ -485,7 +485,7 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
         {
             if (DeckAnalyzer.IsCurse(Pack, state.Character, id) || string.Equals(e.Pool, "curse", StringComparison.OrdinalIgnoreCase))
             {
-                return (-Weights.CursePenalty * n, Loc.T("저주 카드", "Curse card"), id);
+                return (-Weights.CursePenaltyFor(id) * n, Loc.T("저주 카드", "Curse card"), id);
             }
             var eval = new CardScorer(Pack).Score(state, profile, new CardRef(id), OfferContext.Event);
             var skip = new SkipScorer(Pack).Score(state, profile).Total;
