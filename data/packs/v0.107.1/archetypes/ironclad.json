@@ -25,7 +25,8 @@
       "keyRelics": [],
       "needs": [{ "tag": "STRENGTH", "min": 2 }, { "role": "block", "min": 3 }],
       "desc": "힘을 영구히 쌓고 다단 공격으로 한꺼번에 터뜨리는 정석 빌드. 방어를 소홀히 하기 쉬우니 주의",
-      "guideHeroCard": "CARD.BLOOD_WALL"
+      // 대표 카드(2026-11 감사): BLOOD_WALL은 체력을 깎아 방어도를 얻는 자해 카드라 힘 빌드의 얼굴로 맞지 않음 → 이 빌드의 유일한 payoff(다단 광역 공격)로 바꿈.
+      "guideHeroCard": "CARD.CONFLAGRATION"
     },
     {
       "id": "ironclad.exhaust",

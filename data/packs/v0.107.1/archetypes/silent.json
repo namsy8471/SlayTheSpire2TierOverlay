@@ -71,7 +71,8 @@
       "names": { "kor": "교활·버리기", "eng": "Sly / Discard" },
       "color": "#16a085",
       // 근거(OP.GG 상위 플레이어 A10 바닐라 승리, v0.107~v0.111, 플레이어 균형·200회 부트스트랩): 좋은 플레이어 멤버 덱 214판·17명(랭킹 1위 플레이어 50판), 전체 플레이어 346판·50명. core 없음.
-      // 불확실(v1 값 유지): DAGGER_THROW(enabler, 카드 기준 통과 좋은 78%·전체 82%), PREPARED(enabler, 카드 기준 통과 좋은 52%·전체 99%), TRACKING†(support, 카드 기준 통과 좋은 58%·전체 28%).
+      // 불확실(v1 값 유지): DAGGER_THROW(enabler, 카드 기준 통과 좋은 78%·전체 82%), PREPARED(enabler, 카드 기준 통과 좋은 52%·전체 99%).
+      // 제거(2026-11 감사): TRACKING†(v1 support, 카드 기준 통과 좋은 58%·전체 28%). 약화 걸린 적이 공격 피해를 두 배로 받는 파워라 교활·버리기와 무관하고, 랭커 2,155판 승리 덱에서도 lift 0.87(이 빌드 카드 2장 이상 덱 기준)·0.82(좋은 플레이어, 버리기 축 덱 기준)로 빌드 덱에 더 자주 있지 않음.
       // core 없음: 이 축의 엔진 파워(TOOLS_OF_THE_TRADE 23%, MASTER_PLANNER, ABRASIVE)가 core 기준(40%)에 못 미침. 40%를 넘는 ACROBATICS·TACTICIAN은 스킬이라 엔진이 아님.
       // v1에서 제거(탈락이 부트스트랩으로 안정): ABRASIVE, WELL_LAID_PLANS†.
       // 예: https://op.gg/slay-the-spire2/history/4682263 https://op.gg/slay-the-spire2/history/4110994 https://op.gg/slay-the-spire2/history/6234531 https://op.gg/slay-the-spire2/history/6669207
@@ -79,7 +80,7 @@
         "core": [],
         "enabler": ["CARD.PREPARED", "CARD.ACROBATICS"],
         "payoff": ["CARD.TACTICIAN", "CARD.REFLEX", "CARD.RICOCHET"],
-        "support": ["CARD.DAGGER_THROW", "CARD.UNTOUCHABLE", "CARD.TRACKING"]
+        "support": ["CARD.DAGGER_THROW", "CARD.UNTOUCHABLE"]
       },
       // onTheme(빌드 밖 감점 면제, 빌드 점수 없음): 빌드 확정 덱(commit ≥ 0.7)에 다른 승리 덱보다 1.5배 이상 자주 있고 5명 이상이 들었으며(부트스트랩 80%) 역할 목록에는 없는 카드. 좋은 플레이어 표본이 얇아 전체 플레이어로 판정: FLICK_FLACK. 근거: docs/research/v2-stats/on-theme.md
       "onTheme": ["CARD.CORROSIVE_WAVE", "CARD.FLICK_FLACK", "CARD.MASTER_PLANNER", "CARD.SPEEDSTER"],
