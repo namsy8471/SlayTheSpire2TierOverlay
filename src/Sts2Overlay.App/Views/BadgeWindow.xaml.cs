@@ -18,7 +18,7 @@ namespace Sts2Overlay.App.Views;
 /// - WS_EX_NOACTIVATE: never takes focus from the game.
 /// - WS_EX_TOOLWINDOW: no taskbar button / Alt+Tab entry.
 /// </summary>
-public partial class BadgeWindow : Window
+public partial class BadgeWindow : Window, IHoverYield
 {
     private readonly OverlayCaptureVisibility _captureVisibility;
     private IntPtr _hwnd;
@@ -92,6 +92,23 @@ public partial class BadgeWindow : Window
     }
 
     public void Clear() => ShowBadges([], null, null, false);
+
+    // ---- stepping aside for the game's hover tips (see HoverYield.cs) ----
+
+    public bool IsShowingMarks => IsVisible && HasBadges;
+
+    /// <summary>The cards and their shop price labels, and the removal coin: the game shows a hover tip for each.</summary>
+    public IEnumerable<PxBox> HoverZones()
+    {
+        foreach (var s in _specs)
+        {
+            yield return ToPx(s.CardBounds);
+            if (s.PriceBounds is { } p) yield return ToPx(p);
+        }
+        if (_removal is { } rm) yield return ToPx(rm.Coin);
+    }
+
+    public void SetHoverHidden(bool hidden) => OverlayWindowHelper.FadeContent(this, hidden);
 
     private void Relayout()
     {

@@ -56,7 +56,7 @@ public static class EventMarkerLayout
 /// The event marker layer: transparent, click-through, topmost, over the game's client area (like
 /// <see cref="BadgeWindow"/>; its capture visibility is managed by <see cref="OverlayCaptureVisibility"/> the same way).
 /// </summary>
-public partial class EventMarkerWindow : Window
+public partial class EventMarkerWindow : Window, IHoverYield
 {
     private IntPtr _hwnd;
     private PixelRect _layer;
@@ -100,6 +100,15 @@ public partial class EventMarkerWindow : Window
     }
 
     public void Clear() => Show([]);
+
+    // ---- stepping aside for the game's hover tips (see HoverYield.cs) ----
+
+    public bool IsShowingMarks => IsVisible && HasMarkers;
+
+    /// <summary>The option buttons: hovering one shows the card or relic it gives, right where our marker sits.</summary>
+    public IEnumerable<PxBox> HoverZones() => _specs.Select(s => new PxBox(s.Button.X, s.Button.Y, s.Button.Width, s.Button.Height));
+
+    public void SetHoverHidden(bool hidden) => OverlayWindowHelper.FadeContent(this, hidden);
 
     private void Relayout()
     {
