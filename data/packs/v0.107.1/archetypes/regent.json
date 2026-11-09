@@ -18,8 +18,8 @@
       "cards": {
         "core": ["CARD.BLACK_HOLE"],
         "enabler": ["CARD.GATHER_LIGHT", "CARD.GLOW", "CARD.HIDDEN_CACHE", "CARD.BIG_BANG", "CARD.ROYAL_GAMBLE", "CARD.SOLAR_STRIKE"],
-        "payoff": ["CARD.REFLECT", "CARD.CLOAK_OF_STARS", "CARD.GUIDING_STAR", "CARD.PARTICLE_WALL", "CARD.ASTRAL_PULSE", "CARD.STARDUST"],
-        "support": []
+        "payoff": ["CARD.REFLECT", "CARD.CLOAK_OF_STARS", "CARD.GUIDING_STAR", "CARD.PARTICLE_WALL", "CARD.STARDUST"],
+        "support": ["CARD.ASTRAL_PULSE"]
       },
       // fullWeight 4.5 -> 5.5: 새 목록으로 다른 덱 commit 중앙값이 0.54(> 0.5, 변경 필요 부트스트랩 97%). 5.5에서 빌드 덱 0.83·다른 덱 0.45, 기준 충족 94%.
       "fullWeight": 5.5,
@@ -42,9 +42,9 @@
       // 예: https://op.gg/slay-the-spire2/history/6636495 https://op.gg/slay-the-spire2/history/6669199 https://op.gg/slay-the-spire2/history/6669204 https://op.gg/slay-the-spire2/history/6669185
       "cards": {
         "core": ["CARD.CHILD_OF_THE_STARS"],
-        "enabler": ["CARD.HIDDEN_CACHE", "CARD.ROYAL_GAMBLE"],
+        "enabler": ["CARD.ROYAL_GAMBLE"],
         "payoff": ["CARD.REFLECT", "CARD.RADIATE"],
-        "support": ["CARD.BEGONE"]
+        "support": ["CARD.HIDDEN_CACHE", "CARD.BEGONE"]
       },
       "fullWeight": 4.0,
       // 핵심 유물: 1위 플레이어 덱 절반 이상 + lift 1.5 이상인 유물이 없습니다.
@@ -64,9 +64,9 @@
       // 예: https://op.gg/slay-the-spire2/history/6751787 https://op.gg/slay-the-spire2/history/5119239 https://op.gg/slay-the-spire2/history/4605613 https://op.gg/slay-the-spire2/history/7177823
       "cards": {
         "core": ["CARD.FURNACE"],
-        "enabler": ["CARD.REFINE_BLADE", "CARD.BULWARK", "CARD.SPOILS_OF_BATTLE", "CARD.SUMMON_FORTH", "CARD.WROUGHT_IN_WAR"],
+        "enabler": ["CARD.REFINE_BLADE", "CARD.BULWARK", "CARD.SPOILS_OF_BATTLE", "CARD.SUMMON_FORTH"],
         "payoff": ["CARD.PARRY", "CARD.SWORD_SAGE", "CARD.CONQUEROR"],
-        "support": []
+        "support": ["CARD.WROUGHT_IN_WAR"]
       },
       "fullWeight": 4.0,
       // essentialTarget: 빌드 덱이 가진 서로 다른 enabler·payoff 수의 중앙값 3 (부트스트랩 92%).
@@ -89,9 +89,9 @@
       // 예: https://op.gg/slay-the-spire2/history/7202938 https://op.gg/slay-the-spire2/history/6497786 https://op.gg/slay-the-spire2/history/4220586 https://op.gg/slay-the-spire2/history/4735621
       "cards": {
         "core": ["CARD.PILLAR_OF_CREATION"],
-        "enabler": ["CARD.BEGONE", "CARD.COLLISION_COURSE", "CARD.CHARGE", "CARD.MANIFEST_AUTHORITY", "CARD.BUNDLE_OF_JOY", "CARD.QUASAR"],
+        "enabler": ["CARD.BEGONE", "CARD.CHARGE", "CARD.MANIFEST_AUTHORITY", "CARD.BUNDLE_OF_JOY", "CARD.QUASAR"],
         "payoff": ["CARD.ARSENAL", "CARD.SUPERMASSIVE"],
-        "support": []
+        "support": ["CARD.COLLISION_COURSE"]
       },
       "fullWeight": 4.0,
       // TOOLBOX: 불확실(빌드 덱 8/115·7명·lift 2.7, 부트스트랩 48%) → v1 값 유지.

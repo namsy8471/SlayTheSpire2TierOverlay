@@ -136,9 +136,9 @@ public static bool BuildSecured(Archetype a, DataPack pack, IReadOnlyDictionary<
 ```csharp
 foreach (var axis in entry.Provides.Distinct(StringComparer.Ordinal))
 {
-    // 후: 기울어진 빌드(commit ≥ leanMin)의 needs.tag 축은 건너뜀
+    // 후: 기울어진 빌드(commit ≥ leanMin)가 이 카드를 목록에 두었거나, 이 카드가 그 빌드의 needs.tag를 하나라도 만들면 건너뜀
     if (w.Saturation.ExemptBuildAxes && profile.Archetypes.Any(s => Commit(s) >= cp.LeanMin - Epsilon
-            && s.Archetype.Needs.Any(n => string.Equals(n.Tag, axis, StringComparison.Ordinal))))
+            && (s.Archetype.WeightOf(id) > 0 || s.Archetype.Needs.Any(n => entry.Provides.Contains(n.Tag, StringComparer.Ordinal)))))
     {
         continue;
     }
@@ -146,7 +146,13 @@ foreach (var axis in entry.Provides.Distinct(StringComparer.Ordinal))
     ...
 ```
 
-빌드가 필요로 하지 않는 축(예: 독 덱의 DRAW)은 그대로 포화를 봅니다. 규칙을 처음 만든 이유였던 리젠트 별은 소비 카드가 많아서(별 덱 생산 5.5 / 소비 7.9) 원래도 포화가 걸리지 않았고, 이번 변경과 상관없습니다.
+빌드와 상관없는 카드가 만드는 축(예: 독 덱에서 빌드 밖 드로우 카드의 DRAW)은 그대로 포화를 봅니다. 규칙을 처음 만든 이유였던 리젠트 별은 소비 카드가 많아서(별 덱 생산 5.5 / 소비 7.9) 원래도 포화가 걸리지 않았고, 이번 변경과 상관없습니다.
+
+**2026-11 후속 수정 (보조 태그).** 처음 규칙은 축 하나하나를 빌드의 needs.tag와 비교했습니다. 그래서 빌드 카드가 needs.tag 말고 **보조 태그**를 함께 만들면 그 보조 태그로 포화 감점(시너지 점수의 최대 −70 %)을 받았습니다.
+예: 냉기 빌드(needs `ORB_FROST`)의 냉정한 머리(`COOLHEADED`, provides `ORB`·`ORB_FROST`)는 `ORB` 소비 카드가 없어 냉기 덱이 완성될수록 깎였습니다.
+번개(`BALL_LIGHTNING`)·어둠(`DARKNESS`, `SHADOW_SHIELD`)의 `ORB`, 사일런트 버리기 빌드(`PREPARED`, `ACROBATICS`)의 `DRAW`, 자해 빌드(`BLOOD_WALL`, `INFERNO`)의 `BLOCK`·`POWER`도 같았습니다.
+이제는 기울어진 빌드가 그 카드를 역할 목록에 두었거나(`WeightOf(id) > 0`) 그 카드가 빌드의 needs.tag를 만들면, 그 카드의 다른 태그로도 포화를 매기지 않습니다.
+회귀 테스트: `BuildStackingTests.A_build_producer_with_a_saturated_secondary_tag_is_not_saturated`(이전 코드에서는 실패).
 
 ### 3.3 빌드 카드 중복은 덜 깎음 (`buildDuplicateFactor` 0.4)
 
@@ -162,9 +168,15 @@ var duplicate = -w.RhoDuplicate * copies * dupFactor * dupScale;           // �
 
 `Gate`(코어 먼저)를 곱하기 때문에 core를 아직 못 잡은 빌드의 카드는 감점이 거의 그대로입니다. 0.4는 시뮬레이션 덱의 3막 끝 빌드 카드 중복이 랭커(1.68장)에 가장 가까운 값입니다(다른 수정은 그대로 두고 이 값만 바꿨을 때 1.0 → 1.07장, 0.6 → 1.41장, 0.4 → 1.65장, 0.25 → 1.82장).
 
-### 3.4 3막 스킵 기준 58 → 52 (`data/packs/v0.107.1/weights.json`)
+**2026-11 후속: 0.4 → 0.3, 카드별 `dupFactor` 31장 보정.** 카드 점수 보정([`CARD_CALIBRATION.md`](CARD_CALIBRATION.md))으로 `baseAdjust`가 들어간 뒤 첫 장 카드끼리 점수 차가 커져서, 확정 빌드 카드의 두 장째(−6점)가 ±8~10점 보정 카드에 자주 밀렸습니다(중복 1.65 → 1.47장, 랭커 1.87장).
+팩 값 `buildDuplicateFactor`를 0.3으로 내리고(확정 빌드 카드 −4.5점/장, 코드 기본값 0.4는 그대로), `pipeline.py fit`이 카드별 `dupFactor`도 맞추게 했습니다(CARD_CALIBRATION.md §9.1).
+결과: 시뮬레이션 3막 끝 빌드 카드 중복 1.47 → **1.73장**(랭커 1.87장).
+
+### 3.4 3막 스킵 기준 58 → 52 → 50 (`data/packs/v0.107.1/weights.json`)
 
 2막과 같은 값입니다. 자리 잡은 덱의 스킵 점수가 57이 되어, **빌드 안 B 티어(64)는 통과하고 빌드 밖 B 티어(50 − 빌드 밖 10 = 40)는 여전히 스킵**합니다. 덱이 커지는 것은 기존 `skip.lambdaSize`(이상 크기 31장 초과 1장당 +1.5)가 계속 막습니다. 코드 기본값(58)이 아니라 팩 값만 바꿨습니다.
+
+**2026-11 후속: 52 → 50.** 카드 점수 보정에서 2·3막 즉시 피해·광역 긴급도를 낮춘 뒤 3막 카드의 need 점수가 평균 2점쯤 줄어, 엔진의 3막 스킵이 랭커보다 많아졌습니다(58 % vs 48 %, 승리 런 리플레이). 50으로 내린 뒤 리플레이 3막 스킵 **50 %**, 3막 끝 덱 크기 31.81 → 32.47장(랭커 32.56장)입니다.
 
 ### 바꾸지 않은 것
 
@@ -189,7 +201,7 @@ var duplicate = -w.RhoDuplicate * copies * dupFactor * dupScale;           // �
 
 - 빌드 이탈: 디펙트 17 → 14 %, 아이언클래드 18 → 6 %, 네크로바인더 9 → 8 %, 리젠트 4 → 2 %, 사일런트 10 → 9 %. 이탈 화면에서 스킵을 권한 비율도 20~49 % → 6~31 %로 줄었습니다.
 - 아이언클래드 "코어 확보"가 40 → 32 %로 내려간 것은 주빌드가 core 없는 취약 빌드로 더 많이 옮겨 갔기 때문입니다(취약 32 → 43 %, 방어 32 → 21 %). 코어 확보 지표는 core 없는 빌드를 0으로 셉니다.
-- 남은 core 없는 빌드 이탈(디펙트 18 %, 네크로바인더 22 %, 사일런트 18 %)은 대부분 정상 동작입니다. 디펙트는 오브 빌드 목록에 있는 압축(COMPACT)이 상태이상 축이 없어서 "엔진 없음" −15를 받는 경우이고, 나머지는 겹친 빌드 카드보다 다른 빌드의 필수 카드나 A 티어 카드를 고른 경우입니다.
+- 남은 core 없는 빌드 이탈(디펙트 18 %, 네크로바인더 22 %, 사일런트 18 %)은 대부분 정상 동작입니다. 디펙트는 오브 빌드 목록에 있는 압축(COMPACT)이 상태이상 축이 없어서 "엔진 없음" −15를 받는 경우이고(2026-11 후속에서 압축을 두 오브 빌드 목록에서 뺐습니다), 나머지는 겹친 빌드 카드보다 다른 빌드의 필수 카드나 A 티어 카드를 고른 경우입니다.
 
 ## 5. 랭커 선택과 비교
 
@@ -225,7 +237,7 @@ var duplicate = -w.RhoDuplicate * copies * dupFactor * dupScale;           // �
 - **에너지 곡선**: 디펙트·사일런트 엔진 덱이 랭커보다 평균 코스트가 0.1~0.2 높고 0코 카드가 적습니다. 점수식에 코스트 항이 없어서, 캐릭터별 장당 에너지 목표를 두고 넘치면 무거운 카드를 깎는 항을 추가할 수 있습니다.
 - **파워 개수**: 랭커 디펙트 덱은 파워가 평균 7.6장인데 `powerSaturation.threshold`는 6입니다. 디펙트에만 다른 기준이 필요한지 볼 만합니다.
 - **빌드 밖 드로우**: 랭커는 빌드 밖 드로우 카드를 엔진보다 많이 씁니다(디펙트 4.2 vs 1.9장). 드로우 과잉이 아니라 부족 쪽을 의심할 차례입니다.
-- **데이터**: 압축(COMPACT)이 상태이상 축을 요구하는데 오브 빌드 두 곳의 support 목록에 있습니다.
+- ~~**데이터**: 압축(COMPACT)이 상태이상 축을 요구하는데 오브 빌드 두 곳의 support 목록에 있습니다.~~ 2026-11 후속에서 `defect.dark_orbs`, `defect.orb_variety`의 support에서 뺐습니다.
 
 ## 8. 다시 재기
 

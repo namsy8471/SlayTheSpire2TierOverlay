@@ -158,4 +158,14 @@ public class BuildStackingTests
         var eval = Score(pack, Starter().Concat([Maker, Maker2, Payoff]), Maker);
         Assert.Equal(-pack.Weights.RhoDuplicate, eval.Score.ValueOf(ComponentKeys.Duplicate), 6);
     }
+
+    [Fact]
+    public void A_build_producer_with_a_saturated_secondary_tag_is_not_saturated()
+    {
+        var pack = Pack();
+        pack.Tiers[Hero].Cards[Maker].Provides = ["BLADE", "DRAW"];
+        var deck = Starter().Concat([Drawer, Drawer, Drawer, Maker, Payoff]).ToList();
+        var eval = Score(pack, deck, Maker, act: 3);
+        Assert.Equal(0, eval.Score.ValueOf(ComponentKeys.Saturation));
+    }
 }

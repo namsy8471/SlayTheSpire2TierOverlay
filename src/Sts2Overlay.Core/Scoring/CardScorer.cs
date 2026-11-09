@@ -292,8 +292,10 @@ public sealed class CardScorer(DataPack pack)
             {
                 // An axis the deck's leaning build needs (needs.tag) is what the build is made of: its payoffs are the build's listed
                 // cards, not cards tagged "consumes", so top players' winning decks routinely produce it past the ratio (DECK_SIM.md).
+                // The same goes for a card the leaning build lists or that makes one of its needs.tag axes: its other (secondary)
+                // tags such as ORB or DRAW are a side effect of a build card, not a reason to cut it (DECK_SIM.md §3.2).
                 if (w.Saturation.ExemptBuildAxes && profile.Archetypes.Any(s => Commit(s) >= cp.LeanMin - Epsilon
-                        && s.Archetype.Needs.Any(n => string.Equals(n.Tag, axis, StringComparison.Ordinal))))
+                        && (s.Archetype.WeightOf(id) > 0 || s.Archetype.Needs.Any(n => entry.Provides.Contains(n.Tag, StringComparer.Ordinal)))))
                 {
                     continue;
                 }
