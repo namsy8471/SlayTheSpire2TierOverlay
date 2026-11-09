@@ -131,6 +131,10 @@ public sealed class Weights
     [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
     public RelicFitWeights RelicFit { get; set; } = new();
 
+    // ---- Rest-site upgrade ranking (weights.json "upgrade") ----
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+    public UpgradeWeights Upgrade { get; set; } = new();
+
     public static Weights Default => new();
 
     /// <summary>Looks up an act-keyed value, falling back to the closest lower act, then the lowest act.</summary>
@@ -455,6 +459,23 @@ public sealed class RarePityWeights
 /// data only: <c>relic-fit.json</c> rates when the pack has them, else the archetype's <c>keyRelics</c> (themselves chosen from
 /// top players' winning decks, docs/research/build-sources).
 /// </summary>
+/// <summary>
+/// Rest-site upgrade ranking (<see cref="Scoring.UpgradeAdvisor"/>). The code defaults are the model before calibration (no build
+/// part, the full role-need share); the pack's <c>weights.json</c> holds the values fitted on top players' smith choices
+/// (docs/research/UPGRADE_CALIBRATION.md).
+/// </summary>
+public sealed class UpgradeWeights
+{
+    /// <summary>
+    /// Upgrade points per unit of commit for a card that has this role (<see cref="ArchetypeRoles"/>) in a build of the deck:
+    /// the part is <c>BuildRole[role] × commit</c> of the highest-commit build the card belongs to. Missing role = 0.
+    /// </summary>
+    public Dictionary<string, double> BuildRole { get; set; } = new(StringComparer.Ordinal);
+
+    /// <summary>Multiplier on the role-need part (the 20% of the pick-time need that an upgrade closes). 1 = before calibration.</summary>
+    public double NeedWeight { get; set; } = 1.0;
+}
+
 public sealed class RelicFitWeights
 {
     /// <summary>A key relic with weight <c>w</c> is worth <c>1 + KeyRelicBonus × w</c> times its base value in that build. [추정 배율]</summary>
