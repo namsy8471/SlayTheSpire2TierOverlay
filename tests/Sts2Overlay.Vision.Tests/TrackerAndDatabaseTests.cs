@@ -17,6 +17,20 @@ public class TrackerAndDatabaseTests
     }
 
     [Fact]
+    public void The_inspect_view_drops_the_marks_at_once_instead_of_holding_them()
+    {
+        var tr = new RecognitionTracker();
+        tr.Update(Frame(ScreenKind.CardGrid, 2, Card(0, "A"), Card(1, "B")), T0);
+        // A plain "Other" frame (a big tooltip) is held for a moment ...
+        ScreenRecognition other = Frame(ScreenKind.Other, 0);
+        Assert.Equal(ScreenKind.CardGrid, tr.Update(other, T0.AddSeconds(0.3)).Kind);
+        // ... the right-click inspect view is not: its dimmed cards still match, but it is another screen.
+        ScreenRecognition inspect = other with { Gate = new ScreenGate(false, false, "") { InspectLikely = true } };
+        Assert.Equal(ScreenKind.Other, tr.Update(inspect, T0.AddSeconds(0.6)).Kind);
+        Assert.Empty(tr.Current.Cards);
+    }
+
+    [Fact]
     public void Merges_slots_seen_in_different_frames()
     {
         var tr = new RecognitionTracker();

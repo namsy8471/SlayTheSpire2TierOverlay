@@ -36,6 +36,8 @@ public sealed class VisionRecognizer : ICardRecognizer
         // The tracker merges a few frames: a tooltip or the merchant's hand covering one card for a moment
         // should not make its badge blink.
         var shown = _tracker.Update(raw, DateTime.UtcNow);
+        // Right-click inspect view over any of these screens: no badges, no rest marks over the big card and its tips.
+        if (raw.Gate.InspectLikely) return RecognitionResult.Other;
 
         var kind = shown.Kind switch
         {
