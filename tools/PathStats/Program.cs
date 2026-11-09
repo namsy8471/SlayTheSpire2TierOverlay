@@ -180,7 +180,7 @@ internal static class Cli
             w.AppendLine();
             w.AppendLine("| 방 | 막 | n | 피해 평균 ± SE | 보정 평균 | p50 | p80 | p90 | 최대 | 순 HP 변화 | 사망률 | 진입 HP | 덱 강도 |");
             w.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|");
-            foreach (var s in r.Rooms.Where(x => x.Segment == segment && x.Room is "monster" or "elite" or "unknown" or "boss").OrderBy(x => RoomOrder(x.Room)).ThenBy(x => x.Act))
+            foreach (var s in r.Rooms.Where(x => x.Segment == segment && x.Room is "monster" or PathStats.MonsterEasy or PathStats.MonsterHard or "elite" or "unknown" or "boss").OrderBy(x => RoomOrder(x.Room)).ThenBy(x => x.Act))
             {
                 w.AppendLine($"| {s.Room} | {(s.Act == 0 ? "전체" : s.Act)} | {s.N} | {P(s.DamageMean)} ± {P(s.DamageSe)} | {P(s.DamageNormalizedMean)} | {P(s.DamageP50)} | {P(s.DamageP80)} | {P(s.DamageP90)} | {P(s.DamageMax)} | {P(s.NetHpMean)} | {P(s.DeathRate)} | {P(s.HpBeforeMean)} | {F(s.StrengthMean, "0.00")} |");
             }
@@ -292,7 +292,7 @@ internal static class Cli
         return w.ToString();
     }
 
-    private static int RoomOrder(string room) => Array.IndexOf(["monster", "elite", "unknown", "boss", "treasure", "shop", "rest_site", "ancient"], room);
+    private static int RoomOrder(string room) => Array.IndexOf(["monster", PathStats.MonsterEasy, PathStats.MonsterHard, "elite", "unknown", "boss", "treasure", "shop", "rest_site", "ancient"], room);
 
     private static string BacktestMarkdown(IReadOnlyList<CalibrationSummary> sums, IReadOnlyList<(string Map, string Run, int Act, string Label, RealMapResult Result)> real)
     {

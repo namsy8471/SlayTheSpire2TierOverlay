@@ -102,15 +102,66 @@ public class UpgradeAdvisorTests
     }
 
     [Fact]
-    public void Archetype_and_combo_parts_are_not_part_of_the_upgrade_value()
+    public void Pick_time_build_and_combo_parts_are_not_part_of_the_upgrade_value()
     {
-        // The default test pack puts OrbCore in a committed archetype; upgrading does not change commit, so no build part.
+        // The default test pack puts OrbCore in a committed archetype. The card-pick parts (build synergy, combos, duplicates …)
+        // describe whether to take a card, so none of them is copied into the upgrade value; with code-default weights
+        // (BuildRole empty) there is no build part either.
         var pack = TestPacks.DefectPack();
         var state = TestPacks.State(deck: [TestPacks.OrbCore, TestPacks.OrbEnabler, TestPacks.OrbPayoff, TestPacks.ComboA, TestPacks.ComboB]);
         var ranked = new UpgradeAdvisor(pack).Rank(state);
 
         Assert.All(ranked, c => Assert.DoesNotContain(c.Score.Components, p => p.Key is ComponentKeys.Build or ComponentKeys.Combo
-            or ComponentKeys.EngineMissing or ComponentKeys.OffBuild or ComponentKeys.Duplicate or ComponentKeys.Dilution));
+            or ComponentKeys.EngineMissing or ComponentKeys.OffBuild or ComponentKeys.Duplicate or ComponentKeys.Dilution
+            or UpgradeComponentKeys.Build));
+    }
+
+    [Fact]
+    public void Build_role_part_is_role_weight_times_commit_of_the_card_s_build()
+    {
+        var pack = TestPacks.DefectPack();
+        pack.Weights.Upgrade.BuildRole[ArchetypeRoles.Core] = 2.0;
+        pack.Weights.Upgrade.BuildRole[ArchetypeRoles.Payoff] = 1.0;
+        var state = TestPacks.State(deck: [TestPacks.OrbCore, TestPacks.OrbEnabler, TestPacks.OrbPayoff, TestPacks.Strike]);
+        var profile = DeckAnalyzer.Analyze(state, pack);
+        var ranked = new UpgradeAdvisor(pack).Rank(state, profile);
+
+        var b = UpgradeAdvisor.BuildRoleOf(profile, TestPacks.OrbCore)!.Value;
+        Assert.Equal(ArchetypeRoles.Core, b.Role);
+        Assert.InRange(b.Commit, 0.01, 1.0);
+        Assert.Equal(2.0 * b.Commit, ranked.Single(c => c.Card.Id == TestPacks.OrbCore).Score.ValueOf(UpgradeComponentKeys.Build), 9);
+        Assert.Equal(1.0 * b.Commit, ranked.Single(c => c.Card.Id == TestPacks.OrbPayoff).Score.ValueOf(UpgradeComponentKeys.Build), 9);
+        // Enabler has no weight here, and Strike is in no build.
+        Assert.DoesNotContain(ranked.Single(c => c.Card.Id == TestPacks.OrbEnabler).Score.Components, p => p.Key == UpgradeComponentKeys.Build);
+        Assert.Null(UpgradeAdvisor.BuildRoleOf(profile, TestPacks.Strike));
+    }
+
+    [Fact]
+    public void Calibrated_upgrade_value_replaces_upgraded_delta_and_sets_the_unrated_average()
+    {
+        var pack = Pack();
+        pack.Tiers[TestPacks.Defect].Cards[Mid].UpgradeValue = 7;   // delta 4
+        pack.Tiers[TestPacks.Defect].Cards[Big].UpgradeValue = 3;   // delta 6
+        var ranked = new UpgradeAdvisor(pack).Rank(State(Mid, Big, Unrated) with { Act = 3 });
+
+        Assert.Equal(Mid, ranked[0].Card.Id);
+        Assert.Equal(7, ranked[0].Score.ValueOf(UpgradeComponentKeys.Upgrade));
+        Assert.False(ranked[0].IsEstimate);
+        // Unrated: average of the calibrated values (3, 7), not of the deltas.
+        Assert.Equal(5, ranked.Single(c => c.Card.Id == Unrated).Score.ValueOf(UpgradeComponentKeys.Upgrade), 9);
+    }
+
+    [Fact]
+    public void Need_weight_scales_the_role_need_part()
+    {
+        var pack = Pack();
+        var state = State(Mid, Wall) with { Act = 2 };
+        var full = new UpgradeAdvisor(pack).Rank(state).Single(c => c.Card.Id == Wall).Score.ValueOf(ComponentKeys.Need);
+        pack.Weights.Upgrade.NeedWeight = 0.25;
+        var quarter = new UpgradeAdvisor(pack).Rank(state).Single(c => c.Card.Id == Wall).Score.ValueOf(ComponentKeys.Need);
+
+        Assert.True(full > 0);
+        Assert.Equal(full * 0.25, quarter, 9);
     }
 
     [Fact]

@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Interop;
+using System.Windows.Media.Animation;
 using Sts2Overlay.App.Infrastructure;
 using Sts2Overlay.App.Integration;
 using static Sts2Overlay.App.Interop.NativeMethods;
@@ -63,6 +64,19 @@ internal static class OverlayWindowHelper
     {
         var flags = SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER | (topmost ? 0 : SWP_NOZORDER);
         SetWindowPos(hwnd, HWND_TOPMOST, x, y, 0, 0, flags);
+    }
+
+    /// <summary>
+    /// Fades a layer's content out (hover tip showing under it) or back in. Only the drawing changes: the window stays
+    /// shown, click-through and topmost, so nothing else (visibility, z-order, capture exclusion) has to know.
+    /// Out is quick, so the game's tip is clear almost at once; in is slower, so the badges don't pop.
+    /// </summary>
+    public static void FadeContent(Window w, bool hidden)
+    {
+        UIElement target = w.Content as UIElement ?? w;
+        var to = hidden ? 0.0 : 1.0;
+        var anim = new DoubleAnimation(to, TimeSpan.FromMilliseconds(hidden ? 50 : 160));
+        target.BeginAnimation(UIElement.OpacityProperty, anim);
     }
 
     public static PixelRect GetPhysicalBounds(IntPtr hwnd)

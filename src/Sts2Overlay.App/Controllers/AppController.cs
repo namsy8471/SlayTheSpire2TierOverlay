@@ -94,6 +94,7 @@ public sealed partial class AppController : IDisposable
         InitForecastReview(packDir, catalogPath); // forecast + run review (AppController.ForecastReview.cs)
         InitMapOverlay(); // marks on the game's map (AppController.MapOverlay.cs)
         InitEvents(packDir); // event option advice (AppController.Events.cs)
+        InitHoverYield(); // step aside for the game's hover tips (AppController.HoverYield.cs)
 
         _tracker.Changed += (_, _) => OnTrackerChanged();
         // The panel moved to a monitor with another DPI: the DPI part of the scale changed, ours must follow.
@@ -710,7 +711,10 @@ public sealed partial class AppController : IDisposable
                 TierOf(run, id)?.ToString() ?? "?", owned, ArtOf(id), _cardText.For(id, Loc.CurrentCode));
         }
 
-        var items = report.Statuses.Take(5).Select(st =>
+        // Every build of the character, highest commit first. No cap: Ironclad has 8 builds and Defect 6, and a top-5 cut
+        // hid whole builds (자해 sorts 5th by id at zero commit, so one card for any build after it pushed it out).
+        // The panel scrolls and only the primary build's card tiles start open, so the extra rows stay short.
+        var items = report.Statuses.Select(st =>
         {
             var a = st.Archetype;
             var groups = BuildCardsPresenter.Groups(st, _engine.Pack.Canonical, Card);
@@ -860,6 +864,7 @@ public sealed partial class AppController : IDisposable
         }
         UpdateMapLayerVisibility(show, info);
         UpdateEventMarkerVisibility(); // AppController.Events.cs
+        UpdateHoverWatch(show); // AppController.HoverYield.cs
         if (showPanel)
         {
             if (!_panel.IsVisible) _panel.Show();
@@ -1109,6 +1114,7 @@ public sealed partial class AppController : IDisposable
     {
         _topmostTimer.Stop();
         _messageTimer.Stop();
+        _hoverTimer?.Stop();
         _source.Changed -= OnSourceChanged;
         _source.Dispose();
         DisposeForecastReview(); // AppController.ForecastReview.cs

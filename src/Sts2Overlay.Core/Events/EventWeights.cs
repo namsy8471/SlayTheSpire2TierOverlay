@@ -59,6 +59,22 @@ public sealed class EventWeights
     /// <summary>Gaining a curse (the cost of carrying it or paying to remove it). [추정]</summary>
     public double CursePenalty { get; set; } = 25;
 
+    /// <summary>
+    /// Per-curse multiplier on <see cref="CursePenalty"/> (card id → factor, 1 when absent). Ethereal curses exhaust
+    /// themselves at the end of the turn they are drawn, so they cost one dead draw per combat instead of one per
+    /// shuffle: CLUMSY (unplayable, ethereal), and FOLLY (also innate and eternal: always in the first hand, never removable).
+    /// Top players take THIS_OR_THAT's relic + Clumsy over 41–68 gold 68% of the time (950 picks, 20 players). [추정]
+    /// </summary>
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+    public Dictionary<string, double> CurseSeverity { get; set; } = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["CARD.CLUMSY"] = 0.4, ["CARD.FOLLY"] = 0.5,
+    };
+
+    /// <summary><see cref="CursePenalty"/> for one copy of <paramref name="cardId"/> (null = an unknown curse).</summary>
+    public double CursePenaltyFor(string? cardId)
+        => CursePenalty * (cardId is not null && CurseSeverity.TryGetValue(cardId, out var m) ? m : 1);
+
     /// <summary>A card reward screen (pick 1 of N, may skip). Rare-only rewards are worth more. [추정]</summary>
     public double CardReward { get; set; } = 7;
     public double RareCardReward { get; set; } = 12;

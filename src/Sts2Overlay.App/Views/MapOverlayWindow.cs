@@ -6,6 +6,7 @@ using Sts2Overlay.App.Integration;
 using Sts2Overlay.App.Interop;
 using Sts2Overlay.App.Services;
 using Sts2Overlay.Core.Map;
+using RectF = Sts2Overlay.Vision.RectF;
 using RefTransform = Sts2Overlay.Vision.RefTransform;
 using static Sts2Overlay.App.Interop.NativeMethods;
 
@@ -26,7 +27,7 @@ namespace Sts2Overlay.App.Views;
 /// is exactly as big, relative to the map, at FHD 100 % as at 4K 150 %.
 /// </para>
 /// </summary>
-public sealed class MapOverlayWindow : Window
+public sealed class MapOverlayWindow : Window, IHoverYield
 {
     private static readonly Brush Gold = Frozen(new SolidColorBrush(Color.FromRgb(0xFF, 0xD5, 0x4F)));
     private static readonly Brush GoldDark = Frozen(new SolidColorBrush(Color.FromRgb(0x3A, 0x2A, 0x05)));
@@ -105,6 +106,27 @@ public sealed class MapOverlayWindow : Window
     }
 
     public void Clear() => ShowPlan(MapMarkPlan.Empty);
+
+    // ---- stepping aside for the game's hover tips (see HoverYield.cs) ----
+
+    public bool IsShowingMarks => IsVisible && HasMarks;
+
+    /// <summary>
+    /// The rest-site buttons and the upgrade-grid cards our rectangle marks sit on (the game shows a tip for each).
+    /// Not the map's nodes: the path is drawn across the whole map, so hiding it whenever the mouse is on a node
+    /// would hide it most of the time.
+    /// </summary>
+    public IEnumerable<PxBox> HoverZones()
+    {
+        if (_layer.IsEmpty) return [];
+        var layer = new PxBox(_layer.X, _layer.Y, _layer.Width, _layer.Height);
+        return _plan.Rects
+            .Where(r => r.Kind != ScreenRectMarkKind.Note)
+            .Select(r => HoverGeometry.FromRef(new RectF(r.X, r.Y, r.Width, r.Height), layer))
+            .ToArray();
+    }
+
+    public void SetHoverHidden(bool hidden) => OverlayWindowHelper.FadeContent(this, hidden);
 
     private void Redraw()
     {

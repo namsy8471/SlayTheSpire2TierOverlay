@@ -68,6 +68,12 @@ public sealed record PathOption
     /// <summary>Shops on the path where the simulation expects to spend gold (removal and/or a purchase).</summary>
     public int ShopPurchases { get; init; }
 
+    /// <summary>
+    /// Monster rooms on the path whose fight comes from the act's hard pool (after its easy fights are used up),
+    /// as an expected count: a "?" room before them may already have used up an easy fight.
+    /// </summary>
+    public double HardFights { get; init; }
+
     /// <summary>Short reason chips in the current language, e.g. "엘리트 2", "휴식처 2 (보스 전 휴식 있음)" / "Elites 2", "Low HP: fewer fights".</summary>
     public IReadOnlyList<string> Chips { get; init; } = [];
 

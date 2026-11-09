@@ -44,6 +44,7 @@ Slay the Spire 2 **v0.107.1** 기준 첫 실제 데이터 팩입니다. **초안
 - `actTier`: 1막에 특히 좋은 카드(즉시 딜·광역)와, 일찍 얻을수록 좋은 카드(최대 체력·영구 성장)에만 적었습니다.
 - `dupFactor`: 겹치면 효과가 없는 파워는 2~2.5, 여러 장 모을수록 강한 카드(클로·교수형 계열)는 0.2~0.3, 기본 파워는 1.3, 나머지 1.0.
 - `upgradedDelta`: 기본 3, B 이하 4, A 6, 강화 효과가 큰 카드는 따로(예: 손패 전체 강화, 0코스트화) 6~8.
+- `upgradeValue`(2026-11): 휴식처 강화 순위에 쓰는 카드별 강화 가치(1.4~7.9점). 랭커 강화 선택 8,140번으로 맞춘 값이며, 있으면 강화 조언이 `upgradedDelta` 대신 씁니다(카드 픽 점수는 읽지 않음). 빌드 역할 가중치는 `weights.json`의 `upgrade`. 근거와 다시 맞추는 법: [`docs/research/UPGRADE_CALIBRATION.md`](../../../docs/research/UPGRADE_CALIBRATION.md).
 
 ### 2.2 시너지 축 태그 (`provides` / `consumes` / `requires`)
 
