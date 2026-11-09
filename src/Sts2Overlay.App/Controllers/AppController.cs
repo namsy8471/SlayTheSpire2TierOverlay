@@ -959,7 +959,20 @@ public sealed partial class AppController : IDisposable
         _pipeline.RequestRecognize();
     }
 
-    public void SaveCapture() => _pipeline.RequestSave();
+    /// <summary>
+    /// Ctrl+F9 (developer debug): saves the game screen as a PNG in the captures folder. Only with
+    /// <c>"debugCaptures": true</c> in settings.json, so screenshots are never left there by accident; players never
+    /// need it (recognition works in memory). <paramref name="force"/> is for <c>--selftest</c>.
+    /// </summary>
+    public void SaveCapture(bool force = false)
+    {
+        if (!force && !_settings.DebugCaptures)
+        {
+            AppLog.Info("capture save ignored: debugCaptures is off");
+            return;
+        }
+        _pipeline.RequestSave();
+    }
 
     public void ReloadPack()
     {

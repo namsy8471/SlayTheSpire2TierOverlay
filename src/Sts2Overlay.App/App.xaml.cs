@@ -120,6 +120,10 @@ public partial class App : Application
         };
         AppDomain.CurrentDomain.UnhandledException += (_, args) => AppLog.Error("unhandled exception", args.ExceptionObject as Exception);
 
+        // Leftover debug screenshots (old OverlaySpike bursts, earlier Ctrl+F9 saves) are deleted unless the user keeps
+        // them on purpose ("debugCaptures"). Runs in the background; recognition never reads these files.
+        _ = CaptureCleanup.RunAtStartup(_settings.DebugCaptures);
+
         // --show-in-capture forces it on for this run (old debug flag); recognition stays safe either way.
         var captureVisibility = new OverlayCaptureVisibility(_settings.ShowOverlayInCapture || options.ShowInCapture);
         var packDir = AppPaths.ResolvePackDir(options.PackDir ?? _settings.PackDir);
@@ -187,7 +191,10 @@ public partial class App : Application
         _updates.Start();
     }
 
-    /// <summary>--selftest: after 2 s save one capture and recognise once, then exit after 6 s (results are in app.log).</summary>
+    /// <summary>
+    /// --selftest: after 2 s save one capture (even with "debugCaptures" off; the next normal start removes it) and
+    /// recognise once, then exit after 6 s (results are in app.log).
+    /// </summary>
     private void RunSelfTest()
     {
         var step = 0;
@@ -198,7 +205,7 @@ public partial class App : Application
             if (step == 1)
             {
                 AppLog.Info($"selftest: window {_tracker?.Current?.ToString() ?? "(none)"}");
-                _controller!.SaveCapture();
+                _controller!.SaveCapture(force: true);
                 _controller.RecognizeNow();
             }
             else if (step == 3)
@@ -223,7 +230,8 @@ public partial class App : Application
         Reg(HotkeyManager.VK_F6, "F6", () => _controller!.ToggleAlwaysOnTop());
         Reg(HotkeyManager.VK_F7, "F7", () => _controller!.ToggleClickThrough());
         Reg(HotkeyManager.VK_F8, "F8", () => _controller!.ToggleHidden());
-        Reg(HotkeyManager.VK_F9, "F9", () => _controller!.SaveCapture());
+        // Debug-only screenshot key: registered only with "debugCaptures" on, so Ctrl+F9 stays free for other programs.
+        if (_settings.DebugCaptures) Reg(HotkeyManager.VK_F9, "F9", () => _controller!.SaveCapture());
         Reg(HotkeyManager.VK_F10, "F10", () => _controller!.RecognizeNow());
         Reg(HotkeyManager.VK_F11, "F11", () => _controller!.ToggleDebugOutlines());
         if (failed.Count > 0) _controller!.ShowMessage(Loc.T($"단축키 등록 실패 (다른 프로그램이 사용 중): {string.Join(", ", failed)}",
@@ -245,7 +253,6 @@ public partial class App : Application
         };
         _tray.ToggleVisibilityRequested += () => _controller!.ToggleHidden();
         _tray.RecognizeRequested += () => _controller!.RecognizeNow();
-        _tray.SaveCaptureRequested += () => _controller!.SaveCapture();
         _tray.UiScaleRequested += s => _controller!.SetUiScale(s);
         _tray.DemoRequested += s => _controller!.SetDemo(s);
         _tray.DebugOutlinesRequested += () => _controller!.ToggleDebugOutlines();
@@ -259,15 +266,6 @@ public partial class App : Application
         // Raised on the capture thread when a GDI frame hides the overlay (or window capture shows it again).
         _pipeline!.CaptureVisibility.ExcludedChanged += _ => Dispatcher.BeginInvoke(UpdateTray);
         _tray.ReloadPackRequested += () => _controller!.ReloadPack();
-        _tray.OpenCapturesRequested += () =>
-        {
-            Directory.CreateDirectory(AppPaths.CapturesDir);
-            OpenShell(AppPaths.CapturesDir);
-        };
-        _tray.OpenLogRequested += () =>
-        {
-            if (AppLog.FilePath is { } p && File.Exists(p)) OpenShell(p);
-        };
         _tray.LanguageRequested += setting =>
         {
             _settings.Language = GameLanguage.NormalizeSetting(setting);
@@ -345,18 +343,6 @@ public partial class App : Application
         _tray.SetShowInCapture(_controller.ShowOverlayInCapture, _controller.CaptureForcedHidden);
         _tray.SetUpdateReady(_updates?.ReadyVersion);
         _tray.SetUpdateChecking(_updates?.IsChecking == true);
-    }
-
-    private static void OpenShell(string path)
-    {
-        try
-        {
-            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
-        }
-        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
-        {
-            AppLog.Warn($"could not open {path}: {ex.Message}");
-        }
     }
 
     private static SolidColorBrush PanelBrush(double opacity)
