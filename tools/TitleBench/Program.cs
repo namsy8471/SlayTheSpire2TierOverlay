@@ -284,16 +284,20 @@ void Events()
         var transitionMisses = new List<string>();
         float minPairDistance = float.MaxValue;
         string minPair = "";
+        // The same with EventScreenTracker's ink comparison (TextInk.Distance, every button, hovered or not).
+        var inkPairs = new List<(float D, string Name)>();
+        var inkTransitions = new List<(float D, string Name)>();
         foreach (JsonElement ev in pack.RootElement.GetProperty("events").EnumerateArray())
         {
             var vars = new Dictionary<string, double>();
             if (ev.TryGetProperty("vars", out JsonElement vs) && vs.ValueKind == JsonValueKind.Object)
                 foreach (JsonProperty vp in vs.EnumerateObject())
                     if (vp.Value.ValueKind == JsonValueKind.Number) vars[vp.Name] = vp.Value.GetDouble();
-            var pages = new List<(string Page, List<float[]> Sigs, List<string> Texts, List<string?> Next)>();
+            var pages = new List<(string Page, List<float[]> Sigs, List<string> Texts, List<string?> Next, List<Sts2Overlay.Vision.Events.TextInk> Inks)>();
             foreach (JsonElement page in ev.GetProperty("pages").EnumerateArray())
             {
                 var sigs = new List<float[]>();
+                var inks = new List<Sts2Overlay.Vision.Events.TextInk>();
                 var texts = new List<string>();
                 var next = new List<string?>();
                 foreach (JsonElement opt in page.GetProperty("options").EnumerateArray())
@@ -304,10 +308,11 @@ void Events()
                     var (path, size, lines) = EventText.Layout(b, r, title, desc);
                     rows.Add((key, size, lines, EventText.InkShare(path, top), EventText.InkShare(path, bottom)));
                     sigs.Add(EventText.Signature(path));
+                    inks.Add(EventText.Ink(path));
                     texts.Add(title + "|" + desc);
                     next.Add(opt.TryGetProperty("next", out JsonElement nx) && nx.ValueKind == JsonValueKind.String ? nx.GetString() : null);
                 }
-                pages.Add((page.GetProperty("page").GetString()!, sigs, texts, next));
+                pages.Add((page.GetProperty("page").GetString()!, sigs, texts, next, inks));
             }
             // Real transitions: option k of page P leads to page Q. The mouse still rests on button k when Q comes
             // up, so EventScreenTracker.SameButtons compares only the other (idle) buttons.
@@ -320,6 +325,8 @@ void Events()
                     float d = Enumerable.Range(0, from.Sigs.Count).Where(i => i != k)
                         .Max(i => Sts2Overlay.Vision.Events.EventButtonDetector.SignatureDistance(from.Sigs[i], to.Sigs[i]));
                     if (d <= 0.02f) transitionMisses.Add($"{ev.GetProperty("id").GetString()} {from.Page} --#{k}--> {to.Page} ({d:F4})");
+                    inkTransitions.Add((Enumerable.Range(0, from.Inks.Count).Max(i => Sts2Overlay.Vision.Events.TextInk.Distance(from.Inks[i], to.Inks[i])),
+                        $"{ev.GetProperty("id").GetString()} {from.Page} --#{k}--> {to.Page} {Verdict(from.Inks, to.Inks)}"));
                 }
             for (int i = 0; i < pages.Count; i++)
                 for (int j = i + 1; j < pages.Count; j++)
@@ -332,6 +339,7 @@ void Events()
                     string name = $"{ev.GetProperty("id").GetString()} {pages[i].Page}/{pages[j].Page}";
                     if (d < minPairDistance) { minPairDistance = d; minPair = name; }
                     if (d <= 0.02f) collisions.Add($"{name} ({d:F4})");
+                    inkPairs.Add((pages[i].Inks.Zip(pages[j].Inks, Sts2Overlay.Vision.Events.TextInk.Distance).Max(), $"{name} {Verdict(pages[i].Inks, pages[j].Inks, ordered: false)}"));
                 }
         }
         var tops = rows.Select(x => x.Top).OrderBy(x => x).ToList();
@@ -345,7 +353,28 @@ void Events()
         foreach (string c in collisions) Console.WriteLine($"    {c}");
         Console.WriteLine($"  page transitions to a page with the same button count and other text: {transitions}; other buttons' signatures within 0.02: {transitionMisses.Count}");
         foreach (string c in transitionMisses) Console.WriteLine($"    {c}");
+        Console.WriteLine($"  ink verdicts: page pairs not Changed {inkPairs.Count(x => !x.Name.Contains("Changed"))}, transitions not Changed {inkTransitions.Count(x => !x.Name.Contains("Changed"))}");
+        foreach (var x in inkPairs.Concat(inkTransitions).Where(x => !x.Name.Contains("Changed"))) Console.WriteLine($"    {x.Name} {x.D:F4}");
+        Console.WriteLine($"  ink (TextInk.Distance, all buttons): page pairs {inkPairs.Count}, lowest " +
+                          string.Join(", ", inkPairs.OrderBy(x => x.D).Take(5).Select(x => $"{x.Name} {x.D:F4}")));
+        Console.WriteLine($"  ink transitions {inkTransitions.Count}, lowest " +
+                          string.Join(", ", inkTransitions.OrderBy(x => x.D).Take(5).Select(x => $"{x.Name} {x.D:F4}")));
+        File.WriteAllLines(Path.Combine(Path.GetTempPath(), $"titlebench-ink-{lang}.tsv"),
+            inkPairs.Select(x => $"pair	{x.D:F4}	{x.Name}").Concat(inkTransitions.Select(x => $"transition	{x.D:F4}	{x.Name}")));
     }
+}
+
+// Page verdict as EventScreenTracker reads it with page a as the reference and b on screen: Changed when any button
+// is, else Unsure when any is, else Same. For an unordered pair, the weaker of the two orders.
+static Sts2Overlay.Vision.Events.TextVerdict Judge(List<Sts2Overlay.Vision.Events.TextInk> a, List<Sts2Overlay.Vision.Events.TextInk> b) =>
+    a.Zip(b, Sts2Overlay.Vision.Events.TextInk.Judge).Max();
+
+static string Verdict(List<Sts2Overlay.Vision.Events.TextInk> a, List<Sts2Overlay.Vision.Events.TextInk> b, bool ordered = true)
+{
+    var v = ordered ? Judge(a, b) : (Sts2Overlay.Vision.Events.TextVerdict)Math.Min((int)Judge(a, b), (int)Judge(b, a));
+    float inside = a.Zip(b, (x, y) => Sts2Overlay.Vision.Events.TextInk.Match(x, y))
+        .Where(m => m.Distance >= Sts2Overlay.Vision.Events.TextInk.ChangedMin).Select(m => Math.Min(m.Lost, m.Gained)).DefaultIfEmpty(-1).Max();
+    return $"{v} (inside {inside:F3})";
 }
 
 void EventsValidate(string capture, string eventId, string pageName)

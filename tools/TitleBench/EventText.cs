@@ -134,6 +134,18 @@ internal static partial class EventText
     /// <summary>Share of a rectangle's pixels that text makes non-teal (coverage above one third).</summary>
     public static float InkShare(SKPath path, SKRect r) => Coverage(path, r).Count(v => v > 1f / 3) / (r.Width * r.Height);
 
+    /// <summary>
+    /// The text as <see cref="Sts2Overlay.Vision.Events.TextInk"/> reads it on a frame: screen x 954..1692 = node x
+    /// 32..770, texture y 6..80 = node y 14..88, one cell per reference pixel, ink where the glyphs cover 40 %+ (a
+    /// cream glyph over the teal fill passes the 150 brightness test from about that coverage). Pivot: node (400, 50).
+    /// </summary>
+    public static Sts2Overlay.Vision.Events.TextInk Ink(SKPath path)
+    {
+        var r = new SKRect(32, 14, 770, 88);
+        float[] cov = Coverage(path, r);
+        return new Sts2Overlay.Vision.Events.TextInk(cov.Select(v => v > 0.4f).ToArray(), (int)r.Width, (int)r.Height, 400 - r.Left, 50 - r.Top);
+    }
+
     /// <summary>EventButtonDetector's text signature (24 x 4 cells of x 950..1690, texture y 14..70) on the rendering.</summary>
     public static float[] Signature(SKPath path)
     {

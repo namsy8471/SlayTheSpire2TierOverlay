@@ -146,9 +146,9 @@ public sealed class UpgradeAdvisor(DataPack pack)
             if (Math.Abs(v) >= Epsilon)
             {
                 var name = b.Status.Archetype.DisplayName;
-                parts.Add(new ScoreComponent(UpgradeComponentKeys.Build, Loc.T($"{name} {RoleName(b.Role)}", $"{name} {b.Role}"), v,
+                parts.Add(new ScoreComponent(UpgradeComponentKeys.Build, $"{name} {RoleName(b.Role)}", v,
                     Loc.T($"{name} 빌드의 {RoleName(b.Role)} 카드 (빌드 진행 {b.Commit * 100:0}%)",
-                        $"{b.Role} card of the {name} build ({b.Commit * 100:0}% committed)")));
+                        $"{RoleName(b.Role)} card of the {name} build ({b.Commit * 100:0}% committed)")));
             }
         }
 
@@ -205,10 +205,10 @@ public sealed class UpgradeAdvisor(DataPack pack)
 
     private static string RoleName(string role) => role switch
     {
-        ArchetypeRoles.Core => "코어",
-        ArchetypeRoles.Payoff => "핵심 보상",
-        ArchetypeRoles.Enabler => "준비",
-        ArchetypeRoles.Support => "보조",
+        ArchetypeRoles.Core => Loc.T("코어", "core"),
+        ArchetypeRoles.Payoff => Loc.T("핵심 보상", "payoff"),
+        ArchetypeRoles.Enabler => Loc.T("준비", "enabler"),
+        ArchetypeRoles.Support => Loc.T("보조", "support"),
         _ => role,
     };
 

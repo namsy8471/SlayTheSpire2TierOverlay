@@ -85,7 +85,8 @@ public static class AncientButtonDetector
             float top = SlotTop(count, i);
             var bounds = t.ToPixelRect(new RectF(RefLeft, top, RefWidth, RefHeight)).Intersect(frame.Width, frame.Height);
             var sig = EventButtonDetector.Signature(px, frame, t, new RectF(TextX0, top + TextY0, TextX1 - TextX0, TextY1 - TextY0));
-            buttons.Add(new EventButton(i, bounds, i == hovered ? EventButtonState.Hovered : EventButtonState.Idle, sig));
+            var ink = TextInk.Read(px, frame, t, new RectF(TextX0, top + TextY0, TextX1 - TextX0, TextY1 - TextY0), RefLeft + RefWidth / 2, top + RefHeight / 2);
+            buttons.Add(new EventButton(i, bounds, i == hovered ? EventButtonState.Hovered : EventButtonState.Idle, sig, ink));
         }
         return new EventScreen(buttons);
     }

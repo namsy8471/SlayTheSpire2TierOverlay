@@ -18,10 +18,14 @@ public enum EventButtonState
 /// <param name="Bounds">The button's visible texture, frame pixels.</param>
 /// <param name="State">Idle, hovered or locked.</param>
 /// <param name="TextSignature">
-/// Where the button's light text pixels are (24x4 cells, fraction 0..1). Two frames show the same buttons when the
-/// signatures of their idle buttons agree; a new page of the same event has other text.
+/// Where the button's light text pixels are (24x4 cells, fraction 0..1): a coarse summary, kept for tools and for
+/// buttons without <paramref name="Ink"/>.
 /// </param>
-public sealed record EventButton(int Index, PixelRect Bounds, EventButtonState State, float[] TextSignature);
+/// <param name="Ink">
+/// The button's text pixel by pixel (null when not read). Two frames show the same page when the ink of every button
+/// reads the same (<see cref="TextInk.Judge"/>); a new page of the same event has other text.
+/// </param>
+public sealed record EventButton(int Index, PixelRect Bounds, EventButtonState State, float[] TextSignature, TextInk? Ink = null);
 
 /// <summary>The option buttons of an event screen, top to bottom.</summary>
 public sealed record EventScreen(IReadOnlyList<EventButton> Buttons)
@@ -34,16 +38,25 @@ public sealed record EventScreen(IReadOnlyList<EventButton> Buttons)
 /// Finds the option buttons of the default event screen ("?" rooms).
 /// <para>
 /// Geometry from the game's scenes (<c>default_event_layout.tscn</c>, <c>event_option_button.tscn</c>), 1920x1080
-/// reference units: the options are a column of 800x100 nodes at x 922..1722, node i at y = 596 + 104 i, whose
-/// visible texture is x 930..1714, y 604 + 104 i .. 688 + 104 i. The column starts at the same y whatever the
-/// number of options, so the count is "how many slots from the top look like a button".
+/// reference units: the options are a column of 800x100 nodes at x 922..1722, node i at y = 596 + 104 i + d, whose
+/// visible texture is x 930..1714, y 604 + 104 i + d .. 688 + 104 i + d. The count is "how many slots from the top
+/// look like a button".
+/// </para>
+/// <para>
+/// d is 0 while the event text fits its 280 px minimum box (most pages). The text box grows with its text
+/// (<c>fit_content</c>) and the options follow it, so a long description, or the co-op shared label, pushes the whole
+/// column down (Abyssal Baths in English: d = 18; Amalgamator in Korean: d = 63). <see cref="ColumnOffset"/> finds d from the
+/// first button's run of fill rows: its centre, because a hovered button grows about its centre.
 /// </para>
 /// <para>
 /// A slot is a button when two thin stripes inside the texture, one under the top border and one above the bottom
 /// border (no text there), are at least 60 % button fill. The fill is a dark teal whose blue is a little above its
 /// green (idle about 37,69,74; hovered 48,89,96). That small blue-over-green margin is what tells it apart from
-/// the shop's teal rug (55,84,74). Locked buttons are a grey-brown (46,41,41). On 1459 captured frames this finds
-/// every event screen and nothing else (tests/Sts2Overlay.Vision.Tests/EventButtonTests.cs).
+/// the shop's teal rug (55,84,74). Locked buttons are a grey-brown (46,41,41). Each button must also end: the band
+/// of the 20 px gap under it is not fill (real buttons: at most 27 %), which a field of teal, such as a waterfall
+/// room's water behind the reward screen, is all over. On 1461 Korean captured frames and
+/// 797 English ones this finds every event screen and nothing else (tests/Sts2Overlay.Vision.Tests/EventButtonTests.cs,
+/// EnglishCaptureTests.cs).
 /// </para>
 /// </summary>
 public static class EventButtonDetector
@@ -59,6 +72,11 @@ public static class EventButtonDetector
     private const float MinFill = 0.6f;
     private const int HoverGreen = 80; // mean green of the bottom stripe: idle 59..69, hovered 85..89
     private const int HoverGlow = 60;  // mean green just above the button: hovered 82..120, otherwise 1..34
+    private const float Gap0 = 92, Gap1 = 100; // rows of the gap under a button (relative to its top), past a hovered one's growth
+
+    // Text ink area (the label is node x 42..764, y 13..87, i.e. x 964..1686, texture y 5..79; with a margin for the
+    // hover scale) and the node's scale pivot (400, 50): x 1322, texture y 42.
+    private const float InkX0 = 954, InkX1 = 1692, InkY0 = 6, InkY1 = 80, PivotX = 1322, PivotDy = 42;
 
     // Text signature area and grid.
     private const float TextX0 = 950, TextX1 = 1690, TextY0 = 14, TextY1 = 70;
@@ -69,10 +87,93 @@ public static class EventButtonDetector
         frame.Validate();
         var t = RefTransform.For(frame.Width, frame.Height);
         var px = frame.Bgra.Span;
+        int d = ColumnOffset(px, frame, t);
+        EventScreen? screen = DetectAt(px, frame, t, d);
+        // A run that only looked like a pushed-down button: the plain column is still worth a look.
+        return screen == null && d != 0 ? DetectAt(px, frame, t, 0) : screen;
+    }
+
+    // Column search: rows from just above the first slot (a hovered button reaches ~6 above it) down to the
+    // lowest place a first button fits. A row is "fill" at MinFill; a run continues over text rows (>= RunKeep:
+    // a dense Korean line still leaves 40 % fill, the gaps between buttons 0..3 %) and ends after RunGap thinner
+    // rows. Idle runs are 84 rows high, hovered ones up to ~95.
+    private const float SearchY0 = RefTop - 14, SearchY1 = 1080 - RefHeight;
+    private const float RunKeep = 0.2f;
+    private const int RunGap = 2, RunMin = 70, RunMax = 104;
+
+    /// <summary>
+    /// How far (reference px, >= 0) the option column sits below <see cref="RefTop"/>: from the centre of the first
+    /// run of button-fill rows. 0 when that run is not button-sized or is within 4 px of the plain place (the stripes
+    /// allow 5, and a hovered or fading top button moves the run's centre by up to 3).
+    /// </summary>
+    internal static int ColumnOffset(ReadOnlySpan<byte> px, in ScreenFrame f, RefTransform t)
+    {
+        int start = -1, last = -1;
+        for (int y = (int)SearchY0; y < (int)SearchY1 + RunMax; y++)
+        {
+            float fill = RowFill(px, f, t, y);
+            if (start < 0)
+            {
+                if (fill >= MinFill) { start = y; last = y; }
+                else if (y >= SearchY1) break;
+                continue;
+            }
+            if (fill >= RunKeep) { last = y; continue; }
+            if (y - last <= RunGap) continue;
+            int length = last + 1 - start;
+            if (length is >= RunMin and <= RunMax)
+            {
+                // The coarse run samples one pixel row per reference row; on a 4K frame that leaves each edge a
+                // row off, enough to put the hover glow test beside the glow. Find both edges on every pixel row.
+                int p0 = (int)t.ToPixelY(start - 1), p1 = (int)t.ToPixelY(last + 2);
+                int rise = p0, fall = p1;
+                while (rise < p1 && RowFillAt(px, f, t, rise) < MinFill) rise++;
+                while (fall > rise && RowFillAt(px, f, t, fall - 1) < RunKeep) fall--;
+                float centre = ((rise + fall) / 2f - t.OffsetY) / t.Scale;
+                int d = (int)MathF.Round(centre - RefHeight / 2 - RefTop);
+                return d <= 4 ? 0 : d;
+            }
+            // The first run decides: one too thin or too tall is not a button, and looking further down could
+            // only find a lower button and take it for the top one.
+            return 0;
+        }
+        return 0;
+    }
+
+    /// <summary>Fraction of one reference row (stripe x range) that is button fill, teal or locked.</summary>
+    private static float RowFill(ReadOnlySpan<byte> px, in ScreenFrame f, RefTransform t, int refY)
+        => RowFillAt(px, f, t, (int)t.ToPixelY(refY + 0.5f));
+
+    /// <summary>Mean <see cref="RowFill"/> over reference rows <paramref name="refY0"/>..<paramref name="refY1"/> (rows off the frame: none).</summary>
+    private static float BandFill(ReadOnlySpan<byte> px, in ScreenFrame f, RefTransform t, float refY0, float refY1)
+    {
+        float sum = 0;
+        int n = 0;
+        for (int y = (int)refY0; y < (int)refY1; y++, n++) sum += RowFill(px, f, t, y);
+        return n > 0 ? sum / n : 0;
+    }
+
+    /// <summary>Same, for one pixel row.</summary>
+    private static float RowFillAt(ReadOnlySpan<byte> px, in ScreenFrame f, RefTransform t, int y)
+    {
+        if (y < 0 || y >= f.Height) return 0;
+        int x0 = Math.Max(0, (int)t.ToPixelX(StripeX0)), x1 = Math.Min(f.Width, (int)t.ToPixelX(StripeX1));
+        int step = Math.Max(1, (int)t.Scale), row = y * f.Stride, n = 0, fill = 0;
+        for (int x = x0; x < x1; x += step, n++)
+        {
+            int p = row + x * 4;
+            int bl = px[p], g = px[p + 1], rd = px[p + 2];
+            if (IsTeal(rd, g, bl) || IsLocked(rd, g, bl)) fill++;
+        }
+        return n > 0 ? (float)fill / n : 0;
+    }
+
+    private static EventScreen? DetectAt(ReadOnlySpan<byte> px, in ScreenFrame frame, RefTransform t, int offset)
+    {
         var buttons = new List<EventButton>();
         for (int i = 0; i < MaxButtons; i++)
         {
-            float top = RefTop + RefStep * i;
+            float top = RefTop + offset + RefStep * i;
             if (t.ToPixelY(top + RefHeight) > frame.Height) break;
             var a = Stripe(px, frame, t, top + TopStripe0, top + TopStripe1);
             var b = Stripe(px, frame, t, top + BottomStripe0, top + BottomStripe1);
@@ -87,9 +188,12 @@ public static class EventButtonDetector
             }
             else if (a.Locked >= MinFill && b.Locked >= MinFill) state = EventButtonState.Locked;
             else break;
+            // A button ends in a gap; fill running on through it is a teal field, not an option column.
+            if (BandFill(px, frame, t, top + Gap0, top + Gap1) >= MinFill) return null;
 
             var bounds = t.ToPixelRect(new RectF(RefLeft, top, RefWidth, RefHeight)).Intersect(frame.Width, frame.Height);
-            buttons.Add(new EventButton(i, bounds, state, Signature(px, frame, t, new RectF(TextX0, top + TextY0, TextX1 - TextX0, TextY1 - TextY0))));
+            buttons.Add(new EventButton(i, bounds, state, Signature(px, frame, t, new RectF(TextX0, top + TextY0, TextX1 - TextX0, TextY1 - TextY0)),
+                TextInk.Read(px, frame, t, new RectF(InkX0, top + InkY0, InkX1 - InkX0, InkY1 - InkY0), PivotX, top + PivotDy)));
         }
         return buttons.Count > 0 ? new EventScreen(buttons) : null;
     }
