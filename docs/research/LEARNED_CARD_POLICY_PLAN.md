@@ -129,7 +129,7 @@
 | 3 | 픽 모델 v1 → **완료 (5.4)** | `tools/CardPolicy/train_pick.py`, 5겹 플레이어 CV 결과 | 먼저 "엔진 조각 + 카드 임베딩" 선형, 다음 상호작용 신경망. 매번 기준선과 비교 |
 | 4 | 승률 모델 | `train_value.py`, 막별 Brier/AUC, 보정 곡선 | sample 가중치, 플레이어 실력 항, 보조 목표 |
 | 5 | 결합·λ 선택 | λ 스윕 표, 최종 설정 | 결합이 이득 없으면 λ=0 (모방학습만)으로 배포해도 됨 |
-| 6 | C# 추론 | `Core/Scoring/Learned/CardPolicyModel.cs`, 팩 로딩, 폴백, 일치 테스트 | `RecommendationEngine` 에 설정 `cardModel: engine | learned` |
+| 6 | C# 추론 → **완료 (5.5), 기본값 = 학습 모델** | `Core/Scoring/Learned/CardPolicyModel.cs`, 팩 로딩, 폴백, 일치 테스트 | `RecommendationEngine` 에 설정 `cardModel: engine | learned` |
 | 7 | DeckSim A/B | `LearnedPolicy : ISimPolicy`, DECK_SIM 지표 비교 | 이상한 덱(전부 스킵, 중복 폭주) 잡기 |
 | 8 | 배포 | 기본값은 엔진, 트레이에서 학습 모델 켜기. app.log 에 두 순위를 모두 기록 | 몇 판 해 보고 기본값 전환 결정 |
 | 9 | 패치 대응 | `retrain.ps1` 한 번으로 1~6 재실행 | 2026-11-13 게임 업데이트 후 코퍼스 다시 받아 재학습 |
@@ -222,6 +222,18 @@ dotnet run -c Release --project tools/RunHistoryAnalyzer -- pick-export <ranker 
 | saturation | −3.15 | 같은 이유로 **포화 감점은 랭커 행동과 반대** |
 
 손 엔진 수정에도 바로 쓸 수 있는 신호지만, 일치율만 쫓으면 안 된다(5.2 주의). 시뮬레이터 가치 모델로 교차 확인한 뒤 반영한다.
+
+### 5.5 6단계: 오버레이 탑재 (2026-11-10)
+
+사용자 결정: **랭커를 따르는 학습 모델을 기본값으로** ("이론보다 실제 데이터인 랭커가 맞다").
+
+- `tools/CardPolicy/export_model.py` 가 전체 38,847 화면으로 interact(8차원) 모델을 학습해 `data/packs/v0.107.1/model/card-policy.json` (124 KB, 카드 ID 와 숫자만) 을 쓴다. 같은 실행으로 C# 일치 검사용 200 화면 픽스처(`tests/fixtures/learning/card-policy-parity.json`)도 만든다.
+- C#: `Core/Learning/CardPolicyModel` (가중치 로드 + 효용 계산, 손으로 쓴 내적), `LearnedRescore` (엔진 조각마다 랭커 가중치를 곱하고 baseAdjust 를 빼고, 모델 고유 조각 `ranker_value`·`deck_fit`·`upgraded`·`copies`·`skip_act` 를 더함). 총점 = 모델 효용 ÷ (base 1점의 효용) 이라 **순위 = 모델 순위**, 그리고 "총점 = 조각 합" 규칙과 이유 칩이 그대로 유지된다.
+- 모델이 30회 미만 본 카드는 카드별 값이 없고 엔진 조각(가중치 적용)만으로 평가, 엔진의 "추정" 표시도 유지.
+- 상점은 엔진 그대로 (모델은 보상 화면만 학습).
+- 끄기: `settings.json` 의 `"cardModel": "engine"`. app.log 첫머리에 `card rewards: learned model` / `engine rules` 가 찍힌다.
+- 검증: Python 과 C# 효용 차 < 1e-3 (가중치 소수 6자리 저장), 모든 픽스처 런에서 1위 = 최고 총점, 엔진 모드 결과에는 모델 조각이 없음.
+- 바뀐 규칙: 손 엔진의 "1막 기본 카드 위주 덱이면 고를 만한 카드를 절대 스킵하지 않음" 은 랭커 행동과 다르다. 같은 조건의 랭커 화면 14,855 개 중 2,047 개(13.8%)를 랭커는 스킵했다. 그래서 이 규칙은 엔진 모드 테스트로 남기고, 학습 모드는 "스킵률 ≤ 랭커 13.8%" 로 검사한다 (사용자 기록에서 144 개 중 3 개, 2.1%).
 
 **2차 트랙 (사용자 요청, 2026-11-09)**: 전투 시뮬레이터 확장 → 자가대전 RL.
 - 10. `sts2.dll` 디컴파일로 몬스터 HP·행동 패턴 추출 (CatalogBuilder 방식), 1막 몬스터부터 `Combat/SimFight` 에 적 턴·인텐트·플레이어 피해 추가.

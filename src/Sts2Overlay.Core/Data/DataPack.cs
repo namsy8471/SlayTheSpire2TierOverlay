@@ -29,6 +29,9 @@ public sealed class DataPack
     public RelicFit? RelicFit { get; init; }
 
     /// <summary>Old id → current id (e.g. ids renamed by the game's RunHistoryV8ToV9 migration).</summary>
+    /// <summary>Learned card pick model (<c>model/card-policy.json</c>), null when the pack has none.</summary>
+    public Learning.CardPolicyModel? CardPolicy { get; init; }
+
     public IReadOnlyDictionary<string, string> IdAliases { get; init; } = new Dictionary<string, string>(StringComparer.Ordinal);
 
     private Dictionary<string, CatalogCard>? _catalogIndex;

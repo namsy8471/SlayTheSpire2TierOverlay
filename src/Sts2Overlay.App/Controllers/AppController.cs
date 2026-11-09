@@ -89,6 +89,8 @@ public sealed partial class AppController : IDisposable
         _packDir = packDir;
         CatalogPath = catalogPath;
         (_engine, _cards, _packLoaded) = LoadPack(packDir, catalogPath);
+        _engine.UseLearnedModel = !string.Equals(settings.CardModel, "engine", StringComparison.OrdinalIgnoreCase);
+        AppLog.Info(_engine.LearnedModelActive ? "card rewards: learned model" : $"card rewards: engine rules (cardModel={settings.CardModel}, model in pack: {_engine.Pack.CardPolicy is not null})");
         vm.PackText = PackText();
         _cardText = CardTextProvider.ForLocalData(_engine.Pack, packDir);
         InitForecastReview(packDir, catalogPath); // forecast + run review (AppController.ForecastReview.cs)

@@ -78,6 +78,12 @@ public sealed class AppSettings
     /// </summary>
     public bool DebugCaptures { get; set; }
 
+    /// <summary>
+    /// Card reward ranking: "learned" (default) = the model trained on top players' picks
+    /// (docs/research/LEARNED_CARD_POLICY_PLAN.md), "engine" = the hand-tuned rules only. settings.json only.
+    /// </summary>
+    public string CardModel { get; set; } = "learned";
+
     /// <summary>Panel background opacity 0..1.</summary>
     public double PanelOpacity { get; set; } = 0.86;
 

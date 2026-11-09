@@ -20,10 +20,16 @@ public class EarlySkipReplayTests(ITestOutputHelper output)
 
     private sealed record Row(string Run, int Floor, int Act, double BasicShare, CardDecision Decision, OfferEvaluation Offer);
 
-    private static readonly Lazy<IReadOnlyList<Row>> Rows = new(() =>
+    // The hand-tuned rules (learned model off). Top players skip 13.8 % of these act-1 offers (2,047 of 14,855 ranker
+    // screens, docs/research/LEARNED_CARD_POLICY_PLAN.md 5.5), so the learned model is held to that rate instead of to zero.
+    private static readonly Lazy<IReadOnlyList<Row>> Rows = new(() => Replay(learned: false));
+
+    private static readonly Lazy<IReadOnlyList<Row>> LearnedRows = new(() => Replay(learned: true));
+
+    private static IReadOnlyList<Row> Replay(bool learned)
     {
         var pack = RealPack.Value;
-        var engine = new RecommendationEngine(pack);
+        var engine = new RecommendationEngine(pack) { UseLearnedModel = learned };
         var rows = new List<Row>();
         foreach (var file in TestPaths.AllRuns)
         {
@@ -40,7 +46,7 @@ public class EarlySkipReplayTests(ITestOutputHelper output)
             }
         }
         return rows;
-    });
+    }
 
     /// <summary>An offered card that beats a basic card on its own: base ≥ D, no requires-gate penalty.</summary>
     private static bool Pickable(CardEvaluation e, Weights w)
@@ -60,6 +66,21 @@ public class EarlySkipReplayTests(ITestOutputHelper output)
         }
         Assert.True(scope.Count >= 50, $"only {scope.Count} offers in scope");
         Assert.Empty(bad);
+    }
+
+    [Fact]
+    public void Act1_BasicHeavyDeck_LearnedModelSkipsNoMoreThanTopPlayers()
+    {
+        const double rankerSkipRate = 2047.0 / 14855.0;
+        var w = RealPack.Value.Weights;
+        var scope = LearnedRows.Value.Where(r => r.Act == 1 && r.BasicShare >= 0.5 - 1e-9).ToList();
+        var engineScope = Rows.Value.Where(r => r.Act == 1 && r.BasicShare >= 0.5 - 1e-9 && r.Offer.Cards.Any(c => Pickable(c, w)))
+            .Select(r => (r.Run, r.Floor, r.Decision.GroupIndex)).ToHashSet();
+        var inScope = scope.Where(r => engineScope.Contains((r.Run, r.Floor, r.Decision.GroupIndex))).ToList();
+        var skips = inScope.Count(r => r.Offer.SkipRecommended);
+        output.WriteLine($"learned: {skips} skips in {inScope.Count} act-1 basic-heavy offers with a pickable card (top players {rankerSkipRate:P1})");
+        Assert.True(inScope.Count >= 50, $"only {inScope.Count} offers in scope");
+        Assert.True(skips <= rankerSkipRate * inScope.Count, $"{skips} skips");
     }
 
     [Fact]

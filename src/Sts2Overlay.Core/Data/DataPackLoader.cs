@@ -40,6 +40,7 @@ public static class DataPackLoader
     public const string EventStatsFile = "events.stats.json";
     public const string RelicStatsFile = "relics.json";
     public const string RelicFitFile = "relic-fit.json";
+    public const string CardPolicyFile = "model/card-policy.json";
     public const string TiersDir = "tiers";
     public const string ArchetypesDir = "archetypes";
     public const string CombosDir = "combos";
@@ -177,6 +178,8 @@ public static class DataPackLoader
         var relicStats = File.Exists(relicStatsPath) ? LoadFile(relicStatsPath, LoadRelicStats) : null;
         var relicFitPath = Path.Combine(directory, RelicFitFile);
         var relicFit = File.Exists(relicFitPath) ? LoadFile(relicFitPath, LoadRelicFit) : null;
+        var policyPath = Path.Combine(directory, CardPolicyFile);
+        var cardPolicy = File.Exists(policyPath) ? LoadFile(policyPath, Learning.CardPolicyModel.Load) : null;
 
         return new DataPack
         {
@@ -189,6 +192,7 @@ public static class DataPackLoader
             EventStats = eventStats,
             RelicStats = relicStats,
             RelicFit = relicFit,
+            CardPolicy = cardPolicy,
         };
     }
 
