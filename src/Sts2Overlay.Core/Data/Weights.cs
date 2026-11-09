@@ -77,6 +77,14 @@ public sealed class Weights
     public Dictionary<int, int> IdealDeckSize { get; set; } = new() { [1] = 15, [2] = 20, [3] = 25 };
     public double RhoDuplicate { get; set; } = 15;
 
+    /// <summary>
+    /// Share of the duplicate penalty left for a card its build lists once that build is fully committed (core-gated commit 1):
+    /// <c>duplicate = −RhoDuplicate × copies × dupFactor × (1 − (1 − BuildDuplicateFactor) × max commit×gate)</c>.
+    /// Top players' winning decks hold 1.3–2.2 extra copies of their build's cards at the end of act 3 (deck sim, 130 runs);
+    /// with the full penalty the overlay's simulated decks held 0.4–1.0 (with 0.4: 1.4–1.9). 1 turns the relief off.
+    /// </summary>
+    public double BuildDuplicateFactor { get; set; } = 0.4;
+
     // ---- DECK_COMPASS lessons ----
     /// <summary>Penalty when a card's <c>requires</c> axis is missing from the deck ("엔진 없음").</summary>
     public double RequiresPenalty { get; set; } = 15;
@@ -147,6 +155,14 @@ public sealed class SaturationWeights
 
     /// <summary>Positive synergy never drops below this fraction.</summary>
     public double MinFactor { get; set; } = 0.3;
+
+    /// <summary>
+    /// No saturation on an axis that a leaning build (commit ≥ <see cref="CorePriorityWeights.LeanMin"/>) needs as a <c>needs.tag</c>
+    /// (shivs, orbs, discard, block ...): the build's listed cards are its consumers, and few cards carry a "consumes" tag, so top players'
+    /// winning decks counted as saturated on their own build axis (deck sim: shiv 39%, block 80%, sly-discard 100% of decks).
+    /// Axes no leaning build needs keep the rule.
+    /// </summary>
+    public bool ExemptBuildAxes { get; set; } = true;
 }
 
 /// <summary>

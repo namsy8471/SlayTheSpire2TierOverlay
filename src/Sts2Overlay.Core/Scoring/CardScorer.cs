@@ -11,7 +11,7 @@ namespace Sts2Overlay.Core.Scoring;
 /// plus the DECK_COMPASS rules (requires gate, saturation, weakness-first build cap)
 /// and "core first" (<c>core_priority</c> for a build's missing core card; <c>core_missing</c> = the synergy a non-core card loses
 /// while its build has no core, so before any core cards rank on their own strength; then essential before support synergy;
-/// see <see cref="CorePriorityWeights"/>); after the core, <c>secured_essential</c> lifts the build's essential cards to a floor that beats a generic
+/// see <see cref="CorePriorityWeights"/>); after the core (a coreless build: after its essential target), <c>secured_essential</c> lifts the build's essential cards to a floor that beats a generic
 /// card one tier higher, a secured build skips the weak-deck build cap unless the deck is in an emergency, and on-theme cards are not off-build.
 /// Every tunable comes from <see cref="DataPack.Weights"/>; the total is always the sum of the emitted components.
 /// </summary>
@@ -92,7 +92,7 @@ public sealed class CardScorer(DataPack pack)
         // Weakness first (DECK_COMPASS rule 3) caps the build on a weak deck, but not for a card of a build whose core is already in,
         // unless the deck is in an emergency (block nearly missing or low HP): then the weak cap is back.
         var emergency = IsEmergency(state, profile, w);
-        var securedMember = memberships.Any(m => m.Role is not null && m.Core.Target > 0 && m.Core.Owned >= m.Core.Target);
+        var securedMember = memberships.Any(m => m.Role is not null && BuildSecured(m.Status.Archetype, Pack, profile.Copies));
         var buildCap = profile.IsWeak && (emergency || !securedMember) ? w.BuildCapWeak : w.BuildCap;
         var build = Finite(Math.Min(buildCap, buildRaw));
         var coreMissing = Finite(Math.Min(0.0, Math.Min(buildCap, buildRawGated) - build));
@@ -175,13 +175,9 @@ public sealed class CardScorer(DataPack pack)
         {
             var weakFactor = profile.IsWeak ? Math.Clamp(Finite(cp.WeakFactor), 0.0, 1.0) : 1.0;
             var bonus = Math.Max(0.0, Finite(cp.Bonus));
-            // Starter part only while no build (with core cards) is core-secured: once the deck has a working build, other
+            // Starter part only while no build is secured (BuildSecured): once the deck has a working build, other
             // builds' cores get only the lean part (a near-hybrid second build still qualifies).
-            var anySecured = profile.Archetypes.Any(s =>
-            {
-                var c = ArchetypeDetector.CoreProgress(s.Archetype, Pack, profile.Copies);
-                return c.Target > 0 && c.Owned >= c.Target;
-            });
+            var anySecured = profile.Archetypes.Any(s => BuildSecured(s.Archetype, Pack, profile.Copies));
             var starter = act <= cp.StarterMaxAct && !anySecured ? Math.Clamp(Finite(cp.StarterBonus), 0.0, bonus) : 0.0;
             foreach (var m in memberships.Where(m => m.Role == ArchetypeRoles.Core && m.Core.Owned < m.Core.Target))
             {
@@ -289,6 +285,13 @@ public sealed class CardScorer(DataPack pack)
             var worstFactor = 1.0;
             foreach (var axis in entry.Provides.Distinct(StringComparer.Ordinal))
             {
+                // An axis the deck's leaning build needs (needs.tag) is what the build is made of: its payoffs are the build's listed
+                // cards, not cards tagged "consumes", so top players' winning decks routinely produce it past the ratio (DECK_SIM.md).
+                if (w.Saturation.ExemptBuildAxes && profile.Archetypes.Any(s => Commit(s) >= cp.LeanMin - Epsilon
+                        && s.Archetype.Needs.Any(n => string.Equals(n.Tag, axis, StringComparison.Ordinal))))
+                {
+                    continue;
+                }
                 var produced = profile.Provides.GetValueOrDefault(axis);
                 var consumed = profile.Consumes.GetValueOrDefault(axis);
                 var excess = produced - w.Saturation.Ratio * Math.Max(1, consumed);
@@ -321,8 +324,12 @@ public sealed class CardScorer(DataPack pack)
         var dilution = Finite(-w.LambdaDilution * over * (1 - cycle));
 
         // ---- duplicate ----
+        // Another copy of a card the deck's build lists makes the build show up more often: top players stack them (DECK_SIM.md),
+        // so the penalty shrinks toward BuildDuplicateFactor as that build's core-gated commit grows.
         var copies = profile.Copies.GetValueOrDefault(id);
-        var duplicate = Finite(-w.RhoDuplicate * copies * (entry?.DupFactor ?? 1.0));
+        var buildRelief = engineMissing ? 0.0 : memberships.Select(m => m.Commit * m.Gate).DefaultIfEmpty(0.0).Max();
+        var dupScale = 1 - (1 - Math.Clamp(Finite(w.BuildDuplicateFactor), 0.0, 1.0)) * buildRelief;
+        var duplicate = Finite(-w.RhoDuplicate * copies * (entry?.DupFactor ?? 1.0) * dupScale);
 
         // ---- assemble (zero components omitted, base always kept) ----
         Add(parts, ComponentKeys.Build, buildLabel, build, buildDetail);
@@ -348,7 +355,8 @@ public sealed class CardScorer(DataPack pack)
         Add(parts, ComponentKeys.Saturation, ScoringLabels.Saturation, saturation, saturationDetail);
         Add(parts, ComponentKeys.PowerSaturation, ScoringLabels.PowerSaturation, powerSat, Loc.T($"파워 {profile.PowerCount}장", $"{profile.PowerCount} Powers"));
         Add(parts, ComponentKeys.Dilution, ScoringLabels.Dilution, dilution, Loc.T($"덱 {profile.DeckSize}장 / 이상 {ideal}장", $"Deck {profile.DeckSize} / ideal {ideal}"));
-        Add(parts, ComponentKeys.Duplicate, ScoringLabels.Duplicate, duplicate, Loc.T($"보유 {copies}장", $"{copies} owned"));
+        Add(parts, ComponentKeys.Duplicate, ScoringLabels.Duplicate, duplicate, Loc.T($"보유 {copies}장", $"{copies} owned")
+            + (dupScale < 1 - Epsilon ? Loc.T($" (빌드 카드 ×{Num(dupScale)})", $" (build card ×{Num(dupScale)})") : ""));
 
         var breakdown = new ScoreBreakdown(parts);
         return new CardEvaluation
@@ -425,7 +433,7 @@ public sealed class CardScorer(DataPack pack)
     public const double TwoTierMargin = 1.0;
 
     /// <summary>
-    /// Secured-essential floor of build <paramref name="s"/>: 0 unless it has core cards, owns its core target and is the deck's build
+    /// Secured-essential floor of build <paramref name="s"/>: 0 unless it is secured (<see cref="BuildSecured"/>) and is the deck's build
     /// (top commit or within <see cref="Weights.HybridMargin"/> of it). Then the full <c>SecuredEssentialFloor × taper × emergency</c>
     /// whatever the commit ("once the core arrives, essential synergy gets its points"), never above <see cref="Weights.BuildCapWeak"/>
     /// on a weak deck in an emergency.
@@ -436,8 +444,7 @@ public sealed class CardScorer(DataPack pack)
         var w = Pack.Weights;
         var cp = w.CorePriority;
         if (!(Finite(cp.SecuredEssentialFloor) > 0)) return default;
-        var core = ArchetypeDetector.CoreProgress(s.Archetype, Pack, profile.Copies);
-        if (core.Target == 0 || core.Owned < core.Target) return default;
+        if (!BuildSecured(s.Archetype, Pack, profile.Copies)) return default;
         if (Commit(s) < topCommit - w.HybridMargin - Epsilon) return default;
         var essential = ArchetypeDetector.EssentialProgress(s.Archetype, Pack, profile.Copies);
         var extra = essential.Owned - (essential.Target + cp.SecuredEssentialExtra);
@@ -458,6 +465,20 @@ public sealed class CardScorer(DataPack pack)
         if (state.HpRatio < w.Situation.LowHpThreshold) return true;
         var cp = w.CorePriority;
         return cp.EmergencyRoles.Any(r => profile.RoleGap.TryGetValue(r, out var g) && g >= cp.EmergencyGap - Epsilon);
+    }
+
+    /// <summary>
+    /// The build works: it owns its core target, or (a build without core cards) its essential target of distinct payoff + enabler
+    /// cards (<see cref="ArchetypeDetector.EssentialProgress"/>). Gates the secured-essential floor and the weak-cap exemption, so a
+    /// coreless build gets the same protection once it stands (before, they never did: in the deck sim the overlay left an established
+    /// coreless build for another card on 20–28% of the screens that offered one of its cards, against 4–10% for builds with a core).
+    /// </summary>
+    public static bool BuildSecured(Archetype a, DataPack pack, IReadOnlyDictionary<string, int> copies)
+    {
+        var core = ArchetypeDetector.CoreProgress(a, pack, copies);
+        if (core.Target > 0) return core.Owned >= core.Target;
+        var essential = ArchetypeDetector.EssentialProgress(a, pack, copies);
+        return essential.Target > 0 && essential.Owned >= essential.Target;
     }
 
     private bool CoreSecured(Archetype a, DeckProfile profile)
