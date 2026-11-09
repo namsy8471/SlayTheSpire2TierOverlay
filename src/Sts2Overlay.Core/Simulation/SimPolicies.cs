@@ -55,7 +55,7 @@ public sealed class TierOnlyPolicy(DataPack pack) : ISimPolicy
         var entry = pack.FindTier(state.Character, pack.Canonical(card.Id));
         var tier = entry is null ? w.UnknownTier
             : entry.ActTier is not null && entry.ActTier.TryGetValue(state.Act, out var t) ? t : entry.Tier;
-        var value = w.TierValue.GetValueOrDefault(tier);
+        var value = w.TierValue.GetValueOrDefault(tier) + (entry?.BaseAdjust ?? 0);
         if (entry is not null && card.Upgrade > 0) value += entry.UpgradedDelta;
         return value;
     }

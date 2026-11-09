@@ -28,7 +28,7 @@ internal static class Program
 
     private static int Main(string[] args)
     {
-        string? packDir = null, rankersDir = null, outFile = null, jsonFile = null, catalogFile = null;
+        string? packDir = null, rankersDir = null, outFile = null, jsonFile = null, catalogFile = null, cardsFile = null;
         var n = 400;
         var asc = 10;
         var mp = false;
@@ -36,6 +36,7 @@ internal static class Program
         var policies = new[] { "engine", "tier" };
         var overrides = new List<(string Key, double Value)>();
         var line = false;
+        var losses = false;
         for (var i = 0; i < args.Length; i++)
         {
             switch (args[i])
@@ -55,6 +56,8 @@ internal static class Program
                     overrides.Add((kv[0], double.Parse(kv[1], Inv)));
                     break;
                 case "--line": line = true; break;
+                case "--cards": cardsFile = args[++i]; break;
+                case "--losses": losses = true; break;
                 default:
                     Console.Error.WriteLine($"unknown argument {args[i]}");
                     return 1;
@@ -83,6 +86,13 @@ internal static class Program
         Console.Error.WriteLine($"card pool: {pool.All.Count} cards from {catalogPath ?? "the pack"}");
         var rankers = LoadRankers(rankersDir);
         Console.Error.WriteLine($"ranker runs: {rankers.Count}");
+
+        if (cardsFile is not null)
+        {
+            WriteCardRows(pack, losses ? LoadRankers(rankersDir, includeLosses: true) : rankers, cardsFile);
+            Console.Error.WriteLine($"card rows: {cardsFile}");
+            if (policies.Length == 0 || (policies.Length == 1 && policies[0] == "none")) return 0;
+        }
 
         var characters = pack.Archetypes.Select(a => a.Character).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
         var starts = new Dictionary<string, (IReadOnlyList<DeckCard> Deck, IReadOnlyList<string> Relics)>(StringComparer.Ordinal);
@@ -192,7 +202,8 @@ internal static class Program
     internal sealed record RankerRun(string RunId, string Character, RunHistory Run, long PlayerId, DeckTimeline Timeline,
         IReadOnlyList<IReadOnlyList<DeckCard>> ActEnd, IReadOnlyList<string> Relics);
 
-    private static List<RankerRun> LoadRankers(string dir)
+    /// <param name="includeLosses">Also keep losing runs (any length): only the per-card dump uses them, deck comparisons need winning decks.</param>
+    private static List<RankerRun> LoadRankers(string dir, bool includeLosses = false)
     {
         var list = new List<RankerRun>();
         foreach (var file in Directory.GetFiles(dir, "*.run").Order(StringComparer.Ordinal))
@@ -207,7 +218,7 @@ internal static class Program
                 Console.Error.WriteLine($"skip {Path.GetFileName(file)}: {e.Message}");
                 continue;
             }
-            if (!run.Win || run.IsMultiplayer || run.Players.Count == 0) continue;
+            if ((!run.Win && !includeLosses) || run.IsMultiplayer || run.Players.Count == 0) continue;
             // A few cited v0.107.0/1 runs have 170+ map points over 3 acts (a long-map mode the run file does not flag): not comparable.
             if (run.Nodes.Count > MaxMapPoints)
             {
@@ -224,7 +235,7 @@ internal static class Program
                 if (last < 0) break;
                 actEnd.Add(timeline.DeckAfter(last));
             }
-            if (actEnd.Count < 3) continue;
+            if (actEnd.Count < 3 && !includeLosses) continue;
             var relics = player.Relics.Select(r => r.Id).ToArray();
             list.Add(new RankerRun(Path.GetFileNameWithoutExtension(file), player.Character, run, player.Id, timeline, actEnd, relics));
         }
@@ -341,6 +352,60 @@ internal static class Program
         }
     }
 
+    /// <summary>
+    /// One CSV row per offered card on every ranker reward screen (shop and single-card screens left out), with the engine's score and
+    /// rank and the ranker's pick, for per-card calibration (<c>--cards file.csv</c>). Join players by run id outside (single-player runs store player id 1).
+    /// </summary>
+    private static void WriteCardRows(DataPack pack, List<RankerRun> rankers, string file)
+    {
+        var engine = new RecommendationEngine(pack);
+        using var w = new StreamWriter(file, false, new UTF8Encoding(false));
+        w.WriteLine("run,character,screen,act,floor,context,card,upgrade,ranker_pick,ranker_skip,engine_best,engine_skip,engine_rank,total,skip_total,base,build,primary,primary_commit,primary_established,role,deck_size,need_frontload,need_aoe,need_block,need_scaling,need_draw,need_other,components");
+        foreach (var r in rankers)
+        {
+            var screen = 0;
+            foreach (var d in DecisionExtractor.Extract(r.Run, r.PlayerId, r.Timeline))
+            {
+                if (d.Context == OfferContext.Shop || d.Offered.Count < 2) continue;
+                screen++;
+                var profile = DeckAnalyzer.Analyze(d.StateBefore, pack);
+                var eval = engine.EvaluateOffer(d.StateBefore, profile, d.Offered, d.Context);
+                var rankerPick = d.Picked.Count > 0 ? d.Picked[0] : (CardRef?)null;
+                var order = eval.Cards.OrderByDescending(e => e.Total).Select(e => e.Card).ToList();
+                var primary = profile.Primary;
+                foreach (var e in eval.Cards)
+                {
+                    var id = pack.Canonical(e.Card.Id);
+                    var role = primary?.Archetype.RoleOf(id) ?? "";
+                    // Need split by role (CardScorer: WNeed × gap × urgency × strength), for per-role calibration.
+                    var entry = pack.FindTier(r.Character, id);
+                    var urgency = Weights.ForAct(pack.Weights.Urgency, d.StateBefore.Act, new Dictionary<string, double>(StringComparer.Ordinal));
+                    var needByRole = new Dictionary<string, double>(StringComparer.Ordinal);
+                    foreach (var (needRole, gap) in profile.RoleGap)
+                    {
+                        var v = pack.Weights.WNeed * gap * urgency.GetValueOrDefault(needRole, 1.0) * (entry?.Roles.GetValueOrDefault(needRole) ?? 0.0);
+                        if (!double.IsFinite(v)) continue;
+                        var k = needRole is Roles.Frontload or Roles.Aoe or Roles.Block or Roles.Scaling or Roles.Draw ? needRole : "other";
+                        needByRole[k] = needByRole.GetValueOrDefault(k) + v;
+                    }
+                    string N(string k) => needByRole.GetValueOrDefault(k).ToString("0.##", Inv);
+                    var comps = string.Join(";", e.Score.Components.Where(c => Math.Abs(c.Value) > 1e-6).Select(c => $"{c.Key}={c.Value.ToString("0.##", Inv)}"));
+                    w.WriteLine(string.Join(",",
+                        r.RunId, r.Character, screen.ToString(Inv), d.StateBefore.Act.ToString(Inv), d.StateBefore.Floor.ToString(Inv), d.Context,
+                        id, e.Card.Upgrade.ToString(Inv),
+                        rankerPick == e.Card ? "1" : "0", rankerPick is null ? "1" : "0",
+                        eval.Best == e.Card ? "1" : "0", eval.Best is null ? "1" : "0",
+                        order.IndexOf(e.Card).ToString(Inv),
+                        e.Total.ToString("0.##", Inv), eval.Skip.Total.ToString("0.##", Inv),
+                        e.Score.ValueOf(ComponentKeys.Base).ToString("0.##", Inv), e.Score.ValueOf(ComponentKeys.Build).ToString("0.##", Inv),
+                        primary?.Archetype.Id ?? "", (primary?.Commit ?? 0).ToString("0.###", Inv), primary is not null && Established(primary) ? "1" : "0",
+                        role, d.StateBefore.Deck.Count.ToString(Inv),
+                        N(Roles.Frontload), N(Roles.Aoe), N(Roles.Block), N(Roles.Scaling), N(Roles.Draw), N("other"), comps));
+                }
+            }
+        }
+    }
+
     /// <summary>A build is established once it owns its core target (builds without a core list: commit ≥ 0.4).</summary>
     internal static bool Established(Sts2Overlay.Core.Archetypes.ArchetypeStatus s)
         => s.CoreTarget > 0 ? s.OwnedCore >= s.CoreTarget : s.Commit >= 0.4;
@@ -389,6 +454,14 @@ internal static class Program
                         continue;
                     }
                     row.Leaked++;
+                    // Critical = the passed build card is a core / enabler / payoff the deck does not own yet; flexible = a support card or
+                    // another copy of an owned build card (rankers take good generic cards over those: DECK_SIM §5 mixed screens 50 %).
+                    var passedId = pack.Canonical(bestBuild.Card.Id);
+                    var passedRole = primary.Archetype.RoleOf(passedId);
+                    if (passedRole is ArchetypeRoles.Core or ArchetypeRoles.Enabler or ArchetypeRoles.Payoff && profile.Copies.GetValueOrDefault(passedId) == 0)
+                    {
+                        row.LeakedCritical++;
+                    }
                     var taken = eval.Cards.First(e => e.Card == picked);
                     var tid = pack.Canonical(taken.Card.Id);
                     var drawCard = (pack.FindTier(c, tid)?.Roles.GetValueOrDefault(Roles.Draw) ?? 0) >= DeckMetrics.DrawRoleMin;
@@ -521,7 +594,7 @@ internal static class Program
             $"skip r/e {Skip(1)} {Skip(2)} {Skip(3)}",
             $"sim skip {SimSkip(1)}/{SimSkip(2)}/{SimSkip(3)}",
             $"mixed r/e {100.0 * a.Sum(x => x.RankerTookBuild) / Math.Max(1, mixed):0}/{100.0 * a.Sum(x => x.EngineTookBuild) / Math.Max(1, mixed):0}",
-            $"leak {100.0 * leaks.Sum(l => l.Leaked) / Math.Max(1, leaks.Sum(l => l.Eligible)):0.0}",
+            $"leak {100.0 * leaks.Sum(l => l.Leaked) / Math.Max(1, leaks.Sum(l => l.Eligible)):0.0} (critical {100.0 * leaks.Sum(l => l.LeakedCritical) / Math.Max(1, leaks.Sum(l => l.Eligible)):0.0})",
             $"dupes e/r {Mean(eng3, "BuildDupes")}/{Mean(rk3, "BuildDupes")}",
             $"size e/r {Mean(eng3, "Size")}/{Mean(rk3, "Size")}",
             $"coh e/r {Mean(eng3, "Coherence")}/{Mean(rk3, "Coherence")}",
@@ -644,6 +717,7 @@ internal sealed class LeakRow
     public string Character { get; set; } = "";
     public int Eligible { get; set; }
     public int Leaked { get; set; }
+    public int LeakedCritical { get; set; }
     public int Skipped { get; set; }
     public int LeakedToDraw { get; set; }
     public int LeakedToOnTheme { get; set; }

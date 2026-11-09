@@ -19,6 +19,17 @@ public class CorePriorityReplayTests(ITestOutputHelper output)
     private static readonly Lazy<DataPack> RealPack = new(() =>
         DataPackLoader.LoadDirectory(Path.Combine(TestPaths.RepoRoot, "data", "packs", "v0.107.1"), RealCatalog.Instance));
 
+    /// <summary>
+    /// The real pack with every <c>baseAdjust</c> set to 0. Invariant (b) is about the core rule, so it pairs cards by tier base only:
+    /// a calibration offset (docs/research/CARD_CALIBRATION.md) splits most same-tier ties and would leave too few pairs to test.
+    /// </summary>
+    private static readonly Lazy<DataPack> TierOnlyPack = new(() =>
+    {
+        var pack = DataPackLoader.LoadDirectory(Path.Combine(TestPaths.RepoRoot, "data", "packs", "v0.107.1"), RealCatalog.Instance);
+        foreach (var e in pack.Tiers.Values.SelectMany(t => t.Cards.Values)) e.BaseAdjust = 0;
+        return pack;
+    });
+
     private static readonly Lazy<IReadOnlyList<CorePair>> OfferedPairs = new(() => Pairs(RealPack.Value, counterfactual: false));
     private static readonly Lazy<IReadOnlyList<CorePair>> CounterfactualPairs = new(() => Pairs(RealPack.Value, counterfactual: true));
 
@@ -239,7 +250,7 @@ public class CorePriorityReplayTests(ITestOutputHelper output)
     [Fact]
     public void CounterfactualOffers_AfterCore_EssentialRanksAboveSupportUntilTheEssentialTarget()
     {
-        var pack = RealPack.Value;
+        var pack = TierOnlyPack.Value;
         var scorer = new CardScorer(pack);
         int pairs = 0, totalFirst = 0;
         var states = 0;

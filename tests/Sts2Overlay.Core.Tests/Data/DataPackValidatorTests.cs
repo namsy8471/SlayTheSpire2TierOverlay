@@ -84,6 +84,8 @@ public class DataPackValidatorTests
     [InlineData("dupFactor", -1)]
     [InlineData("dupFactor", 4)]
     [InlineData("cycle", 2)]
+    [InlineData("baseAdjust", 16)]
+    [InlineData("baseAdjust", -15.5)]
     public void OutOfRangeNumbers_AreErrors(string field, double value)
     {
         var t = DefectTiers("CARD.A", "CARD.B");
@@ -94,6 +96,7 @@ public class DataPackValidatorTests
             case "confidence": e.Confidence = value; break;
             case "dupFactor": e.DupFactor = value; break;
             case "cycle": e.Cycle = value; break;
+            case "baseAdjust": e.BaseAdjust = value; break;
         }
         var err = Assert.Single(Errors(Pack(tiers: t)));
         Assert.Contains(field, err.Where);

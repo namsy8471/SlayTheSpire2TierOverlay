@@ -52,6 +52,19 @@ public class CardScorerTests
     }
 
     [Fact]
+    public void Base_AddsBaseAdjust_InEveryAct_ButKeepsTheTierBadge()
+    {
+        var pack = DefectPack();
+        pack.Tiers["CHARACTER.DEFECT"].Cards[AoeHit].BaseAdjust = -7;
+        var act1 = Score(AoeHit, state: State(act: 1), pack: pack);
+        var act2 = Score(AoeHit + "+1", state: State(act: 2), pack: pack);
+        Assert.Equal(W.TierValue[Tier.A] - 7, act1.Score.ValueOf(ComponentKeys.Base));
+        Assert.Equal(Tier.A, act1.DisplayTier);
+        Assert.Equal(W.TierValue[Tier.B] + 5 - 7, act2.Score.ValueOf(ComponentKeys.Base));
+        Assert.Equal(Tier.B, act2.DisplayTier);
+    }
+
+    [Fact]
     public void Base_AliasResolvesToCurrentId()
     {
         var e = Score(OldId, state: State(act: 2));

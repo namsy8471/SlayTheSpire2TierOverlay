@@ -24,6 +24,12 @@ public sealed class CardTierEntry
     /// <summary>Points added to the base value when the card is upgraded.</summary>
     public double UpgradedDelta { get; set; }
 
+    /// <summary>
+    /// Points added to the tier's base value in every act: a fine adjustment inside the letter tier, calibrated on top players'
+    /// picks on the same reward screens (docs/research/CARD_CALIBRATION.md). The badge still shows <see cref="Tier"/>.
+    /// </summary>
+    public double BaseAdjust { get; set; }
+
     /// <summary>Role strengths 0..1, keys from <see cref="Roles"/>.</summary>
     public Dictionary<string, double> Roles { get; set; } = new(StringComparer.Ordinal);
 

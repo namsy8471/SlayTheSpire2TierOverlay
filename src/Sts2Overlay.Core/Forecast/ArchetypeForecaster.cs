@@ -587,7 +587,7 @@ public sealed class ArchetypeForecaster
                 {
                     var tier = entry is null ? w.UnknownTier
                         : entry.ActTier is not null && entry.ActTier.TryGetValue(act, out var t) ? t : entry.Tier;
-                    m.TierValue[c * 3 + act - 1] = Finite(w.TierValue.GetValueOrDefault(tier));
+                    m.TierValue[c * 3 + act - 1] = Finite(w.TierValue.GetValueOrDefault(tier) + (entry?.BaseAdjust ?? 0));
                 }
                 if (entry is not null)
                 {
