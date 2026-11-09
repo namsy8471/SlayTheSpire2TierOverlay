@@ -1,0 +1,4 @@
+<Project>
+  <!-- SimLab is an offline training tool. It stops the repo-wide Directory.Build.props
+       (net10, warnings-as-errors) from applying here and to the local sts2-sim clone in ext/. -->
+</Project>
