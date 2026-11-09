@@ -710,7 +710,10 @@ public sealed partial class AppController : IDisposable
                 TierOf(run, id)?.ToString() ?? "?", owned, ArtOf(id), _cardText.For(id, Loc.CurrentCode));
         }
 
-        var items = report.Statuses.Take(5).Select(st =>
+        // Every build of the character, highest commit first. No cap: Ironclad has 8 builds and Defect 6, and a top-5 cut
+        // hid whole builds (자해 sorts 5th by id at zero commit, so one card for any build after it pushed it out).
+        // The panel scrolls and only the primary build's card tiles start open, so the extra rows stay short.
+        var items = report.Statuses.Select(st =>
         {
             var a = st.Archetype;
             var groups = BuildCardsPresenter.Groups(st, _engine.Pack.Canonical, Card);
