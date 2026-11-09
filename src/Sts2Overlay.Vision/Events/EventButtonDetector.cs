@@ -34,16 +34,23 @@ public sealed record EventScreen(IReadOnlyList<EventButton> Buttons)
 /// Finds the option buttons of the default event screen ("?" rooms).
 /// <para>
 /// Geometry from the game's scenes (<c>default_event_layout.tscn</c>, <c>event_option_button.tscn</c>), 1920x1080
-/// reference units: the options are a column of 800x100 nodes at x 922..1722, node i at y = 596 + 104 i, whose
-/// visible texture is x 930..1714, y 604 + 104 i .. 688 + 104 i. The column starts at the same y whatever the
-/// number of options, so the count is "how many slots from the top look like a button".
+/// reference units: the options are a column of 800x100 nodes at x 922..1722, node i at y = 596 + 104 i + d, whose
+/// visible texture is x 930..1714, y 604 + 104 i + d .. 688 + 104 i + d. The count is "how many slots from the top
+/// look like a button".
+/// </para>
+/// <para>
+/// d is 0 while the event text fits its 280 px minimum box (most pages). The text box grows with its text
+/// (<c>fit_content</c>) and the options follow it, so a long description, or the co-op shared label, pushes the whole
+/// column down (Abyssal Baths in English: d = 18; Amalgamator in Korean: d = 63). <see cref="ColumnOffset"/> finds d from the
+/// first button's run of fill rows: its centre, because a hovered button grows about its centre.
 /// </para>
 /// <para>
 /// A slot is a button when two thin stripes inside the texture, one under the top border and one above the bottom
 /// border (no text there), are at least 60 % button fill. The fill is a dark teal whose blue is a little above its
 /// green (idle about 37,69,74; hovered 48,89,96). That small blue-over-green margin is what tells it apart from
-/// the shop's teal rug (55,84,74). Locked buttons are a grey-brown (46,41,41). On 1459 captured frames this finds
-/// every event screen and nothing else (tests/Sts2Overlay.Vision.Tests/EventButtonTests.cs).
+/// the shop's teal rug (55,84,74). Locked buttons are a grey-brown (46,41,41). On 1461 Korean captured frames and
+/// 797 English ones this finds every event screen and nothing else (tests/Sts2Overlay.Vision.Tests/EventButtonTests.cs,
+/// EnglishCaptureTests.cs).
 /// </para>
 /// </summary>
 public static class EventButtonDetector
@@ -69,10 +76,83 @@ public static class EventButtonDetector
         frame.Validate();
         var t = RefTransform.For(frame.Width, frame.Height);
         var px = frame.Bgra.Span;
+        int d = ColumnOffset(px, frame, t);
+        EventScreen? screen = DetectAt(px, frame, t, d);
+        // A run that only looked like a pushed-down button: the plain column is still worth a look.
+        return screen == null && d != 0 ? DetectAt(px, frame, t, 0) : screen;
+    }
+
+    // Column search: rows from just above the first slot (a hovered button reaches ~6 above it) down to the
+    // lowest place a first button fits. A row is "fill" at MinFill; a run continues over text rows (>= RunKeep:
+    // a dense Korean line still leaves 40 % fill, the gaps between buttons 0..3 %) and ends after RunGap thinner
+    // rows. Idle runs are 84 rows high, hovered ones up to ~95.
+    private const float SearchY0 = RefTop - 14, SearchY1 = 1080 - RefHeight;
+    private const float RunKeep = 0.2f;
+    private const int RunGap = 2, RunMin = 70, RunMax = 104;
+
+    /// <summary>
+    /// How far (reference px, >= 0) the option column sits below <see cref="RefTop"/>: from the centre of the first
+    /// run of button-fill rows. 0 when that run is not button-sized or is within 2 px of the plain place.
+    /// </summary>
+    internal static int ColumnOffset(ReadOnlySpan<byte> px, in ScreenFrame f, RefTransform t)
+    {
+        int start = -1, last = -1;
+        for (int y = (int)SearchY0; y < (int)SearchY1 + RunMax; y++)
+        {
+            float fill = RowFill(px, f, t, y);
+            if (start < 0)
+            {
+                if (fill >= MinFill) { start = y; last = y; }
+                else if (y >= SearchY1) break;
+                continue;
+            }
+            if (fill >= RunKeep) { last = y; continue; }
+            if (y - last <= RunGap) continue;
+            int length = last + 1 - start;
+            if (length is >= RunMin and <= RunMax)
+            {
+                // The coarse run samples one pixel row per reference row; on a 4K frame that leaves each edge a
+                // row off, enough to put the hover glow test beside the glow. Find both edges on every pixel row.
+                int p0 = (int)t.ToPixelY(start - 1), p1 = (int)t.ToPixelY(last + 2);
+                int rise = p0, fall = p1;
+                while (rise < p1 && RowFillAt(px, f, t, rise) < MinFill) rise++;
+                while (fall > rise && RowFillAt(px, f, t, fall - 1) < RunKeep) fall--;
+                float centre = ((rise + fall) / 2f - t.OffsetY) / t.Scale;
+                int d = (int)MathF.Round(centre - RefHeight / 2 - RefTop);
+                return d <= 2 ? 0 : d;
+            }
+            // The first run decides: one too thin or too tall is not a button, and looking further down could
+            // only find a lower button and take it for the top one.
+            return 0;
+        }
+        return 0;
+    }
+
+    /// <summary>Fraction of one reference row (stripe x range) that is button fill, teal or locked.</summary>
+    private static float RowFill(ReadOnlySpan<byte> px, in ScreenFrame f, RefTransform t, int refY)
+        => RowFillAt(px, f, t, (int)t.ToPixelY(refY + 0.5f));
+
+    /// <summary>Same, for one pixel row.</summary>
+    private static float RowFillAt(ReadOnlySpan<byte> px, in ScreenFrame f, RefTransform t, int y)
+    {
+        if (y < 0 || y >= f.Height) return 0;
+        int x0 = Math.Max(0, (int)t.ToPixelX(StripeX0)), x1 = Math.Min(f.Width, (int)t.ToPixelX(StripeX1));
+        int step = Math.Max(1, (int)t.Scale), row = y * f.Stride, n = 0, fill = 0;
+        for (int x = x0; x < x1; x += step, n++)
+        {
+            int p = row + x * 4;
+            int bl = px[p], g = px[p + 1], rd = px[p + 2];
+            if (IsTeal(rd, g, bl) || IsLocked(rd, g, bl)) fill++;
+        }
+        return n > 0 ? (float)fill / n : 0;
+    }
+
+    private static EventScreen? DetectAt(ReadOnlySpan<byte> px, in ScreenFrame frame, RefTransform t, int offset)
+    {
         var buttons = new List<EventButton>();
         for (int i = 0; i < MaxButtons; i++)
         {
-            float top = RefTop + RefStep * i;
+            float top = RefTop + offset + RefStep * i;
             if (t.ToPixelY(top + RefHeight) > frame.Height) break;
             var a = Stripe(px, frame, t, top + TopStripe0, top + TopStripe1);
             var b = Stripe(px, frame, t, top + BottomStripe0, top + BottomStripe1);
