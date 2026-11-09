@@ -129,6 +129,7 @@ public class PathAdvisorTests
         var w = new Weights();
         w.Path.TargetElites[1] = 2;
         w.Path.DamageShape = new PathDamageShape(); // uniform damage: no death chance at full HP, so rewards are exact
+        w.Path.CardRewardDecay.Clear(); // only the relic part should change here (card-reward decay has its own test)
         var pack = TestPacks.DefectPack(w);
         var fresh = new MapBuilder(3, 1, (0, 1))
             .Add(0, 1, MapNodeType.Elite, (0, 2))

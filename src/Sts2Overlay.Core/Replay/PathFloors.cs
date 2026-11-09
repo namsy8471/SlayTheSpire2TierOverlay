@@ -41,6 +41,15 @@ public sealed record PathFloor
     /// <summary>Model id of the event room (e.g. <c>EVENT.X</c>), if any.</summary>
     public string? EventId { get; init; }
 
+    /// <summary>Encounter id of the hallway fight here (e.g. <c>ENCOUNTER.NIBBITS_WEAK</c>), if any.</summary>
+    public string? MonsterEncounterId { get; init; }
+
+    /// <summary>
+    /// True when the hallway fight came from the act's easy pool (the game's weak encounters all end in
+    /// <c>_WEAK</c>), false for the hard pool, null when there was no hallway fight or its id is unknown.
+    /// </summary>
+    public bool? EasyPool => MonsterEncounterId is { Length: > 0 } id ? id.EndsWith("_WEAK", StringComparison.Ordinal) : null;
+
     public int HpBefore { get; init; }
     public int MaxHpBefore { get; init; }
     public int HpAfter { get; init; }
@@ -156,6 +165,7 @@ public static class PathFloorExtractor
                     Type = MapGraph.ParseType(node.MapPointType),
                     Resolved = string.Join("+", node.Rooms.Select(r => r.RoomType).Where(t => t.Length > 0).Distinct()),
                     EventId = node.Rooms.FirstOrDefault(r => r.RoomType == "event")?.ModelId,
+                    MonsterEncounterId = node.Rooms.FirstOrDefault(r => r.RoomType == "monster")?.ModelId,
                     HpBefore = hpBefore,
                     MaxHpBefore = maxBefore,
                     HpAfter = s.CurrentHp,

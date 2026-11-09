@@ -90,6 +90,40 @@ public class RunSaveParserTests
         Assert.Empty(map.Nodes[map.Boss].Children);
     }
 
+    /// <summary>The coop fixture with act 2's encounter list filled in, optionally turning the current room (3,2) into a monster room.</summary>
+    private static string WithRooms(int visited, bool currentIsMonster)
+    {
+        var root = System.Text.Json.Nodes.JsonNode.Parse(CoopJson)!;
+        var act = root["acts"]![1]!;
+        act["rooms"] = System.Text.Json.Nodes.JsonNode.Parse($$"""
+            {"normal_encounter_ids":["ENCOUNTER.A_WEAK","ENCOUNTER.B_WEAK","ENCOUNTER.C_NORMAL","ENCOUNTER.D_NORMAL"],
+             "normal_encounters_visited":{{visited}}}
+            """);
+        if (currentIsMonster)
+        {
+            foreach (var point in act["saved_map"]!["points"]!.AsArray())
+                if ((int)point!["coord"]!["col"]! == 3 && (int)point["coord"]!["row"]! == 2) point["type"] = "monster";
+        }
+        return root.ToJsonString();
+    }
+
+    [Fact]
+    public void Hallway_fights_done_and_easy_pool_size_come_from_the_act_rooms()
+    {
+        MapGraph map = RunSaveParser.Parse(WithRooms(1, currentIsMonster: false), TestPaths.Me).Map!;
+        Assert.Equal(2, map.EasyFights);
+        Assert.Equal(1, map.NormalFightsDone);
+        Assert.Equal([new MapCoord(3, 0), new MapCoord(4, 1), new MapCoord(3, 2)], map.Visited);
+
+        // Room-entry save (history one short) on a monster room: its fight is pulled right after the save.
+        Assert.Equal(2, RunSaveParser.Parse(WithRooms(1, currentIsMonster: true), TestPaths.Me).Map!.NormalFightsDone);
+
+        // No encounter data: unknown, the path advisor counts monster rooms instead.
+        MapGraph plain = RunSaveParser.Parse(CoopJson, TestPaths.Me).Map!;
+        Assert.Null(plain.NormalFightsDone);
+        Assert.Null(plain.EasyFights);
+    }
+
     [Fact]
     public void Removals_from_extra_fields_else_from_shop_history()
     {

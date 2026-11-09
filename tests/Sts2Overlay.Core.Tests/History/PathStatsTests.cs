@@ -101,6 +101,32 @@ public class PathStatsTests
     }
 
     [Fact]
+    public void Compute_SplitsHallwayFightsByEncounterPool()
+    {
+        var floors = Floors();
+        var monsters = floors.Where(f => f.Type == MapNodeType.Monster).ToArray();
+        Assert.Contains(monsters, f => f.EasyPool == true);
+        Assert.Contains(monsters, f => f.EasyPool == false);
+        Assert.All(monsters.Where(f => f.EasyPool == true), f => Assert.EndsWith("_WEAK", f.MonsterEncounterId));
+
+        var report = PathStats.Compute(floors, new PathWeights(), PathHpLoss.Legacy(), k: 8);
+        var easy = report.Find(PathStats.All, 1, PathStats.MonsterEasy);
+        var hard = report.Find(PathStats.All, 1, PathStats.MonsterHard);
+        Assert.Equal(monsters.Count(f => f.Act == 1 && f.EasyPool == true), easy?.N ?? 0);
+        Assert.Equal(monsters.Count(f => f.Act == 1 && f.EasyPool == false), hard?.N ?? 0);
+
+        // The fitted table carries both pools; each lies between the prior and its own measurement.
+        var w = report.Fitted!;
+        var table = report.CoopSeparate ? null : w.HpLoss;
+        if (table is not null && easy is not null && hard is not null)
+        {
+            var prior = PathHpLoss.Legacy().Monster[1];
+            Assert.InRange(table.Monster[1], Math.Min(prior, easy.DamageNormalizedMean) - 0.0006, Math.Max(prior, easy.DamageNormalizedMean) + 0.0006);
+            Assert.InRange(table.HardMonster[1], Math.Min(prior, hard.DamageNormalizedMean) - 0.0006, Math.Max(prior, hard.DamageNormalizedMean) + 0.0006);
+        }
+    }
+
+    [Fact]
     public void Compute_WithoutStrengths_KeepsThePriorSlope_UnlessOverridden()
     {
         var floors = Floors();

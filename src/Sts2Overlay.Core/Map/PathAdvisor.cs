@@ -162,6 +162,10 @@ public sealed class PathAdvisor
 
         chips.Add(o.Elites > 0 ? Loc.T($"엘리트 {o.Elites}", $"Elites {o.Elites}") : Loc.T("엘리트 없음", "No Elites"));
 
+        // Hallway fights after the act's easy ones come from the hard pool and cost much more HP.
+        var hard = (int)Math.Round(o.HardFights);
+        if (hard > 0) chips.Add(Loc.T($"어려운 일반 전투 {hard}", $"Hard hallway fights {hard}"));
+
         var restBeforeBoss = o.Types.Count >= 2 && o.Types[^1] == MapNodeType.Boss && o.Types[^2] == MapNodeType.RestSite;
         if (o.Rests > 0)
         {
