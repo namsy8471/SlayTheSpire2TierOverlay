@@ -43,6 +43,23 @@ public static class HoverGeometry
     /// </summary>
     public const double Grow = 0.06;
 
+    /// <summary>
+    /// How much bigger a hovered card is than the resting one the recogniser usually saw: the reward screen and card
+    /// grids snap from 0.8 to 1.0 (+25 %), the shop from 0.65 to 0.8 (+23 %) the moment the mouse touches the card
+    /// (NCardHolder / NMerchantSlot), and the game shows the card's tips for the whole enlarged card. A zone of the
+    /// resting size missed the outer ring, so pointing near a card's edge showed the tip under our badges.
+    /// </summary>
+    public const double CardHoverZoom = 1.25;
+
+    /// <summary><paramref name="b"/> scaled by <paramref name="factor"/> about its centre.</summary>
+    public static PxBox Zoom(PxBox b, double factor)
+    {
+        if (b.Width <= 0 || b.Height <= 0) return b;
+        double w = b.Width * factor, h = b.Height * factor;
+        double cx = b.X + b.Width / 2.0, cy = b.Y + b.Height / 2.0;
+        return new PxBox((int)Math.Floor(cx - w / 2), (int)Math.Floor(cy - h / 2), (int)Math.Ceiling(w), (int)Math.Ceiling(h));
+    }
+
     /// <summary>The top strip of the game's 1920x1080 design space, in physical screen pixels over <paramref name="layer"/>.</summary>
     public static PxBox TopStrip(PxBox layer) => FromRef(new RectF(0, 0, RefTransform.RefWidth, TopStripRefHeight), layer);
 
@@ -116,4 +133,41 @@ public sealed class HoverYieldState
         Hidden = false;
         return true;
     }
+}
+
+/// <summary>
+/// The last hover zones seen, kept for a moment after the marks vanish (pure, unit-tested).
+/// <para>Hovering a card changes the frame the recogniser reads (the card grows, its tips cover the neighbours), so a
+/// recognition can come back empty for a beat and the badges vanish with their zones. Without a memory the overlay
+/// then counted the mouse as "off every zone", came back 300 ms later, and the next good recognition drew the badges
+/// at full strength over the tip again: the overlay kept popping back in front while the player read the card.</para>
+/// </summary>
+public sealed class HoverZoneMemory
+{
+    public const int DefaultHoldMs = 1500;
+
+    private PxBox[] _zones = [];
+    private long _seenAt;
+
+    public HoverZoneMemory(int holdMs = DefaultHoldMs) => HoldMs = holdMs;
+
+    public int HoldMs { get; }
+
+    /// <summary>
+    /// The zones to test the mouse against: <paramref name="current"/> when there are any (and remembered), else the
+    /// last non-empty set while it is younger than <see cref="HoldMs"/>.
+    /// </summary>
+    public IReadOnlyList<PxBox> Zones(IReadOnlyList<PxBox> current, long nowMs)
+    {
+        if (current.Count > 0)
+        {
+            _zones = current as PxBox[] ?? current.ToArray();
+            _seenAt = nowMs;
+            return current;
+        }
+        return nowMs - _seenAt <= HoldMs ? _zones : [];
+    }
+
+    /// <summary>Forget (the overlay was hidden or the game left the foreground).</summary>
+    public void Clear() => _zones = [];
 }

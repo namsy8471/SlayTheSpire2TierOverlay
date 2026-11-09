@@ -122,7 +122,8 @@ public sealed class MapOverlayWindow : Window, IHoverYield
         var layer = new PxBox(_layer.X, _layer.Y, _layer.Width, _layer.Height);
         return _plan.Rects
             .Where(r => r.Kind != ScreenRectMarkKind.Note)
-            .Select(r => HoverGeometry.FromRef(new RectF(r.X, r.Y, r.Width, r.Height), layer))
+            // Rest buttons grow ~10 % and upgrade-grid cards 25 % under the mouse: test the hovered size.
+            .Select(r => HoverGeometry.Zoom(HoverGeometry.FromRef(new RectF(r.X, r.Y, r.Width, r.Height), layer), HoverGeometry.CardHoverZoom))
             .ToArray();
     }
 

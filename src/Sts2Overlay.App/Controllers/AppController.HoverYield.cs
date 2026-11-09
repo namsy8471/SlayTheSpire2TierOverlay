@@ -9,7 +9,8 @@ namespace Sts2Overlay.App.Controllers;
 ///
 /// <code>
 ///  every 50 ms while the overlay is shown:
-///  GetCursorPos ─▶ on a hover-tip zone of a shown layer, or on the top bar / relic row?
+///  GetCursorPos ─▶ on a hover-tip zone of a shown layer (or one that was shown a moment ago), or on the top bar /
+///                 relic row?
 ///               ─▶ HoverYieldState (hide at once, show again 300 ms after leaving)
 ///               ─▶ every layer fades out / in together
 /// </code>
@@ -25,6 +26,7 @@ public sealed partial class AppController
     private const int HoverPollMs = 50;
 
     private readonly HoverYieldState _hoverYield = new();
+    private readonly HoverZoneMemory _hoverZones = new();
     private DispatcherTimer? _hoverTimer;
 
     private void InitHoverYield()
@@ -50,6 +52,7 @@ public sealed partial class AppController
             return;
         }
         _hoverTimer.Stop();
+        _hoverZones.Clear();
         // Hidden by Ctrl+F8 or the game lost focus while a tip was up: come back fully drawn next time.
         if (_hoverYield.Reset()) ApplyHoverHidden(false);
     }
@@ -57,15 +60,19 @@ public sealed partial class AppController
     private void CheckHover()
     {
         var over = false;
-        var layers = HoverLayers().Where(l => l.IsShowingMarks).ToArray();
-        if (layers.Length > 0 && _tracker.Current is { CaptureRect.IsEmpty: false } win && GetCursorPos(out var p))
+        var now = Environment.TickCount64;
+        var shown = HoverLayers().Where(l => l.IsShowingMarks).ToArray();
+        // The zones of the marks on screen, or the ones that were there a moment ago (HoverZoneMemory: a recognition
+        // that comes back empty while a card is hovered must not bring the overlay back over its tip).
+        var zones = _hoverZones.Zones(shown.SelectMany(l => l.HoverZones()).ToArray(), now);
+        if ((shown.Length > 0 || zones.Count > 0) && _tracker.Current is { CaptureRect.IsEmpty: false } win && GetCursorPos(out var p))
         {
             var r = win.CaptureRect;
             var game = new PxBox(r.X, r.Y, r.Width, r.Height);
-            over = HoverGeometry.Contains([HoverGeometry.TopStrip(game)], p.X, p.Y, grow: 0)
-                   || layers.Any(l => HoverGeometry.Contains(l.HoverZones(), p.X, p.Y));
+            over = (shown.Length > 0 && HoverGeometry.Contains([HoverGeometry.TopStrip(game)], p.X, p.Y, grow: 0))
+                   || HoverGeometry.Contains(zones, p.X, p.Y);
         }
-        if (_hoverYield.Update(over, Environment.TickCount64)) ApplyHoverHidden(_hoverYield.Hidden);
+        if (_hoverYield.Update(over, now)) ApplyHoverHidden(_hoverYield.Hidden);
     }
 
     private void ApplyHoverHidden(bool hidden)
