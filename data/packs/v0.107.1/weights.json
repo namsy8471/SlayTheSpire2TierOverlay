@@ -34,5 +34,11 @@
     // 52면 빌드 안 B 티어는 통과하고 빌드 밖 B 티어(50 − 빌드 밖 10)는 여전히 스킵합니다. 덱 크기 증가는 skip.lambdaSize가 계속 막습니다.
     // 2026-11 카드 점수 보정 후속: 52 → 50. 2·3막 즉시 피해·광역 긴급도를 낮춘 뒤 리플레이 3막 스킵이 58%(랭커 48%)로 늘어 되돌림 → 50%.
     "t0": { "3": 50 }
+  },
+  // 2026-11 강화 보정(docs/research/UPGRADE_CALIBRATION.md): 랭커 강화 선택 조건부 로짓. 카드별 값은 tiers/*.json upgradeValue.
+  //   빌드 역할 점수 = buildRole[역할] × 그 빌드 commit (로짓 계수 × 척도 0.586점). 역할 부족 배수 needWeight도 같은 척도(로짓 계수가 거의 0).
+  "upgrade": {
+    "buildRole": { "core": 0.71, "payoff": 0.64, "enabler": 0.36, "support": 0.39 },
+    "needWeight": 0.03
   }
 }

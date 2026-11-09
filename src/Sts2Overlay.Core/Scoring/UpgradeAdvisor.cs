@@ -1,4 +1,5 @@
 using System.Globalization;
+using Sts2Overlay.Core.Archetypes;
 using Sts2Overlay.Core.Data;
 using Sts2Overlay.Core.Localization;
 using Sts2Overlay.Core.Model;
@@ -35,29 +36,35 @@ public sealed record UpgradeCandidate
 /// <summary>Stable component keys of <see cref="UpgradeCandidate.Score"/>.</summary>
 public static class UpgradeComponentKeys
 {
-    /// <summary>The tier pack's <c>upgradedDelta</c>: what the upgrade itself adds to the card.</summary>
+    /// <summary>The card's own upgrade value: the pack's <c>upgradeValue</c> (calibrated), else its <c>upgradedDelta</c>.</summary>
     public const string Upgrade = "upgrade";
+
+    /// <summary>The card's role in a build of the deck (core, payoff, …) × that build's commit (<see cref="UpgradeWeights.BuildRole"/>).</summary>
+    public const string Build = "upgrade_build";
 }
 
 /// <summary>
 /// Ranks the cards of the current deck by how much upgrading them <i>now</i> is worth (rest site "강화").
-/// <para><b>Model.</b> An upgrade's value has two parts, both in card-score points:</para>
+/// <para><b>Model</b> (docs/research/UPGRADE_CALIBRATION.md), three parts in upgrade points:</para>
 /// <list type="number">
-/// <item><b>The upgrade itself</b> = the tier pack's <see cref="CardTierEntry.UpgradedDelta"/>. The pack authors set it
-/// per card (basic 3, B or lower 4, A 6, cards whose upgrade changes a lot 6–8; see the pack README), so it already
-/// says "upgrading a good card is worth more than upgrading a Strike". Unrated cards get the average delta of the
-/// character's pack [추정].</item>
+/// <item><b>The card's upgrade value</b> = the tier pack's <see cref="CardTierEntry.UpgradeValue"/>: fitted on 8,140 smith
+/// choices of top players (conditional logit over the deck's candidates). It knows what the upgrade does to <i>this</i> card:
+/// upgrades that lower the cost (Hellraiser 2→1), add or remove a keyword, powers, and per-card evidence (Apotheosis, Bash high;
+/// Strike, Defend low). A card without it falls back to the hand-set <see cref="CardTierEntry.UpgradedDelta"/>, and an unrated
+/// card to the character's average [추정].</item>
+/// <item><b>Build role</b> = <see cref="UpgradeWeights.BuildRole"/>[role] × commit of the highest-commit build the card belongs
+/// to. Top players upgrade a committed build's core and payoff cards clearly more often than the same card outside the build
+/// (the role terms are fitted <i>within</i> each card, next to its own value).</item>
 /// <item><b>Missing roles</b> = the "need" part of the card-pick score (<see cref="CardScorer"/>: the deck lacks block,
 /// AoE, draw … and this card supplies it), plus the low-HP block bonus, times
-/// (<see cref="Weights.UpgradedSupplyMultiplier"/> − 1). Why only these? <see cref="DeckAnalyzer"/> counts an upgraded
-/// card as 1.2 of a card <i>for role supply only</i>, so upgrading closes 0.2 of the card's share of a role gap — that is
-/// the one deck effect of an upgrade the model can see. Archetype commit, combos, "engine missing" and saturation do not
-/// change when a card is upgraded, so they are left out (they describe whether to <i>take</i> a card).</item>
+/// (<see cref="Weights.UpgradedSupplyMultiplier"/> − 1) × <see cref="UpgradeWeights.NeedWeight"/>. The top players' choices
+/// give it almost no weight (0.03 in the v0.107.1 pack), so a role gap no longer lifts an AoE common over a build's core.</item>
 /// </list>
-/// <para><b>Measured</b> (134 recorded smith choices, <c>RunHistoryAnalyzer rest-advice</c>; agreement is a proxy, not the
-/// target): the played card is this ranking's #1 28% of the time and in its top 3 54% (random: 10% / 30%; pack delta
-/// alone with ties split evenly: 27% / 60%, the same within noise). Also adding 20% of the archetype/combo parts dropped
-/// top-1 to 18%, which is one more reason to leave them out.</para>
+/// <para>The points keep the old scale (mean candidate ≈ 4.1, mean best ≈ 5.7 on the same visits), so the rest-site advisor's
+/// heal-vs-smith balance is unchanged; only the order of the cards moved.</para>
+/// <para><b>Measured</b> (player-split cross-validation on the same 8,140 choices; agreement is a proxy, not the target): the
+/// upgraded card is this ranking's #1 43% of the time and in its top 3 78%, up from 20% / 46% for <c>upgradedDelta</c> + need
+/// (random: 10% / 30%).</para>
 /// <para><b>Who can be upgraded.</b> Cards below their catalog <see cref="CatalogCard.MaxUpgrade"/> (1 when unknown;
 /// v0.107.1 has no card above 1), never curses, status or quest cards.</para>
 /// </summary>
@@ -91,7 +98,7 @@ public sealed class UpgradeAdvisor(DataPack pack)
             .Select(g => (Card: new CardRef(g.Key.Id, g.Key.Upgrade), Copies: g.Count(), FirstIndex: g.Min(x => x.index)))
             .ToList();
 
-        var fallbackDelta = AverageDelta(state.Character);
+        var fallbackDelta = AverageValue(state.Character);
         var scored = groups
             .Select(g => (g.FirstIndex, Candidate: Score(state, profile, g.Card, g.Copies, fallbackDelta)))
             .OrderByDescending(x => x.Candidate.Total)
@@ -121,15 +128,33 @@ public sealed class UpgradeAdvisor(DataPack pack)
         var entry = Pack.FindTier(state.Character, card.Id);
         var parts = new List<ScoreComponent>();
 
-        // 1. The upgrade itself (tier pack). A zero delta in the pack means "not filled in", so it also falls back.
-        var rated = entry is not null && entry.UpgradedDelta > 0 && double.IsFinite(entry.UpgradedDelta);
-        var delta = rated ? entry!.UpgradedDelta : fallbackDelta;
-        parts.Add(new ScoreComponent(UpgradeComponentKeys.Upgrade, Loc.T($"강화 {Signed(delta)}", $"Upgrade {Signed(delta)}"), delta,
-            rated ? Loc.T("티어 팩 upgradedDelta", "Tier pack upgradedDelta") : Loc.T("팩에 값 없음: 캐릭터 평균 (추정)", "Not in pack: character average (estimate)")));
+        // 1. The card's own upgrade value: calibrated upgradeValue, else the hand-set upgradedDelta (a zero delta means
+        //    "not filled in"), else the character average.
+        var calibrated = entry?.UpgradeValue is { } uv && double.IsFinite(uv);
+        var rated = calibrated || (entry is not null && entry.UpgradedDelta > 0 && double.IsFinite(entry.UpgradedDelta));
+        var value = calibrated ? entry!.UpgradeValue!.Value : rated ? entry!.UpgradedDelta : fallbackDelta;
+        parts.Add(new ScoreComponent(UpgradeComponentKeys.Upgrade, Loc.T($"강화 {Signed(value)}", $"Upgrade {Signed(value)}"), value,
+            calibrated ? Loc.T("랭커 강화 선택으로 보정한 카드별 강화 가치", "Per-card upgrade value calibrated on top players' upgrades")
+            : rated ? Loc.T("티어 팩 upgradedDelta", "Tier pack upgradedDelta")
+            : Loc.T("팩에 값 없음: 캐릭터 평균 (추정)", "Not in pack: character average (estimate)")));
 
-        // 2. Missing roles: an upgraded card supplies its roles 1.2× (UpgradedSupplyMultiplier), so the upgrade is worth
-        //    0.2 of the "need" the card answers. The pick scorer already computes that need for this deck and act.
-        var share = Math.Max(0.0, w.UpgradedSupplyMultiplier - 1.0);
+        // 2. Build role: top players upgrade a committed build's core/payoff cards more than the same card outside a build.
+        if (BuildRoleOf(profile, card.Id) is { } b
+            && w.Upgrade.BuildRole.TryGetValue(b.Role, out var perCommit) && double.IsFinite(perCommit))
+        {
+            var v = perCommit * b.Commit;
+            if (Math.Abs(v) >= Epsilon)
+            {
+                var name = b.Status.Archetype.DisplayName;
+                parts.Add(new ScoreComponent(UpgradeComponentKeys.Build, Loc.T($"{name} {RoleName(b.Role)}", $"{name} {b.Role}"), v,
+                    Loc.T($"{name} 빌드의 {RoleName(b.Role)} 카드 (빌드 진행 {b.Commit * 100:0}%)",
+                        $"{b.Role} card of the {name} build ({b.Commit * 100:0}% committed)")));
+            }
+        }
+
+        // 3. Missing roles: an upgraded card supplies its roles 1.2× (UpgradedSupplyMultiplier), so the upgrade is worth
+        //    0.2 of the "need" the card answers, times the calibrated NeedWeight. The pick scorer computes that need.
+        var share = Math.Max(0.0, w.UpgradedSupplyMultiplier - 1.0) * Math.Max(0.0, w.Upgrade.NeedWeight);
         var eval = _scorer.Score(state, profile, card);
         if (share > 0)
         {
@@ -160,17 +185,50 @@ public sealed class UpgradeAdvisor(DataPack pack)
     }
 
     /// <summary>
-    /// Average positive <c>upgradedDelta</c> of the character's tier pack (else of all packs, else 0): the value given to
-    /// cards the pack does not rate. [추정] "an unknown card's upgrade is worth an average upgrade".
+    /// The build that decides a card's build-role part: among the deck's builds (<see cref="DeckProfile.Archetypes"/>) that list
+    /// the card, the one with the highest commit (the first on ties). Null when no build lists it. Shared with the calibration
+    /// export (<c>RunHistoryAnalyzer upgrade-export</c>), so the fitted weights and the advisor read the same role.
     /// </summary>
-    private double AverageDelta(string character)
+    public static (ArchetypeStatus Status, string Role, double Commit)? BuildRoleOf(DeckProfile profile, string cardId)
     {
-        static IEnumerable<double> Deltas(IEnumerable<CardTierEntry> entries)
-            => entries.Select(e => e.UpgradedDelta).Where(d => d > 0 && double.IsFinite(d));
+        ArgumentNullException.ThrowIfNull(profile);
+        (ArchetypeStatus Status, string Role, double Commit)? best = null;
+        foreach (var s in profile.Archetypes)
+        {
+            var role = s.Archetype.RoleOf(cardId);
+            if (role is null) continue;
+            var commit = double.IsFinite(s.Commit) ? Math.Clamp(s.Commit, 0.0, 1.0) : 0.0;
+            if (best is null || commit > best.Value.Commit) best = (s, role, commit);
+        }
+        return best;
+    }
 
-        var own = Pack.Tiers.TryGetValue(character, out var p) ? Deltas(p.Cards.Values).ToArray() : [];
+    private static string RoleName(string role) => role switch
+    {
+        ArchetypeRoles.Core => "코어",
+        ArchetypeRoles.Payoff => "핵심 보상",
+        ArchetypeRoles.Enabler => "준비",
+        ArchetypeRoles.Support => "보조",
+        _ => role,
+    };
+
+    /// <summary>
+    /// Average upgrade value of the character's tier pack (else of all packs, else 0): the value given to cards the pack does not
+    /// rate. Calibrated <c>upgradeValue</c>s when the pack has them, else positive <c>upgradedDelta</c>s.
+    /// [추정] "an unknown card's upgrade is worth an average upgrade".
+    /// </summary>
+    private double AverageValue(string character)
+    {
+        static double[] Values(IEnumerable<CardTierEntry> entries)
+        {
+            var list = entries.ToArray();
+            var calibrated = list.Select(e => e.UpgradeValue).Where(v => v is { } x && double.IsFinite(x)).Select(v => v!.Value).ToArray();
+            return calibrated.Length > 0 ? calibrated : list.Select(e => e.UpgradedDelta).Where(d => d > 0 && double.IsFinite(d)).ToArray();
+        }
+
+        var own = Pack.Tiers.TryGetValue(character, out var p) ? Values(p.Cards.Values) : [];
         if (own.Length > 0) return own.Average();
-        var all = Deltas(Pack.Tiers.Values.SelectMany(t => t.Cards.Values)).ToArray();
+        var all = Values(Pack.Tiers.Values.SelectMany(t => t.Cards.Values));
         return all.Length > 0 ? all.Average() : 0.0;
     }
 

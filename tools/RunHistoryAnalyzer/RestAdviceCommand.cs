@@ -79,17 +79,17 @@ internal static class RestAdviceCommand
         sb.AppendLine();
         sb.AppendLine("| 지표 | 1위 | 3위 안 |");
         sb.AppendLine("|---|---|---|");
-        sb.AppendLine(Inv, $"| 조언 (upgradedDelta + 역할 부족) | {s.Top1:0.#}/{s.SmithWithCard} ({Rate(s.Top1, s.SmithWithCard)}) | {s.Top3:0.#}/{s.SmithWithCard} ({Rate(s.Top3, s.SmithWithCard)}) |");
-        sb.AppendLine(Inv, $"| 팩 upgradedDelta만 | {s.DeltaOnlyTop1:0.#}/{s.SmithWithCard} ({Rate(s.DeltaOnlyTop1, s.SmithWithCard)}) | {s.DeltaOnlyTop3:0.#}/{s.SmithWithCard} ({Rate(s.DeltaOnlyTop3, s.SmithWithCard)}) |");
+        sb.AppendLine(Inv, $"| 조언 (카드 강화 가치 + 빌드 역할 + 역할 부족) | {s.Top1:0.#}/{s.SmithWithCard} ({Rate(s.Top1, s.SmithWithCard)}) | {s.Top3:0.#}/{s.SmithWithCard} ({Rate(s.Top3, s.SmithWithCard)}) |");
+        sb.AppendLine(Inv, $"| 카드 강화 가치만 (upgradeValue, 없으면 upgradedDelta) | {s.DeltaOnlyTop1:0.#}/{s.SmithWithCard} ({Rate(s.DeltaOnlyTop1, s.SmithWithCard)}) | {s.DeltaOnlyTop3:0.#}/{s.SmithWithCard} ({Rate(s.DeltaOnlyTop3, s.SmithWithCard)}) |");
         sb.AppendLine(Inv, $"| 무작위 기대값 | {s.RandomTop1:0.0} ({Rate(s.RandomTop1, s.SmithWithCard)}) | {s.RandomTop3:0.0} ({Rate(s.RandomTop3, s.SmithWithCard)}) |");
         sb.AppendLine();
         // Sensitivity: how much weight the role-need part gets relative to the pack's upgradedDelta.
         var smithDecisions = decisions.Where(d => d.UpgradeRank is not null).ToArray();
         if (smithDecisions.Length > 0)
         {
-            sb.AppendLine("역할 부족 비중 민감도 (점수 = upgradedDelta + 배수 × 역할 부족 부분, 현재 배수 1):");
+            sb.AppendLine("빌드·역할 부족 비중 민감도 (점수 = 카드 강화 가치 + 배수 × 나머지 부분, 현재 배수 1):");
             sb.AppendLine();
-            sb.AppendLine("| 역할 부족 배수 | 1위 | 3위 안 |");
+            sb.AppendLine("| 나머지 배수 | 1위 | 3위 안 |");
             sb.AppendLine("|---|---|---|");
             foreach (var f in new[] { 0.0, 0.01, 0.25, 0.5, 1.0, 2.0 })
             {

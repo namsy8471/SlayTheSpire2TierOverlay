@@ -30,6 +30,13 @@ public sealed class CardTierEntry
     /// </summary>
     public double BaseAdjust { get; set; }
 
+    /// <summary>
+    /// What upgrading this card at a rest site is worth, in upgrade points (the scale of <see cref="UpgradedDelta"/>), fitted on
+    /// top players' smith choices (docs/research/UPGRADE_CALIBRATION.md). Null = not calibrated: the rest-site advisor then uses
+    /// <see cref="UpgradedDelta"/>. Card picks never read it.
+    /// </summary>
+    public double? UpgradeValue { get; set; }
+
     /// <summary>Role strengths 0..1, keys from <see cref="Roles"/>.</summary>
     public Dictionary<string, double> Roles { get; set; } = new(StringComparer.Ordinal);
 

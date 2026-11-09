@@ -16,6 +16,7 @@ using Sts2Overlay.Tools.RunHistoryAnalyzer;
 //   dotnet run --project tools/RunHistoryAnalyzer -- calibrate <runs-dir>... --pack <dir> [--catalog <cards.json>] [--sims N] [--noise σ] [--policy greedy|engine] [--emit]
 //   dotnet run --project tools/RunHistoryAnalyzer -- tune-weights <runs-dir|file.run>... --pack <dir> [--player <steamId>] [--tuned-until <unix>] [--all-players] [--lambda 0.005]... [--no-zero] [--out <file.md>]
 //   dotnet run --project tools/RunHistoryAnalyzer -- rest-advice <runs-dir|file.run>... --pack <dir> [--catalog <cards.json>] [--player <steamId>] [--all-players] [--out <file.md>]
+//   dotnet run --project tools/RunHistoryAnalyzer -- upgrade-export <runs-dir|file.run>... --pack <dir> [--all-players] [--out up.csv]   (tools/UpgradeCalib/fit.py input)
 //
 // Run files live in %APPDATA%\SlayTheSpire2\steam\<steamid>\profile1\saves\history\.
 
@@ -104,6 +105,18 @@ internal static class Cli
 
             // Upgrade limits and card types come from the catalog, so load the committed one when none is given.
             Write(RestAdviceCommand.Run(files.Zip(runs).ToArray(), LoadPack(packDir, catalogFile ?? FindCommittedCatalog()), player, allPlayers), outFile);
+            return 0;
+        }
+
+        if (command == "upgrade-export")
+        {
+            if (packDir is null)
+            {
+                Console.Error.WriteLine("upgrade-export 에는 --pack 이 필요합니다.");
+                return 1;
+            }
+
+            Write(UpgradeExportCommand.Run(files.Zip(runs).ToArray(), LoadPack(packDir, catalogFile ?? FindCommittedCatalog()), player, allPlayers), outFile);
             return 0;
         }
 
