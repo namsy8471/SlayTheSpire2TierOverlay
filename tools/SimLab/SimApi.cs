@@ -110,7 +110,7 @@ public static class SimApi
     {
         string inPath = args[0], outPath = args[1];
         int seeds = Int("--seeds", 5), threads = Int("--threads", Environment.ProcessorCount);
-        for (int i = 0; i < args.Length - 1; i++) if (args[i] == "--set") Tun.Set(args[i + 1]);
+        for (int i = 0; i < args.Length - 1; i++) if (args[i] == "--quality") Tun.Quality(args[i + 1]); else if (args[i] == "--set") Tun.Set(args[i + 1]);
         CombatRunner.GivePotions = true;
         var reqs = File.ReadLines(inPath).Where(l => !string.IsNullOrWhiteSpace(l))
             .Select(l => JsonSerializer.Deserialize<FightRequest>(l)!).ToList();

@@ -8,6 +8,7 @@ using Sts2Sim.Core.Entities.Powers;
 using Sts2Sim.Core.Models;
 using Sts2Sim.Core.Models.Powers;
 using Sts2Sim.Core.Models.Cards;
+using Sts2Sim.Core.Models.Monsters;
 using Sts2Sim.Core.Hooks;
 using Sts2Sim.Core.MonsterMoves.Intents;
 using Sts2Sim.Core.ValueProps;
@@ -29,10 +30,10 @@ public interface ICombatPolicy
 public static class Tun
 {
     // search
-    public static int Beam = 6;          // partial turns kept per depth
+    public static int Beam = 8;          // partial turns kept per depth
     public static int MaxDepth = 12;     // card plays per turn
     public static int LeafK = 16;        // turn plans that get an exact enemy-turn simulation
-    public static int LeafHorizon = 3;   // player turns looked at per plan (2 = also the next turn)
+    public static int LeafHorizon = 4;   // player turns looked at per plan (2 = also the next turn)
     public static int DeepK = 0;         // >0: only the DeepK best one-turn plans get the full horizon
     public static int NestBeam = 0;      // >0: next turns are planned by a nested beam search (else greedy)
     public static int NestLeafK = 3;
@@ -66,6 +67,16 @@ public static class Tun
     public static double LostDmgW = 20;      // lost lines: value of the share of enemy HP removed (old: 100)
     public static int Backtracks = 0;          // >0: on a loss, rewind to an earlier turn and play its next-best plan (uses the exact future)
     public static double PotionHoldW = 6; // value of a potion still held (search uses one only if it gains more); <0 = never use
+
+    /// <summary>
+    /// <c>--quality high</c>: a wider search for when accuracy matters more than speed (about half the
+    /// combats/s). Dev boss set: death 21.3% -> 16.2%, damage ratio 1.24x -> 1.16x.
+    /// </summary>
+    public static void Quality(string level)
+    {
+        if (level == "high") { LeafK = 40; Beam = 10; LeafHorizon = 4; }
+        else if (level != "normal") throw new ArgumentException("quality: normal | high");
+    }
 
     public static void Set(string kv)
     {
@@ -154,7 +165,16 @@ public static class Eval
     /// An enemy that is gone for scoring: dead, or the Waterfall Giant after its "death" (it is set to
     /// ~1e9 HP for one stunned turn and then explodes; its HP no longer matters, the blast is an intent).
     /// </summary>
-    public static bool Spent(Creature e) => !e.IsAlive || e.MaxHp >= 100_000_000;
+    public static bool Spent(Creature e) => (!e.IsAlive && Reserve(e) == 0) || e.MaxHp >= 100_000_000;
+
+    /// <summary>
+    /// HP of forms still to come. Test Subject revives twice (111 -> 212 -> 313 HP at A10); without this a
+    /// phase kill looks like the boss gaining HP, so the search avoided finishing phases.
+    /// </summary>
+    public static double Reserve(Creature e) =>
+        e.Monster is TestSubject ts && e.GetPower<NemesisPower>() is null
+            ? (e.MaxHp <= ts.FirstFormHp ? ts.SecondFormHp + ts.ThirdFormHp : ts.ThirdFormHp)
+            : 0;
 
     /// <summary>
     /// Damage the enemies' announced attacks will deal to the player, with the game's damage hooks
@@ -191,8 +211,10 @@ public static class Eval
         foreach (Creature e in state.Enemies)
         {
             if (e.MaxHp >= 100_000_000) continue;
-            max += e.MaxHp;
+            double reserve = Reserve(e);
+            max += e.Monster is TestSubject t ? t.FirstFormHp + t.SecondFormHp + t.ThirdFormHp : e.MaxHp;
             if (e.IsAlive) hp += e.CurrentHp;
+            hp += reserve;
         }
         int survived = Math.Max(0, (p.PlayerCombatState?.TurnNumber ?? CurPlanTurn) - CurPlanTurn);
         return -1000 + Tun.SurviveTurnW * survived + (max > 0 ? Tun.LostDmgW * (1 - hp / max) : 0);
@@ -208,7 +230,8 @@ public static class Eval
     public static double EnemyHp(CombatState state)
     {
         double hp = 0;
-        foreach (Creature e in state.Enemies) if (!Spent(e)) hp += e.CurrentHp + 0.5 * e.Block;
+        foreach (Creature e in state.Enemies)
+            if (!Spent(e)) hp += (e.IsAlive ? e.CurrentHp + 0.5 * e.Block : 0) + Reserve(e);
         return hp;
     }
 
@@ -220,6 +243,11 @@ public static class Eval
             if (Spent(e))
             {
                 if (e.IsPrimaryEnemy) kills++;
+                continue;
+            }
+            if (!e.IsAlive) // between forms: only the forms to come are left
+            {
+                enemyHp += Reserve(e);
                 continue;
             }
             // 2. Mid-turn (Static) the enemy's block only counts if it survives into its turn: most
@@ -248,7 +276,7 @@ public static class Eval
                 else if (pw.Type == PowerType.Debuff) enemyDebuffs += Math.Min(a, 15);
                 else if (pw.Type == PowerType.Buff) enemyBuffs += Math.Min(a, 15);
             }
-            enemyHp += Math.Max(0, eff);
+            enemyHp += Math.Max(0, eff) + Reserve(e);
         }
 
         double buffs = 0, debuffs = 0;
@@ -534,6 +562,8 @@ public sealed class BeamPolicy : ICombatPolicy
         }
         // Best first; on near-ties prefer longer plans (setup / draw cards look neutral at this horizon).
         var ranked = scored.OrderByDescending(x => Math.Round(x.V, 6)).ThenByDescending(x => x.Node.Steps.Count).ToList();
+        if (Debug && ranked.Count > 0 && lv.Horizon == Tun.LeafHorizon)
+            Console.WriteLine("   plan: " + string.Join("  ", ranked.Take(6).Select(x => $"{x.V:F1}[{string.Join(",", x.Node.Steps.Select(st => st.CardId.Replace("CARD.", "")))}]")) + $"  (nodes {all.Count})");
         return ranked[0].Node.Steps;
     }
 
@@ -545,7 +575,11 @@ public sealed class BeamPolicy : ICombatPolicy
         for (int i = 0; i < hand.Count; i++)
         {
             CardModel card = hand[i];
-            if (!card.CanPlay(out _)) continue;
+            if (!card.CanPlay(out var why))
+            {
+                if (Debug) Console.WriteLine($"   cannot play {card.Id.Entry}: {why}");
+                continue;
+            }
             string key = CardKey(card);
             if (card.TargetType is TargetType.AnyEnemy or TargetType.AnyAlly or TargetType.AnyPlayer)
             {
@@ -584,7 +618,11 @@ public sealed class BeamPolicy : ICombatPolicy
             long t1 = Profile ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
             string id = handIndex >= 0 ? p.PlayerCombatState!.Hand.Cards[handIndex].Id.ToString() : p.PotionSlots[-1 - handIndex]!.Id.ToString();
             var step = new Step(handIndex, targetIndex, id);
-            if (!Execute(clone, p, step)) return null; // not actually playable
+            if (!Execute(clone, p, step))
+            {
+                if (Debug) Console.WriteLine($"   not playable: {id} t{targetIndex}");
+                return null; // not actually playable
+            }
             var steps = new List<Step>(parent.Steps.Count + 1);
             steps.AddRange(parent.Steps);
             steps.Add(step);
@@ -601,12 +639,15 @@ public sealed class BeamPolicy : ICombatPolicy
             }
             return node;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             Interlocked.Increment(ref Failures);
+            if (Debug) Console.WriteLine($"   apply failed: {ex.GetType().Name}: {ex.Message}");
             return null;
         }
     }
+
+    private static readonly bool Debug = Environment.GetEnvironmentVariable("SIMLAB_DEBUG") == "1";
 
     /// <summary>
     /// End the turn from this node on a clone, let the enemies act; for a horizon above 1 play the

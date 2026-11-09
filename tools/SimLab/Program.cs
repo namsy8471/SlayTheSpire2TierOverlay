@@ -89,7 +89,7 @@ var policy = new LookaheadPolicy { Horizon = IntArg("--horizon", 2) };
 LookaheadPolicy.EnemyHpWeight = double.Parse(StrArg("--enemy-w", "0.6"), CultureInfo.InvariantCulture);
 string policyName = StrArg("--policy", "beam");
 CombatRunner.GivePotions = args.Contains("--potions");
-for (int ai = 0; ai < args.Length - 1; ai++) if (args[ai] == "--set") Tun.Set(args[ai + 1]);
+for (int ai = 0; ai < args.Length - 1; ai++) if (args[ai] == "--quality") Tun.Quality(args[ai + 1]); else if (args[ai] == "--set") Tun.Set(args[ai + 1]);
 Func<FightSpec, ICombatPolicy> makePolicy = policyName switch
 {
     "old" => _ => policy,
