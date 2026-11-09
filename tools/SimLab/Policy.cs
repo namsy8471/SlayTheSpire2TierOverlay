@@ -35,6 +35,13 @@ public sealed class SimpleSelector : ICardSelectionDecisionSource
         if (allInHand)
         {
             string src = request.Source?.GetType().Name ?? "";
+        // Knowledge Demon's curse: Disintegration (6+n damage every turn, stacks) or a milder curse.
+        // Equal Worth made the old rule always take Disintegration; take the alternative.
+        if (src == "KnowledgeDemon")
+        {
+            CardModel alt = cands.FirstOrDefault(c => c.GetType().Name != "Disintegration") ?? cands[0];
+            return Task.FromResult<IReadOnlyList<CardModel>>(new[] { alt });
+        }
             if (BestFromHand.Contains(src))
                 picked = cands.OrderByDescending(Worth).Take(Math.Max(min, 1)).ToArray(); // upgrade / copy / make free
             else if (DiscardFromHand.Contains(src))

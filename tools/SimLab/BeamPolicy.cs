@@ -7,6 +7,7 @@ using Sts2Sim.Core.Entities.Players;
 using Sts2Sim.Core.Entities.Powers;
 using Sts2Sim.Core.Models;
 using Sts2Sim.Core.Models.Powers;
+using Sts2Sim.Core.Models.Cards;
 using Sts2Sim.Core.Hooks;
 using Sts2Sim.Core.MonsterMoves.Intents;
 using Sts2Sim.Core.ValueProps;
@@ -58,8 +59,12 @@ public static class Tun
     public static double DoomW = 0.0;    // fraction of doom counted as dealt
     public static double OrbW = 2;
     public static double PetW = 0.3;
+    public static double SandpitW = 80;  // The Insatiable's Sandpit on the player: SandpitW / turns left
     public static double LowHpW = 0.0;   // extra value per HP below LowHpAt * max HP (risk aversion)
     public static double LowHpAt = 0.3;
+    public static double SurviveTurnW = 150; // lost lines: value per turn survived before dying (0 = old behaviour)
+    public static double LostDmgW = 20;      // lost lines: value of the share of enemy HP removed (old: 100)
+    public static int Backtracks = 0;          // >0: on a loss, rewind to an earlier turn and play its next-best plan (uses the exact future)
     public static double PotionHoldW = 6; // value of a potion still held (search uses one only if it gains more); <0 = never use
 
     public static void Set(string kv)
@@ -96,7 +101,7 @@ public static class Eval
     {
         CombatEngine engine = state.Engine!;
         if (!engine.IsInProgress && engine.Won) return 1000 + p.Creature.CurrentHp;
-        if (p.Creature.IsDead || !engine.IsInProgress) return Lost(state);
+        if (p.Creature.IsDead || !engine.IsInProgress) return Lost(state, p);
         double threat = Tun.ThreatW != 0 ? Incoming(state, p) : 0;
         return Common(state, p, p.Creature.CurrentHp) + Tun.BlockW * p.Creature.Block - Tun.ThreatW * threat;
     }
@@ -109,12 +114,47 @@ public static class Eval
     {
         CombatEngine engine = state.Engine!;
         if (!engine.IsInProgress && engine.Won) return 1000 + p.Creature.CurrentHp;
-        if (p.Creature.IsDead || !engine.IsInProgress) return Lost(state);
-        int unblocked = Math.Max(0, Incoming(state, p) - p.Creature.Block);
+        if (p.Creature.IsDead || !engine.IsInProgress) return Lost(state, p);
+        (int blockable, int unblockable) = TurnEndSelfDamage(p);
+        int unblocked = Math.Max(0, Incoming(state, p) + blockable - p.Creature.Block) + unblockable;
         double hp = p.Creature.CurrentHp - unblocked;
         if (hp <= 0) return -500 + hp;
-        return Common(state, p, hp);
+        return Common(state, p, hp, midTurn: true);
     }
+
+    /// <summary>
+    /// Damage the player deals to itself at the end of this turn: status/curse cards still in hand
+    /// (Burn, Wither, Regret, ...) and Disintegration. Without it the search happily ends a turn
+    /// holding five Withers. Returns (blocked by block, ignores block).
+    /// </summary>
+    public static (int Blockable, int Unblockable) TurnEndSelfDamage(Player p)
+    {
+        int blockable = 0, unblockable = 0;
+        var hand = p.PlayerCombatState!.Hand.Cards;
+        foreach (CardModel c in hand)
+        {
+            if (!c.HasTurnEndInHandEffectForPrediction) continue;
+            switch (c)
+            {
+                case Wither w: blockable += w.TurnEndDamage; break;
+                case Burn: case Decay: blockable += 2; break;
+                case Infection: blockable += 3; break;
+                case Toxic: blockable += 5; break;
+                case Regret: unblockable += hand.Count; break;
+                case BadLuck: unblockable += 13; break;
+                case Beckon: unblockable += 6; break;
+            }
+        }
+        foreach (PowerModel pw in p.Creature.Powers)
+            if (pw is DisintegrationPower) blockable += Math.Abs(pw.Amount);
+        return (blockable, unblockable);
+    }
+
+    /// <summary>
+    /// An enemy that is gone for scoring: dead, or the Waterfall Giant after its "death" (it is set to
+    /// ~1e9 HP for one stunned turn and then explodes; its HP no longer matters, the blast is an intent).
+    /// </summary>
+    public static bool Spent(Creature e) => !e.IsAlive || e.MaxHp >= 100_000_000;
 
     /// <summary>
     /// Damage the enemies' announced attacks will deal to the player, with the game's damage hooks
@@ -141,16 +181,25 @@ public static class Eval
         return (int)total;
     }
 
-    private static double Lost(CombatState state)
+    /// <summary>
+    /// A lost line: -1000, plus SurviveTurnW per player turn survived since the plan started (a later
+    /// death may be avoidable by better play than the rollout's), plus LostDmgW * share of enemy HP removed.
+    /// </summary>
+    private static double Lost(CombatState state, Player p)
     {
         double hp = 0, max = 0;
         foreach (Creature e in state.Enemies)
         {
+            if (e.MaxHp >= 100_000_000) continue;
             max += e.MaxHp;
             if (e.IsAlive) hp += e.CurrentHp;
         }
-        return -1000 + (max > 0 ? 100 * (1 - hp / max) : 0);
+        int survived = Math.Max(0, (p.PlayerCombatState?.TurnNumber ?? CurPlanTurn) - CurPlanTurn);
+        return -1000 + Tun.SurviveTurnW * survived + (max > 0 ? Tun.LostDmgW * (1 - hp / max) : 0);
     }
+
+    /// <summary>Player turn number at which the plan being searched on this thread started.</summary>
+    [ThreadStatic] public static int CurPlanTurn;
 
     /// <summary>Enemy HP weight for the plan being searched on this thread (race model or fixed).</summary>
     [ThreadStatic] public static double CurEnemyW;
@@ -159,21 +208,24 @@ public static class Eval
     public static double EnemyHp(CombatState state)
     {
         double hp = 0;
-        foreach (Creature e in state.Enemies) if (e.IsAlive) hp += e.CurrentHp + 0.5 * e.Block;
+        foreach (Creature e in state.Enemies) if (!Spent(e)) hp += e.CurrentHp + 0.5 * e.Block;
         return hp;
     }
 
-    private static double Common(CombatState state, Player p, double hp)
+    private static double Common(CombatState state, Player p, double hp, bool midTurn = false)
     {
-        double enemyHp = 0, kills = 0, enemyDebuffs = 0, enemyBuffs = 0;
+        double enemyHp = 0, kills = 0, enemyDebuffs = 0, enemyBuffs = 0, sandpit = 0;
         foreach (Creature e in state.Enemies)
         {
-            if (!e.IsAlive)
+            if (Spent(e))
             {
                 if (e.IsPrimaryEnemy) kills++;
                 continue;
             }
-            double eff = e.CurrentHp + 0.5 * e.Block;
+            // 2. Mid-turn (Static) the enemy's block only counts if it survives into its turn: most
+            // enemies lose it at their turn start, so a kill-adjacent line should not look worse
+            // because the other enemy just gained block (Kaiser Crab's rage).
+            double eff = e.CurrentHp + (midTurn && Hook.ShouldClearBlock(state, e) ? 0 : 0.5) * e.Block;
             foreach (PowerModel pw in e.Powers)
             {
                 int a = Math.Abs(pw.Amount);
@@ -186,6 +238,12 @@ public static class Eval
                 {
                     if (Tun.DoomW != 0) eff -= Tun.DoomW * Math.Min(e.CurrentHp, a);
                     else enemyDebuffs += Math.Min(a, 15);
+                }
+                else if (pw is SandpitPower sand)
+                {
+                    // The Insatiable: the counter drops each enemy turn and kills its target at 0;
+                    // Frantic Escape adds 1. A countdown to death, not a buff to shrink.
+                    if (sand.Target == p.Creature) sandpit += Tun.SandpitW / Math.Max(1, a);
                 }
                 else if (pw.Type == PowerType.Debuff) enemyDebuffs += Math.Min(a, 15);
                 else if (pw.Type == PowerType.Buff) enemyBuffs += Math.Min(a, 15);
@@ -221,7 +279,8 @@ public static class Eval
                + Tun.BuffW * buffs - Tun.DebuffW * debuffs
                + Tun.EDebuffW * enemyDebuffs - Tun.EBuffW * enemyBuffs
                + Tun.OrbW * orbs
-               + Tun.PetW * pets;
+               + Tun.PetW * pets
+               - sandpit;
     }
 }
 
@@ -381,16 +440,49 @@ public sealed class BeamPolicy : ICombatPolicy
     }
 
     /// <summary>Search parameters of one search level (the top level, or a nested next-turn search).</summary>
-    private readonly record struct Level(int Beam, int LeafK, int DeepK, int Horizon);
+    private readonly record struct Level(int Beam, int LeafK, int DeepK, int Horizon, HashSet<string>? Banned = null);
 
     private static Level Top => new(Tun.Beam, Tun.LeafK, Tun.DeepK, Tun.LeafHorizon);
     private static Level Nested(int horizon) => new(Tun.NestBeam, Tun.NestLeafK, 0, horizon);
 
-    private static List<Step> Plan(CombatState state, Player player) => Plan(state, player, Top);
+    private List<Step> Plan(CombatState state, Player player)
+    {
+        int turn = player.PlayerCombatState!.TurnNumber;
+        // Only the first plan of a backtracked turn avoids the banned end states.
+        HashSet<string>? banned = _bans.Remove(turn, out var b) ? b : null;
+        return Plan(state, player, Top with { Banned = banned });
+    }
+
+    // turn -> end-of-turn state signatures that already led to a loss (set by backtracking)
+    private Dictionary<int, HashSet<string>> _bans = new();
+
+    /// <summary>At the start of <paramref name="turn"/>, take the best plan whose end state is not in <paramref name="endStates"/>.</summary>
+    public void Ban(int turn, HashSet<string> endStates) => _bans[turn] = new HashSet<string>(endStates);
+
+    /// <summary>The state key the search uses to merge identical partial turns.</summary>
+    public static string EndStateKey(CombatState state) => Signature(state, state.Players[0]);
+
+    /// <summary>Copy of the per-fight state (race averages) for a backtracking checkpoint.</summary>
+    public BeamPolicy Copy()
+    {
+        var c = (BeamPolicy)MemberwiseClone();
+        c._bans = new Dictionary<int, HashSet<string>>();
+        c._plan = null;
+        c._planTurn = -1;
+        return c;
+    }
 
     private static List<Step> Plan(CombatState state, Player player, Level lv)
     {
+        int saved = Eval.CurPlanTurn;
+        try { return PlanCore(state, player, lv); }
+        finally { Eval.CurPlanTurn = saved; }
+    }
+
+    private static List<Step> PlanCore(CombatState state, Player player, Level lv)
+    {
         int turn = player.PlayerCombatState!.TurnNumber;
+        Eval.CurPlanTurn = turn;
         var root = new Node { State = state, Steps = new List<Step>() };
         root.Static = Eval.Static(state, player);
         var all = new List<Node> { root };
@@ -422,8 +514,15 @@ public sealed class BeamPolicy : ICombatPolicy
         }
 
         // Exact finish for the most promising end points (root always included).
-        var cands = all.Where(n => n != root).OrderByDescending(n => n.Static).Take(lv.LeafK).ToList();
-        cands.Add(root);
+        IEnumerable<Node> pool = all;
+        if (lv.Banned is { } ban)
+        {
+            // A backtrack: drop end states that already lost (a closed node's key is its post-turn state).
+            var open = all.Where(n => n.Closed || !ban.Contains(Signature(n.State, n.State.Players[0]))).ToList();
+            if (open.Count > 0) pool = open;
+        }
+        var cands = pool.Where(n => n != root).OrderByDescending(n => n.Static).Take(lv.LeafK).ToList();
+        if (pool.Contains(root)) cands.Add(root);
         // Two stages when DeepK > 0: score every candidate one turn deep, then re-score the DeepK best
         // with the full horizon (nested search for the following turns) and pick among those.
         bool twoStage = lv.DeepK > 0 && lv.Horizon > 1;
@@ -433,18 +532,9 @@ public sealed class BeamPolicy : ICombatPolicy
             scored = scored.OrderByDescending(x => x.V).Take(lv.DeepK)
                 .Select(x => (x.Node, V: x.V >= 900 || x.V <= -900 ? x.V : Finish(x.Node, turn, lv.Horizon))).ToList();
         }
-        Node best = root;
-        double bestV = double.NegativeInfinity;
-        foreach ((Node n, double v) in scored)
-        {
-            // Prefer longer plans on near-ties (setup / draw cards look neutral at this horizon).
-            if (v > bestV + 1e-6 || (Math.Abs(v - bestV) <= 1e-6 && n.Steps.Count > best.Steps.Count))
-            {
-                bestV = v;
-                best = n;
-            }
-        }
-        return best.Steps;
+        // Best first; on near-ties prefer longer plans (setup / draw cards look neutral at this horizon).
+        var ranked = scored.OrderByDescending(x => Math.Round(x.V, 6)).ThenByDescending(x => x.Node.Steps.Count).ToList();
+        return ranked[0].Node.Steps;
     }
 
     private static IEnumerable<(int HandIndex, int TargetIndex)> Moves(CombatState state, Player p)
@@ -629,6 +719,10 @@ public sealed class BeamPolicy : ICombatPolicy
 
     private static void AppendPowers(StringBuilder sb, Creature c)
     {
-        foreach (PowerModel pw in c.Powers) sb.Append(';').Append(pw.Id.Entry).Append(pw.Amount);
+        foreach (PowerModel pw in c.Powers)
+        {
+            sb.Append(';').Append(pw.Id.Entry).Append(pw.Amount);
+            if (pw is SurroundedPower s) sb.Append('f').Append((int)s.Facing); // which crab is behind you
+        }
     }
 }

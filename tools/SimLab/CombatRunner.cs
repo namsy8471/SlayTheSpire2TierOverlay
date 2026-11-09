@@ -113,10 +113,59 @@ public static class CombatRunner
         var sw = Stopwatch.StartNew();
         bool timedOut = false;
         int guard = 0;
-        while (engine.IsInProgress)
+        // Backtracking (Tun.Backtracks > 0, beam policy only): checkpoint every player-turn start; when
+        // the player dies, rewind to the turn before and take that turn's next-best plan (up to 3 per
+        // turn, then one turn further back). The simulator replays the same future exactly, so this is
+        // a search with full knowledge of draws and enemy rolls.
+        var checkpoints = new Dictionary<int, (CombatState State, BeamPolicy Policy)>();
+        var tries = new Dictionary<int, int>();
+        var bans = new Dictionary<int, HashSet<string>>();   // turn -> end-of-turn states that lost
+        var endState = new Dictionary<int, string>();        // turn -> this line's end-of-turn state
+        int backtracksLeft = policy is BeamPolicy ? Tun.Backtracks : 0;
+        int lastCheckpoint = -1;
+        while (true)
         {
+            if (!engine.IsInProgress)
+            {
+                if (!player.Creature.IsDead || backtracksLeft <= 0 || timedOut) break;
+                int deathTurn = player.PlayerCombatState?.TurnNumber ?? 1;
+                int bt = -1;
+                // the turn whose enemy phase killed us first, then up to three turns earlier
+                for (int t = deathTurn; t >= Math.Max(1, deathTurn - 3); t--)
+                {
+                    if (checkpoints.ContainsKey(t) && tries.GetValueOrDefault(t) < 3) { bt = t; break; }
+                }
+                if (bt < 0) break;
+                backtracksLeft--;
+                tries[bt] = tries.GetValueOrDefault(bt) + 1;
+                if (endState.TryGetValue(bt, out string? lost))
+                {
+                    if (!bans.TryGetValue(bt, out var set)) bans[bt] = set = new HashSet<string>();
+                    set.Add(lost);
+                }
+                foreach (int t in checkpoints.Keys.Where(t => t > bt).ToList()) { checkpoints.Remove(t); tries.Remove(t); bans.Remove(t); }
+                endState.Clear();
+                (CombatState cs, BeamPolicy cp) = checkpoints[bt];
+                state = cs.Clone(out _);
+                state.CardSelectionSource = SimpleSelector.Instance;
+                engine = state.Engine!;
+                player = state.Players[0];
+                BeamPolicy np = cp.Copy();
+                if (bans.TryGetValue(bt, out var banned)) np.Ban(bt, banned);
+                policy = np;
+                lastCheckpoint = bt;
+                if (Trace) Console.WriteLine($"-- backtrack to T{bt} (try {tries[bt]}), {backtracksLeft} left");
+                continue;
+            }
             engine.CheckWinCondition();
-            if (!engine.IsInProgress) break;
+            if (!engine.IsInProgress) continue;
+            if (backtracksLeft > 0 && state.CurrentSide == CombatSide.Player && player.PlayerCombatState!.TurnNumber != lastCheckpoint)
+            {
+                lastCheckpoint = player.PlayerCombatState.TurnNumber;
+                CombatState snap = state.Clone(out _);
+                snap.CardSelectionSource = SimpleSelector.Instance;
+                checkpoints[lastCheckpoint] = (snap, ((BeamPolicy)policy).Copy());
+            }
             if (player.PlayerCombatState!.TurnNumber > MaxTurns || sw.Elapsed > wallCap || ++guard > 2000)
             {
                 timedOut = true;
@@ -156,6 +205,7 @@ public static class CombatRunner
             }
             else
             {
+                if (backtracksLeft > 0) endState[player.PlayerCombatState.TurnNumber] = BeamPolicy.EndStateKey(state);
                 engine.EndPlayerTurnAsync().GetAwaiter().GetResult();
             }
             engine.CheckWinCondition();
