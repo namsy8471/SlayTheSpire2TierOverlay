@@ -13,16 +13,45 @@ internal static class TestPaths
 
     public static string RepoRoot => Root.Value;
 
+    /// <summary>
+    /// The gitignored <c>data/local</c> folder: this checkout's, or else the nearest one above it. A git worktree under
+    /// <c>.worktrees\</c> of the main checkout has no local data of its own, so it uses the main checkout's.
+    /// </summary>
+    private static readonly Lazy<string> Local = new(() =>
+    {
+        for (var dir = new DirectoryInfo(RepoRoot); dir is not null; dir = dir.Parent)
+        {
+            var local = Path.Combine(dir.FullName, "data", "local");
+            if (Directory.Exists(local)) return local;
+        }
+        return Path.Combine(RepoRoot, "data", "local");
+    });
+
+    public static string LocalDir => Local.Value;
+
     /// <summary>Card portraits extracted from the game's .pck (local only, never committed).</summary>
-    public static string ArtDir => Path.Combine(RepoRoot, "data", "local", "pck", "card_art");
+    public static string ArtDir => Path.Combine(LocalDir, "pck", "card_art");
 
     public static string Catalog => Path.Combine(RepoRoot, "data", "catalog", "cards.v0.107.1.json");
 
-    public static string DbCache => Path.Combine(RepoRoot, "data", "local", "vision", "card-art.bin");
+    public static string DbCache => Path.Combine(LocalDir, "vision", "card-art.bin");
 
-    /// <summary>Screenshots taken by the capture tool on the developer's machine.</summary>
-    public static string CapturesDir => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Sts2Overlay", "captures");
+    /// <summary>
+    /// Real game screenshots the tests replay (labelled in the test files and tests/fixtures/rest-site-truth.txt).
+    /// <c>data/local/test-captures</c> (gitignored, game images are never committed) when it exists, else the overlay's
+    /// old debug folder <c>%LOCALAPPDATA%\Sts2Overlay\captures</c>, which the app now empties at start
+    /// (<c>CaptureCleanup</c>) unless <c>debugCaptures</c> is on.
+    /// </summary>
+    public static string CapturesDir
+    {
+        get
+        {
+            var kept = Path.Combine(LocalDir, "test-captures");
+            return Directory.Exists(kept)
+                ? kept
+                : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Sts2Overlay", "captures");
+        }
+    }
 }
 
 /// <summary>
