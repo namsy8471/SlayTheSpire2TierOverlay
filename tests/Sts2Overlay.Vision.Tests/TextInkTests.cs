@@ -121,6 +121,39 @@ public class TextInkTests
         Assert.Equal(TextVerdict.Same, TextInk.Judge(full, covered));
     }
 
+    /// <summary>
+    /// The quick "changed" proof in <see cref="TextInk.Judge"/> must never change a verdict: every pair here, in both
+    /// orders, gets what the full search (<see cref="TextInk.JudgeExact"/>) says, page changes included.
+    /// </summary>
+    [Fact]
+    public void Judge_says_what_the_full_search_says_for_every_kind_of_pair()
+    {
+        string[][] pages =
+        [
+            Page, ["Turn back", "Pay 7 and get 120 coins."], ["Walk on", "Pay 7 and get 120 cards."],
+            ["Rest", "Sleep until morning."], ["Walk on"], [],
+        ];
+        var inks = new List<TextInk>();
+        foreach (var p in pages)
+        {
+            inks.Add(Text(p));
+            inks.Add(Text(p, 1.01f, 1, 3));
+            inks.Add(Text(p, 0.99f, -2, -4));
+            inks.Add(Text(p, keep: (x, y) => (x * 7 + y * 13) % 2 == 0));
+            inks.Add(Text(p, keep: (x, y) => (x * 7 + y * 13) % 20 == 0));
+            inks.Add(Text(p, extra: (x, y) => x >= 500 && x < 720 && y >= 10 && y < 70));
+        }
+        var verdicts = new int[3];
+        foreach (var a in inks)
+            foreach (var b in inks)
+            {
+                var want = TextInk.JudgeExact(a, b);
+                Assert.Equal(want, TextInk.Judge(a, b));
+                verdicts[(int)want]++;
+            }
+        Assert.All(verdicts, n => Assert.True(n > 0, "every verdict is exercised"));
+    }
+
     [Fact]
     public void Read_takes_the_light_pixels_of_the_area_at_any_resolution()
     {

@@ -38,10 +38,18 @@ public class EventPageTests
         }).ToList();
         var wrong = frames.Where(f => f.Screen is null || f.Screen.Buttons.Any(b => b.Ink is null)).Select(f => $"{f.File}: no buttons or no ink").ToList();
         float maxSame = 0, minChange = 1;
-        int same = 0, changed = 0;
+        int same = 0, changed = 0, compared = 0;
         foreach (var a in frames)
             foreach (var b in frames)
             {
+                // Every pair of buttons on any two frames (other events too): the quick "changed" proof agrees with the full search.
+                if (a.Screen is not null && b.Screen is not null && a.Screen.Buttons.Count == b.Screen.Buttons.Count)
+                    foreach (var (x, y) in a.Screen.Buttons.Zip(b.Screen.Buttons))
+                    {
+                        compared++;
+                        if (TextInk.Judge(x.Ink!, y.Ink!) is var quick && quick != TextInk.JudgeExact(x.Ink!, y.Ink!))
+                            wrong.Add($"{a.File} / {b.File}: quick {quick}, full {TextInk.JudgeExact(x.Ink!, y.Ink!)}");
+                    }
                 if (string.CompareOrdinal(a.File, b.File) >= 0 || a.Visit != b.Visit || a.Screen is null || b.Screen is null
                     || a.Screen.Buttons.Count != b.Screen.Buttons.Count) continue;
                 var inks = a.Screen.Buttons.Zip(b.Screen.Buttons, (x, y) => (A: x.Ink!, B: y.Ink!)).ToList();
@@ -62,6 +70,7 @@ public class EventPageTests
             }
         Assert.True(wrong.Count == 0, string.Join(Environment.NewLine, wrong));
         Assert.True(same >= minSame && changed >= minChanged, $"only {same} same-page and {changed} page-change pairs");
+        Assert.True(compared >= same + changed, $"only {compared} button pairs compared quick vs full");
         // keep the measured margin: same page well under SameMax, page changes well over ChangedMin
         Assert.True(maxSame <= TextInk.SameMax / 2, $"same page up to {maxSame:F4}");
         Assert.True(minChange >= 4 * TextInk.ChangedMin, $"page changes down to {minChange:F4}");

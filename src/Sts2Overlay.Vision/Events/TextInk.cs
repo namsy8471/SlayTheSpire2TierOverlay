@@ -144,6 +144,10 @@ public sealed class TextInk
     /// </list>
     /// </summary>
     public static TextVerdict Judge(TextInk reference, TextInk current)
+        => ProvablyChanged(reference, current) ? TextVerdict.Changed : JudgeExact(reference, current);
+
+    /// <summary><see cref="Judge"/> from the full <see cref="Match"/>, without the quick "changed" proof (tests compare the two).</summary>
+    internal static TextVerdict JudgeExact(TextInk reference, TextInk current)
     {
         InkMatch m = Match(reference, current);
         if (m.Distance <= SameMax) return TextVerdict.Same;
@@ -151,6 +155,51 @@ public sealed class TextInk
         if (m.Gained <= InsideMax)
             return current.Count > 0 && current.Count >= InsideMinShare * reference.Count ? TextVerdict.Same : TextVerdict.Unsure;
         return m.Distance >= ChangedMin ? TextVerdict.Changed : TextVerdict.Unsure;
+    }
+
+    /// <summary>
+    /// True only when <see cref="JudgeExact"/> would say <see cref="TextVerdict.Changed"/>, found without counting every
+    /// pixel of every try.
+    /// <para>
+    /// Why it is needed: <see cref="Match"/> keeps the best of 765 (scale, offset) tries, and a try stops counting
+    /// once it can't beat the best so far. For the same text the first try is nearly perfect, so the others stop
+    /// after a few pixels (~0.1 ms). For other text even the best try misses a quarter of the ink or more, so every
+    /// try counts almost every pixel: 765 × a few thousand pixels, 13–44 ms on the UI thread per page change.
+    /// </para>
+    /// <para>
+    /// Why it gives the same answer: <see cref="JudgeExact"/> says "changed" exactly when the best try misses at least
+    /// <see cref="ChangedMin"/> of all ink AND more than <see cref="InsideMax"/> of each text's ink (else one of the
+    /// "inside" rules or "unsure" applies). If EVERY try misses that much, the best one does too, whichever it is.
+    /// Proving that for one try only needs to count misses up to those few-percent bounds, not every pixel, so a
+    /// page change costs about 1/20 of the full search. When any try comes in under a bound, nothing is proven and
+    /// the full search decides, exactly as before.
+    /// </para>
+    /// </summary>
+    private static bool ProvablyChanged(TextInk a, TextInk b)
+    {
+        if (a.Width != b.Width || a.Height != b.Height || a.Count == 0 || b.Count == 0) return false;
+        int n = a.Count + b.Count;
+        // The smallest miss counts at which Match's own float shares cross the thresholds that Judge tests.
+        int lostOver = FirstCount(a.Count, k => (float)k / a.Count > InsideMax);
+        int gainedOver = FirstCount(b.Count, k => (float)k / b.Count > InsideMax);
+        int changedAt = FirstCount(n, k => (float)k / n >= ChangedMin);
+        bool[] ga = a.Grown(), gb = b.Grown();
+        foreach (var (s, dx, dy) in Tries)
+        {
+            int ma = Misses(a, gb, b, s, dx, dy, Math.Max(lostOver, changedAt));
+            if (ma < lostOver) return false;
+            int mb = Misses(b, ga, a, 1 / s, -dx, -dy, Math.Max(gainedOver, changedAt - ma));
+            if (mb < gainedOver || ma + mb < changedAt) return false;
+        }
+        return true;
+    }
+
+    /// <summary>The smallest k in 0..<paramref name="max"/> with <paramref name="over"/>(k) (monotone), or max + 1.</summary>
+    private static int FirstCount(int max, Func<int, bool> over)
+    {
+        for (int k = 0; k <= max; k++)
+            if (over(k)) return k;
+        return max + 1;
     }
 
     /// <summary>
