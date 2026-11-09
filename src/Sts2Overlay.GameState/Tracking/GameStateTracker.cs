@@ -661,8 +661,9 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
     /// <summary>
     /// The event room I'm in: exact from the co-op log, else predicted from the save (<see cref="EventPrediction"/>).
     /// </summary>
-    private ActiveEvent? CurrentEventOf(ParsedSave? save)
+    private ActiveEvent? CurrentEventOf(SaveSnapshot? snapshot)
     {
+        ParsedSave? save = snapshot?.Save;
         CheckEventPrediction(save);
         if (!_inEventRoom) return null;
         if (_eventId != null)
@@ -673,10 +674,13 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
             return new ActiveEvent(_eventId, _eventKeys, _eventChosen.ToArray(), EventSource.Log);
         }
         // The room-entry save predicts the event; later saves of the room (after an event fight) don't, so keep the guess.
-        if (_eventGuess == null && save != null && EventPrediction.Predict(save) is { } guess)
+        // The game writes that save just before it logs 'Event Room', but the watcher may deliver the file a moment after
+        // the tailer reads the log line: until then the save in hand is the PREVIOUS room's entry save (an event room
+        // writes no save when you leave it) and would predict the previous room's event. Wait for the logged save.
+        if (_eventGuess == null && snapshot is { Save: { } entry } && !IsBehindLog(snapshot) && EventPrediction.Predict(entry) is { } guess)
         {
             _eventGuess = guess;
-            _eventCheck = (guess, save.Events!.EventsSeen.Count);
+            _eventCheck = (guess, entry.Events!.EventsSeen.Count);
             Diagnostic?.Invoke(this, $"event predicted: {guess.EventId}{(guess.Certain ? "" : $" (or {string.Join(", ", guess.Alternatives)})")}");
         }
         if (_eventGuess is not { } g) return null;
@@ -1055,12 +1059,28 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
     /// </summary>
     private long CutoffSeq(SaveSnapshot save)
     {
-        string name = Path.GetFileName(save.Path);
+        string name = SaveFileName(save);
         for (int i = _saveMarks.Count - 1; i >= 0; i--)
             if (_saveMarks[i].Bytes == save.FileBytes && _saveMarks[i].FileName.Equals(name, StringComparison.OrdinalIgnoreCase))
                 return _saveMarks[i].Seq;
         return _saveMarks.Count > 0 ? _saveMarks[^1].Seq : -1;
     }
+
+    /// <summary>
+    /// The newest "Wrote N bytes" line for this save's file names another size: the game has written a newer save that
+    /// the watcher hasn't delivered yet. False when the log has no line for the file (no log, or a run continued before it).
+    /// </summary>
+    private bool IsBehindLog(SaveSnapshot save)
+    {
+        string name = SaveFileName(save);
+        for (int i = _saveMarks.Count - 1; i >= 0; i--)
+            if (_saveMarks[i].FileName.Equals(name, StringComparison.OrdinalIgnoreCase))
+                return _saveMarks[i].Bytes != save.FileBytes;
+        return false;
+    }
+
+    /// <summary>The save's file name. Splits on both separators: a Windows save path seen on another OS (tests in CI) too.</summary>
+    private static string SaveFileName(SaveSnapshot save) => save.Path[(save.Path.LastIndexOfAny(['/', '\\']) + 1)..];
 
     private TrackedRun? Recompute()
     {
@@ -1197,7 +1217,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
             RarityPityOffset = pity,
             LastRewardRolls = _lastRolls,
             Potions = potions.OrderBy(x => x.Slot).ToList(),
-            CurrentEvent = CurrentEventOf(save?.Save),
+            CurrentEvent = CurrentEventOf(save),
             FromSave = fromSave,
             HpGoldReliable = fromSave,
             DeckApproximate = !fromHistory && (!fromSave || applied > 0),

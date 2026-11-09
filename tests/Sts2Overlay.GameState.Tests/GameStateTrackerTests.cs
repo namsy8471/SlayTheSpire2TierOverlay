@@ -299,6 +299,51 @@ public class GameStateTrackerTests
         Assert.Equal(NeowOptions.Keys(seed, 0, 1, allCharactersUnlocked: false), locked);
     }
 
+    /// <summary>A single-player room-entry save of the act-1 "?" room <paramref name="visited"/> (1-based), events pulled so far seen.</summary>
+    private static SaveSnapshot EventRoomSave(long bytes, int visited, params string[] seen)
+    {
+        SaveSnapshot s = Save("S1", bytes, "CARD.STRIKE_IRONCLAD", "CARD.DEFEND_IRONCLAD", "CARD.BASH");
+        return s with
+        {
+            Save = s.Save with
+            {
+                Events = new EventRoomState
+                {
+                    ActIndex = 0,
+                    EventIds = ["EVENT.THIS_OR_THAT", "EVENT.THE_LEGENDS_WERE_TRUE", "EVENT.SPIRALING_WHIRLPOOL"],
+                    EventsVisited = seen.Length,
+                    EventsSeen = seen,
+                    VisitedInAct = visited,
+                    HistoryInAct = visited - 1,
+                },
+            },
+        };
+    }
+
+    [Fact]
+    public void Next_event_room_waits_for_its_own_save_instead_of_reusing_the_previous_rooms()
+    {
+        // The real order (2026-11-09 live run): the game writes the room-entry save, logs "Wrote N bytes", then logs
+        // 'Event Room'; the save watcher may hand the new file over only after the tailer has read both lines.
+        var t = NewTracker();
+        t.ProcessLines([Embark, Wrote(100), "[INFO] Preloading 'Event Room' assets... count=2 vfx=1"]);
+        t.OnSave(EventRoomSave(100, visited: 1, "EVENT.THIS_OR_THAT"));
+        Assert.Equal("EVENT.THE_LEGENDS_WERE_TRUE", t.Current!.CurrentEvent!.EventId);
+
+        // Leave the event, step onto the next "?": the new save is on disk and logged, but not delivered yet.
+        t.ProcessLines([
+            "[INFO] Player vote changed for 1: ->MapVote (gen: 1 coord: (3, 2))",
+            Wrote(200),
+            "[INFO] Preloading 'Event Room' assets... count=1 vfx=1",
+        ]);
+        Assert.Null(t.Current!.CurrentEvent); // not the previous room's event
+
+        t.OnSave(EventRoomSave(200, visited: 2, "EVENT.THIS_OR_THAT", "EVENT.THE_LEGENDS_WERE_TRUE"));
+        var ev = t.Current!.CurrentEvent!;
+        Assert.Equal("EVENT.SPIRALING_WHIRLPOOL", ev.EventId);
+        Assert.Equal(EventSource.SavePrediction, ev.Source);
+    }
+
     [Fact]
     public void Neow_with_run_modifiers_is_not_replayed()
     {
