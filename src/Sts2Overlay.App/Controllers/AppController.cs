@@ -94,6 +94,7 @@ public sealed partial class AppController : IDisposable
         InitForecastReview(packDir, catalogPath); // forecast + run review (AppController.ForecastReview.cs)
         InitMapOverlay(); // marks on the game's map (AppController.MapOverlay.cs)
         InitEvents(packDir); // event option advice (AppController.Events.cs)
+        InitHoverYield(); // step aside for the game's hover tips (AppController.HoverYield.cs)
 
         _tracker.Changed += (_, _) => OnTrackerChanged();
         // The panel moved to a monitor with another DPI: the DPI part of the scale changed, ours must follow.
@@ -860,6 +861,7 @@ public sealed partial class AppController : IDisposable
         }
         UpdateMapLayerVisibility(show, info);
         UpdateEventMarkerVisibility(); // AppController.Events.cs
+        UpdateHoverWatch(show); // AppController.HoverYield.cs
         if (showPanel)
         {
             if (!_panel.IsVisible) _panel.Show();
@@ -1109,6 +1111,7 @@ public sealed partial class AppController : IDisposable
     {
         _topmostTimer.Stop();
         _messageTimer.Stop();
+        _hoverTimer?.Stop();
         _source.Changed -= OnSourceChanged;
         _source.Dispose();
         DisposeForecastReview(); // AppController.ForecastReview.cs
