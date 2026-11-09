@@ -71,10 +71,16 @@ def make(args):
             for r in csv.DictReader(f):
                 if r['card'] != 'SKIP':
                     only[(r['run_id'], int(r['node_index']))].add(r['card'])
+    done = set()
+    for path in args.exclude:
+        with open(path, encoding='utf-8') as f:
+            done |= {(r['run_id'], int(r['node_index'])) for r in csv.DictReader(f)}
     screens = []
     with open(args.screens_file, encoding='utf-8') as f:
         for line in f:
             s = json.loads(line)
+            if (s['run_id'], s['node_index']) in done:
+                continue
             if s['build_id'].startswith(args.build) and s['act'] in acts and s['run_id'] in group_of_run:
                 key = (1, group_of_run[s['run_id']]) if s['act'] == 1 else (s['act'], 0)
                 if any(e.startswith('ENCOUNTER.ACTSFROMTHEPAST') for e in pool.get(key, ['ENCOUNTER.ACTSFROMTHEPAST'])):
@@ -85,8 +91,11 @@ def make(args):
     if only is None:
         screens = screens[:args.screens]
     n = 0
-    with open(args.out, 'w', encoding='utf-8', newline='\n') as f:
-        for s in screens:
+    files = [open(args.out if args.chunks == 1 else f'{args.out}.{i}', 'w', encoding='utf-8', newline='\n')
+             for i in range(args.chunks)]
+    try:
+        for si, s in enumerate(screens):
+            f = files[si * args.chunks // len(screens)]
             key = (1, group_of_run[s['run_id']]) if s['act'] == 1 else (s['act'], 0)
             variants = [None] + list(range(len(s['options'])))
             for enc in pool[key]:
@@ -104,6 +113,9 @@ def make(args):
                            'max_hp': s['max_hp'], 'encounter': enc, 'act': s['act'], 'seeds': args.seeds, 'seed_base': base}
                     f.write(json.dumps(req, separators=(',', ':')) + '\n')
                     n += 1
+    finally:
+        for f in files:
+            f.close()
     print(f'{len(screens)} screens -> {n} requests ({n * args.seeds} combats)')
 
 
@@ -157,6 +169,8 @@ def main():
     m.add_argument('--seeds', type=int, default=2)
     m.add_argument('--seed', type=int, default=0)
     m.add_argument('--only', help='reuse the screens of an earlier value CSV')
+    m.add_argument('--exclude', action='append', default=[], help='skip the screens of an earlier value CSV')
+    m.add_argument('--chunks', type=int, default=1, help='split the requests into N files by screen (<out>.0 ...)')
     c = sub.add_parser('collect')
     c.add_argument('requests')
     c.add_argument('results')

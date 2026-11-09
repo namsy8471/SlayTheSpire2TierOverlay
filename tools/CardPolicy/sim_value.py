@@ -23,13 +23,15 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from pick_model import CARD_COMPS, SCALE, SKIP_COMPS  # noqa: E402
 
 
-def read_value(path):
-    """(run_id, node_index) -> {variant: {(encounter, seed): (cost, won, damage)}}, plus screen metadata."""
+def read_value(paths):
+    """Value CSV(s), comma-separated -> {(run_id, node_index, group): {variant: {(encounter, seed): (cost, won, damage,
+    room_type, turns)}}}, screen metadata, dropped rows, {key: {variant: card token}}."""
     data = collections.defaultdict(lambda: collections.defaultdict(dict))
     meta = {}
     card_of = collections.defaultdict(dict)
     errors = 0
-    with open(path, encoding='utf-8') as f:
+    for path in paths.split(','):
+      with open(path, encoding='utf-8') as f:
         for r in csv.DictReader(f):
             if r['error'] or r['won'] == '':
                 errors += 1
@@ -38,11 +40,52 @@ def read_value(path):
             won = r['won'] == '1'
             dmg = float(r['damage'])
             cost = dmg / float(r['max_hp']) + (0.0 if won else 1.0)
-            data[key][int(r['variant'])][(r['encounter'], r['seed'])] = (cost, won, dmg, r['room_type'])
+            data[key][int(r['variant'])][(r['encounter'], r['seed'])] = (cost, won, dmg, r['room_type'], float(r['turns']))
             meta[key] = (int(r['act']), int(r['pick']), r['character'])
             if int(r['variant']) >= 0:
                 card_of[key][int(r['variant'])] = r['card']
     return data, meta, errors, card_of
+
+
+def match_screens(data, card_of, screens_path):
+    """A node can hold several reward screens (e.g. two elite rewards): match on the group when the value file has it,
+    else on the offered cards."""
+    wanted = collections.defaultdict(list)
+    for key in data:
+        wanted[key[:2]].append(key)
+    screens = {}
+    with open(screens_path, encoding='utf-8') as f:
+        for line in f:
+            s = json.loads(line)
+            for key in wanted.get((s['run_id'], s['node_index']), []):
+                cards = sorted(o['card'] + (f"+{o['upgrade']}" if o['upgrade'] > 0 else '') for o in s['options'])
+                sim_cards = sorted(card_of[key][v] for v in range(len(card_of[key])) if v in card_of[key])
+                if (key[2] is None or key[2] == s['group']) and cards == sim_cards:
+                    screens[key] = s
+    return screens
+
+
+def screen_gains(data, screens, field=0):
+    """Per simulated screen: (key, screen, gain[n_options, pairs], skip value per pair, pairs). gain = skip - with card
+    of the chosen field (0 = cost; 4 = turns), over the (encounter, seed) pairs every variant finished."""
+    out = []
+    for key, variants in data.items():
+        s = screens.get(key)
+        if s is None or -1 not in variants:
+            continue
+        n = len(s['options'])
+        if any(v not in variants for v in range(n)):
+            continue
+        pairs = set(variants[-1])
+        for v in range(n):
+            pairs &= set(variants[v])
+        if not pairs:
+            continue
+        pairs = sorted(pairs)
+        skip = np.array([variants[-1][p][field] for p in pairs])
+        gain = np.array([[skip[i] - variants[v][p][field] for i, p in enumerate(pairs)] for v in range(n)])
+        out.append((key, s, gain, skip, [variants[0][p][3] for p in pairs]))
+    return out
 
 
 def model_utilities(m, s):
@@ -80,20 +123,7 @@ def main():
     args = ap.parse_args()
 
     data, meta, errors, card_of = read_value(args.value)
-    # A node can hold several reward screens (e.g. two elite rewards): match on the group when the value file has it,
-    # else on the offered cards.
-    wanted = collections.defaultdict(list)
-    for key in data:
-        wanted[key[:2]].append(key)
-    screens = {}
-    with open(args.screens, encoding='utf-8') as f:
-        for line in f:
-            s = json.loads(line)
-            for key in wanted.get((s['run_id'], s['node_index']), []):
-                cards = sorted(o['card'] + (f"+{o['upgrade']}" if o['upgrade'] > 0 else '') for o in s['options'])
-                sim_cards = sorted(card_of[key][v] for v in range(len(card_of[key])) if v in card_of[key])
-                if (key[2] is None or key[2] == s['group']) and cards == sim_cards:
-                    screens[key] = s
+    screens = match_screens(data, card_of, args.screens)
     model = None
     if args.pack_model:
         with open(args.pack_model, encoding='utf-8') as f:
@@ -102,24 +132,13 @@ def main():
     rows = []          # one per screen
     card_gain = collections.defaultdict(list)
     room_gain = collections.defaultdict(list)
-    for key, variants in data.items():
-        s = screens.get(key)
-        if s is None or -1 not in variants:
-            continue
+    for key, s, gain, skip_cost, rooms in screen_gains(data, screens):
         n = len(s['options'])
-        pairs = set(variants[-1])
-        for v in range(n):
-            pairs &= set(variants.get(v, {}))
-        if not pairs or any(v not in variants for v in range(n)):
-            continue
-        pairs = sorted(pairs)
-        skip_cost = np.array([variants[-1][p][0] for p in pairs])
-        gain = np.array([[skip_cost[i] - variants[v][p][0] for i, p in enumerate(pairs)] for v in range(n)])  # n x pairs
         mean_gain = gain.mean(axis=1)
         for v in range(n):
             card_gain[s['options'][v]['card']].append(mean_gain[v])
-            for i, p in enumerate(pairs):
-                room_gain[variants[v][p][3]].append(gain[v, i])
+            for i, room in enumerate(rooms):
+                room_gain[room].append(gain[v, i])
         row = {'key': key, 'act': s['act'], 'pick': s['pick'], 'n': n, 'gain': mean_gain,
                'skip_cost': skip_cost.mean(), 'engine_best': s.get('engine_best', -1)}
         if model:
