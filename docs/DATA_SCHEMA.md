@@ -92,7 +92,7 @@ ID는 게임 모델 ID 그대로입니다. 게임이 ID를 바꾼 경우(예: `R
 | `upgradedSupplyMultiplier` | 숫자 | 1.2 | 강화된 덱 카드의 역할 공급 배수 | §7.1 필요 |
 | `wArch` | 숫자 | 20 | 빌드 점수 계수 `W_arch` | §7.1 빌드 |
 | `buildCap` | 숫자 | 25 | 빌드 점수 상한 | §7.1 빌드 |
-| `buildCapWeak` | 숫자 | 12 | 약한 역할이 목표 미달일 때의 빌드 상한. core를 확보한 빌드의 카드에는 쓰지 않음(위급이면 다시 씀, `corePriority.emergency*`) | §7.1 규칙 3 |
+| `buildCapWeak` | 숫자 | 12 | 약한 역할이 목표 미달일 때의 빌드 상한. 자리 잡은 빌드(core 확보, core 목록이 없으면 필수 시너지 확보)의 카드에는 쓰지 않음(위급이면 다시 씀, `corePriority.emergency*`) | §7.1 규칙 3 |
 | `weakThreshold` | 0..1 | 0.5 | 약한 역할 공급/목표 비율이 이 값 미만이면 `buildCapWeak` 적용 | §7.1 규칙 3 |
 | `weakRoles` | 문자열 배열 | `["block","draw"]` | 약점 우선 규칙을 보는 역할 | §7.1 규칙 3 |
 | `offBuildPenalty` | 숫자 | 10 | commit ≥ 기준인데 빌드 밖 카드일 때 감점. 그 빌드의 테마 카드(`onTheme` 또는 `needs`의 tag를 provides/consumes)는 감점 없음. 확정 빌드에 "빌드 필수 카드" 바닥값이 있으면 `감점 + 바닥값 < 티어 두 칸`이 되도록 `2 × (A − B) − 바닥값 − 1`로 줄임 | §7.1 빌드 |
@@ -125,16 +125,18 @@ ID는 게임 모델 ID 그대로입니다. 게임이 ID를 바꾼 경우(예: `R
 | `lambdaDilution` | 숫자 | 1.5 | 희석 λ | §7.1 희석 |
 | `idealDeckSize` | `{막: 정수}` | 1:15 2:20 3:25 | 막별 이상 덱 크기 | §7.1 희석, §7.2 |
 | `rhoDuplicate` | 숫자 | 15 | 중복 ρ | §7.1 중복 |
+| `buildDuplicateFactor` | 0..1 | 0.4 | 덱 빌드가 목록에 둔 카드의 중복 감점에 남기는 비율. `duplicate = −rhoDuplicate × 보유 수 × dupFactor × (1 − (1 − 이 값) × max(commit × gate))` (gate = 코어 먼저 반영). 랭커 승리 덱은 3막 끝에 빌드 카드를 1.3~2.2장 더 겹쳐 두는데 전부 깎으면 오버레이 덱은 0.4~1.0장이었음(docs/research/DECK_SIM.md). 1이면 끔 | §7.1 중복 |
 | `requiresPenalty` | 숫자 | 15 | `requires` 축이 덱에 없을 때 감점("엔진 없음") | §7.1 규칙 1 |
 | `saturation.ratio` | 숫자 | 2.0 | 생산자 > `ratio × max(1, 소비자)`면 초과분 | §7.1 규칙 2 |
 | `saturation.perExcess` | 숫자 | 0.15 | 초과 생산자 1장당 빌드·필요·콤보 가치 감소율 | §7.1 규칙 2 |
 | `saturation.minFactor` | 숫자 | 0.3 | 포화 감쇠의 하한 배수 | §7.1 규칙 2 |
+| `saturation.exemptBuildAxes` | 참/거짓 | true | 기울어진 빌드(commit ≥ `corePriority.leanMin`)의 `needs` tag 축은 포화를 따지지 않음. 그 빌드의 목록 카드가 곧 소비자인데 `consumes` 태그를 단 카드가 적어서(예: DISCARD 소비 1장), 랭커 승리 덱도 자기 빌드 축에서 포화로 판정됐음(시브 39%, 방어 80%, 버리기 100%)(DECK_SIM.md). 빌드가 필요로 하지 않는 축은 그대로 | §7.1 규칙 2 |
 | `powerSaturation.threshold` | 정수 | 6 | 덱의 파워 카드가 이 수 이상이면 추가 파워 감점 | §7.1 규칙 2 |
 | `powerSaturation.penaltyPerExtra` | 숫자 | 4 | 기준 초과 파워 1장당 감점 | §7.1 규칙 2 |
 | `situation.bossRewardBuildBonus` | 숫자 | 8 | 보스 보상에서 빌드 카드 가산 | §7.1 상황 |
 | `situation.lowHpThreshold` | 0..1 | 0.3 | 저체력 기준 HP 비율 | §7.1 상황 |
 | `situation.lowHpBlockBoost` | 숫자 | 0.5 | 저체력일 때 방어 필요에 더하는 비율 | §7.1 상황 |
-| `skip.t0` | `{막: 숫자}` | 1:45 2:52 3:58 | 스킵 기준 `T0[막]` | §7.2 |
+| `skip.t0` | `{막: 숫자}` | 1:45 2:52 3:58 | 스킵 기준 `T0[막]`. v0.107.1 팩은 3막을 52로 덮어씀(빌드 안 B 티어는 통과, 빌드 밖 B 티어는 스킵. DECK_SIM.md) | §7.2 |
 | `skip.lambdaSize` | 숫자 | 1.5 | 덱 크기 초과 1장당 스킵 가산 | §7.2 |
 | `skip.lambdaCommit` | 숫자 | 5 | 빌드 확정 시 스킵 가산. 코어를 반영한 commit(`commit × gate`, 아래 §5.1 코어 먼저 1)이 `commitThreshold` 이상일 때만 | §7.2 |
 | `skip.margin` | 숫자 | 0.5 | 카드가 스킵을 이겨야 하는 최소 차이 | §7.2 |
@@ -292,10 +294,10 @@ ID는 게임 모델 ID 그대로입니다. 게임이 ID를 바꾼 경우(예: `R
 - **코어 먼저 (`CardScorer`)**, 빌드 A마다:
   1. **코어 전 시너지 잠금**: `coreFactor = min(1, OwnedCore / CoreTarget)`. A의 core가 아닌 카드가 A에서 받는 시너지 × `gate = floor + (1 − floor) × coreFactor`, `floor = max(noCoreFactor[역할], unlock)`, `unlock = clamp(noCoreMaxUnlock − CoreChance, 0, noCoreMaxUnlock)`. 덱에 A 시너지 카드가 많아도 `unlock`은 오르지 않습니다. `build`는 core가 있다고 쳤을 때의 값, 잃은 만큼은 `core_missing` ("코어 없음", 설명 "코어 전: 개별 성능으로 평가 · 먼저 노릴 코어 …" 또는 "코어 전: 시너지 n% 반영")으로 따로 빼서 구성 요소 합 = 총점. 보스 보상 빌드 가산과 스킵의 "빌드 완성"(`skip.lambdaCommit`)도 `commit × gate`를 씁니다 (`CardScorer.GatedCommit`, 스킵은 `floor = unlock`).
   2. **코어 전에는 확정 아님**: 점수기에서는 `CoreSecured`인 빌드만 commit ≥ `commitThreshold`일 때 "확정"으로 보고 오프빌드 감점을 줍니다(감지기 commit·예측은 그대로).
-  3. **코어 확보**: `CoreSecured`가 아닌 A의 빠진 core 카드에 `core_priority = (starter + (bonus − starter) × ramp) × (1 − coreFactor) × weak` (`starter` = `starterMaxAct`까지, 그리고 core를 확보한 빌드가 아직 없을 때만 `starterBonus`, `ramp` = A가 기울어 있으면 `clamp(commit/leanFull)` 아니면 0, `weak` = 약한 덱이면 `weakFactor`, `requires` 축이 없으면 0). 여러 빌드 중 가장 큰 값 하나만. `coreTarget` 2면 두 번째 core는 절반.
+  3. **코어 확보**: `CoreSecured`가 아닌 A의 빠진 core 카드에 `core_priority = (starter + (bonus − starter) × ramp) × (1 − coreFactor) × weak` (`starter` = `starterMaxAct`까지, 그리고 자리 잡은 빌드(`BuildSecured`, 아래 5)가 아직 없을 때만 `starterBonus`, `ramp` = A가 기울어 있으면 `clamp(commit/leanFull)` 아니면 0, `weak` = 약한 덱이면 `weakFactor`, `requires` 축이 없으면 0). 여러 빌드 중 가장 큰 값 하나만. `coreTarget` 2면 두 번째 core는 절반.
   4. **필수 → 서브 시너지**: core를 하나라도 가진 뒤, `OwnedEssential < EssentialTarget`이면 A의 support 카드 시너지 × `subBeforeEssential` (빌드 설명에 "보조 시너지 40% (필수 시너지 n/2 전)"). payoff·enabler는 바로 제값.
-  5. **빌드 필수 카드** (`secured_essential`): core 카드가 있는 A가 `CoreSecured`(core를 `coreTarget`장 보유)이고 덱의 빌드이면(commit이 가장 높거나 `hybridMargin` 안), commit과 상관없이 A의 payoff·enabler 카드의 시너지(`build + core_missing`)를 바닥값까지 올립니다: `secured_essential = max(0, 바닥 − 시너지)`, `바닥 = securedEssentialFloor × taper × 위급` (core가 들어온 순간 바로 전부), `taper` = 필수 시너지가 `EssentialTarget + securedEssentialExtra`장 넘으면 한 장마다 `securedEssentialTaper`씩 감소, `위급` = 위급이면 `emergencyFactor`. 여러 빌드 중 가장 큰 바닥 하나만, `requires` 축이 없으면 0, 자원 과잉 감쇠 대상. 위급하고 약한 덱이면 바닥값은 `buildCapWeak` 이하. 결과: 확보한 빌드의 필수 카드는 한 티어 위 범용 카드(드로우 등)보다 먼저, 두 티어 위 카드보다는 뒤. 확정 빌드(commit ≥ `commitThreshold`)에서 역할 부족이 없는 범용 카드는 원래 오프빌드 −10을 받는데, 그대로 두면 바닥값 27과 합쳐 37점 차로 두 티어 위 카드까지 이기므로, 바닥값이 있는 동안 오프빌드 감점을 `max(0, 2 × (A − B) − 바닥값 − 1)`(기본 2)로 줄입니다. 빌드가 끝나 바닥값이 줄면 감점은 다시 10까지 돌아옵니다.
-  6. **약점 상한 예외**: 덱이 약해도(규칙 3) 카드가 core를 확보한 빌드의 카드면 `buildCapWeak` 대신 `buildCap`. 위급이면 다시 `buildCapWeak`.
+  5. **빌드 필수 카드** (`secured_essential`): A가 자리 잡았고(`CardScorer.BuildSecured`: core 카드가 있으면 core를 `coreTarget`장 보유, core 목록이 없으면 서로 다른 필수 시너지를 `essentialTarget`장 보유) 덱의 빌드이면(commit이 가장 높거나 `hybridMargin` 안), commit과 상관없이 A의 payoff·enabler 카드의 시너지(`build + core_missing`)를 바닥값까지 올립니다: `secured_essential = max(0, 바닥 − 시너지)`, `바닥 = securedEssentialFloor × taper × 위급` (core가 들어온 순간 바로 전부), `taper` = 필수 시너지가 `EssentialTarget + securedEssentialExtra`장 넘으면 한 장마다 `securedEssentialTaper`씩 감소, `위급` = 위급이면 `emergencyFactor`. 여러 빌드 중 가장 큰 바닥 하나만, `requires` 축이 없으면 0, 자원 과잉 감쇠 대상. 위급하고 약한 덱이면 바닥값은 `buildCapWeak` 이하. 결과: 확보한 빌드의 필수 카드는 한 티어 위 범용 카드(드로우 등)보다 먼저, 두 티어 위 카드보다는 뒤. 확정 빌드(commit ≥ `commitThreshold`)에서 역할 부족이 없는 범용 카드는 원래 오프빌드 −10을 받는데, 그대로 두면 바닥값 27과 합쳐 37점 차로 두 티어 위 카드까지 이기므로, 바닥값이 있는 동안 오프빌드 감점을 `max(0, 2 × (A − B) − 바닥값 − 1)`(기본 2)로 줄입니다. 빌드가 끝나 바닥값이 줄면 감점은 다시 10까지 돌아옵니다.
+  6. **약점 상한 예외**: 덱이 약해도(규칙 3) 카드가 자리 잡은 빌드(`BuildSecured`)의 카드면 `buildCapWeak` 대신 `buildCap`. 위급이면 다시 `buildCapWeak`.
   7. **테마 카드**: 확정된 빌드의 `onTheme` 카드나 빌드 `needs`의 tag를 provides/consumes하는 카드(예: 독 빌드의 독 카드)는 오프빌드 감점이 없습니다. 시너지·commit은 주지 않습니다.
 - **빌드 역할 표시** (`CardEvaluation.BuildRoles`): 제시된 카드가 어느 빌드의 코어 / 필수 시너지 / 서브 시너지인지, 현재 commit 높은 빌드 순으로 최대 2개 ("냉기·밀집 구체 코어 · 파워 서브 시너지"). 보상·상점·이벤트 카드 줄에 표시.
 - **충족 안 된 요구**: `role` 요구는 `역할 공급[role] < min`, `tag` 요구는 `provides 개수[tag] < min`이면 미충족. 해당 입력이 없으면(null) 그 검사는 건너뜁니다.

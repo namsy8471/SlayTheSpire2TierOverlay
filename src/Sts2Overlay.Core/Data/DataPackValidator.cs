@@ -286,6 +286,7 @@ public static partial class DataPackValidator
         if (cp.StarterBonus > cp.Bonus) warn("weights.corePriority.starterBonus", "starterBonus is above bonus; it is clamped to bonus and the lean part is 0.");
         if (cp.EssentialTarget < 0) error("weights.corePriority.essentialTarget", "Must be ≥ 0.");
         if (!InRange(cp.SubBeforeEssential, 0, 1)) error("weights.corePriority.subBeforeEssential", "Must be within 0..1.");
+        if (!InRange(w.BuildDuplicateFactor, 0, 1)) error("weights.buildDuplicateFactor", "Must be within 0..1.");
         if (!InRange(cp.NoCoreMaxUnlock, 0, 1)) error("weights.corePriority.noCoreMaxUnlock", "Must be within 0..1.");
         if (!double.IsFinite(cp.SecuredEssentialFloor) || cp.SecuredEssentialFloor < 0) error("weights.corePriority.securedEssentialFloor", "Must be ≥ 0.");
         else if (cp.SecuredEssentialFloor >= 2 * (w.TierValue.GetValueOrDefault(Tier.A) - w.TierValue.GetValueOrDefault(Tier.B)))
