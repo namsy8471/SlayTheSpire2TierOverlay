@@ -46,11 +46,24 @@ public sealed class PathWeights
     /// The old model was "act-1 value × act multiplier 1.0/1.25/1.45"; measured, hallway fights roughly double from
     /// act 1 to 2 while elites barely change, so each act now has its own number. A death censors that room's damage at
     /// the HP on entry, so elite/boss means are slight underestimates. Spread is wide (elite p90 ≈ 0.61, boss p90 ≈ 0.77).
+    /// <para>
+    /// Hallway fights are split by encounter pool (2026-11, 50 user runs, same shrinkage toward the old guess). Each act
+    /// starts with easy (<c>_WEAK</c>) encounters, <see cref="EasyFights"/> of them; the rest come from the hard pool:
+    /// </para>
+    /// <code>
+    ///                act 1                  act 2                  act 3
+    /// monster (easy) 0.050 → 0.051 (197)    0.141 → 0.137 (83)     0.137 → 0.134 (46)
+    /// hard monster   0.125 → 0.122 (135)    0.164 → 0.158 (80)     0.144 → 0.138 (30)
+    /// top players    0.058 / 0.103          0.088 / 0.116          0.080 / 0.097      (A10 solo, 2,155 runs, reference only)
+    /// </code>
+    /// In act 1 the hard pool hits about 2.4× as hard, so the 4th hallway fight in a row costs far more than the first.
+    /// In acts 2 and 3 the gap is small in the user's runs (1.15× / 1.03×) and modest for top players (1.3× / 1.2×).
     /// </summary>
     [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
     public PathHpLoss HpLoss { get; set; } = new()
     {
-        Monster = new() { [1] = 0.078, [2] = 0.142, [3] = 0.132 },
+        Monster = new() { [1] = 0.051, [2] = 0.137, [3] = 0.134 },
+        HardMonster = new() { [1] = 0.122, [2] = 0.158, [3] = 0.138 },
         Elite = new() { [1] = 0.285, [2] = 0.298, [3] = 0.360 },
         Unknown = new() { [1] = 0.037, [2] = 0.043, [3] = 0.029 },
         Boss = new() { [1] = 0.389, [2] = 0.443, [3] = 0.540 },
@@ -65,6 +78,22 @@ public sealed class PathWeights
 
     /// <summary>The HP-loss table for a single-player or co-op run.</summary>
     public PathHpLoss HpLossFor(bool multiplayer) => multiplayer && CoopHpLoss is { } coop ? coop : HpLoss;
+
+    /// <summary>
+    /// Hallway fights per act that come from the easy pool; later ones come from the hard pool
+    /// (<see cref="PathHpLoss.HardMonster"/>). [게임 코드] ActModel.NumberOfWeakEncounters: Overgrowth/Underdocks 3,
+    /// Hive/Glory 2. "?" rooms that roll a fight take the next encounter from the same list. Used only when the save
+    /// does not list the act's encounters (<see cref="MapGraph.EasyFights"/>).
+    /// </summary>
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+    public Dictionary<int, int> EasyFights { get; set; } = new() { [1] = 3, [2] = 2, [3] = 2 };
+
+    /// <summary>
+    /// Chance that a "?" room turns into a hallway fight, which uses up one encounter of the act's list.
+    /// [측정] map_point_history "unknown" rooms resolved to monster: 2,155 top-player runs 18.9% (n 15,021);
+    /// user runs 15.2% (n 407 player rows). Its damage is already inside <see cref="PathHpLoss.Unknown"/>.
+    /// </summary>
+    public double UnknownFightChance { get; set; } = 0.18;
 
     /// <summary>
     /// Damage multiplier = <c>1 + slope × (0.5 − strength)</c> (slope 1: a strong deck takes half, a weak one 1.5×).
@@ -156,6 +185,19 @@ public sealed class PathWeights
     [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
     public Dictionary<int, double> CardRewardActFactor { get; set; } = new() { [1] = 1.0, [2] = 0.85, [3] = 0.7 };
 
+    /// <summary>
+    /// Within an act, each card reward is worth this fraction less than the one before (hallway and elite fights
+    /// counted, "?" fights by their chance), down to <see cref="CardRewardFloor"/>: a deck that just took five cards
+    /// needs the sixth less. [측정] Top players' pick rate (any card taken) by the reward's place in the act, hallway
+    /// fights, 2,155 A10 runs: act 1 0.97 → 0.92 → 0.90 → 0.86 → 0.83 → 0.80 (−3.4% of the first per reward),
+    /// act 2 0.68 → 0.57 (−3.5%), act 3 0.55 → 0.51 (−1.8%).
+    /// </summary>
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+    public Dictionary<int, double> CardRewardDecay { get; set; } = new() { [1] = 0.034, [2] = 0.035, [3] = 0.018 };
+
+    /// <summary>Lowest multiplier <see cref="CardRewardDecay"/> can bring a card reward down to. [추정]</summary>
+    public double CardRewardFloor { get; set; } = 0.5;
+
     /// <summary>Relic + better card + gold of an elite (on top of the card reward above). [추정]</summary>
     public double EliteReward { get; set; } = 22;
 
@@ -235,9 +277,20 @@ public sealed class PathWeights
 /// </summary>
 public sealed class PathHpLoss
 {
-    /// <summary>Hallway fight.</summary>
+    /// <summary>Hallway fight from the act's easy pool (its first <see cref="PathWeights.EasyFights"/> hallway fights).</summary>
     [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
     public Dictionary<int, double> Monster { get; set; } = new();
+
+    /// <summary>
+    /// Hallway fight from the hard pool (every hallway fight after the easy ones). Empty = same as <see cref="Monster"/>
+    /// (the old single-pool model).
+    /// </summary>
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+    public Dictionary<int, double> HardMonster { get; set; } = new();
+
+    /// <summary>Hard-pool hallway loss for <paramref name="act"/>; the easy-pool value when <see cref="HardMonster"/> is empty.</summary>
+    public double HardMonsterFor(int act)
+        => HardMonster.Count == 0 ? For(MapNodeType.Monster, act) : Data.Weights.ForAct(HardMonster, act, 0.0);
 
     /// <summary>Elite fight.</summary>
     [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]

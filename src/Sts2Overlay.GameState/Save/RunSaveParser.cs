@@ -56,6 +56,12 @@ public static class RunSaveParser
             : null;
 
         JsonElement history = Prop(root, "map_point_history");
+        if (map is not null)
+        {
+            var (fightsDone, easyFights) = ReadHallwayFights(Prop(act, "rooms"), map, visited,
+                MapPointHistory.FloorsInAct(history, actIndex));
+            map = map with { Visited = visited, NormalFightsDone = fightsDone, EasyFights = easyFights };
+        }
         int floorsBeforeAct = Enumerable.Range(0, actIndex).Sum(i => MapPointHistory.FloorsInAct(history, i));
         // The room-entry save is written BEFORE that room's history entry is appended (RunManager.cs
         // EnterMapPointInternal: SaveRun, then AppendToMapPointHistory), so history is one short there.
@@ -140,6 +146,25 @@ public static class RunSaveParser
             ModifierCount = Prop(root, "modifiers") is { ValueKind: JsonValueKind.Array } mods ? mods.GetArrayLength() : -1,
             Events = ParseEvents(root, act, actIndex, history, visited.Count, me),
         };
+    }
+
+    /// <summary>
+    /// Hallway-fight progress of the current act from <c>acts[cur].rooms</c> (game RoomSet): the act lists its
+    /// hallway encounters up front, easy-pool (<c>_WEAK</c>) ones first, and pulls the next one for every monster room
+    /// and every "?" room that rolls a fight. The room-entry save is written before that pull (RunManager:
+    /// SaveRun, then CreateRoom → PullNextEncounter, then AppendToMapPointHistory), so when the history is one entry
+    /// short and the room just entered is a monster room, its fight is counted as done here.
+    /// </summary>
+    internal static (int? Done, int? Easy) ReadHallwayFights(JsonElement rooms, MapGraph map, IReadOnlyList<MapCoord> visited, int historyInAct)
+    {
+        if (rooms.ValueKind != JsonValueKind.Object) return (null, null);
+        var ids = Array(rooms, "normal_encounter_ids")
+            .Select(e => e.ValueKind == JsonValueKind.String ? e.GetString() : null).ToList();
+        int? easy = ids.Count > 0 ? ids.Count(id => id is not null && id.EndsWith("_WEAK", StringComparison.Ordinal)) : null;
+        if (Int(rooms, "normal_encounters_visited") is not { } done) return (null, easy);
+        bool pending = visited.Count == historyInAct + 1
+                       && map.Nodes.TryGetValue(visited[^1], out var node) && node.Type == MapNodeType.Monster;
+        return (done + (pending ? 1 : 0), easy);
     }
 
     private static DeckCard ReadDeckCard(JsonElement c)

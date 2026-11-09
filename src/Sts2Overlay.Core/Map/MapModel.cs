@@ -55,6 +55,20 @@ public sealed record MapGraph
     /// </summary>
     public IReadOnlyList<MapCoord> Visited { get; init; } = [];
 
+    /// <summary>
+    /// Hallway fights already pulled from this act's encounter list, "?" rooms that became fights included
+    /// (<c>acts[cur].rooms.normal_encounters_visited</c>, plus one when the save was written on entering a monster
+    /// room whose fight has not been pulled yet). Null = unknown: the path advisor then counts monster rooms in
+    /// <see cref="Visited"/>.
+    /// </summary>
+    public int? NormalFightsDone { get; init; }
+
+    /// <summary>
+    /// How many of this act's hallway fights come from the easy pool (<c>_WEAK</c> encounters at the front of
+    /// <c>normal_encounter_ids</c>: 3 in act 1, 2 in acts 2 and 3). Null = unknown: <see cref="PathWeights.EasyFights"/>.
+    /// </summary>
+    public int? EasyFights { get; init; }
+
     public static MapNodeType ParseType(string? saveType) => saveType switch
     {
         "monster" => MapNodeType.Monster,

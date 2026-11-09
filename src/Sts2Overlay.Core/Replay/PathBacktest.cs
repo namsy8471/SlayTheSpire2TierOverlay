@@ -122,7 +122,9 @@ public static class PathBacktest
         {
             if (f.Type is not (MapNodeType.Monster or MapNodeType.Elite or MapNodeType.Boss or MapNodeType.Unknown)) continue;
             var factor = double.IsFinite(f.DeckStrength) ? PathScorer.StrengthDamageFactor(f.DeckStrength, w) : 1.0;
-            var loss = w.HpLossFor(f.Multiplayer).For(f.Type, f.Act) * factor;
+            var table = w.HpLossFor(f.Multiplayer);
+            // A hallway fight known to be from the hard pool uses the hard-pool loss (as the scorer does).
+            var loss = (f.Type == MapNodeType.Monster && f.EasyPool == false ? table.HardMonsterFor(f.Act) : table.For(f.Type, f.Act)) * factor;
             result.Add(new FightPrediction(f.RunKey, f.PlayerId, f.Multiplayer, f.Act, PathStats.RoomName(f.Type),
                 f.HpRatioBefore, loss, f.DamageFraction, PathScorer.DeathChance(f.HpRatioBefore, loss, ShapeOf(w, f.Type)), f.Died));
         }

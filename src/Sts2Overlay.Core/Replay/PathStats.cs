@@ -169,6 +169,10 @@ public static class PathStats
     public const string Solo = "solo";
     public const string Coop = "coop";
 
+    /// <summary>Room keys of monster rooms split by encounter pool (see <see cref="PathFloor.EasyPool"/>).</summary>
+    public const string MonsterEasy = "monster_easy";
+    public const string MonsterHard = "monster_hard";
+
     private static readonly string[] Rooms = ["monster", "elite", "unknown", "boss", "treasure", "shop", "rest_site", "ancient"];
     private static readonly string[] FightRooms = ["monster", "elite", "boss"];
     private static readonly string[] LossRooms = ["monster", "elite", "unknown", "boss"];
@@ -251,6 +255,14 @@ public static class PathStats
                 {
                     var rows = seg.Where(f => RoomName(f.Type) == room && (act == 0 || f.Act == act)).ToArray();
                     if (rows.Length > 0) rooms.Add(Room(segment, act, room, rows, prior));
+                }
+            }
+            foreach (var (pool, easy) in new[] { (MonsterEasy, true), (MonsterHard, false) })
+            {
+                for (var act = 0; act <= 3; act++)
+                {
+                    var rows = seg.Where(f => f.Type == MapNodeType.Monster && f.EasyPool == easy && (act == 0 || f.Act == act)).ToArray();
+                    if (rows.Length > 0) rooms.Add(Room(segment, act, pool, rows, prior));
                 }
             }
         }
@@ -610,6 +622,19 @@ public static class PathStats
                     fits.Add(new WeightFit($"{label}.{Capitalize(room)}[{act}]", pri, stat?.DamageNormalizedMean ?? double.NaN, stat?.N ?? 0, value));
                 }
             }
+            // Hallway fights split by pool: Monster = easy pool, HardMonster = hard pool. Both shrink toward the
+            // single-pool prior. Runs without encounter ids (no split rows) keep the single-pool table.
+            for (var act = 1; act <= 3; act++)
+            {
+                var easy = report.Find(segment, act, MonsterEasy);
+                var hard = report.Find(segment, act, MonsterHard);
+                if (easy is null && hard is null) continue;
+                var pri = legacyLoss.For(MapNodeType.Monster, act);
+                t.Monster[act] = Math.Round(Shrink(pri, easy?.DamageNormalizedMean ?? double.NaN, easy?.N ?? 0, k), 3);
+                t.HardMonster[act] = Math.Round(Shrink(pri, hard?.DamageNormalizedMean ?? double.NaN, hard?.N ?? 0, k), 3);
+                fits.Add(new WeightFit($"{label}.Monster(easy)[{act}]", pri, easy?.DamageNormalizedMean ?? double.NaN, easy?.N ?? 0, t.Monster[act]));
+                fits.Add(new WeightFit($"{label}.HardMonster[{act}]", pri, hard?.DamageNormalizedMean ?? double.NaN, hard?.N ?? 0, t.HardMonster[act]));
+            }
             return t;
         }
 
@@ -694,7 +719,7 @@ public static class PathStats
 
         static PathHpLoss Copy(PathHpLoss t) => new()
         {
-            Monster = new(t.Monster), Elite = new(t.Elite), Unknown = new(t.Unknown), Boss = new(t.Boss),
+            Monster = new(t.Monster), HardMonster = new(t.HardMonster), Elite = new(t.Elite), Unknown = new(t.Unknown), Boss = new(t.Boss),
         };
     }
 }

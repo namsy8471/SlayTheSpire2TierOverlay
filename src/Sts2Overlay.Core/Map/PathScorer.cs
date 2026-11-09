@@ -20,6 +20,11 @@ namespace Sts2Overlay.Core.Map;
 /// <item><b>Death risk.</b> Actual damage varies, so we model it as uniform on [0, 2 × expected]. Then
 /// <c>P(die) = max(0, 1 − hp / (2 × expected))</c>: zero while HP is at least twice the expected hit, rising linearly
 /// below that. It is tiny for hallway fights and dominant for elites at low HP.</item>
+/// <item><b>Easy fights first.</b> Each act lists its hallway fights up front: the first few come from an easy pool
+/// (3 in act 1, 2 in acts 2 and 3), every later one from a hard pool that hits about twice as hard in act 1. The
+/// simulation counts hallway fights (monster rooms, plus the chance that a "?" room rolls one) and charges each fight
+/// the easy or hard loss by its place in that order. So a long run of hallway fights gets more expensive as it goes,
+/// while a "?" room or a rest site in between does not.</item>
 /// <item><b>Rewards need survival.</b> The simulation carries P(still alive); every later reward is multiplied by it,
 /// so an elite you would probably not survive also wipes out the value of the rooms after it.</item>
 /// </list>
@@ -31,9 +36,12 @@ public sealed class PathScorer
     private readonly ShopWeights _shop;
     private readonly MapGraph _map;
     private readonly double _cardReward;
+    private readonly double _cardDecay;
     private readonly double _eliteReward;
     private readonly int _targetElites;
     private readonly double _monsterLoss;
+    private readonly double _hardMonsterLoss;
+    private readonly int _easyFights;
     private readonly double _eliteLoss;
     private readonly double _unknownLoss;
     private readonly double _bossLoss;
@@ -55,12 +63,15 @@ public sealed class PathScorer
         // Act and player count pick the measured per-room loss (co-op fights are longer and hit harder).
         var loss = _p.HpLossFor(state.IsMultiplayer);
         _monsterLoss = loss.For(MapNodeType.Monster, act);
+        _hardMonsterLoss = loss.HardMonsterFor(act);
+        _easyFights = map.EasyFights ?? Weights.ForAct(_p.EasyFights, act, 2);
         _eliteLoss = loss.For(MapNodeType.Elite, act);
         _unknownLoss = loss.For(MapNodeType.Unknown, act);
         _bossLoss = loss.For(MapNodeType.Boss, act);
 
         // A weak deck needs card rewards more; later acts need them less.
         _cardReward = (_p.MonsterReward + _p.WeakDeckCardBonus * (1 - DeckStrength)) * Weights.ForAct(_p.CardRewardActFactor, act, 1.0);
+        _cardDecay = Weights.ForAct(_p.CardRewardDecay, act, 0.0);
         _eliteReward = _p.EliteReward * Weights.ForAct(_p.EliteActFactor, act, 1.0);
         _targetElites = Weights.ForAct(_p.TargetElites, act, 2);
 
@@ -78,7 +89,11 @@ public sealed class PathScorer
             Basics = profile.BasicStrikes + profile.BasicDefends,
             Upgradable = state.Deck.Count(c => UpgradeAdvisor.CanUpgrade(pack, state.Character, c)),
             Elites = map.Visited.Count(c => map.Nodes.TryGetValue(c, out var n) && n.Type == MapNodeType.Elite),
+            // The save's counter includes "?" rooms that became fights; without it, count the monster rooms walked.
+            HallwayFights = map.NormalFightsDone
+                            ?? map.Visited.Count(c => map.Nodes.TryGetValue(c, out var n) && n.Type == MapNodeType.Monster),
         };
+        EasyFightsLeftAtStart = Math.Max(0, _easyFights - (int)Math.Round(_start.HallwayFights));
     }
 
     /// <summary>Deck strength 0..1 used to scale damage and card-reward value.</summary>
@@ -114,6 +129,9 @@ public sealed class PathScorer
         clone._start.Hp = double.IsFinite(hpRatio) ? Math.Clamp(hpRatio, 0, 1) : _start.Hp;
         return clone;
     }
+
+    /// <summary>Easy-pool hallway fights left in this act when the path starts.</summary>
+    public int EasyFightsLeftAtStart { get; }
 
     /// <summary>Starting HP ratio of the simulation.</summary>
     public double StartHp => _start.Hp;
@@ -160,6 +178,7 @@ public sealed class PathScorer
             ExpectedBossHp = bossHp,
             BossArrivalChance = bossAlive,
             ShopPurchases = end.ShopPurchases,
+            HardFights = end.HardFights,
             Risks = risks,
         };
     }
@@ -214,6 +233,12 @@ public sealed class PathScorer
         public int Upgradable;
         public int Elites;
         public int ShopPurchases;
+
+        /// <summary>Expected hallway fights pulled so far this act (fractional: a "?" room adds its fight chance).</summary>
+        public double HallwayFights;
+
+        /// <summary>Monster rooms on the path whose fight comes from the hard pool (expected count).</summary>
+        public double HardFights;
     }
 
     private void Step(ref Sim s, MapNodeType type, Accumulator acc)
@@ -221,10 +246,14 @@ public sealed class PathScorer
         switch (type)
         {
             case MapNodeType.Monster:
-                Fight(ref s, _monsterLoss, _p.DamageShape.Monster, acc);
+                // Easy or hard pool by this fight's place in the act's list (fractional after "?" rooms).
+                var easy = Math.Clamp(_easyFights - s.HallwayFights, 0, 1);
+                Fight(ref s, _monsterLoss, _hardMonsterLoss, easy, _p.DamageShape.Monster, acc);
+                s.HallwayFights += 1;
+                s.HardFights += 1 - easy;
                 Heal(ref s, _p.RoomHeal.Monster);
                 // Rewards are multiplied by s.Alive: you only collect them if you survived to this room.
-                acc.Add(PathComponentKeys.Monster, s.Alive * _cardReward);
+                acc.Add(PathComponentKeys.Monster, s.Alive * CardReward(s.HallwayFights - 1 + s.Elites));
                 s.Gold += _p.MonsterGold;
                 break;
 
@@ -233,7 +262,7 @@ public sealed class PathScorer
                 Heal(ref s, _p.RoomHeal.Elite);
                 // Diminishing returns past the act's target elite count.
                 var relic = _eliteReward * (s.Elites < _targetElites ? 1.0 : _p.ExtraEliteFactor);
-                acc.Add(PathComponentKeys.Elite, s.Alive * (_cardReward + relic));
+                acc.Add(PathComponentKeys.Elite, s.Alive * (CardReward(s.HallwayFights + s.Elites) + relic));
                 s.Elites++;
                 s.Gold += _p.EliteGold;
                 break;
@@ -242,6 +271,7 @@ public sealed class PathScorer
                 // "?" is low-variance, which matters more when HP is low.
                 var lowness = 1 - s.Hp;
                 Fight(ref s, _unknownLoss, _p.DamageShape.Unknown, acc);
+                s.HallwayFights += _p.UnknownFightChance;
                 Heal(ref s, _p.RoomHeal.Unknown);
                 acc.Add(PathComponentKeys.Unknown, s.Alive * (_p.UnknownReward + _p.UnknownLowHpBonus * lowness));
                 s.Gold += _p.UnknownGold;
@@ -292,16 +322,36 @@ public sealed class PathScorer
     /// </list>
     /// </summary>
     private void Fight(ref Sim s, double baseLoss, int shape, Accumulator acc)
+        => Fight(ref s, baseLoss, baseLoss, 1, shape, acc);
+
+    /// <summary>
+    /// A fight that is the <paramref name="lossA"/> kind with chance <paramref name="pA"/>, else the
+    /// <paramref name="lossB"/> kind (easy vs hard hallway pool). The death chance is the mixture of both; the HP kept
+    /// is the expectation over the two kinds given survival.
+    /// </summary>
+    private void Fight(ref Sim s, double lossA, double lossB, double pA, int shape, Accumulator acc)
     {
-        var loss = Math.Max(0, baseLoss * DamageMultiplier);
-        var die = DeathChance(s.Hp, loss, shape);
+        var a = Math.Max(0, lossA * DamageMultiplier);
+        var b = Math.Max(0, lossB * DamageMultiplier);
+        var dieA = DeathChance(s.Hp, a, shape);
+        var dieB = pA >= 1 ? 0 : DeathChance(s.Hp, b, shape);
+        var die = pA * dieA + (1 - pA) * dieB;
         acc.Add(PathComponentKeys.DeathRisk, -_p.DeathCost * s.Alive * die);
         s.Alive *= 1 - die;
 
-        var lost = LossIfSurvived(s.Hp, loss, shape);
+        var lostA = LossIfSurvived(s.Hp, a, shape);
+        var lost = pA >= 1 || die >= 1 ? lostA
+            : (pA * (1 - dieA) * lostA + (1 - pA) * (1 - dieB) * LossIfSurvived(s.Hp, b, shape)) / (1 - die);
         acc.Add(PathComponentKeys.HpLoss, -_p.HpValue * s.Alive * lost * HpWeight(s.Hp));
         s.Hp = Math.Max(0, s.Hp - lost);
     }
+
+    /// <summary>
+    /// Card reward of a fight: <c>_cardReward × max(floor, 1 − decay × rewards before it this act)</c>, where the
+    /// rewards before it are the act's earlier hallway and elite fights, so the act's first reward is full value.
+    /// </summary>
+    private double CardReward(double rewardsBefore)
+        => _cardReward * Math.Max(_p.CardRewardFloor, 1 - _cardDecay * Math.Max(0, rewardsBefore));
 
     /// <summary>Chance to heal at a rest site: a logistic step around <paramref name="below"/> (hard step when softness is 0).</summary>
     internal static double HealChance(double hp, double below, double softness)
