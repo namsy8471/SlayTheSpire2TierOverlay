@@ -17,6 +17,7 @@ using Sts2Overlay.Tools.RunHistoryAnalyzer;
 //   dotnet run --project tools/RunHistoryAnalyzer -- tune-weights <runs-dir|file.run>... --pack <dir> [--player <steamId>] [--tuned-until <unix>] [--all-players] [--lambda 0.005]... [--no-zero] [--out <file.md>]
 //   dotnet run --project tools/RunHistoryAnalyzer -- rest-advice <runs-dir|file.run>... --pack <dir> [--catalog <cards.json>] [--player <steamId>] [--all-players] [--out <file.md>]
 //   dotnet run --project tools/RunHistoryAnalyzer -- upgrade-export <runs-dir|file.run>... --pack <dir> [--all-players] [--out up.csv]   (tools/UpgradeCalib/fit.py input)
+//   dotnet run --project tools/RunHistoryAnalyzer -- pick-export <runs-dir|file.run>... --pack <dir> --out <folder>   (screens.jsonl + fights.jsonl for tools/CardPolicy)
 //
 // Run files live in %APPDATA%\SlayTheSpire2\steam\<steamid>\profile1\saves\history\.
 
@@ -80,6 +81,17 @@ internal static class Cli
         {
             Console.Error.WriteLine("No .run files found.");
             return 2;
+        }
+
+        if (command == "pick-export")
+        {
+            if (packDir is null || outFile is null)
+            {
+                Console.Error.WriteLine("pick-export 에는 --pack 과 --out <폴더> 가 필요합니다.");
+                return 1;
+            }
+
+            return PickExportCommand.Run(files, LoadPack(packDir, catalogFile ?? FindCommittedCatalog()), outFile);
         }
 
         var runs = files.Select(RunHistoryReader.ReadFile).ToArray();

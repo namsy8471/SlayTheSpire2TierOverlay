@@ -12,6 +12,15 @@ public sealed class RecommendationEngine(DataPack pack)
 {
     public DataPack Pack { get; } = pack;
 
+    /// <summary>
+    /// Rank card rewards with the pack's learned model (<see cref="DataPack.CardPolicy"/>) when it has one (default).
+    /// False: the hand-tuned engine alone. Shops always use the engine (the model was trained on reward screens only).
+    /// </summary>
+    public bool UseLearnedModel { get; set; } = true;
+
+    /// <summary>True when card rewards are ranked by the learned model.</summary>
+    public bool LearnedModelActive => UseLearnedModel && Pack.CardPolicy is not null;
+
     public DeckProfile Analyze(RunState state) => DeckAnalyzer.Analyze(state, Pack);
 
     /// <summary>Card reward (or event card choice): ranks cards, adds Skip as a candidate, sets confidence.</summary>
@@ -25,6 +34,10 @@ public sealed class RecommendationEngine(DataPack pack)
         var scorer = new CardScorer(Pack);
         var evals = cards.Select(c => scorer.Score(state, profile, c, context)).ToList();
         var skip = new SkipScorer(Pack).Score(state, profile);
+        if (UseLearnedModel && Pack.CardPolicy is { } policy && evals.Count > 0)
+        {
+            (evals, skip) = Learning.LearnedRescore.Apply(policy, Pack, state, profile, evals, skip);
+        }
 
         // Rank: total desc, ties by offer order (OrderBy is stable).
         var order = Enumerable.Range(0, evals.Count).OrderByDescending(i => evals[i].Total).ThenBy(i => i).ToArray();
