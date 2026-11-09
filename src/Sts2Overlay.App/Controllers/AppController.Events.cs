@@ -340,6 +340,12 @@ public sealed partial class AppController
             Unaffordable = o.IsUnaffordable || o.IsLethal,
             SubText = string.Join(" · ", sub),
             Tip = o.EffectTexts.Count > 0 ? string.Join(", ", o.EffectTexts.Select(DisplayEffect)) : null,
+            Relics = o.Option.Effects
+                .Where(e => e.Type == EventEffectTypes.Relic && e.Relic is not null)
+                .Select(e => e.Relic!)
+                .Distinct(StringComparer.Ordinal)
+                .Select(RelicTip)
+                .ToArray(),
             Chips = o.Score.Components
                 .Where(c => Math.Abs(c.Value) >= 0.5)
                 .OrderByDescending(c => Math.Abs(c.Value))

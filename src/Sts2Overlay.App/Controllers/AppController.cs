@@ -48,6 +48,7 @@ public sealed partial class AppController : IDisposable
     private RecommendationEngine _engine;
     private CardInfoProvider _cards;
     private CardTextProvider _cardText = CardTextProvider.Empty;
+    private RelicInfoProvider _relicInfo = RelicInfoProvider.Empty; // relic icons + effect text (data/local + relic-vars)
 
     /// <summary>Card portraits for the panel rows (thumbnail + hover); rebuilt when data/local is regenerated.</summary>
     private CardArtProvider _art = CardArtProvider.ForLocalData();
@@ -93,6 +94,7 @@ public sealed partial class AppController : IDisposable
         AppLog.Info(_engine.LearnedModelActive ? "card rewards: learned model" : $"card rewards: engine rules (cardModel={settings.CardModel}, model in pack: {_engine.Pack.CardPolicy is not null})");
         vm.PackText = PackText();
         _cardText = CardTextProvider.ForLocalData(_engine.Pack, packDir);
+        _relicInfo = RelicInfoProvider.ForLocalData(packDir);
         InitForecastReview(packDir, catalogPath); // forecast + run review (AppController.ForecastReview.cs)
         InitMapOverlay(); // marks on the game's map (AppController.MapOverlay.cs)
         InitEvents(packDir); // event option advice (AppController.Events.cs)
@@ -496,6 +498,7 @@ public sealed partial class AppController : IDisposable
                 Unaffordable = !item.Affordable,
                 PriceText = ShopPriceText(item),
                 Art = isCard ? ArtOf(item.Card!.Value.Id) : null,
+                Relics = isRelic ? [RelicTip(item.RelicId!)] : [],
                 SubText = sub,
                 Chips = (e?.Chips.Select(c => Chip(c.Label, c.Value)) ?? item.Value.TopReasons(3).Select(c => Chip(c.Label, c.Value))).ToArray(),
             };
@@ -535,6 +538,9 @@ public sealed partial class AppController : IDisposable
 
     /// <summary>Korean relic title from the local game text (data/local, never committed); the id when it is missing.</summary>
     private string RelicName(string relicId) => _eventText.RelicTitle(relicId) ?? relicId.Replace("RELIC.", "", StringComparison.Ordinal);
+
+    /// <summary>Icon + effect text of a relic in the current language (title falls back to <see cref="RelicName"/>).</summary>
+    private RelicTipVm RelicTip(string relicId) => _relicInfo.For(relicId, Loc.CurrentCode, RelicName(relicId));
 
     /// <summary>"75골드", "~150골드 (추정)" for an unread label, "37골드 세일" for the half-price card.</summary>
     private static string ShopPriceText(ShopItemEvaluation item)
@@ -700,6 +706,42 @@ public sealed partial class AppController : IDisposable
         _vm.Build = _vm.Build with { Archetypes = items };
     }
 
+    /// <summary>Most relics a build lists: its key relics first, then the ranker favourites by lift.</summary>
+    private const int MaxBuildRelics = 6;
+
+    /// <summary>Lift above which a measured relic counts as one top players favour in a build (relic-fit.json fitRatio).</summary>
+    private const double FavouredRelicLift = 1.5;
+
+    /// <summary>
+    /// Relics that suit <paramref name="a"/>: the pack's key relics (the build's own relics), then relics top players take clearly
+    /// more often in this build (relic-fit.json, use = true, fitRatio ≥ 1.5), strongest first.
+    /// </summary>
+    private IReadOnlyList<BuildRelicVm> BuildRelics(RunState run, Archetype a)
+    {
+        var owned = run.Relics.ToHashSet(StringComparer.Ordinal);
+        var list = new List<BuildRelicVm>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var k in a.KeyRelics)
+        {
+            if (list.Count >= MaxBuildRelics || !seen.Add(k.Id)) continue;
+            list.Add(new BuildRelicVm(RelicTip(k.Id), owned.Contains(k.Id), Loc.T("빌드 핵심 유물", "Key relic of this build")));
+        }
+        if (_engine.Pack.RelicFit?.Archetypes.TryGetValue(a.Id, out var fits) == true)
+        {
+            foreach (var (id, f) in fits.Where(p => p.Value.Use == true && FitLift(p.Value) >= FavouredRelicLift).OrderByDescending(p => FitLift(p.Value)))
+            {
+                if (list.Count >= MaxBuildRelics) break;
+                if (!seen.Add(id)) continue;
+                var lift = FitLift(f).ToString("0.0", CultureInfo.InvariantCulture);
+                list.Add(new BuildRelicVm(RelicTip(id), owned.Contains(id),
+                    Loc.T($"상위 플레이어가 이 빌드에서 ×{lift} 더 자주 고름", $"Top players take it ×{lift} more often in this build")));
+            }
+        }
+        return list;
+    }
+
+    private static double FitLift(RelicFitStat f) => f.FitRatio ?? (f.PickRateOut > 0 ? f.PickRateIn / f.PickRateOut : 0);
+
     private BuildSectionVm BuildArchetypes(RunState run, ArchetypeReport report)
     {
         if (report.Statuses.Count == 0) return BuildSectionVm.Empty;
@@ -749,6 +791,7 @@ public sealed partial class AppController : IDisposable
                 Color = ParseColor(a.Color),
                 IsPrimary = isPrimary,
                 CardGroups = groups,
+                Relics = BuildRelics(run, a),
                 CardsSummaryText = BuildCardsPresenter.Summary(groups),
                 IsExpanded = _buildCardsExpanded.TryGetValue(a.Id, out var open) ? open : isPrimary,
                 ToggleCardsCommand = new RelayCommand(_ => ToggleBuildCards(a.Id)),
@@ -986,6 +1029,7 @@ public sealed partial class AppController : IDisposable
         (_engine, _cards, _packLoaded) = LoadPack(_packDir, CatalogPath);
         _vm.PackText = PackText();
         _cardText = CardTextProvider.ForLocalData(_engine.Pack, _packDir);
+        _relicInfo = RelicInfoProvider.ForLocalData(_packDir); // new icons / localization after a resource prepare
         _engineVersion++;
         RefreshRunViews(_snapshot.Run);
         ReloadForecastReview(); // AppController.ForecastReview.cs

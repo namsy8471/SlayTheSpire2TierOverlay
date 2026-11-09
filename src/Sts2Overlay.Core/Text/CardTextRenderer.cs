@@ -52,6 +52,12 @@ public sealed record CardTextContext(
 
     /// <summary>The game's <c>TargetType</c> string (<c>AnyEnemy</c>, <c>AllEnemies</c>, …), matched by <c>choose(AllEnemies)</c>.</summary>
     public string? TargetType { get; init; }
+
+    /// <summary>
+    /// String variables (the game's <c>StringVar</c>, e.g. a relic's enchantment name), already localized. A template reads them as
+    /// <c>{Name}</c> or <c>{Name.StringValue:cond:…|…}</c>.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> Strings { get; init; } = new Dictionary<string, string>(StringComparer.Ordinal);
 }
 
 /// <summary>
@@ -338,11 +344,19 @@ public static class CardTextRenderer
                 return;
             }
 
+            // StringVar: "{Name}" or "{Name.StringValue:cond:…}" (".StringValue" is the property SmartFormat reads).
+            string varName = p.Selector.EndsWith(".StringValue", StringComparison.Ordinal) ? p.Selector[..^".StringValue".Length] : p.Selector;
+            if (ctx.Strings.TryGetValue(varName, out var str))
+            {
+                WriteString(p, str);
+                return;
+            }
+
             decimal? value = Lookup(p.Selector, current, currentName, out var name);
             bool known = value.HasValue || p.Selector == "energyPrefix";
             if (!known)
             {
-                bool runtimeOnly = ctx.Unresolved.Contains(p.Selector);
+                bool runtimeOnly = ctx.Unresolved.Contains(p.Selector) || ctx.Unresolved.Contains(varName);
                 if (!runtimeOnly) missing?.Add(p.Selector);
                 if (runtimeOnly && p.Options is { Count: > 0 } opts)
                 {
