@@ -169,7 +169,7 @@ public sealed class TierOnlyRecommender(DataPack pack) : IRecommender
         var entry = pack.FindTier(character, card.Id);
         if (entry is null) return w.TierValue.GetValueOrDefault(w.UnknownTier);
         var tier = entry.ActTier is not null && entry.ActTier.TryGetValue(act, out var t) ? t : entry.Tier;
-        var value = w.TierValue.GetValueOrDefault(tier);
+        var value = w.TierValue.GetValueOrDefault(tier) + entry.BaseAdjust;
         if (card.Upgrade > 0) value += entry.UpgradedDelta;
         return value;
     }

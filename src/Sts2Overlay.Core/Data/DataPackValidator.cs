@@ -8,6 +8,9 @@ public static partial class DataPackValidator
     /// <summary>Inclusive upper bound for <see cref="CardTierEntry.DupFactor"/>.</summary>
     public const double MaxDupFactor = 3.0;
 
+    /// <summary>One tier step (Weights.TierValue default spacing): a larger adjustment means the tier itself is wrong.</summary>
+    public const double MaxBaseAdjust = 15.0;
+
     [GeneratedRegex(@"^CARD\.[A-Z0-9_]+$", RegexOptions.CultureInvariant)]
     private static partial Regex CardIdRegex();
 
@@ -100,6 +103,10 @@ public static partial class DataPackValidator
                 if (!InRange(e.DupFactor, 0, MaxDupFactor)) Error($"{w}.dupFactor", $"dupFactor {e.DupFactor} is outside 0..{MaxDupFactor}.");
                 if (!InRange(e.Cycle, 0, 1)) Error($"{w}.cycle", $"cycle {e.Cycle} is outside 0..1.");
                 if (!double.IsFinite(e.UpgradedDelta)) Error($"{w}.upgradedDelta", "upgradedDelta must be a finite number.");
+                if (!InRange(e.BaseAdjust, -MaxBaseAdjust, MaxBaseAdjust))
+                {
+                    Error($"{w}.baseAdjust", $"baseAdjust {e.BaseAdjust} is outside ±{MaxBaseAdjust} (more than one tier step: change the tier instead).");
+                }
                 if (e.ActTier is not null)
                 {
                     foreach (var act in e.ActTier.Keys.Where(a => a < 1))

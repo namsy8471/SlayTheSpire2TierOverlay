@@ -223,6 +223,7 @@ ID는 게임 모델 ID 그대로입니다. 게임이 ID를 바꾼 경우(예: `R
 | `tier` | 티어 | `"C"` | 배지에 표시하는 기본 티어 |
 | `actTier` | `{막: 티어}` | null | 막별 티어 덮어쓰기 |
 | `upgradedDelta` | 숫자 | 0 | 강화본일 때 기본 점수에 더할 값 |
+| `baseAdjust` | −15..15 | 0 | 티어 기본 점수에 더하는 카드별 미세 조정(모든 막). 상위 랭커가 같은 보상 화면에서 실제로 고른 결과로 보정합니다(`docs/research/CARD_CALIBRATION.md`). 배지는 그대로 `tier`를 보여 줍니다. 한 티어 간격(15)보다 크게 바꿔야 하면 티어를 바꿉니다 |
 | `roles` | `{역할: 0..1}` | `{}` | 역할 강도 (필요 점수와 역할 공급 계산에 사용) |
 | `provides` | 문자열 배열 | `[]` | 생산하는 자원 축 (예: `STAR`, `ORB_LIGHTNING`, `DISCARD_ENGINE`) |
 | `consumes` | 문자열 배열 | `[]` | 소비하는 자원 축 |
@@ -467,7 +468,7 @@ v0.107.1 캐릭터 풀 크기 (싱글플레이): 모든 캐릭터가 일반 20 /
 | 대상 | 규칙 |
 |---|---|
 | ID | 카드·유물·캐릭터 ID가 §2.2 형식이 아님 (티어 팩 키, 아키타입 카드·유물·캐릭터, `guideHeroCard`, 콤보 카드·캐릭터, 별칭 키·값) |
-| 티어 항목 | `roles` 값이 0..1 밖, `confidence`가 0..1 밖, `dupFactor`가 0..3 밖, `cycle`이 0..1 밖, `upgradedDelta`가 유한수가 아님, `actTier` 막 < 1, `cost` < 0 |
+| 티어 항목 | `roles` 값이 0..1 밖, `confidence`가 0..1 밖, `dupFactor`가 0..3 밖, `cycle`이 0..1 밖, `upgradedDelta`가 유한수가 아님, `baseAdjust`가 ±15 밖, `actTier` 막 < 1, `cost` < 0 |
 | 아키타입 | id 없음, **id 중복**, 카드 0장, `fullWeight` ≤ 0, `commitThreshold`가 (0, 1] 밖, `coreTarget` < 1, `essentialTarget` < 0, `roleWeight` 음수, 유물 `w` 음수, `needs`에 `tag`와 `role`이 모두 없음, `min` 음수, `onTheme` 카드가 같은 아키타입의 역할 목록에도 있음 |
 | 콤보 | 서로 다른 카드가 2장 미만 |
 | 가중치 | `unknownConfidence`·`commitThreshold`·`hybridMargin`·`weakThreshold`·`skip.lowConfidence`가 0..1 밖, `completion.cardsPerReward` < 1, `poolSize` 값 ≤ 0, `cardOdds.*`의 `rare`/`uncommon`/`rareHighAscension`이 0..1 밖, `rareMultiplierHighAscension`이 0..1 밖, `pity`의 `start`/`cap`이 -1..1 밖이거나 `start > cap`, `pity` step이나 강화 확률이 0..1 밖, `shop.cardPrice` 값 ≤ 0, `priceJitterMin`이 0 이하이거나 `priceJitterMax`보다 큼, `colorlessPriceMultiplier` ≤ 0, `saleMultiplier`가 0..1 밖, `corePriority.bonus`·`starterBonus` 음수, `skip.basicPickBias` 값·`skip.lowConfidenceStep` 음수, `skip.basicShareFull`이 (0, 1] 밖, `leanMin`·`weakFactor`·`noCoreFactor`·`noCoreMaxUnlock`·`noCoreUnlockByAct`·`subBeforeEssential` 값이 0..1 밖, `leanFull`이 (0, 1] 밖, `essentialTarget`·`rewardsPerFloor`·`securedEssentialFloor`·`securedEssentialExtra` 음수, `securedEssentialTaper`·`emergencyGap`·`emergencyFactor`가 0..1 밖, `floorsPerAct`·`runActs` < 1 |

@@ -200,19 +200,19 @@ internal static class Report
         {
             sb.AppendLine("## 빌드 이탈 진단 (engine 시뮬레이션)");
             sb.AppendLine();
-            sb.AppendLine("대상 화면 = 주빌드가 자리 잡은 덱(코어 확보, 코어 목록이 없으면 commit ≥ 0.4)에 주빌드 목록 카드가 나온 화면. 이탈 = 엔진이 빌드 밖 카드를 추천.");
+            sb.AppendLine("대상 화면 = 주빌드가 자리 잡은 덱(코어 확보, 코어 목록이 없으면 commit ≥ 0.4)에 주빌드 목록 카드가 나온 화면. 이탈 = 엔진이 빌드 밖 카드를 추천. 치명적 이탈 = 그때 넘긴 빌드 카드가 덱에 아직 없는 코어·enabler·payoff.");
             sb.AppendLine("구성 요소 차 = 이탈한 화면에서 (추천 카드 − 가장 높은 빌드 카드)의 평균. 양수가 이탈을 만든 요소입니다.");
             sb.AppendLine();
             var keys = s.Leaks.SelectMany(l => l.MeanDiff.Keys).Distinct().Order(StringComparer.Ordinal).ToList();
-            sb.Append("| 캐릭터 | 대상 화면 | 이탈 | 스킵 | 이탈 중 드로우 | 이탈 중 테마 | 코어 있는 빌드 이탈 | 코어 없는 빌드 이탈 |");
+            sb.Append("| 캐릭터 | 대상 화면 | 이탈 | 치명적 이탈 | 스킵 | 이탈 중 드로우 | 이탈 중 테마 | 코어 있는 빌드 이탈 | 코어 없는 빌드 이탈 |");
             foreach (var k in keys) sb.Append(' ').Append(k).Append(" |");
             sb.AppendLine();
-            sb.Append("|---|---|---|---|---|---|---|---|");
+            sb.Append("|---|---|---|---|---|---|---|---|---|");
             foreach (var _ in keys) sb.Append("---|");
             sb.AppendLine();
             foreach (var l in s.Leaks)
             {
-                sb.Append($"| {Program.Short(l.Character)} | {l.Eligible} | {Pct(l.Leaked, l.Eligible)} | {Pct(l.Skipped, l.Eligible)} | {Pct(l.LeakedToDraw, l.Leaked)} | {Pct(l.LeakedToOnTheme, l.Leaked)} | {Pct(l.Leaked - l.LeakedCoreless, l.Eligible - l.EligibleCoreless)} ({l.Eligible - l.EligibleCoreless}) | {Pct(l.LeakedCoreless, l.EligibleCoreless)} ({l.EligibleCoreless}) |");
+                sb.Append($"| {Program.Short(l.Character)} | {l.Eligible} | {Pct(l.Leaked, l.Eligible)} | {Pct(l.LeakedCritical, l.Eligible)} | {Pct(l.Skipped, l.Eligible)} | {Pct(l.LeakedToDraw, l.Leaked)} | {Pct(l.LeakedToOnTheme, l.Leaked)} | {Pct(l.Leaked - l.LeakedCoreless, l.Eligible - l.EligibleCoreless)} ({l.Eligible - l.EligibleCoreless}) | {Pct(l.LeakedCoreless, l.EligibleCoreless)} ({l.EligibleCoreless}) |");
                 foreach (var k in keys) sb.Append(' ').Append(l.MeanDiff.GetValueOrDefault(k).ToString("+0.0;-0.0;0", Inv)).Append(" |");
                 sb.AppendLine();
             }

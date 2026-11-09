@@ -57,6 +57,11 @@ public sealed class CardScorer(DataPack pack)
             baseValue += Finite(entry.UpgradedDelta);
             baseDetail += Loc.T($", 강화 {Signed(entry.UpgradedDelta)}", $", upgraded {Signed(entry.UpgradedDelta)}");
         }
+        if (entry is not null && entry.BaseAdjust != 0)
+        {
+            baseValue += Finite(entry.BaseAdjust);
+            baseDetail += Loc.T($", 랭커 선택 보정 {Signed(entry.BaseAdjust)}", $", top-player pick adjustment {Signed(entry.BaseAdjust)}");
+        }
         parts.Add(new ScoreComponent(ComponentKeys.Base, Loc.T($"기본 {tier}", $"Base {tier}"), baseValue, baseDetail));
 
         // ---- archetype membership ----
