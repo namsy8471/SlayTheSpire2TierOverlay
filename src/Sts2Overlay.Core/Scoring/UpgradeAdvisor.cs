@@ -205,10 +205,10 @@ public sealed class UpgradeAdvisor(DataPack pack)
 
     private static string RoleName(string role) => role switch
     {
-        ArchetypeRoles.Core => Loc.T("코어", "Core"),
-        ArchetypeRoles.Payoff => Loc.T("핵심 보상", "Payoff"),
-        ArchetypeRoles.Enabler => Loc.T("준비", "Enabler"),
-        ArchetypeRoles.Support => Loc.T("보조", "Support"),
+        ArchetypeRoles.Core => Loc.T("코어", "core"),
+        ArchetypeRoles.Payoff => Loc.T("핵심 보상", "payoff"),
+        ArchetypeRoles.Enabler => Loc.T("준비", "enabler"),
+        ArchetypeRoles.Support => Loc.T("보조", "support"),
         _ => role,
     };
 
