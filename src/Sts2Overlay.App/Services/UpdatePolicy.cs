@@ -1,4 +1,7 @@
 using System.IO;
+using System.Net;
+using System.Net.Http;
+using System.Net.Sockets;
 using System.Reflection;
 
 namespace Sts2Overlay.App.Services;
@@ -75,16 +78,73 @@ public sealed class UpdateSchedule
     /// <summary>How often the timer asks <see cref="ShouldCheck"/> after the first check (cheap; it rarely says yes).</summary>
     public static readonly TimeSpan PollInterval = TimeSpan.FromMinutes(30);
 
+    /// <summary>
+    /// After a check that failed for a passing reason (GitHub 5xx, timeout, connection reset, see
+    /// <see cref="UpdateRetry.IsTransient"/>), the next automatic check comes this soon instead of after <see cref="Interval"/>.
+    /// Equal to <see cref="PollInterval"/>, so it is simply the next timer tick.
+    /// </summary>
+    public static readonly TimeSpan RetryAfterTransientFailure = TimeSpan.FromMinutes(30);
+
     /// <summary>UTC time of the last check that was started; null before the first.</summary>
     public DateTime? LastCheckUtc { get; private set; }
+
+    /// <summary>The last check failed for a passing reason; cleared by the next <see cref="MarkChecked"/>.</summary>
+    public bool LastFailedTransiently { get; private set; }
 
     public bool ShouldCheck(DateTime nowUtc, bool manual)
     {
         if (LastCheckUtc is not { } last) return true;
-        return nowUtc - last >= (manual ? ManualMinGap : Interval);
+        var gap = manual ? ManualMinGap : LastFailedTransiently ? RetryAfterTransientFailure : Interval;
+        return nowUtc - last >= gap;
     }
 
-    public void MarkChecked(DateTime nowUtc) => LastCheckUtc = nowUtc;
+    public void MarkChecked(DateTime nowUtc)
+    {
+        LastCheckUtc = nowUtc;
+        LastFailedTransiently = false;
+    }
+
+    /// <summary>The check started at <see cref="LastCheckUtc"/> ended in a passing failure: try again sooner.</summary>
+    public void MarkTransientFailure() => LastFailedTransiently = true;
+}
+
+/// <summary>
+/// Which update errors are worth trying again right away, and how long to wait between tries. GitHub's release
+/// download endpoint sometimes answers 504 for a few seconds at a time; a second try usually gets through.
+/// </summary>
+public static class UpdateRetry
+{
+    /// <summary>Waits before the 2nd, 3rd and 4th attempt (plus up to 20 % jitter): at most 4 attempts in all.</summary>
+    public static readonly IReadOnlyList<TimeSpan> Delays = [TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10)];
+
+    /// <summary>
+    /// True for failures that usually go away by themselves: HTTP 5xx and 429, timeouts, a dropped or reset connection.
+    /// False for everything else, notably 404 (wrong address), 403 (rate limit, which only waiting an hour fixes),
+    /// other 4xx, an unknown host (offline) and disk errors. Velopack may wrap the HTTP error, so the inner chain is searched.
+    /// </summary>
+    public static bool IsTransient(Exception ex)
+    {
+        for (var e = ex; e is not null; e = e.InnerException)
+        {
+            switch (e)
+            {
+                case HttpRequestException { StatusCode: { } code }:
+                    return (int)code >= 500 || code == HttpStatusCode.TooManyRequests;
+                case HttpRequestException { HttpRequestError: HttpRequestError.ConnectionError or HttpRequestError.ResponseEnded }:
+                    return true;
+                case HttpRequestException { HttpRequestError: HttpRequestError.NameResolutionError }:
+                    return false;
+                case SocketException { SocketErrorCode: SocketError.ConnectionReset or SocketError.ConnectionAborted or SocketError.TimedOut }:
+                    return true;
+                case TaskCanceledException or TimeoutException:
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary><paramref name="delay"/> stretched by <paramref name="random01"/> × 20 %, so many overlays do not retry in step.</summary>
+    public static TimeSpan WithJitter(TimeSpan delay, double random01) => delay * (1 + 0.2 * Math.Clamp(random01, 0, 1));
 }
 
 /// <summary>The app's version for display ("버전 0.1.0").</summary>

@@ -94,6 +94,23 @@ public class UpdatePolicyTests
     }
 
     [Fact]
+    public void After_a_transient_failure_the_automatic_check_comes_back_in_30_minutes_not_6_hours()
+    {
+        var schedule = new UpdateSchedule();
+        var t0 = new DateTime(2026, 1, 1, 12, 0, 0, DateTimeKind.Utc);
+        schedule.MarkChecked(t0);
+        schedule.MarkTransientFailure();
+
+        Assert.False(schedule.ShouldCheck(t0.AddMinutes(29), manual: false));
+        Assert.True(schedule.ShouldCheck(t0.AddMinutes(30), manual: false));
+
+        // The next check starts with a clean slate: if it succeeds, back to 6 hours.
+        schedule.MarkChecked(t0.AddMinutes(30));
+        Assert.False(schedule.ShouldCheck(t0.AddMinutes(61), manual: false));
+        Assert.True(schedule.ShouldCheck(t0.AddMinutes(30).AddHours(6), manual: false));
+    }
+
+    [Fact]
     public void Default_timing_matches_the_github_rate_limit_plan()
     {
         Assert.Equal(TimeSpan.FromSeconds(15), UpdateSchedule.FirstCheckDelay);
