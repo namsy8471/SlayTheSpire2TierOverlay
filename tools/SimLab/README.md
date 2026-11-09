@@ -100,3 +100,32 @@ the best card; gains from piles/generated choices take the best by rarity/upgrad
 real_turns,real_died,mapped,unmapped_note,sim_runs,sim_win_rate,sim_damage_mean,sim_damage_sd,
 sim_turns_mean,error`. Runs hitting 30 player turns or the wall-time cap are counted as timeouts and
 left out.
+
+## Results (held-out test set, 1,977 fights × 3 seeds, 2026-11-10)
+
+`before` = the first trial's 1-step policy (no potions); `after` = this beam AI with default `Tun`.
+Real ranker damage per fight is 12.8.
+
+| metric | before | after, no potions | after, potions used in the fight |
+|---|---|---|---|
+| damage ratio (all) | 1.71x | 1.42x | 1.31x |
+| monster: damage ratio / death (real 1.4%) | 1.88x / 2.9% | 1.44x / 1.8% | 1.36x / 1.5% |
+| elite: damage ratio / death (real 3.0%) | 1.71x / 22.3% | 1.43x / 14.8% | 1.26x / 10.9% |
+| boss: damage ratio / death (real 7.5%) | 1.60x / 49.8% | 1.39x / 39.5% | 1.31x / 33.5% |
+| within-encounter Spearman (43 encounters, n≥20) | +0.457 | +0.469 | +0.488 |
+| encounter-demeaned Spearman | +0.439 | +0.450 | +0.458 |
+| encounter-order Spearman | +0.936 | +0.943 | +0.945 |
+
+Speed: on the same machine and load (2 processes × 4 threads, the game running), the beam AI ran
+at 0.7–0.9× the old policy's combats/s. With 24 threads the dev runs gave 22–27 combats/s with other
+programs running; re-measure on an idle PC.
+
+What moved the numbers on dev (damage ratio, boss death): exact intent damage + beam ~1.83→1.60 only
+after adding the race weight and a second turn; real potions 1.60→1.48; one-step greedy rollout and
+a third turn 1.48→1.40; 16 exactly scored end points instead of 10 1.40→1.37; relic state and
+prompt fixes 1.37→1.33; RaceK 0.7 →1.28. Wider beams, deeper two-stage search and the other eval
+weights stayed within noise (±0.03).
+
+A separate check of the setup (relics at combat start, monster numbers, A10, composition, damage
+definition) found the harness explains only ~5–8% of the remaining gap; the relic-state part is now
+fixed. Most of the rest is play quality: bosses still kill the AI ~4× as often as rankers.
