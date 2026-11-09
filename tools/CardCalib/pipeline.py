@@ -61,6 +61,90 @@ def read_tiers(pack):
     return cur
 
 
+def read_dupfactors(pack):
+    cur = {}
+    for ch, f in FILES.items():
+        for ln in open(os.path.join(pack, 'tiers', f + '.json'), encoding='utf-8'):
+            m = re.match(r'\s*"(CARD\.\w+)": \{.*"dupFactor": ([\d.]+)', ln)
+            if m: cur[(ch, m.group(1))] = float(m.group(2))
+    return cur
+
+
+def _parse_dup(s):
+    if not s: return 0.0
+    for part in s.split(';'):
+        if part.startswith('duplicate='):
+            return float(part.split('=', 1)[1])
+    return 0.0
+
+
+def fit_dupfactors(csvpath, index_path, cur_tiers, cur_df, edits2, notes):
+    idx = {r['runId']: r for r in csv.DictReader(open(index_path, encoding='utf-8'))}
+    sc = collections.OrderedDict()
+    for r in csv.DictReader(open(csvpath, encoding='utf-8')):
+        if r['context'] == 'Shop' or idx.get(r['run'], {}).get('keep', '1') != '1': continue
+        ck = (r['character'], r['card'])
+        e = edits2.get(ck, {})
+        t_shift = 15 * (ORD.index(e['tier']) - ORD.index(cur_tiers[ck])) if 'tier' in e else 0
+        r['_tot'] = float(r['total']) + e.get('baseAdjust', 0) + t_shift
+        r['_dup'] = _parse_dup(r['components'])
+        sc.setdefault((r['run'], r['screen']), []).append(r)
+    card_sc = collections.defaultdict(list)
+    for key, cs in sc.items():
+        for r in cs:
+            if r['_dup'] < 0:
+                card_sc[(r['character'], r['card'])].append((key, cs))
+    tr_players = sorted({idx[k[0]]['player_key'] or ('run:' + k[0]) for k in sc.keys()})
+    sub_half = set(tr_players[::2])
+    grid = (0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1.0, 1.3, 1.5, 1.8, 2.0, 2.5)
+    for ck, sc_list in sorted(card_sc.items()):
+        uniq_sc = list({k: cs for k, cs in sc_list}.items())
+        if len(uniq_sc) < 15: continue
+        pls = {idx[k[0]]['player_key'] or ('run:' + k[0]) for k, _ in uniq_sc}
+        if len(pls) < 4: continue
+        df0 = cur_df.get(ck, 1.0)
+        if df0 <= 0: continue
+        sc_A = [cs for k, cs in uniq_sc if (idx[k[0]]['player_key'] or ('run:' + k[0])) in sub_half]
+        sc_B = [cs for k, cs in uniq_sc if (idx[k[0]]['player_key'] or ('run:' + k[0])) not in sub_half]
+        if not sc_A or not sc_B: continue
+        def stats_for(sub, df_val, c_key=ck, d0=df0):
+            h = ep = rp = 0
+            for cs in sub:
+                sk = float(cs[0]['skip_total'])
+                best_j = None; best_s = sk
+                for j, r in enumerate(cs):
+                    s = r['_tot']
+                    if r['_dup'] < 0 and (r['character'], r['card']) == c_key:
+                        s += r['_dup'] * (df_val / d0 - 1.0)
+                    if s > best_s: best_s = s; best_j = j
+                r_j = next((j for j, r in enumerate(cs) if r['ranker_pick'] == '1'), None)
+                if best_j == r_j: h += 1
+                if best_j is not None and (cs[best_j]['character'], cs[best_j]['card']) == c_key and cs[best_j]['_dup'] < 0: ep += 1
+                if r_j is not None and (cs[r_j]['character'], cs[r_j]['card']) == c_key and cs[r_j]['_dup'] < 0: rp += 1
+            return h, ep, rp
+        hA0, epA0, rpA0 = stats_for(sc_A, df0)
+        hB0, epB0, rpB0 = stats_for(sc_B, df0)
+        h0 = hA0 + hB0; ep0 = epA0 + epB0; rp0 = rpA0 + rpB0
+        gap0 = abs(ep0 - rp0)
+        if gap0 < 4: continue
+        if ep0 > rp0 and rp0 / len(uniq_sc) > 0.12: continue
+        best_df = df0
+        best_score = (h0, -gap0)
+        for g in grid:
+            if (ep0 < rp0 and g >= df0) or (ep0 > rp0 and g <= df0): continue
+            hA, epA, rpA = stats_for(sc_A, g)
+            hB, epB, rpB = stats_for(sc_B, g)
+            if hA >= hA0 and hB >= hB0 and (hA + hB > h0 + 1 or (hA + hB >= h0 and abs(epA + epB - rp0) <= gap0 - 4)):
+                if abs(epA - rpA) <= abs(epA0 - rpA0) and abs(epB - rpB) <= abs(epB0 - rpB0):
+                    cand = (hA + hB, -abs(epA + epB - rp0), -abs(g - df0))
+                    if cand > (best_score[0], best_score[1], -abs(best_df - df0)):
+                        best_score = (cand[0], cand[1])
+                        best_df = g
+        if best_df != df0:
+            edits2.setdefault(ck, {})['dupFactor'] = best_df
+            notes.append(f"dupFactor {ck[1]} {df0:g}->{best_df:g} (n={len(uniq_sc)}, R={rp0}, E={ep0})")
+
+
 def write_cards(pack, edits):
     """edits[(ch, card)] = {'tier': 'B', 'baseAdjust': int or 0}"""
     for ch, f in FILES.items():
@@ -79,6 +163,11 @@ def write_cards(pack, edits):
                     ln = re.sub(r'("upgradedDelta": -?[\d.]+)', r'\1, "baseAdjust": %d' % e['baseAdjust'], ln, count=1)
                 else:
                     ln = re.sub(r'("tier": "\w")', r'\1, "baseAdjust": %d' % e['baseAdjust'], ln, count=1)
+            if 'dupFactor' in e:
+                df_str = ('%.2f' % e['dupFactor']).rstrip('0').rstrip('.')
+                ln = re.sub(r'"dupFactor": [\d.]+', '"dupFactor": %s' % df_str, ln, count=1)
+            if e.get('calibrated'):
+                ln = re.sub(r'"confidence": 0\.45\b', '"confidence": 0.65', ln, count=1)
             lines[i] = ln
         open(p, 'w', encoding='utf-8', newline='').write('\n'.join(lines))
 
@@ -151,7 +240,7 @@ def fit(a, train_ids, out_pack, log):
     # 2. conditional logit on the corrected tiers
     c1 = dump(out_pack, tr_dir, out_pack + '.cards1.csv')
     oj = out_pack + '.clogit.json'
-    cmd = [PY, '-I', os.path.join(HERE, 'clogit2.py'), c1, '--index', a.index, '--players', a.players, '--lam', str(a.lam),
+    cmd = [PY, '-P', os.path.join(HERE, 'clogit2.py'), c1, '--index', a.index, '--players', a.players, '--lam', str(a.lam),
            '--folds', '2', '--json', oj, '--patched', pj]
     if a.need == 'fit':
         cmd += ['--need', '--lam-m', str(a.lam_m)]
@@ -200,10 +289,11 @@ def fit(a, train_ids, out_pack, log):
         adj = 15 * math.tanh(off / 15) if a.soft else max(-15, min(15, off))
         cap = 10 if (backed or moved) else 15
         adj = int(round(max(-cap, min(cap, adj))))
-        e = {}
+        e = {'calibrated': True}
         if tier != cur[k]: e['tier'] = tier
         if adj: e['baseAdjust'] = adj
-        if e: edits2[k] = e
+        edits2[k] = e
+    fit_dupfactors(c1, a.index, cur, read_dupfactors(out_pack), edits2, notes)
     write_cards(out_pack, edits2)
     json.dump({'tierMoves1': {f'{k[0]}|{k[1]}': v for k, v in edits.items()},
                'cards': {f'{k[0]}|{k[1]}': v for k, v in edits2.items()}, 'urgency': urg, 'beta': beta, 'notes': notes,

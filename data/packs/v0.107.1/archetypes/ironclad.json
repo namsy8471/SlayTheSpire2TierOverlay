@@ -68,9 +68,9 @@
       // 예: https://op.gg/slay-the-spire2/history/6176418 https://op.gg/slay-the-spire2/history/6695107
       "cards": {
         "core": ["CARD.BARRICADE"],
-        "enabler": ["CARD.SHRUG_IT_OFF", "CARD.ARMAMENTS", "CARD.IMPERVIOUS"],
+        "enabler": ["CARD.SHRUG_IT_OFF", "CARD.IMPERVIOUS"],
         "payoff": ["CARD.BODY_SLAM"],
-        "support": []
+        "support": ["CARD.ARMAMENTS"]
       },
       // fullWeight 2.5 유지: 멤버 덱 commit 중앙값 1.00, 비멤버 0.28(보정 조건 아님).
       "fullWeight": 2.5,
@@ -174,9 +174,9 @@
       // 예: https://op.gg/slay-the-spire2/history/6176418 https://op.gg/slay-the-spire2/history/6558157
       "cards": {
         "core": [],
-        "enabler": ["CARD.POMMEL_STRIKE", "CARD.SETUP_STRIKE", "CARD.TWIN_STRIKE"],
+        "enabler": ["CARD.POMMEL_STRIKE", "CARD.TWIN_STRIKE"],
         "payoff": ["CARD.PERFECTED_STRIKE"],
-        "support": ["CARD.ARMAMENTS", "CARD.RAGE"]
+        "support": ["CARD.SETUP_STRIKE", "CARD.ARMAMENTS", "CARD.RAGE"]
       },
       // onTheme(빌드 밖 감점 면제, 빌드 점수 없음): 빌드 확정 덱(commit ≥ 0.7)에 다른 승리 덱보다 1.5배 이상 자주 있고 5명 이상이 들었으며(부트스트랩 80%) 역할 목록에는 없는 카드. 근거: docs/research/v2-stats/on-theme.md
       "onTheme": ["CARD.HELLRAISER"],

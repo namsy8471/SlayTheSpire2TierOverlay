@@ -15,9 +15,9 @@
       // 예: https://op.gg/slay-the-spire2/history/7176716 https://op.gg/slay-the-spire2/history/7089416 https://op.gg/slay-the-spire2/history/6479296 https://op.gg/slay-the-spire2/history/6405508
       "cards": {
         "core": ["CARD.NOXIOUS_FUMES"],
-        "enabler": ["CARD.SNAKEBITE", "CARD.HAZE", "CARD.BOUNCING_FLASK", "CARD.DEADLY_POISON"],
+        "enabler": ["CARD.SNAKEBITE", "CARD.BOUNCING_FLASK", "CARD.DEADLY_POISON"],
         "payoff": ["CARD.ACCELERANT", "CARD.BUBBLE_BUBBLE"],
-        "support": []
+        "support": ["CARD.HAZE"]
       },
       // onTheme(빌드 밖 감점 면제, 빌드 점수 없음): 빌드 확정 덱(commit ≥ 0.7)에 다른 승리 덱보다 1.5배 이상 자주 있고 5명 이상이 들었으며(부트스트랩 80%) 역할 목록에는 없는 카드. 좋은 플레이어 표본이 얇아 전체 플레이어로 판정: MIRAGE, OUTBREAK. 근거: docs/research/v2-stats/on-theme.md
       "onTheme": ["CARD.BULLET_TIME", "CARD.BURST", "CARD.CORROSIVE_WAVE", "CARD.MASTER_PLANNER", "CARD.MIRAGE", "CARD.OUTBREAK", "CARD.POISONED_STAB"],
@@ -77,16 +77,17 @@
       // 예: https://op.gg/slay-the-spire2/history/4682263 https://op.gg/slay-the-spire2/history/4110994 https://op.gg/slay-the-spire2/history/6234531 https://op.gg/slay-the-spire2/history/6669207
       "cards": {
         "core": [],
-        "enabler": ["CARD.PREPARED", "CARD.ACROBATICS", "CARD.DAGGER_THROW"],
-        "payoff": ["CARD.TACTICIAN", "CARD.UNTOUCHABLE", "CARD.REFLEX", "CARD.RICOCHET"],
-        "support": ["CARD.TRACKING"]
+        "enabler": ["CARD.PREPARED", "CARD.ACROBATICS"],
+        "payoff": ["CARD.TACTICIAN", "CARD.REFLEX", "CARD.RICOCHET"],
+        "support": ["CARD.DAGGER_THROW", "CARD.UNTOUCHABLE", "CARD.TRACKING"]
       },
       // onTheme(빌드 밖 감점 면제, 빌드 점수 없음): 빌드 확정 덱(commit ≥ 0.7)에 다른 승리 덱보다 1.5배 이상 자주 있고 5명 이상이 들었으며(부트스트랩 80%) 역할 목록에는 없는 카드. 좋은 플레이어 표본이 얇아 전체 플레이어로 판정: FLICK_FLACK. 근거: docs/research/v2-stats/on-theme.md
       "onTheme": ["CARD.CORROSIVE_WAVE", "CARD.FLICK_FLACK", "CARD.MASTER_PLANNER", "CARD.SPEEDSTER"],
       // fullWeight 유지: 멤버 덱 commit 중앙값 0.98, 비멤버 0.30(플레이어 균형).
       "fullWeight": 3.0,
       // essentialTarget: 멤버 승리 덱이 든 서로 다른 enabler·payoff 카드 수의 균형 중앙값 3(부트스트랩 97%). core가 없어 coreTarget 없음.
-      "essentialTarget": 3,
+      // 2026-11 후속: DAGGER_THROW·UNTOUCHABLE을 support로 내려 enabler·payoff가 5장으로 줄어 3 → 2 (docs/research/CARD_CALIBRATION.md §9.1).
+      "essentialTarget": 2,
       // 유물(축에 작용하는 유물만 후보; lift≥1.5·5명·부트스트랩 80%): TINGSHA 11%·lift 1.10·11명·부트스트랩 12% 미채택; TOUGH_BANDAGES 10%·lift 2.19·10명·부트스트랩 86% 추가; GAMBLING_CHIP 8%·lift 1.13·9명·부트스트랩 14% 삭제.
       "keyRelics": [
         { "id": "RELIC.TOUGH_BANDAGES", "w": 0.6 }
