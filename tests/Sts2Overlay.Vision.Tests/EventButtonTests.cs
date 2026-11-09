@@ -40,6 +40,25 @@ public class EventButtonTests
     }
 
     /// <summary>
+    /// A field of button-coloured teal (a waterfall room's water behind the reward screen after an event fight, when
+    /// the detector still runs) fills the slots' stripes but also the gaps between them: no buttons.
+    /// </summary>
+    [Theory]
+    [InlineData(1920, 1080)]
+    [InlineData(3842, 2160)]
+    public void A_teal_field_is_not_a_button_column(int w, int h)
+    {
+        var c = new Canvas(w, h);
+        c.FillRef(new RectF(0, 0, 1920, 1080), 28, 30, 42);
+        c.FillRef(new RectF(600, 500, 1300, 400), Idle.R, Idle.G, Idle.B);
+        c.FillRef(new RectF(1100, 630, 400, 24), 240, 240, 240); // a bright patch where a title would be
+        Assert.Null(EventButtonDetector.Detect(c.Frame));
+        // the same teal ending where a button ends: one button
+        c.FillRef(new RectF(600, EventButtonDetector.RefTop + EventButtonDetector.RefHeight, 1300, 400), 28, 30, 42);
+        Assert.Equal(1, EventButtonDetector.Detect(c.Frame)?.Buttons.Count);
+    }
+
+    /// <summary>
     /// A long description (English Abyssal Baths: 18 px) or the co-op shared label (48 + spacing) pushes the whole
     /// column down; the slots must follow it, and the hover glow must still be read above the shifted top.
     /// </summary>
@@ -190,6 +209,24 @@ public class EventButtonTests
         // column search).
         ["reward_20261109_002655_466"] = new(2, "AMALGAMATOR (column pushed down)"),
         ["reward_20261109_002657_618"] = new(2, "AMALGAMATOR (column pushed down)"),
+        // Every other detection newer than LabelledUntil, hand-checked: the event screens of one more session, and
+        // the reward screen after a fight in a waterfall room, whose teal water filled the slots (and the gaps).
+        ["reward_20261109_000336_014"] = new(2, "event, 00:03"),
+        ["reward_20261109_000338_227"] = new(2, "event, 00:03"),
+        ["reward_20261109_000342_669"] = new(2, "event, 00:03"),
+        ["reward_20261109_000351_438"] = new(2, "event, 00:03"),
+        ["reward_20261109_000355_811"] = new(1, "event, 00:03"),
+        ["reward_20261109_000719_824"] = new(2, "HUNGRY_FOR_MUSHROOMS"),
+        ["reward_20261109_000722_005"] = new(2, "HUNGRY_FOR_MUSHROOMS"),
+        ["reward_20261109_002122_693"] = new(0, "reward screen over a waterfall room's water"),
+        ["reward_20261109_002347_531"] = new(2, "WHISPERING_HOLLOW"),
+        ["reward_20261109_002349_679"] = new(2, "WHISPERING_HOLLOW"),
+        ["reward_20261109_002818_732"] = new(2, "CRYSTAL_SPHERE"),
+        ["reward_20261109_002820_904"] = new(2, "CRYSTAL_SPHERE"),
+        ["reward_20261109_003453_604"] = new(2, "TRIAL"),
+        ["reward_20261109_003457_945"] = new(2, "TRIAL"),
+        ["reward_20261109_003502_214"] = new(2, "TRIAL"),
+        ["reward_20261109_003504_393"] = new(2, "TRIAL"),
     };
 
     [EventCapturesFact]

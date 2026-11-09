@@ -52,7 +52,9 @@ public sealed record EventScreen(IReadOnlyList<EventButton> Buttons)
 /// A slot is a button when two thin stripes inside the texture, one under the top border and one above the bottom
 /// border (no text there), are at least 60 % button fill. The fill is a dark teal whose blue is a little above its
 /// green (idle about 37,69,74; hovered 48,89,96). That small blue-over-green margin is what tells it apart from
-/// the shop's teal rug (55,84,74). Locked buttons are a grey-brown (46,41,41). On 1461 Korean captured frames and
+/// the shop's teal rug (55,84,74). Locked buttons are a grey-brown (46,41,41). Each button must also end: the band
+/// of the 20 px gap under it is not fill (real buttons: at most 27 %), which a field of teal, such as a waterfall
+/// room's water behind the reward screen, is all over. On 1461 Korean captured frames and
 /// 797 English ones this finds every event screen and nothing else (tests/Sts2Overlay.Vision.Tests/EventButtonTests.cs,
 /// EnglishCaptureTests.cs).
 /// </para>
@@ -70,6 +72,7 @@ public static class EventButtonDetector
     private const float MinFill = 0.6f;
     private const int HoverGreen = 80; // mean green of the bottom stripe: idle 59..69, hovered 85..89
     private const int HoverGlow = 60;  // mean green just above the button: hovered 82..120, otherwise 1..34
+    private const float Gap0 = 92, Gap1 = 100; // rows of the gap under a button (relative to its top), past a hovered one's growth
 
     // Text ink area (the label is node x 42..764, y 13..87, i.e. x 964..1686, texture y 5..79; with a margin for the
     // hover scale) and the node's scale pivot (400, 50): x 1322, texture y 42.
@@ -141,6 +144,15 @@ public static class EventButtonDetector
     private static float RowFill(ReadOnlySpan<byte> px, in ScreenFrame f, RefTransform t, int refY)
         => RowFillAt(px, f, t, (int)t.ToPixelY(refY + 0.5f));
 
+    /// <summary>Mean <see cref="RowFill"/> over reference rows <paramref name="refY0"/>..<paramref name="refY1"/> (rows off the frame: none).</summary>
+    private static float BandFill(ReadOnlySpan<byte> px, in ScreenFrame f, RefTransform t, float refY0, float refY1)
+    {
+        float sum = 0;
+        int n = 0;
+        for (int y = (int)refY0; y < (int)refY1; y++, n++) sum += RowFill(px, f, t, y);
+        return n > 0 ? sum / n : 0;
+    }
+
     /// <summary>Same, for one pixel row.</summary>
     private static float RowFillAt(ReadOnlySpan<byte> px, in ScreenFrame f, RefTransform t, int y)
     {
@@ -176,6 +188,8 @@ public static class EventButtonDetector
             }
             else if (a.Locked >= MinFill && b.Locked >= MinFill) state = EventButtonState.Locked;
             else break;
+            // A button ends in a gap; fill running on through it is a teal field, not an option column.
+            if (BandFill(px, frame, t, top + Gap0, top + Gap1) >= MinFill) return null;
 
             var bounds = t.ToPixelRect(new RectF(RefLeft, top, RefWidth, RefHeight)).Intersect(frame.Width, frame.Height);
             buttons.Add(new EventButton(i, bounds, state, Signature(px, frame, t, new RectF(TextX0, top + TextY0, TextX1 - TextX0, TextY1 - TextY0)),
