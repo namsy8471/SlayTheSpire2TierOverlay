@@ -10,9 +10,11 @@ namespace Sts2Overlay.Core.Replay;
 /// <see cref="RecommendationEngine"/> using the reconstructed deck at that moment (PLAN §7.7, DECK_COMPASS §5.6).
 /// Live advice and post-run analysis use the exact same engine and skip formula.
 /// </summary>
-public sealed class ReplayAnalyzer(DataPack pack)
+/// <param name="pack">The data pack.</param>
+/// <param name="useLearnedModel">The live engine's <see cref="RecommendationEngine.UseLearnedModel"/> (<c>cardModel</c>), so the review judges with the same setting.</param>
+public sealed class ReplayAnalyzer(DataPack pack, bool useLearnedModel = true)
 {
-    private readonly RecommendationEngine _engine = new(pack);
+    private readonly RecommendationEngine _engine = new(pack) { UseLearnedModel = useLearnedModel };
 
     public DataPack Pack { get; } = pack;
 

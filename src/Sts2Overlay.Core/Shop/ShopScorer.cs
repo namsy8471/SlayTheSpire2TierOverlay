@@ -9,8 +9,17 @@ namespace Sts2Overlay.Core.Shop;
 /// PLAN §7.3: cards ranked by (score − skip) / price, relics by their deck-aware value / price, card removal as a
 /// candidate, best affordable bundle.
 /// Unread prices are estimated from rarity (<see cref="ShopPricing"/>); gold is checked against the price colours.
+/// Cards are valued like the reward screen (<see cref="CardValuer"/>): with <paramref name="useLearnedModel"/> and a model in the
+/// pack, a card's score and Skip are the learned model's, so a card skipped on a reward screen is not pushed in the next shop.
+/// The learned totals are utilities divided by <see cref="Learning.CardPolicyModel.PointUtility"/>, i.e. tier-base points, the
+/// same unit as the relic values (<see cref="Events.EventWeights.RelicTier"/>) and the removal values (<see cref="ShopWeights"/>),
+/// so cards, relics and removal still compare on one scale.
 /// </summary>
-public sealed class ShopScorer(DataPack pack)
+/// <param name="pack">The data pack.</param>
+/// <param name="useLearnedModel">
+/// The engine's switch (<see cref="RecommendationEngine.UseLearnedModel"/>). Default false: the hand-tuned engine alone.
+/// </param>
+public sealed class ShopScorer(DataPack pack, bool useLearnedModel = false)
 {
     /// <summary>Largest number of candidate items searched exhaustively for the recommended bundle.</summary>
     public const int MaxBundleCandidates = 12;
@@ -22,13 +31,13 @@ public sealed class ShopScorer(DataPack pack)
         bool goldCorrected = false;
         // Unknown gold (log-only run): plan with the most the price colours allow, so only a red label makes an item unaffordable.
         var gold = state.VitalsKnown ? ShopPricing.EffectiveGold(state.Gold, offer, out goldCorrected) : ShopPricing.GoldCeiling(offer);
-        var skip = new SkipScorer(Pack).Score(state, profile);
-        var scorer = new CardScorer(Pack);
+        // Each card's value does not depend on the other cards on the rug (see CardValuer), so valuing them together is the
+        // same as valuing each on its own.
+        var (evals, skip) = new CardValuer(Pack, useLearnedModel).Evaluate(state, profile, offer.Cards.Select(c => c.Card).ToArray(), OfferContext.Shop);
         var items = new List<ShopItemEvaluation>();
 
-        foreach (var sale in offer.Cards)
+        foreach (var (sale, eval) in offer.Cards.Zip(evals))
         {
-            var eval = scorer.Score(state, profile, sale.Card, OfferContext.Shop);
             var value = new ScoreBreakdown(eval.Score.Components.Append(
                 new ScoreComponent(ComponentKeys.SkipRelative, ScoringLabels.SkipRelative, -skip.Total, Loc.T($"스킵 {skip.Total:0.#}점", $"Skip {skip.Total:0.#} pts"))));
             var price = sale.PriceKnown ? sale.Price : ShopPricing.Estimate(Pack, state.Character, sale.Card);
@@ -145,8 +154,9 @@ public sealed class ShopScorer(DataPack pack)
     /// <summary>
     /// The reward screen's bar for a pick (<see cref="RecommendationEngine.EvaluateOffer(RunState, DeckProfile, IReadOnlyList{CardRef}, OfferContext)"/>),
     /// with the same <see cref="SkipWeights"/>: an item must be worth at least <see cref="SkipWeights.Margin"/> (a card's value is
-    /// already card − skip); a low-confidence card needs <see cref="SkipWeights.LowConfidenceStep"/> more; a card without a tier
-    /// entry is never bought (the shop does not use the learned model, so nothing rates it). Items below the bar stay listed.
+    /// already card − skip); a low-confidence card needs <see cref="SkipWeights.LowConfidenceStep"/> more; a card nothing rates
+    /// (<see cref="CardEvaluation.Unjudged"/>: no tier entry and, with the learned model active, unknown to the model) is never
+    /// bought. Engine-only: every card without a tier entry is unjudged. Items below the bar stay listed.
     /// </summary>
     private bool WorthBuying(ShopItemEvaluation item)
     {

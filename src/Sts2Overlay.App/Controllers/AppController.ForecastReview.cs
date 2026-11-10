@@ -30,7 +30,7 @@ public sealed partial class AppController
         _reviews = new RunReviewService(history, paths.SteamId is { } id ? (long)id : null, _engine.Pack, _ui, OnReview)
         {
             Decisions = _decisionStore,
-            UseLearnedModel = !string.Equals(_settings.CardModel, "engine", StringComparison.OrdinalIgnoreCase),
+            UseLearnedModel = _engine.UseLearnedModel,
         };
         _reviews.Start();
     }

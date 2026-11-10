@@ -13,8 +13,8 @@ public sealed class RecommendationEngine(DataPack pack)
     public DataPack Pack { get; } = pack;
 
     /// <summary>
-    /// Rank card rewards with the pack's learned model (<see cref="DataPack.CardPolicy"/>) when it has one (default).
-    /// False: the hand-tuned engine alone. Shops always use the engine (the model was trained on reward screens only).
+    /// Value cards with the pack's learned model (<see cref="DataPack.CardPolicy"/>) when it has one (default): card rewards,
+    /// shop cards and events built on this engine share one path (<see cref="CardValuer"/>). False: the hand-tuned engine alone.
     /// </summary>
     public bool UseLearnedModel { get; set; } = true;
 
@@ -31,13 +31,7 @@ public sealed class RecommendationEngine(DataPack pack)
     public OfferEvaluation EvaluateOffer(RunState state, DeckProfile profile, IReadOnlyList<CardRef> cards, OfferContext context = OfferContext.CardReward)
     {
         var w = Pack.Weights;
-        var scorer = new CardScorer(Pack);
-        var evals = cards.Select(c => scorer.Score(state, profile, c, context)).ToList();
-        var skip = new SkipScorer(Pack).Score(state, profile);
-        if (UseLearnedModel && Pack.CardPolicy is { } policy && evals.Count > 0)
-        {
-            (evals, skip) = Learning.LearnedRescore.Apply(policy, Pack, state, profile, evals, skip);
-        }
+        var (evals, skip) = new CardValuer(Pack, UseLearnedModel).Evaluate(state, profile, cards, context);
 
         // Rank: total desc, ties by offer order (OrderBy is stable).
         var order = Enumerable.Range(0, evals.Count).OrderByDescending(i => evals[i].Total).ThenBy(i => i).ToArray();
@@ -140,7 +134,7 @@ public sealed class RecommendationEngine(DataPack pack)
     }
 
     public ShopEvaluation EvaluateShop(RunState state, ShopOffer offer)
-        => new ShopScorer(Pack).Evaluate(state, Analyze(state), offer);
+        => new ShopScorer(Pack, UseLearnedModel).Evaluate(state, Analyze(state), offer);
 
     /// <summary>Build collection tab: every archetype of the character with commit, completion and probability.</summary>
     public ArchetypeReport Archetypes(RunState state, int remainingRewards)

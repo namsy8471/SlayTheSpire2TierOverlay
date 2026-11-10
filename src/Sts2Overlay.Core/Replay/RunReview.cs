@@ -110,10 +110,7 @@ public static class RunReviewBuilder
         ArgumentNullException.ThrowIfNull(run);
         ArgumentNullException.ThrowIfNull(pack);
         var player = LocalPlayer.Resolve(run, steamId);
-        // MERGE NOTE (r2-learned): once ReplayAnalyzer takes the engine setting from its caller, pass useLearnedModel on
-        // the next line. Until then the replay uses the pack's default (the learned model when the pack has one).
-        _ = useLearnedModel;
-        var replay = new ReplayAnalyzer(pack).Replay(run, player.Id);
+        var replay = new ReplayAnalyzer(pack, useLearnedModel).Replay(run, player.Id);
         var records = decisionLog is null ? [] : DecisionLogMatcher.ForRun(run, player, decisionLog);
         var stored = records.Count == 0 ? null : DecisionLogMatcher.Match(replay.Decisions.Select(d => d.Decision).ToArray(), records, pack.Canonical);
         return FromReplay(replay, pack, stored);
