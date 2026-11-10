@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 440" width="1000" height="440" role="img" aria-label="How it works: save/log watching and screen capture feed card recognition and the advice engine, shown as badges and the panel">
+  <style>
+    text { font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; fill: #EEF0F4; }
+    .t { font-size: 17px; font-weight: 700; }
+    .s { font-size: 13px; fill: #9AA3B2; }
+    .n { font-size: 14px; font-weight: 700; }
+    .box { fill: #1F2330; stroke: #3A4152; stroke-width: 1.5; }
+    .hl { fill: #2A2410; stroke: #F1C40F; stroke-width: 2; }
+    .src { fill: #18202B; stroke: #3498DB; stroke-width: 1.5; }
+    .arrow { stroke: #9AA3B2; stroke-width: 2; fill: none; marker-end: url(#a); }
+    .dash { stroke: #6B7385; stroke-width: 1.5; fill: none; stroke-dasharray: 5 4; marker-end: url(#a2); }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#9AA3B2"/></marker>
+    <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#6B7385"/></marker>
+  </defs>
+  <rect x="0" y="0" width="1000" height="440" rx="16" fill="#14161D"/>
+  <text x="32" y="44" class="t" style="font-size:20px">How it works</text>
+  <text x="168" y="44" class="s">The game stays untouched; the overlay reads alongside it and draws on top</text>
+
+  <!-- inputs -->
+  <rect x="32" y="78" width="220" height="92" rx="10" class="src"/>
+  <text x="48" y="106" class="t">Save and log watching</text>
+  <text x="48" y="130" class="s">current_run.save, godot.log</text>
+  <text x="48" y="150" class="s">deck · HP · gold · map · screen signals</text>
+
+  <rect x="32" y="196" width="220" height="92" rx="10" class="src"/>
+  <text x="48" y="224" class="t">Screen capture</text>
+  <text x="48" y="248" class="s">game window only, in memory</text>
+  <text x="48" y="268" class="s">rewards · shop · map · rest · events</text>
+
+  <!-- recognition -->
+  <rect x="300" y="196" width="200" height="92" rx="10" class="box"/>
+  <text x="316" y="224" class="t">Card recognition</text>
+  <text x="316" y="248" class="s">card art matching · upgrades</text>
+  <text x="316" y="268" class="s">shop prices · button positions</text>
+
+  <!-- engine -->
+  <rect x="548" y="120" width="200" height="126" rx="10" class="box"/>
+  <text x="564" y="148" class="t">Advice engine</text>
+  <text x="564" y="172" class="s">top-player model + tiers</text>
+  <text x="564" y="192" class="s">deck needs · build odds</text>
+  <text x="564" y="212" class="s">skip · shop budget · path</text>
+  <text x="564" y="232" class="s">rest sites · event options</text>
+
+  <!-- output -->
+  <rect x="790" y="120" width="184" height="126" rx="10" class="hl"/>
+  <text x="806" y="148" class="t" style="fill:#F1C40F">Badges · panel</text>
+  <text x="806" y="172" class="s" style="fill:#D8CFA8">tier badges on the cards</text>
+  <text x="806" y="192" class="s" style="fill:#D8CFA8">"Pick!" ribbon · reasons</text>
+  <text x="806" y="212" class="s" style="fill:#D8CFA8">panel with six tabs</text>
+  <text x="806" y="232" class="s" style="fill:#D8CFA8">marks on map and rest</text>
+
+  <!-- local resources -->
+  <rect x="300" y="78" width="200" height="92" rx="10" class="box" style="stroke-dasharray:5 4"/>
+  <text x="316" y="106" class="t">Local files (first run)</text>
+  <text x="316" y="130" class="s">reads the installed game</text>
+  <text x="316" y="150" class="s">card art, names: local only</text>
+
+  <!-- arrows -->
+  <path d="M252,242 L296,242" class="arrow"/>
+  <path d="M500,242 L520,242 L520,200 L544,200" class="arrow"/>
+  <path d="M252,124 L270,124 L270,60 L520,60 L520,160 L544,160" class="arrow"/>
+  <path d="M400,170 L400,192" class="dash"/>
+  <path d="M748,183 L786,183" class="arrow"/>
+
+  <!-- notes -->
+  <rect x="32" y="322" width="456" height="86" rx="10" fill="#17251D" stroke="#2E7D4F" stroke-width="1.5"/>
+  <text x="52" y="356" class="n" style="fill:#7FD6A1">No game mod</text>
+  <text x="52" y="384" class="s" style="fill:#B9D9C5">Game files are never changed and nothing is injected into the game.</text>
+  <rect x="512" y="322" width="456" height="86" rx="10" fill="#17251D" stroke="#2E7D4F" stroke-width="1.5"/>
+  <text x="532" y="356" class="n" style="fill:#7FD6A1">Nothing is sent out (update checks only)</text>
+  <text x="532" y="384" class="s" style="fill:#B9D9C5">Captures, decks and records never leave your PC.</text>
+</svg>

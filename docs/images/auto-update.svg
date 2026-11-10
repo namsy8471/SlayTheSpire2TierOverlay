@@ -60,7 +60,7 @@
   <rect x="32" y="240" width="300" height="128" rx="10" class="box"/>
   <text x="48" y="270" class="t" style="font-size:15px">설정은 그대로</text>
   <text x="48" y="296" class="m">%LOCALAPPDATA%\Sts2Overlay</text>
-  <text x="48" y="316" class="s">settings.json · app.log · captures · local</text>
+  <text x="48" y="316" class="s">settings.json · app.log · decisions · local</text>
   <text x="48" y="336" class="s">업데이트·제거해도 남습니다</text>
 
   <rect x="350" y="240" width="300" height="128" rx="10" class="box"/>

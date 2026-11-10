@@ -4,9 +4,9 @@
 
 A Windows overlay for Slay the Spire 2 that puts **card tier badges** on the game screen and recommends **the choice that fits your current deck** on rewards, shops, the map, rest sites and events.
 
-![Tier badges and the advice panel over a card reward screen (illustrated mock-up: the cards are plain shapes, the badges and panel are rendered by the real app)](docs/images/hero-reward.png)
+![Tier badges and the advice panel over a card reward screen (illustrated mock-up: the cards are plain shapes, the badges and panel are rendered by the real app)](docs/images/hero-reward.en.png)
 
-<sub>The picture above is an illustrative mock-up. The cards are hand-drawn shapes; only the badges and the panel on the right are drawn by the app. Card names are placeholders such as "파워 카드 B" (Power card B). The screenshots in this README show the Korean UI; the app also runs in English.</sub>
+<sub>The picture above is an illustrative mock-up. The cards are hand-drawn shapes; only the badges and the panel on the right are drawn by the app. Card names are placeholders such as "Power card B".</sub>
 
 > **Unofficial fan tool.** Not affiliated with, approved or endorsed by Mega Crit.
 
@@ -23,7 +23,7 @@ A Windows overlay for Slay the Spire 2 that puts **card tier badges** on the gam
 
 ### Badges and the "Pick!" ribbon on the cards
 
-When a reward or shop screen opens, every card gets a badge with its **tier letter (S·A·B·C·D) and score**. The best card gets a gold outline and a **"Pick!"** ribbon (**"Buy!"** in shops), and reason chips under each card explain the score (for example "Top players' preference +8"). When taking no card is better you get **"Skip!"**, and when removing a card in the shop is worth it a **"Remove a card"** marker appears over the removal button.
+When a reward or shop screen opens, every card gets a badge with its **tier letter (S·A·B·C·D) and score**. The best card gets a gold outline and a **"Pick!"** ribbon (**"Buy!"** in shops), and reason chips under each card explain the score (for example "Top players' preference +18" or "Deck fit -9"). When taking no card is better you get **"Skip!"**, and when removing a card in the shop is worth it a **"Remove a card"** marker appears over the removal button.
 
 | Tier | S | A | B | C | D | ? |
 |---|---|---|---|---|---|---|
@@ -34,7 +34,7 @@ When a reward or shop screen opens, every card gets a badge with its **tier lett
 - Badges disappear within about a second after the screen closes, and cards you already bought in a shop don't leave badges or "Buy!" behind on the empty slot.
 - Temporary card choices during combat are not deck additions, so they are not rated like rewards.
 
-![Shop mock-up: per-card badges, the Buy! ribbon, the card removal marker and the panel](docs/images/mock-shop.png)
+![Shop mock-up: per-card badges, the Buy! ribbon, the card removal marker and the panel](docs/images/mock-shop.en.png)
 
 <sub>Shop mock-up. It reads the price colours too (red = you can't afford it) and picks the best set of purchases within your budget. If a price tag is covered it estimates from rarity ("~50 gold (est.)"). Once you have used the card removal, it is dropped from the suggested set and the budget.</sub>
 
@@ -58,15 +58,20 @@ A small panel that sits to the right of the game. It starts on the monitor the g
 
 | Picks (card reward) | Picks (shop) |
 |---|---|
-| ![Picks tab: card reward ranking and reasons](docs/images/panel-offer-reward.png) | ![Picks tab: shop value and budget](docs/images/panel-offer-shop.png) |
+| ![Picks tab: card reward ranking and reasons](docs/images/panel-offer-reward.en.png) | ![Picks tab: shop value and budget](docs/images/panel-offer-shop.en.png) |
 | Ranking, score, reason chips, skip score | Purchase value, value per gold, suggested purchases and leftover gold |
 
-| Deck | Build | Path |
-|---|---|---|
-| ![Deck tab: role supply and card list](docs/images/panel-deck.png) | ![Build tab: build completion odds and current direction](docs/images/panel-build.png) | ![Path tab: comparing path candidates (demo data)](docs/images/panel-path.png) |
-| Whether early damage, AoE, block, scaling and draw meet their targets; tier per card | The build your deck is heading for, its odds of coming together by act 3, the core cards to go for first | Paths compared by elites, rests and shops and the HP you are expected to reach the boss with |
+| Deck | Build |
+|---|---|
+| ![Deck tab: role supply and card list](docs/images/panel-deck.en.png) | ![Build tab: build completion odds and current direction](docs/images/panel-build.en.png) |
+| Whether frontload damage, AoE, block, scaling and draw meet their targets; tier per card | The build your deck is heading for, its odds of coming together by act 3, the core cards to go for first |
 
-<sub>The screenshots are the demo-mode (`--demo`) panel rendered off-screen, in Korean. Card names are placeholders such as "공격 카드 A" (Attack card A) and card thumbnails are left out. In real use you see card names and small card images built on your own PC. The path tab shows fixed demo data. There is no screenshot of the Tiers tab yet.</sub>
+| Tiers | Path |
+|---|---|
+| ![Tiers tab: every card's tier for a character](docs/images/panel-tiers.en.png) | ![Path tab: comparing path candidates (demo data)](docs/images/panel-path.en.png) |
+| Every card's tier per character, with type/rarity filters and name search | Paths compared by elites, rests and shops and the HP you are expected to reach the boss with |
+
+<sub>The screenshots are the demo-mode (`--demo`) panel in English, rendered off-screen. Card names are placeholders such as "Attack card A" and card art is left out (the "No art" tiles in the Tiers tab). In real use you see card names and small card images built on your own PC. The path tab shows fixed demo data.</sub>
 
 - **Build tab**: hover a card image to see its cost, effect text and upgraded text, with the numbers that change on upgrade in green as in the game. Build conditions are shown in game terms rather than internal tags.
 - **Tiers tab**: pick one of the five characters or colourless and see every card's tier as image tiles in S, A, B, C, D and unrated sections. It follows your character when a run starts.
@@ -101,7 +106,7 @@ When you hover a card, relic or event option in the game to read its tooltip, th
 
 ## How it works
 
-![How it works: save/log watching and screen capture → card recognition → advice engine → badges and panel](docs/images/how-it-works.svg)
+![How it works: save/log watching and screen capture → card recognition → advice engine → badges and panel](docs/images/how-it-works.en.svg)
 
 - **Save and log watching**: reads the game's `current_run.save` and `godot.log` for the deck, HP, gold, map and signals such as "a reward screen just opened". It looks for the saves folder again every 10 seconds, so it follows you if the game was never started before or you switch profiles. If a game update changes the save or log format slightly, it skips only the lines it can't read, keeps running and shows a note on the panel.
 - **Screen capture**: the save only changes after you pick a card, so the cards on reward and shop screens are read by capturing the game window. It captures only the game window and only while the game is in front (3 times a second on reward and shop screens, less often otherwise), processes the image in memory and throws it away. Nothing is written to disk. Capture pauses 3 seconds after you hide the overlay or switch to another window.
@@ -121,7 +126,7 @@ After that, just keep the game and the overlay running. The overlay is visible *
 
 ## Automatic updates
 
-![Automatic updates: check GitHub Releases → download in the background → apply on restart or exit](docs/images/auto-update.svg)
+![Automatic updates: check GitHub Releases → download in the background → apply on restart or exit](docs/images/auto-update.en.svg)
 
 - About **15 seconds** after start, the overlay checks GitHub Releases for a new version, then checks **at most every 6 hours**.
 - A new version is downloaded **in the background** as a delta package (only what changed), so it is usually small.
