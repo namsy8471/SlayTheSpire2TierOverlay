@@ -224,7 +224,7 @@ public sealed class GameInstallTests
         Assert.Equal(target, GameInstall.Locate(null, [steam])?.Directory);
     }
 
-    [Fact]
+    [WindowsFact]
     public void SteamRoots_StartWithTheRegistryFolders_ThenProgramFiles_WithoutDuplicates()
     {
         var registry = new Dictionary<string, string>
@@ -239,7 +239,7 @@ public sealed class GameInstallTests
         Assert.Contains(roots, r => r.EndsWith(@"\Steam", StringComparison.OrdinalIgnoreCase) && r.Contains("Program Files", StringComparison.OrdinalIgnoreCase));
     }
 
-    [Fact]
+    [WindowsFact]
     public void SteamRoots_WithoutRegistryValues_AreTheProgramFilesFolders()
     {
         var roots = GameInstall.DefaultSteamRoots((_, _) => null).ToList();
@@ -290,6 +290,15 @@ public sealed class GameInstallTests
         Assert.NotNull(g.Version);
         Assert.True(g.AssemblyHashMatches, "release_info.json main_assembly_hash should equal SHA-1(sts2.dll)[0..4]");
         Assert.Equal(64, g.Fingerprint.DllSha256.Length);
+    }
+}
+
+/// <summary>Windows path rules (drive letters, Program Files): skipped on the Linux CI job.</summary>
+public sealed class WindowsFactAttribute : FactAttribute
+{
+    public WindowsFactAttribute()
+    {
+        if (!OperatingSystem.IsWindows()) Skip = "Windows paths only";
     }
 }
 
