@@ -154,7 +154,7 @@ index 71a0386..e878c9c 100644
              }
          }
 diff --git a/src/Sts2Sim.Core/Combat/CombatState.HookListeners.cs b/src/Sts2Sim.Core/Combat/CombatState.HookListeners.cs
-index 08113f3..93e9dc9 100644
+index 08113f3..7e4bcfd 100644
 --- a/src/Sts2Sim.Core/Combat/CombatState.HookListeners.cs
 +++ b/src/Sts2Sim.Core/Combat/CombatState.HookListeners.cs
 @@ -19,6 +19,7 @@ public sealed partial class CombatState
@@ -165,7 +165,7 @@ index 08113f3..93e9dc9 100644
  
      internal enum HookListenerPhase : byte { Energy, EnergyLate, Star, AfterPiles, AfterPilesLate }
  
-@@ -47,7 +48,11 @@ public sealed partial class CombatState
+@@ -47,10 +48,14 @@ public sealed partial class CombatState
  #endif
          if (!hit)
          {
@@ -177,8 +177,48 @@ index 08113f3..93e9dc9 100644
 +            var scan = new ListenerWitnessScan(capture);
              if (!ScanListenerSources(runState, ref scan))
                  return null; // Preserve malformed/null-listener exception timing in the old phase.
-             AbstractModel[] full = runState.IterateHookListeners(this).ToArray();
-@@ -134,12 +139,17 @@ public sealed partial class CombatState
+-            AbstractModel[] full = runState.IterateHookListeners(this).ToArray();
++            AbstractModel[] full = SnapshotRunHookListeners(runState);
+             if (Array.Exists(full, static model => model is null))
+                 return null;
+             snapshot = new HookListenerSnapshot(scan.Captured(), full, (snapshot?.Version ?? 0) + 1);
+@@ -63,6 +68,35 @@ public sealed partial class CombatState
+         return snapshot;
+     }
+ 
++    /// <summary>
++    /// SimLab perf patch: the same array as <c>runState.IterateHookListeners(this).ToArray()</c>
++    /// for the two run-state types allowed above (per player its unmelted relics, then its
++    /// potions, then this combat's listeners), filled without the iterator object or the
++    /// ToArray growth buffers. The combat part is read first because it may rebuild through
++    /// the same reusable list; none of these reads has side effects, so the order is safe.
++    /// </summary>
++    private AbstractModel[] SnapshotRunHookListeners(IRunState runState)
++    {
++        IEnumerable<AbstractModel> combat = IterateHookListeners();
++        List<AbstractModel> build = _listenerBuild ??= new List<AbstractModel>(64);
++        build.Clear();
++        IReadOnlyList<Player> players = runState.Players;
++        for (int i = 0; i < players.Count; i++)
++        {
++            IReadOnlyList<RelicModel> relics = players[i].Relics;
++            for (int r = 0; r < relics.Count; r++)
++                if (!relics[r].IsMelted) build.Add(relics[r]);
++            IReadOnlyList<PotionModel?> potions = players[i].PotionSlots;
++            for (int q = 0; q < potions.Count; q++)
++                if (potions[q] is { } potion) build.Add(potion);
++        }
++        if (combat is AbstractModel[] array) build.AddRange(array);
++        else foreach (AbstractModel listener in combat) build.Add(listener);
++        AbstractModel[] full = build.ToArray();
++        build.Clear();
++        return full;
++    }
++
+     internal sealed class HookListenerSnapshot
+     {
+         internal readonly object?[] _witness;
+@@ -134,12 +168,17 @@ public sealed partial class CombatState
              if (_capture is not null) { _capture.Add(value); return true; }
              return _position < _expected!.Length && ReferenceEquals(_expected[_position++], value);
          }
@@ -197,7 +237,7 @@ index 08113f3..93e9dc9 100644
              return _position < _expected!.Length && _expected[_position++] is int previous && previous == value;
          }
          internal bool Flag(bool value)
-@@ -147,7 +157,7 @@ public sealed partial class CombatState
+@@ -147,7 +186,7 @@ public sealed partial class CombatState
  #if HOOK_LISTENER_CACHE_DIAGNOSTICS
              if (_capture is null && _expected is null) return true; // Shape-only oracle preflight.
  #endif
@@ -207,14 +247,17 @@ index 08113f3..93e9dc9 100644
          }
      }
 diff --git a/src/Sts2Sim.Core/Combat/CombatState.cs b/src/Sts2Sim.Core/Combat/CombatState.cs
-index c699f82..fda7a49 100644
+index c699f82..1a0b7d0 100644
 --- a/src/Sts2Sim.Core/Combat/CombatState.cs
 +++ b/src/Sts2Sim.Core/Combat/CombatState.cs
-@@ -408,6 +408,165 @@ public sealed partial class CombatState : ICombatState
-     // Block retention needs powers-before-relics ordering. Other dispatchers retain
+@@ -409,55 +409,185 @@ public sealed partial class CombatState : ICombatState
      // the inventory-free iterator composed with RunState's existing wrapper.
      internal IEnumerable<AbstractModel> IterateHookListeners(bool includePlayerInventory)
-+    {
+     {
+-        // Build the whole dispatch snapshot before any hook runs. Intermediate copies of
+-        // creature, orb, and pile collections are unnecessary during this synchronous pass.
+-        var listeners = new List<AbstractModel>(EstimateHookListenerCount());
+-        foreach (Creature creature in _allies)
 +        if (!includePlayerInventory) return CombatListenersCached();
 +        return BuildHookListeners(includePlayerInventory);
 +    }
@@ -247,13 +290,14 @@ index c699f82..fda7a49 100644
 +    private AbstractModel[]? ValidCombatListeners()
 +    {
 +        if (_combatListeners is not null)
-+        {
+         {
+-            AppendCreatureHookListeners(listeners, creature, includePlayerInventory);
 +            _witnessCapture = false;
 +            _witnessRefPos = _witnessIntPos = 0;
 +            if (WitnessCreatures(_allies) && WitnessCreatures(_enemies)
 +                && _witnessRefPos == _witnessRefCount && _witnessIntPos == _witnessIntCount)
 +                return _combatListeners;
-+        }
+         }
 +        _filteredListeners = null;
 +        _witnessCapture = true;
 +        _witnessRefPos = _witnessIntPos = 0;
@@ -272,19 +316,22 @@ index c699f82..fda7a49 100644
 +        build.Clear(); // drop references to models this state may no longer hold
 +        return _combatListeners;
 +    }
-+
+ 
+-        foreach (Creature creature in _enemies)
 +    private bool WitnessRef(object? value)
 +    {
 +        if (_witnessCapture)
-+        {
+         {
+-            AppendCreatureHookListeners(listeners, creature, includePlayerInventory);
 +            _witnessRefs ??= new object?[128];
 +            if (_witnessRefPos == _witnessRefs.Length) Array.Resize(ref _witnessRefs, _witnessRefs.Length * 2);
 +            _witnessRefs[_witnessRefPos++] = value;
 +            return true;
-+        }
+         }
 +        return _witnessRefPos < _witnessRefCount && ReferenceEquals(_witnessRefs![_witnessRefPos++], value);
 +    }
-+
+ 
+-        return listeners;
 +    private bool WitnessInt(int value)
 +    {
 +        if (_witnessCapture)
@@ -295,14 +342,20 @@ index c699f82..fda7a49 100644
 +            return true;
 +        }
 +        return _witnessIntPos < _witnessIntCount && _witnessInts![_witnessIntPos++] == value;
-+    }
-+
+     }
+ 
+-    // Preallocate to reduce snapshot list growth. Enchantments, afflictions and inventory
+-    // are not counted; if capacity is insufficient, the list grows normally.
+-    private int EstimateHookListenerCount()
 +    // Mirrors ScanCreatureSources/ScanPileSources (same sources, same null = malformed rule).
 +    private bool WitnessCreatures(IReadOnlyList<Creature> creatures)
-+    {
+     {
+-        int count = 0;
+-        foreach (Creature creature in _allies)
 +        if (creatures is null || !WitnessRef(creatures) || !WitnessInt(creatures.Count)) return false;
 +        for (int i = 0; i < creatures.Count; i++)
-+        {
+         {
+-            count += EstimateCreatureHookListenerCount(creature);
 +            Creature creature = creatures[i];
 +            if (creature is null || !WitnessRef(creature)) return false;
 +            IReadOnlyList<PowerModel> powers = creature.Powers;
@@ -323,17 +376,19 @@ index c699f82..fda7a49 100644
 +                if (orbs[o] is null || !WitnessRef(orbs[o])) return false;
 +            if (!WitnessPile(state.Hand) || !WitnessPile(state.DrawPile) || !WitnessPile(state.DiscardPile)
 +                || !WitnessPile(state.ExhaustPile) || !WitnessPile(state.PlayPile)) return false;
-+        }
+         }
 +        return true;
 +    }
-+
+ 
+-        foreach (Creature creature in _enemies)
 +    private bool WitnessPile(CardPile pile)
 +    {
 +        if (pile is null || !WitnessRef(pile)) return false;
 +        IReadOnlyList<CardModel> cards = pile.Cards;
 +        if (cards is null || !WitnessRef(cards) || !WitnessInt(cards.Count)) return false;
 +        for (int c = 0; c < cards.Count; c++)
-+        {
+         {
+-            count += EstimateCreatureHookListenerCount(creature);
 +            CardModel card = cards[c];
 +            if (card is null || !WitnessRef(card)) return false;
 +            IReadOnlyList<EnchantmentModel> enchantments = card.Enchantments;
@@ -341,10 +396,11 @@ index c699f82..fda7a49 100644
 +            for (int e = 0; e < enchantments.Count; e++)
 +                if (enchantments[e] is null || !WitnessRef(enchantments[e])) return false;
 +            if (!WitnessRef(card.Affliction)) return false;
-+        }
+         }
 +        return true;
 +    }
-+
+ 
+-        return count;
 +    /// <summary>
 +    /// The combat listeners (same order) whose runtime type overrides the query hook in
 +    /// <paramref name="slot"/>; the others would run the neutral base method. Null if the source
@@ -370,12 +426,64 @@ index c699f82..fda7a49 100644
 +            _filteredListeners[slot] = filtered;
 +        }
 +        return filtered;
-+    }
-+
+     }
+ 
+-    private static int EstimateCreatureHookListenerCount(Creature creature)
 +    private IEnumerable<AbstractModel> BuildHookListeners(bool includePlayerInventory)
      {
-         // Build the whole dispatch snapshot before any hook runs. Intermediate copies of
-         // creature, orb, and pile collections are unnecessary during this synchronous pass.
+-        int count = creature.Powers.Count + 1;
+-        PlayerCombatState? playerCombatState = creature.Player?.PlayerCombatState;
+-        if (playerCombatState is not null)
++        // Build the whole dispatch snapshot before any hook runs. Intermediate copies of
++        // creature, orb, and pile collections are unnecessary during this synchronous pass.
++        // SimLab perf patch: fill this state's reusable build list (nothing runs hooks during
++        // the pass) and return an exact-size copy, instead of a fresh list that grows past the
++        // estimate (enchantments, afflictions and inventory are not counted) on every dispatch.
++        List<AbstractModel> listeners = _listenerBuild ??= new List<AbstractModel>(64);
++        listeners.Clear();
++        foreach (Creature creature in _allies)
+         {
+-            count += playerCombatState.OrbQueue.Orbs.Count
+-                + playerCombatState.Hand.Cards.Count
+-                + playerCombatState.DrawPile.Cards.Count
+-                + playerCombatState.DiscardPile.Cards.Count
+-                + playerCombatState.ExhaustPile.Cards.Count
+-                + playerCombatState.PlayPile.Cards.Count;
++            AppendCreatureHookListeners(listeners, creature, includePlayerInventory);
++        }
++
++        foreach (Creature creature in _enemies)
++        {
++            AppendCreatureHookListeners(listeners, creature, includePlayerInventory);
+         }
+ 
+-        return count;
++        AbstractModel[] snapshot = listeners.ToArray();
++        listeners.Clear(); // drop references to models this state may no longer hold
++        return snapshot;
+     }
+ 
+     private static void AppendCreatureHookListeners(
+@@ -511,12 +641,16 @@ public sealed partial class CombatState : ICombatState
+ 
+     private static void AppendPileHookListeners(List<AbstractModel> listeners, CardPile pile)
+     {
+-        foreach (CardModel card in pile.Cards)
++        // Indexed loops: foreach over IReadOnlyList boxes an enumerator per pile and per card.
++        IReadOnlyList<CardModel> cards = pile.Cards;
++        for (int i = 0; i < cards.Count; i++)
+         {
++            CardModel card = cards[i];
+             listeners.Add(card);
+-            foreach (EnchantmentModel enchantment in card.Enchantments)
++            IReadOnlyList<EnchantmentModel> enchantments = card.Enchantments;
++            for (int e = 0; e < enchantments.Count; e++)
+             {
+-                listeners.Add(enchantment);
++                listeners.Add(enchantments[e]);
+             }
+ 
+             if (card.Affliction is not null)
 diff --git a/src/Sts2Sim.Core/Hooks/Hook.cs b/src/Sts2Sim.Core/Hooks/Hook.cs
 index 915f5c2..6a4fb7e 100644
 --- a/src/Sts2Sim.Core/Hooks/Hook.cs
@@ -512,10 +620,10 @@ index 915f5c2..6a4fb7e 100644
              if (!item.ShouldAllowHitting(creature))
 diff --git a/src/Sts2Sim.Core/Hooks/HookQueryFilter.cs b/src/Sts2Sim.Core/Hooks/HookQueryFilter.cs
 new file mode 100644
-index 0000000..646e58d
+index 0000000..e333cbb
 --- /dev/null
 +++ b/src/Sts2Sim.Core/Hooks/HookQueryFilter.cs
-@@ -0,0 +1,148 @@
+@@ -0,0 +1,154 @@
 +using System.Collections.Concurrent;
 +using System.Reflection;
 +using Sts2Sim.Core.Combat;
@@ -645,10 +753,16 @@ index 0000000..646e58d
 +        for (int i = 0; i < players.Count; i++)
 +        {
 +            Player player = players[i];
-+            foreach (RelicModel relic in player.Relics)
++            // Indexed loops: foreach over the IReadOnlyList interface boxes an enumerator per call.
++            IReadOnlyList<RelicModel> relics = player.Relics;
++            for (int r = 0; r < relics.Count; r++)
++            {
++                RelicModel relic = relics[r];
 +                if (!relic.IsMelted && Overrides(relic, slot)) (inventory ??= new List<AbstractModel>()).Add(relic);
-+            foreach (PotionModel? potion in player.PotionSlots)
-+                if (potion is not null && Overrides(potion, slot)) (inventory ??= new List<AbstractModel>()).Add(potion);
++            }
++            IReadOnlyList<PotionModel?> potions = player.PotionSlots;
++            for (int q = 0; q < potions.Count; q++)
++                if (potions[q] is { } potion && Overrides(potion, slot)) (inventory ??= new List<AbstractModel>()).Add(potion);
 +        }
 +        if (inventory is null) return combat;
 +        inventory.AddRange(combat);
