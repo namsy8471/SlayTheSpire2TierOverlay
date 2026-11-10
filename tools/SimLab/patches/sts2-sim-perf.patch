@@ -248,35 +248,53 @@ index 71a0386..ae6306c 100644
              }
          }
 diff --git a/src/Sts2Sim.Core/Combat/CombatState.HookListeners.cs b/src/Sts2Sim.Core/Combat/CombatState.HookListeners.cs
-index 08113f3..7e4bcfd 100644
+index 08113f3..3bdeba6 100644
 --- a/src/Sts2Sim.Core/Combat/CombatState.HookListeners.cs
 +++ b/src/Sts2Sim.Core/Combat/CombatState.HookListeners.cs
-@@ -19,6 +19,7 @@ public sealed partial class CombatState
+@@ -19,6 +19,13 @@ public sealed partial class CombatState
      // Derived data only. Every constructor/clone starts cold; no cache is copied.
      // All cache-owned references, versions and arrays live behind this single field.
      private HookListenerSnapshot? _hookListenerSnapshotCache;
-+    private List<object?>? _snapshotCapture;
++    // SimLab perf patch: reusable capture buffer, kept in the derived-state holder (CombatState.cs).
++    private ref List<object?>? _snapshotCapture => ref _listenerCacheState.SnapshotCapture;
++
++    // SIMLAB_LISTENER_CHECK=1: every fast-path snapshot decision is also checked against the full
++    // source compare and throws if they differ (debug oracle; off by default).
++    private static readonly bool FastPathCheck =
++        Environment.GetEnvironmentVariable("SIMLAB_LISTENER_CHECK") == "1";
  
      internal enum HookListenerPhase : byte { Energy, EnergyLate, Star, AfterPiles, AfterPilesLate }
  
-@@ -47,10 +48,14 @@ public sealed partial class CombatState
+@@ -47,13 +54,24 @@ public sealed partial class CombatState
  #endif
          if (!hit)
          {
 -            var scan = new ListenerWitnessScan(new List<object?>(256));
+-            if (!ScanListenerSources(runState, ref scan))
 +            // SimLab perf patch: one capture buffer per state, cleared and reused on every miss
 +            // (Captured() copies it into the snapshot's own exact-size witness array).
 +            List<object?> capture = _snapshotCapture ??= new List<object?>(256);
 +            capture.Clear();
 +            var scan = new ListenerWitnessScan(capture);
-             if (!ScanListenerSources(runState, ref scan))
++            // Same walk and order as ScanListenerSources, split to record where the inventory ends.
++            if (!ScanInventorySources(runState, ref scan))
                  return null; // Preserve malformed/null-listener exception timing in the old phase.
 -            AbstractModel[] full = runState.IterateHookListeners(this).ToArray();
-+            AbstractModel[] full = SnapshotRunHookListeners(runState);
++            int inventoryLength = scan.Length;
++            if (!ScanCreatureSources(_allies, ref scan) || !ScanCreatureSources(_enemies, ref scan))
++                return null;
++            // SimLab perf patch: read once after the capture (nothing runs in between); it is both
++            // the combat part of Full and the fast-path witness kept in the snapshot (null = none).
++            AbstractModel[]? combat = ValidCombatListeners();
++            AbstractModel[] full = SnapshotRunHookListeners(runState, combat);
              if (Array.Exists(full, static model => model is null))
                  return null;
-             snapshot = new HookListenerSnapshot(scan.Captured(), full, (snapshot?.Version ?? 0) + 1);
-@@ -63,6 +68,35 @@ public sealed partial class CombatState
+-            snapshot = new HookListenerSnapshot(scan.Captured(), full, (snapshot?.Version ?? 0) + 1);
++            snapshot = new HookListenerSnapshot(scan.Captured(), inventoryLength, combat, full, (snapshot?.Version ?? 0) + 1);
+             _hookListenerSnapshotCache = snapshot;
+         }
+ #if HOOK_LISTENER_CACHE_DIAGNOSTICS
+@@ -63,6 +81,37 @@ public sealed partial class CombatState
          return snapshot;
      }
  
@@ -284,12 +302,14 @@ index 08113f3..7e4bcfd 100644
 +    /// SimLab perf patch: the same array as <c>runState.IterateHookListeners(this).ToArray()</c>
 +    /// for the two run-state types allowed above (per player its unmelted relics, then its
 +    /// potions, then this combat's listeners), filled without the iterator object or the
-+    /// ToArray growth buffers. The combat part is read first because it may rebuild through
-+    /// the same reusable list; none of these reads has side effects, so the order is safe.
++    /// ToArray growth buffers. The combat part is read first (the caller passes
++    /// <c>ValidCombatListeners()</c>) because it may rebuild through the same reusable list;
++    /// none of these reads has side effects, so the order is safe.
 +    /// </summary>
-+    private AbstractModel[] SnapshotRunHookListeners(IRunState runState)
++    private AbstractModel[] SnapshotRunHookListeners(IRunState runState, AbstractModel[]? cachedCombat)
 +    {
-+        IEnumerable<AbstractModel> combat = IterateHookListeners();
++        // Same as IterateHookListeners(): the cached array, or a fresh build when it is null.
++        IEnumerable<AbstractModel> combat = cachedCombat ?? BuildHookListeners(false);
 +        List<AbstractModel> build = _listenerBuild ??= new List<AbstractModel>(64);
 +        build.Clear();
 +        IReadOnlyList<Player> players = runState.Players;
@@ -312,7 +332,65 @@ index 08113f3..7e4bcfd 100644
      internal sealed class HookListenerSnapshot
      {
          internal readonly object?[] _witness;
-@@ -134,12 +168,17 @@ public sealed partial class CombatState
+@@ -70,10 +119,17 @@ public sealed partial class CombatState
+         private readonly AbstractModel[][] _costListeners;
+         private readonly byte[] _pileCoverage;
+         internal long Version { get; }
++        // SimLab perf patch: witness entries written by ScanInventorySources (a prefix of
++        // _witness), and the ValidCombatListeners() array current when this snapshot was built.
++        private readonly int _inventoryLength;
++        private readonly AbstractModel[]? _combat;
+ 
+-        internal HookListenerSnapshot(object?[] witness, AbstractModel[] full, long version)
++        internal HookListenerSnapshot(object?[] witness, int inventoryLength, AbstractModel[]? combat,
++            AbstractModel[] full, long version)
+         {
+             _witness = witness;
++            _inventoryLength = inventoryLength;
++            _combat = combat;
+             Full = full;
+             Version = version;
+             // Energy projections preserve unknown candidates for dispatch-time fail-closed.
+@@ -97,6 +153,29 @@ public sealed partial class CombatState
+         }
+ 
+         internal bool Matches(CombatState state, IRunState runState)
++        {
++            // SimLab perf patch, only under CombatState.SimLabFastPaths. ValidCombatListeners()
++            // hands out the same array object only while its own witness of the combat sources
++            // (the ones ScanCreatureSources walks) is unchanged, and builds a new array on any
++            // change; an array this snapshot still references cannot be reallocated, so the same
++            // reference now means the combat sources equal those seen at build time. Only the
++            // inventory prefix is then left to compare. That witness is exact only under the trust
++            // assumptions (List versions, attachment epoch), hence the switch. An empty array is a
++            // shared singleton (ToArray of an empty list), so it proves nothing and is skipped.
++            // Otherwise validate fully, exactly as before.
++            if (SimLabFastPaths && _combat is { Length: > 0 }
++                && ReferenceEquals(state.ValidCombatListeners(), _combat))
++            {
++                var inventory = new ListenerWitnessScan(_witness);
++                bool fast = ScanInventorySources(runState, ref inventory) && inventory.Length == _inventoryLength;
++                if (FastPathCheck && fast != FullMatch(state, runState))
++                    throw new InvalidOperationException("listener snapshot fast path mismatch");
++                return fast;
++            }
++            return FullMatch(state, runState);
++        }
++
++        private bool FullMatch(CombatState state, IRunState runState)
+         {
+             var scan = new ListenerWitnessScan(_witness);
+             return state.ScanListenerSources(runState, ref scan) && scan.Complete;
+@@ -125,6 +204,8 @@ public sealed partial class CombatState
+         internal ListenerWitnessScan(List<object?> capture) { _capture = capture; _expected = null; _position = 0; }
+         internal ListenerWitnessScan(object?[] expected) { _expected = expected; _capture = null; _position = 0; }
+         internal bool Complete => _position == _expected!.Length;
++        // Entries written (capture) or consumed (compare) so far.
++        internal int Length => _capture?.Count ?? _position;
+         internal object?[] Captured() => _capture!.ToArray();
+         internal bool Reference(object? value)
+         {
+@@ -134,12 +215,17 @@ public sealed partial class CombatState
              if (_capture is not null) { _capture.Add(value); return true; }
              return _position < _expected!.Length && ReferenceEquals(_expected[_position++], value);
          }
@@ -331,7 +409,7 @@ index 08113f3..7e4bcfd 100644
              return _position < _expected!.Length && _expected[_position++] is int previous && previous == value;
          }
          internal bool Flag(bool value)
-@@ -147,7 +186,7 @@ public sealed partial class CombatState
+@@ -147,12 +233,17 @@ public sealed partial class CombatState
  #if HOOK_LISTENER_CACHE_DIAGNOSTICS
              if (_capture is null && _expected is null) return true; // Shape-only oracle preflight.
  #endif
@@ -340,11 +418,31 @@ index 08113f3..7e4bcfd 100644
              return _position < _expected!.Length && _expected[_position++] is bool previous && previous == value;
          }
      }
+ 
+-    private bool ScanListenerSources(IRunState runState, ref ListenerWitnessScan scan)
++    private bool ScanListenerSources(IRunState runState, ref ListenerWitnessScan scan) =>
++        ScanInventorySources(runState, ref scan)
++        && ScanCreatureSources(_allies, ref scan) && ScanCreatureSources(_enemies, ref scan);
++
++    // The run/inventory part: run state, players, each player's relics (with IsMelted) and potions.
++    private static bool ScanInventorySources(IRunState runState, ref ListenerWitnessScan scan)
+     {
+         if (!scan.Reference(runState)) return false;
+         IReadOnlyList<Player> players = runState.Players;
+@@ -173,7 +264,7 @@ public sealed partial class CombatState
+             for (int p = 0; p < potions.Count; p++)
+                 if (!scan.Reference(potions[p])) return false;
+         }
+-        return ScanCreatureSources(_allies, ref scan) && ScanCreatureSources(_enemies, ref scan);
++        return true;
+     }
+ 
+     private static bool ScanCreatureSources(IReadOnlyList<Creature> creatures, ref ListenerWitnessScan scan)
 diff --git a/src/Sts2Sim.Core/Combat/CombatState.cs b/src/Sts2Sim.Core/Combat/CombatState.cs
-index c699f82..68c2b60 100644
+index c699f82..f24967a 100644
 --- a/src/Sts2Sim.Core/Combat/CombatState.cs
 +++ b/src/Sts2Sim.Core/Combat/CombatState.cs
-@@ -409,55 +409,392 @@ public sealed partial class CombatState : ICombatState
+@@ -409,55 +409,448 @@ public sealed partial class CombatState : ICombatState
      // the inventory-free iterator composed with RunState's existing wrapper.
      internal IEnumerable<AbstractModel> IterateHookListeners(bool includePlayerInventory)
      {
@@ -360,36 +458,90 @@ index c699f82..68c2b60 100644
 +    // dispatch. Reuse the last array while a witness scan of exactly the sources it was built
 +    // from (creature lists, creatures, power lists and powers, monster/player refs, active
 +    // flags, combat states, orb queues and orbs, piles, card lists, cards, enchantment lists and
-+    // enchantments, afflictions; with every list count) still matches. Concrete List<T> sources
-+    // are witnessed by (ref, List version) instead of their items, and card attachments through
-+    // CardModel.AttachmentEpoch, so a hit costs O(creatures + lists), not O(cards). The listener array is
++    // enchantments, afflictions; with every list count) still matches. With SimLabFastPaths, concrete
++    // List<T> sources are witnessed by (ref, List version) instead of their items, and card attachments
++    // through CardModel.AttachmentEpoch, so a hit costs O(creatures + lists), not O(cards). The listener array is
 +    // never mutated after it is published, so a caller holding an older array keeps its
 +    // snapshot semantics. The witness itself lives in two buffers owned by this state and
 +    // overwritten in place on a miss (scans are synchronous: no hook runs during one), so
 +    // neither a hit nor a miss allocates for it; ints are kept apart, so nothing is boxed.
-+    private object?[]? _witnessRefs; // allocated on first capture: a clone that never dispatches pays nothing
-+    private int[]? _witnessInts;
-+    private int _witnessRefCount, _witnessIntCount, _witnessRefPos, _witnessIntPos;
-+    private bool _witnessCapture;
-+    private AbstractModel[]? _combatListeners;
-+    private List<AbstractModel>? _listenerBuild;
++    //
++    // All of this derived state (and the snapshot capture buffer) lives in one holder created with
++    // the state, so a clone always starts cold, and the members below are ref views of its fields.
++    // The holder presents itself as an empty sequence: reflection graph walkers (clone root
++    // discovery, exact-world snapshots) read a sequence as its items, so they see no slots and a
++    // warmed cache leaves the observable world graph exactly as a cold one (the same contract the
++    // excluded _hookListenerSnapshotCache field gives the snapshot). Stale arrays in it can then
++    // never be mistaken for models this world owns.
++    private readonly ListenerCacheState _listenerCacheState = new();
++
++    private sealed class ListenerCacheState : IEnumerable<object>
++    {
++        internal object?[]? WitnessRefs; // allocated on first capture: a clone that never dispatches pays nothing
++        internal int[]? WitnessInts;
++        internal int WitnessRefCount, WitnessIntCount, WitnessRefPos, WitnessIntPos;
++        internal bool WitnessCapture;
++        internal AbstractModel[]? CombatListeners;
++        internal List<AbstractModel>? ListenerBuild;
++        internal object?[]? AttachRefs;
++        internal int[]? AttachCounts;
++        internal IReadOnlyList<CardModel>?[]? AttachLists;
++        internal int AttachRefCount, AttachCountCount, AttachListCount, AttachEpoch;
++        internal AbstractModel[]?[]? FilteredListeners;
++        internal List<object?>? SnapshotCapture;
++        internal ulong[]? ListenerCoverage;
++        internal int[]? InventoryCuts, InventoryCreatures;
++        internal int InventoryCutCount = -1;
++        internal int[]?[]? DirectSplits;
++
++        public IEnumerator<object> GetEnumerator() { yield break; }
++        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
++    }
++
++    private ref object?[]? _witnessRefs => ref _listenerCacheState.WitnessRefs;
++    private ref int[]? _witnessInts => ref _listenerCacheState.WitnessInts;
++    private ref int _witnessRefCount => ref _listenerCacheState.WitnessRefCount;
++    private ref int _witnessIntCount => ref _listenerCacheState.WitnessIntCount;
++    private ref int _witnessRefPos => ref _listenerCacheState.WitnessRefPos;
++    private ref int _witnessIntPos => ref _listenerCacheState.WitnessIntPos;
++    private ref bool _witnessCapture => ref _listenerCacheState.WitnessCapture;
++    private ref AbstractModel[]? _combatListeners => ref _listenerCacheState.CombatListeners;
++    private ref List<AbstractModel>? _listenerBuild => ref _listenerCacheState.ListenerBuild;
 +
 +    // Card attachments (enchantment list ref, count and items; affliction) in pile walk order, and
 +    // the card lists walked. A pile list's version does not cover them, so they are kept out of the
 +    // positional witness and re-read only when CardModel.AttachmentEpoch moved since the capture.
-+    private object?[]? _attachRefs;
-+    private int[]? _attachCounts;
-+    private IReadOnlyList<CardModel>?[]? _attachLists;
-+    private int _attachRefCount, _attachCountCount, _attachListCount, _attachEpoch;
++    private ref object?[]? _attachRefs => ref _listenerCacheState.AttachRefs;
++    private ref int[]? _attachCounts => ref _listenerCacheState.AttachCounts;
++    private ref IReadOnlyList<CardModel>?[]? _attachLists => ref _listenerCacheState.AttachLists;
++    private ref int _attachRefCount => ref _listenerCacheState.AttachRefCount;
++    private ref int _attachCountCount => ref _listenerCacheState.AttachCountCount;
++    private ref int _attachListCount => ref _listenerCacheState.AttachListCount;
++    private ref int _attachEpoch => ref _listenerCacheState.AttachEpoch;
 +
 +    // SIMLAB_LISTENER_CHECK=1: on every cache hit also rebuild the list the original way and throw
 +    // if it differs (debug oracle; off by default).
 +    private static readonly bool ListenerCheck =
 +        Environment.GetEnvironmentVariable("SIMLAB_LISTENER_CHECK") == "1";
 +
++    // One opt-in switch for every SimLab fast path whose exactness rests on assumptions the engine's
++    // own tests deliberately break (default false = strict, pristine-like; SimLab sets it once at
++    // start-up, before any model exists, and never changes it while states are live). When true:
++    // - the listener caches assume every change to a concrete List<T> source moves its _version (no
++    //   span or CollectionsMarshal writes) and every enchantment/affliction change goes through
++    //   CardModel and moves AttachmentEpoch (no mutation through an aliased Enchantments list), so a
++    //   List is witnessed by (ref, version) and attachments are re-read only after an epoch move;
++    // - the hook snapshot validates through the cached combat array (CombatState.HookListeners.cs);
++    // - Hooks.HookQueryFilter's override-filtered loops run (when false every entry point returns
++    //   null, so each dispatch keeps its original loop whatever earlier code subscribed to);
++    // - RunState defers an act map no map hook can touch until it is first read.
++    // When false, lists are compared item by item and attachments on every validation, so the
++    // caches notice any change, as the engine's own tests require.
++    internal static bool SimLabFastPaths;
++
 +    // Per query-hook slot: the cached listeners whose type overrides that hook (see
 +    // HookQueryFilter). Derived from _combatListeners and dropped whenever it is rebuilt.
-+    private AbstractModel[]?[]? _filteredListeners;
++    private ref AbstractModel[]?[]? _filteredListeners => ref _listenerCacheState.FilteredListeners;
 +
 +    private IEnumerable<AbstractModel> CombatListenersCached() =>
 +        (IEnumerable<AbstractModel>?)ValidCombatListeners() ?? BuildHookListeners(false);
@@ -409,14 +561,14 @@ index c699f82..68c2b60 100644
 +                // Same cards in the same order; their attachments only need a look if some
 +                // card anywhere changed them since the capture.
 +                int epoch = Volatile.Read(ref CardModel.AttachmentEpoch);
-+                if (epoch == _attachEpoch || AttachmentsMatch())
++                if ((SimLabFastPaths && epoch == _attachEpoch) || AttachmentsMatch())
 +                {
 +                    _attachEpoch = epoch;
 +                    if (ListenerCheck) CheckCachedListeners(_combatListeners);
 +                    return _combatListeners;
 +                }
 +            }
-         }
++        }
 +        _filteredListeners = null;
 +        _witnessCapture = true;
 +        _witnessRefPos = _witnessIntPos = 0;
@@ -427,7 +579,7 @@ index c699f82..68c2b60 100644
 +        {
 +            _combatListeners = null;
 +            return null;
-+        }
+         }
 +        _witnessRefCount = _witnessRefPos;
 +        _witnessIntCount = _witnessIntPos;
 +        List<AbstractModel> build = _listenerBuild ??= new List<AbstractModel>(64);
@@ -505,26 +657,29 @@ index c699f82..68c2b60 100644
 +        return !_witnessCapture || CaptureAttachments(cards);
 +    }
 +
-+    // List contents witness. A concrete List<T> is witnessed by (ref, version): the version moves on
-+    // every content change, so the compare pass skips the items. Capture still walks them to keep
-+    // the null item = malformed rule. Any other list: ref, count and every item, as before.
++    // List contents witness. With SimLabFastPaths, a concrete List<T> is witnessed by (ref, version):
++    // the version moves on every content change made through the List API, so the compare pass skips
++    // the items. Capture still walks them to keep the null item = malformed rule. Otherwise (and for
++    // any other list): ref, count and every item, as before.
 +    private bool WitnessList<T>(IReadOnlyList<T>? list) where T : class
 +    {
 +        if (list is null || !WitnessRef(list)) return false;
-+        if (list is List<T> concrete && ListVersion<T>.Supported)
-+        {
++        if (SimLabFastPaths && list is List<T> concrete && ListVersion<T>.Supported)
+         {
+-            count += EstimateCreatureHookListenerCount(creature);
 +            if (!WitnessInt(ListVersion<T>.Get(concrete))) return false;
 +            if (_witnessCapture)
 +                for (int i = 0; i < concrete.Count; i++)
 +                    if (concrete[i] is null) return false;
 +            return true;
-+        }
+         }
 +        if (!WitnessInt(list.Count)) return false;
 +        for (int i = 0; i < list.Count; i++)
 +            if (list[i] is null || !WitnessRef(list[i])) return false;
 +        return true;
 +    }
-+
+ 
+-        return count;
 +    private bool CaptureAttachments(IReadOnlyList<CardModel> cards)
 +    {
 +        _attachLists ??= new IReadOnlyList<CardModel>?[8];
@@ -550,17 +705,27 @@ index c699f82..68c2b60 100644
 +            _attachRefs[_attachRefCount++] = card.Affliction;
 +        }
 +        return true;
-+    }
-+
+     }
+ 
+-    private static int EstimateCreatureHookListenerCount(Creature creature)
 +    // Positional compare of the recorded attachments. Only called after the structure compare
 +    // matched, which proves the same card lists hold the same cards in the same order.
 +    private bool AttachmentsMatch()
-+    {
+     {
+-        int count = creature.Powers.Count + 1;
+-        PlayerCombatState? playerCombatState = creature.Player?.PlayerCombatState;
+-        if (playerCombatState is not null)
 +        object?[]? refs = _attachRefs;
 +        int[]? counts = _attachCounts;
 +        int r = 0, n = 0;
 +        for (int l = 0; l < _attachListCount; l++)
-+        {
+         {
+-            count += playerCombatState.OrbQueue.Orbs.Count
+-                + playerCombatState.Hand.Cards.Count
+-                + playerCombatState.DrawPile.Cards.Count
+-                + playerCombatState.DiscardPile.Cards.Count
+-                + playerCombatState.ExhaustPile.Cards.Count
+-                + playerCombatState.PlayPile.Cards.Count;
 +            IReadOnlyList<CardModel> cards = _attachLists![l]!;
 +            for (int c = 0; c < cards.Count; c++)
 +            {
@@ -614,22 +779,20 @@ index c699f82..68c2b60 100644
 +        }
 +        AbstractModel[]? filtered = table[slot];
 +        if (filtered is null)
-         {
--            count += EstimateCreatureHookListenerCount(creature);
++        {
 +            // A slot no listener overrides is empty without a walk.
 +            filtered = Hooks.HookQueryFilter.UnionHas(_listenerCoverage!, slot)
 +                ? Hooks.HookQueryFilter.Filter(all, slot)
 +                : Array.Empty<AbstractModel>();
 +            table[slot] = filtered;
-         }
++        }
 +        return filtered;
 +    }
 +
 +    // OR of HookQueryFilter coverage over _combatListeners, valid while _filteredListeners is set.
-+    // Plain bits (no model references), reused in place.
-+    private ulong[]? _listenerCoverage;
- 
--        return count;
++    // Plain bits (no model references), reused in place. (Kept in the derived-state holder.)
++    private ref ulong[]? _listenerCoverage => ref _listenerCacheState.ListenerCoverage;
++
 +    /// <summary>SIMLAB_LISTENER_CHECK oracle: the combat listeners built the original way, uncached.</summary>
 +    internal AbstractModel[] FreshCombatListenersForCheck() => (AbstractModel[])BuildHookListeners(false);
 +
@@ -639,11 +802,12 @@ index c699f82..68c2b60 100644
 +    // Where BuildHookListeners(true) puts an active player's relics and potions: right after
 +    // that creature's powers. Positions in _combatListeners and creature indexes (allies >= 0,
 +    // enemies as ~index); plain ints, recomputed after each rebuild (count -1 = not yet).
-+    private int[]? _inventoryCuts;
-+    private int[]? _inventoryCreatures;
-+    private int _inventoryCutCount = -1;
++    // (Kept in the derived-state holder.)
++    private ref int[]? _inventoryCuts => ref _listenerCacheState.InventoryCuts;
++    private ref int[]? _inventoryCreatures => ref _listenerCacheState.InventoryCreatures;
++    private ref int _inventoryCutCount => ref _listenerCacheState.InventoryCutCount;
 +    // Per slot: how many of its filtered listeners lie before each cut (same lifetime).
-+    private int[]?[]? _directSplits;
++    private ref int[]?[]? _directSplits => ref _listenerCacheState.DirectSplits;
 +
 +    /// <summary>
 +    /// The pieces of <c>BuildHookListeners(true)</c> filtered to <paramref name="slot"/>: the
@@ -668,15 +832,11 @@ index c699f82..68c2b60 100644
 +        _directSplits ??= new int[]?[Hooks.HookQueryFilter.SlotCount];
 +        splits = _directSplits[slot] ??= Hooks.HookQueryFilter.SplitAtCuts(cached, kept, cuts!, cutCount);
 +        return true;
-     }
- 
--    private static int EstimateCreatureHookListenerCount(Creature creature)
++    }
++
 +    /// <summary>The player whose inventory goes at cut <paramref name="cut"/>.</summary>
 +    internal Player InventoryCutPlayer(int cut)
-     {
--        int count = creature.Powers.Count + 1;
--        PlayerCombatState? playerCombatState = creature.Player?.PlayerCombatState;
--        if (playerCombatState is not null)
++    {
 +        int index = _inventoryCreatures![cut];
 +        return (index >= 0 ? _allies[index] : _enemies[~index]).Player!;
 +    }
@@ -743,13 +903,7 @@ index c699f82..68c2b60 100644
 +        List<AbstractModel> listeners = _listenerBuild ??= new List<AbstractModel>(64);
 +        listeners.Clear();
 +        foreach (Creature creature in _allies)
-         {
--            count += playerCombatState.OrbQueue.Orbs.Count
--                + playerCombatState.Hand.Cards.Count
--                + playerCombatState.DrawPile.Cards.Count
--                + playerCombatState.DiscardPile.Cards.Count
--                + playerCombatState.ExhaustPile.Cards.Count
--                + playerCombatState.PlayPile.Cards.Count;
++        {
 +            AppendCreatureHookListeners(listeners, creature, includePlayerInventory);
 +        }
 +
@@ -765,7 +919,7 @@ index c699f82..68c2b60 100644
      }
  
      private static void AppendCreatureHookListeners(
-@@ -511,12 +848,16 @@ public sealed partial class CombatState : ICombatState
+@@ -511,12 +904,16 @@ public sealed partial class CombatState : ICombatState
  
      private static void AppendPileHookListeners(List<AbstractModel> listeners, CardPile pile)
      {
@@ -1718,10 +1872,10 @@ index 915f5c2..fb660e9 100644
              if (item.ShouldStopCombatFromEnding())
 diff --git a/src/Sts2Sim.Core/Hooks/HookQueryFilter.cs b/src/Sts2Sim.Core/Hooks/HookQueryFilter.cs
 new file mode 100644
-index 0000000..6aec42f
+index 0000000..60641b8
 --- /dev/null
 +++ b/src/Sts2Sim.Core/Hooks/HookQueryFilter.cs
-@@ -0,0 +1,837 @@
+@@ -0,0 +1,840 @@
 +using System.Collections.Concurrent;
 +using System.Reflection;
 +using Sts2Sim.Core.Combat;
@@ -1762,6 +1916,8 @@ index 0000000..6aec42f
 +/// InvokeExecutionFinished calls, which is exact only while nothing subscribes to
 +/// ExecutionFinished: once something has, new dispatches take the original loops and running
 +/// filtered ones yield every remaining original listener.
++/// Opt-in: every entry point returns null (the caller's original loop) unless
++/// CombatState.SimLabFastPaths is on, so the engine's default dispatch is the pristine one.
 +/// </summary>
 +internal static class HookQueryFilter
 +{
@@ -2081,7 +2237,7 @@ index 0000000..6aec42f
 +    /// </summary>
 +    internal static AbstractModel[]? Listeners(IRunState runState, ICombatState? combatState, int slot)
 +    {
-+        if (combatState is not CombatState concrete) return null;
++        if (!CombatState.SimLabFastPaths || combatState is not CombatState concrete) return null;
 +        if (!CombatState.HasStandardRunListeners(runState)) return null;
 +        AbstractModel[]? combat = concrete.FilteredCombatListeners(slot, out _);
 +        if (combat is null) return null;
@@ -2112,7 +2268,7 @@ index 0000000..6aec42f
 +    /// which yield nothing once the combat is over or ending (and not starting).</summary>
 +    internal static AbstractModel[]? CombatListeners(ICombatState combatState, int slot)
 +    {
-+        if (combatState is not CombatState) return null;
++        if (!CombatState.SimLabFastPaths || combatState is not CombatState) return null;
 +        if (combatState.IsOverOrEnding() && !combatState.IsStarting()) return Array.Empty<AbstractModel>();
 +        return Listeners(combatState.RunState, combatState, slot);
 +    }
@@ -2121,7 +2277,7 @@ index 0000000..6aec42f
 +    /// inventory, no gate) for pure query loops (no InvokeExecutionFinished). Null: original.</summary>
 +    internal static AbstractModel[]? CombatOnly(ICombatState combatState, int slot)
 +    {
-+        if (combatState is not CombatState concrete) return null;
++        if (!CombatState.SimLabFastPaths || combatState is not CombatState concrete) return null;
 +        AbstractModel[]? filtered = concrete.FilteredCombatListeners(slot, out AbstractModel[]? all);
 +        if (filtered is not null && Check) CheckCombat(concrete, all!, filtered, slot);
 +        return filtered;
@@ -2132,7 +2288,7 @@ index 0000000..6aec42f
 +    // Shape preconditions: the iterator is RunState's or CombatRunStateSnapshot's, both walk
 +    // their List<Player> (same list as Players), and nothing listens to ExecutionFinished.
 +    private static bool Applies(IRunState runState) =>
-+        !AbstractModel.ExecutionFinishedSubscribed && CombatState.HasStandardRunListeners(runState)
++        CombatState.SimLabFastPaths && !AbstractModel.ExecutionFinishedSubscribed && CombatState.HasStandardRunListeners(runState)
 +        && runState.Players is List<Player>;
 +
 +    /// <summary>Lazy filtered stand-in for <c>IterateCombatHookListeners(combatState)</c>. Null: original.</summary>
@@ -2317,7 +2473,8 @@ index 0000000..6aec42f
 +    /// </summary>
 +    internal static IEnumerable<AbstractModel>? Direct(ICombatState combatState, int slot)
 +    {
-+        if (combatState is not CombatState concrete || AbstractModel.ExecutionFinishedSubscribed) return null;
++        if (!CombatState.SimLabFastPaths || combatState is not CombatState concrete
++            || AbstractModel.ExecutionFinishedSubscribed) return null;
 +        if (!concrete.DirectCombatListeners(slot, out AbstractModel[] all, out AbstractModel[] filtered,
 +                out int cutCount, out int[]? cuts, out int[]? splits))
 +            return null;
@@ -2693,11 +2850,39 @@ index 5e45efe..e789cee 100644
          return clone;
      }
  
+diff --git a/src/Sts2Sim.Core/Runs/RunCloneFieldRegistry.cs b/src/Sts2Sim.Core/Runs/RunCloneFieldRegistry.cs
+index baba13f..a61d62d 100644
+--- a/src/Sts2Sim.Core/Runs/RunCloneFieldRegistry.cs
++++ b/src/Sts2Sim.Core/Runs/RunCloneFieldRegistry.cs
+@@ -17,7 +17,7 @@ internal static class RunCloneFieldRegistry
+     {
+         var fields = new Dictionary<string, (RunCloneFieldClass, string)>();
+         Register<RunState>(fields,
+-            cloned: "_players _acts _readOnlyActs _generatedRooms _visitedMapCoords _completedActFloors _selectingMapEventBeforeHistoryAppend _currentMapPointHasShop <PreviousMapPointHasShop>k__BackingField _currentRooms _visibleMapVisits _unknownMapPointEntriesThisAct _activeRewardOffers <ForcedCombatResumeOutcome>k__BackingField _eventSequence _visitedEventIds _visitedAncientTypes _hasVisibleAncientHistory _normalEncounterSequence _eliteEncounterSequence _bossEncounter _secondBossEncounter _bossEncountersVisited _eventsVisited _normalEncountersVisited _eliteEncountersVisited _nextRoomId <Rng>k__BackingField <Odds>k__BackingField <WongoPointsEarned>k__BackingField <FreedRepy>k__BackingField _completedQuests _currentAncientEventType <SharedRelicGrabBag>k__BackingField <Map>k__BackingField <CurrentActIndex>k__BackingField <EntryPhase>k__BackingField <IsImaginationClone>k__BackingField",
++            cloned: "_players _acts _readOnlyActs _generatedRooms _visitedMapCoords _completedActFloors _selectingMapEventBeforeHistoryAppend _currentMapPointHasShop <PreviousMapPointHasShop>k__BackingField _currentRooms _visibleMapVisits _unknownMapPointEntriesThisAct _activeRewardOffers <ForcedCombatResumeOutcome>k__BackingField _eventSequence _visitedEventIds _visitedAncientTypes _hasVisibleAncientHistory _normalEncounterSequence _eliteEncounterSequence _bossEncounter _secondBossEncounter _bossEncountersVisited _eventsVisited _normalEncountersVisited _eliteEncountersVisited _nextRoomId <Rng>k__BackingField <Odds>k__BackingField <WongoPointsEarned>k__BackingField <FreedRepy>k__BackingField _completedQuests _currentAncientEventType <SharedRelicGrabBag>k__BackingField _map _pendingMapAct <CurrentActIndex>k__BackingField <EntryPhase>k__BackingField <IsImaginationClone>k__BackingField",
+             shared: "<Ascension>k__BackingField <Progress>k__BackingField",
+             rejected: "<CardSelectionSource>k__BackingField _nextEncounterForTransplant");
+         Register<Player>(fields,
+diff --git a/src/Sts2Sim.Core/Runs/RunState.Clone.cs b/src/Sts2Sim.Core/Runs/RunState.Clone.cs
+index 43897b8..66af8df 100644
+--- a/src/Sts2Sim.Core/Runs/RunState.Clone.cs
++++ b/src/Sts2Sim.Core/Runs/RunState.Clone.cs
+@@ -588,8 +588,9 @@ public sealed partial class RunState
+             return models;
+         }
+ 
++        // _executionFinished: the event's backing field since the SimLab patch gave it explicit accessors.
+         internal static bool IsRuntimeSubscription(FieldInfo field) =>
+-            field.DeclaringType == typeof(AbstractModel) && field.Name == "ExecutionFinished"
++            field.DeclaringType == typeof(AbstractModel) && field.Name is "ExecutionFinished" or "_executionFinished"
+             || field.DeclaringType == typeof(RelicModel) && field.Name == "Flashed";
+ 
+         internal static bool IsRuntimeBoundary(FieldInfo field) =>
 diff --git a/src/Sts2Sim.Core/Runs/RunState.cs b/src/Sts2Sim.Core/Runs/RunState.cs
-index 1633545..3d61e73 100644
+index 1633545..1c0f988 100644
 --- a/src/Sts2Sim.Core/Runs/RunState.cs
 +++ b/src/Sts2Sim.Core/Runs/RunState.cs
-@@ -108,7 +108,28 @@ public sealed partial class RunState : IRunState
+@@ -108,7 +108,31 @@ public sealed partial class RunState : IRunState
  
      public RelicGrabBag? SharedRelicGrabBag { get; private set; }
  
@@ -2708,6 +2893,9 @@ index 1633545..3d61e73 100644
 +    // hooks (GoldenCompass, SpoilsMap). The map uses its own seed-derived Rng, so building it
 +    // later gives the same map and consumes no shared RNG. Combat-only harnesses never read it
 +    // and skip ~0.1 s of generation per combat (about 8% of a beam-search combat in act 2/3).
++    // Only under Combat.CombatState.SimLabFastPaths (default false): a pending map makes the first
++    // read of Map mutate the run, which breaks the engine's pure-observation and exact-clone graph
++    // contracts. Off, every map is built eagerly exactly as before and _pendingMapAct stays -1.
 +    private ActMap? _map;
 +    private int _pendingMapAct = -1;
 +    public ActMap Map
@@ -2727,17 +2915,16 @@ index 1633545..3d61e73 100644
  
      public int CurrentActIndex { get; private set; }
  
-@@ -200,7 +221,8 @@ public sealed partial class RunState : IRunState
+@@ -200,6 +224,8 @@ public sealed partial class RunState : IRunState
          _readOnlyActs = Array.AsReadOnly(_acts);
          CurrentActIndex = 0;
          Ascension = new AscensionManager(ascensionLevel);
--        GenerateCurrentMap();
-+        // No players yet: ModifyGeneratedMap/AfterMapGenerated have no listeners here.
-+        _pendingMapAct = 0;
++        // No players yet: ModifyGeneratedMap/AfterMapGenerated have no listeners here, so
++        // GenerateCurrentMap defers this map under SimLabFastPaths.
+         GenerateCurrentMap();
  
          Odds = new RunOddsSet(Rng.UnknownMapPoint, new HookOddsAdapter(this));
-     }
-@@ -390,21 +412,41 @@ public sealed partial class RunState : IRunState
+@@ -390,21 +416,41 @@ public sealed partial class RunState : IRunState
          _bossEncountersVisited = 0;
      }
  
@@ -2760,7 +2947,7 @@ index 1633545..3d61e73 100644
 +
 +    private void GenerateCurrentMap()
 +    {
-+        if (!HasMapHookListener())
++        if (Combat.CombatState.SimLabFastPaths && !HasMapHookListener())
 +        {
 +            _map = null;
 +            _pendingMapAct = CurrentActIndex; // see Map: built on first read, same map
@@ -2784,7 +2971,7 @@ index 1633545..3d61e73 100644
      /// <summary>Regenerate the current act map when an obtained relic replaces its topology.</summary>
      internal void RegenerateCurrentMap() => GenerateCurrentMap();
  
-@@ -598,9 +640,11 @@ public sealed partial class RunState : IRunState
+@@ -598,9 +644,11 @@ public sealed partial class RunState : IRunState
                      yield return relic;
              }
  
@@ -2798,7 +2985,7 @@ index 1633545..3d61e73 100644
              }
  
              if (childCombatState is null)
-@@ -614,9 +658,18 @@ public sealed partial class RunState : IRunState
+@@ -614,9 +662,18 @@ public sealed partial class RunState : IRunState
  
          if (childCombatState != null)
          {
@@ -2819,3 +3006,16 @@ index 1633545..3d61e73 100644
              }
          }
      }
+diff --git a/src/Sts2Sim.Core/Runs/Transplant/TransplantFieldRegistry.cs b/src/Sts2Sim.Core/Runs/Transplant/TransplantFieldRegistry.cs
+index 965a31a..2295c62 100644
+--- a/src/Sts2Sim.Core/Runs/Transplant/TransplantFieldRegistry.cs
++++ b/src/Sts2Sim.Core/Runs/Transplant/TransplantFieldRegistry.cs
+@@ -142,7 +142,7 @@ public static class TransplantFieldRegistry
+         "_acts", "_readOnlyActs", "_generatedRooms", "_eventSequence",
+         "_normalEncounterSequence", "_eliteEncounterSequence", "_bossEncounter",
+         "_secondBossEncounter", "<Ascension>k__BackingField", "_currentAncientEventType",
+-        "<Map>k__BackingField", "<CardSelectionSource>k__BackingField",
++        "_map", "_pendingMapAct", "<CardSelectionSource>k__BackingField",
+     ];
+ 
+     private static readonly string[] RunBoundaryFields =

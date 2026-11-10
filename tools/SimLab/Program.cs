@@ -53,6 +53,23 @@ AppDomain.CurrentDomain.FirstChanceException += (_, e) =>
     Interlocked.Increment(ref firstChance);
     fcTypes.AddOrUpdate(e.Exception.GetType().Name + ": " + e.Exception.Message[..Math.Min(80, e.Exception.Message.Length)], 1, (_, v) => v + 1);
 };
+// Engine fast paths (CombatState.SimLabFastPaths, default off = the engine's strict, test-covered
+// behaviour), switched on once before anything runs, for the fight runner and the api path alike.
+// SIMLAB_STRICT_LISTENERS=1 keeps all of them off (same results, slower; for cross-checks).
+// - The listener caches trust List<T>._version and CardModel.AttachmentEpoch instead of re-reading
+//   every list item and card attachment, and the hook snapshot validates through the cached combat
+//   array. That holds for the pinned engine (31f4dc0): in src/ no code writes a list through a
+//   span (grep CollectionsMarshal|.AsSpan(|Unsafe.As|MemoryMarshal: only string buffers in
+//   StringHelper/ReportWriter), no code casts or mutates an aliased Enchantments list (grep
+//   "(List<EnchantmentModel>)" finds nothing; "_enchantments" is written only in
+//   AttachEnchantment and DeepCloneFields), and _affliction is set only in AttachAffliction,
+//   ClearAfflictionInternal and DeepCloneFields (the epoch-bumping paths, or a clone nothing has
+//   observed yet). Recheck these greps when the engine pin moves.
+// - Hook loops skip listeners whose type does not override the hook (Hooks.HookQueryFilter).
+// - An act map no map hook can touch is built on first read (a combat-only harness never reads
+//   it). Same map either way; only when the work happens changes.
+Sts2Sim.Core.Combat.CombatState.SimLabFastPaths =
+    Environment.GetEnvironmentVariable("SIMLAB_STRICT_LISTENERS") != "1";
 ModelDb.Init(ContentRegistry.AllTypes);
 if (args.Length > 0 && args[0] == "api")
 {

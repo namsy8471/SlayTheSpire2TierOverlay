@@ -34,6 +34,23 @@ most common listener type first, builds the act-1 map only when something reads 
 never do), shares immutable history entries between combat clones and drops LINQ/boxing
 allocations from card cloning and the engine's own cost-listener witness.
 
+**The engine's own tests pass with the patch, and its default behaviour is the unpatched one.**
+The speed shortcuts that rest on an assumption are behind one switch, `CombatState.SimLabFastPaths`
+(default off; `Program.cs` turns it on for the fight runner and `api`; `SIMLAB_STRICT_LISTENERS=1`
+keeps it off for cross-checks, same results, about 40% more CPU). The switch enables: validating
+the listener caches by `List<T>` version numbers and a card-attachment epoch instead of re-reading
+every item (the engine's tests require the caches to notice a list changed through a span, which
+no engine code does at this pin; `Program.cs` lists the greps to redo when the pin moves), the hook
+snapshot's fast validation, the per-hook override tables (94 hook slots; the 13 query loops plus 78 more), and building an
+act map on first read. With the switch off, `dotnet test ext/sts2-sim/Sts2Sim.sln -c Release` gives
+the same result as the unpatched 31f4dc0 (4662 passed, 3 skipped); earlier versions of this patch
+broke 19 of those tests (stale clone field registries after the lazy map, a map that built itself
+on first read, and cache fields that the clone-graph tests saw as world state; the cache state now
+lives in one holder object that those graph walks do not descend into). `SIMLAB_LISTENER_CHECK=1`
+makes every cache hit and every filtered dispatch compare itself with the original computation.
+Check every patch change against the engine suite on an unpatched clone, not only against
+identical simulation output.
+
 `Directory.Build.props` here is intentionally empty: it stops the repo-wide props (net10,
 warnings-as-errors) from applying to this tool and to the clone. The assembly is named `SimFuzz`
 because `Sts2Sim.Core` declares `InternalsVisibleTo("SimFuzz")`, which gives the harness the internal
