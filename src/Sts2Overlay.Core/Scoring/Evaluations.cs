@@ -45,6 +45,13 @@ public sealed record CardEvaluation
     public bool KnownToModel { get; init; }
 
     /// <summary>
+    /// Learned model active and the card exists only in multiplayer (catalog <c>multiplayer: MultiplayerOnly</c>) and is unknown to
+    /// the model: it was trained on solo runs, so the card has no learned value and its score is the re-weighed engine part alone.
+    /// Always an estimate; the panel tags the row (<c>협동 전용 · 솔로 기록 없음</c>). False in engine-only mode.
+    /// </summary>
+    public bool CoopOnlyNoSoloData { get; init; }
+
+    /// <summary>
     /// Nothing rates this card: no tier entry and the learned model does not know it, so its base is only a placeholder
     /// (<see cref="Weights.UnknownTier"/>). Such a card is never the recommended pick.
     /// </summary>

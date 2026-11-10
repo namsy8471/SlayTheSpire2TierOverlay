@@ -79,12 +79,13 @@ public static class RunReviewBuilder
     /// <param name="run">The finished run.</param>
     /// <param name="pack">Data pack to replay with.</param>
     /// <param name="steamId">The local player's Steam id in co-op (see <see cref="LocalPlayer.Resolve"/>).</param>
-    public static RunReview Build(RunHistory run, DataPack pack, long? steamId = null)
+    /// <param name="useLearnedModel">The live engine's <see cref="RecommendationEngine.UseLearnedModel"/>.</param>
+    public static RunReview Build(RunHistory run, DataPack pack, long? steamId = null, bool useLearnedModel = true)
     {
         ArgumentNullException.ThrowIfNull(run);
         ArgumentNullException.ThrowIfNull(pack);
         var player = LocalPlayer.Resolve(run, steamId);
-        var replay = new ReplayAnalyzer(pack).Replay(run, player.Id);
+        var replay = new ReplayAnalyzer(pack, useLearnedModel).Replay(run, player.Id);
         return FromReplay(replay, pack);
     }
 

@@ -66,13 +66,16 @@ public static class LearnedRescore
             // The model having seen the card in the old game version does not make the pack's data reasons go away: a card
             // without a tier entry, or one the pack marks as changed by a patch, stays an estimate at the pack's confidence.
             var dataEstimate = !e.IsRated || pack.FindTier(state.Character, options[i].Card)?.ChangedIn is not null;
+            // A co-op-only card is never in the solo training data: no learned value, so say so instead of inventing one.
+            var coopOnly = !known && pack.FindCatalog(options[i].Card)?.MultiplayerOnly == true;
             rescored.Add(e with
             {
                 Score = score,
                 Chips = score.TopReasons(3).Select(c => new ReasonChip(c.Key, c.Label, c.Value)).ToArray(),
                 Confidence = known && !dataEstimate ? Math.Max(e.Confidence, 1.0) : e.Confidence,
-                IsEstimate = dataEstimate || (!known && e.IsEstimate),
+                IsEstimate = dataEstimate || coopOnly || (!known && e.IsEstimate),
                 KnownToModel = known,
+                CoopOnlyNoSoloData = coopOnly,
             });
         }
 
