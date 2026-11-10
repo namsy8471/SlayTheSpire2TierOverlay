@@ -77,8 +77,12 @@ public sealed class GameStateAdapter : IGameStateSource, ICardOfferSink
             CombatKind.Boss => OfferContext.BossReward,
             _ => OfferContext.CardReward,
         };
-        return new GameStateSnapshot(run.State, run.Map, hint, rewardContext, run.UpdatedAt.ToLocalTime(), Doubts(run))
+        // Log-only rebuild: HP and gold are starting values, not facts (TrackedRun.HpGoldReliable). Carried on the RunState so
+        // every advisor that reads HP/gold sees it.
+        var state = run.HpGoldReliable || !run.State.VitalsKnown ? run.State : run.State with { VitalsKnown = false };
+        return new GameStateSnapshot(state, run.Map, hint, rewardContext, run.UpdatedAt.ToLocalTime(), Doubts(run))
         {
+            LogOnly = !run.FromSave,
             Seed = run.Seed,
             PartnerVotes = run.PartnerVotes.Select(v => v.Coord).ToList(),
             UnknownOdds = run.Save is { } save ? UnknownRoomOdds.From(save.UnknownMapPointOdds) : null,

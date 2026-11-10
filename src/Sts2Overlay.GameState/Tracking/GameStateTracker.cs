@@ -1201,7 +1201,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         bool fromHistory = !fromSave && _historyDeck != null;
         IReadOnlyList<DeckCard> finalDeck = fromHistory ? _historyDeck! : deck.Cards;
 
-        state = state with { Deck = finalDeck, Relics = relics, Gold = gold, CardRemovalsBought = removals };
+        state = state with { Deck = finalDeck, Relics = relics, Gold = gold, CardRemovalsBought = removals, VitalsKnown = fromSave };
 
         // Our map vote moves "Current" before the room-entry save lands (useful for the path advisor).
         if (map != null && _voteCoord is { } vote && _voteSeq > cutoff && map.Nodes.ContainsKey(vote))

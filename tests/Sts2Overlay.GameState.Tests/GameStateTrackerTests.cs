@@ -138,6 +138,7 @@ public class GameStateTrackerTests
         t.ProcessLines([Embark, Wrote(100)]);
         t.OnSave(Save("S1", 100, "CARD.BASH"));
         Assert.True(t.Current!.FromSave);
+        Assert.True(t.Current.State.VitalsKnown);
         Assert.Equal(0, t.Current.AppliedLogPatches);
         Assert.Equal(0.02, t.Current.RarityPityOffset); // from the save
 
@@ -500,6 +501,7 @@ public class GameStateTrackerTests
         TrackedRun run = t.Current!;
         Assert.False(run.FromSave);
         Assert.False(run.HpGoldReliable);
+        Assert.False(run.State.VitalsKnown); // advisors read the flag from the RunState itself
         Assert.Equal("CHARACTER.SILENT", run.State.Character);
         Assert.Equal(70, run.State.MaxHp); // Silent's starting HP
         // One from a card reward, one bought in a shop (a remote player's purchase is logged on the host).
