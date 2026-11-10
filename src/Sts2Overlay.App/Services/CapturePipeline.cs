@@ -14,9 +14,11 @@ namespace Sts2Overlay.App.Services;
 /// One dedicated thread does capture → recognise → (optional) save, strictly in sequence. That is what makes it
 /// safe to reuse the frame buffer: the next capture can't start while the recogniser still reads the previous one.
 /// The thread sleeps on an <see cref="AutoResetEvent"/>: with a timeout while periodic capture is on (3 Hz on likely
-/// reward/shop screens, 20 Hz while one is expected but not found yet), forever when it's off, and it wakes early for
+/// reward/shop screens, 20 Hz while one is expected but not found yet), forever when it's off (every 30 s until
+/// trimmed), and it wakes early for
 /// hotkey requests and rate changes. Before sleeping forever it suspends the capturer, so a WGC session doesn't keep
-/// copying 4K frames while nobody asks for them.
+/// copying 4K frames while nobody asks for them, and once the pause turns into a long idle (<see cref="ShouldTrim"/>)
+/// it trims it: D3D device and frame buffer go too.
 /// </summary>
 public sealed class CapturePipeline : IDisposable
 {
@@ -138,11 +140,21 @@ public sealed class CapturePipeline : IDisposable
         while (!_stop)
         {
             var interval = Interlocked.Read(ref _intervalTicks);
-            if (interval == 0) SuspendCapturer();
-            _wake.WaitOne(interval > 0
+            if (interval == 0)
+            {
+                SuspendCapturer();
+                if (_pausedSince == 0) _pausedSince = Stopwatch.GetTimestamp();
+            }
+            else
+            {
+                _pausedSince = 0;
+            }
+            // Paused and not trimmed yet: wake up now and then to see whether the pause has become a long idle.
+            var woken = _wake.WaitOne(interval > 0
                 ? NextWait(interval, Stopwatch.GetElapsedTime(_lastRun).Ticks, Stopwatch.GetElapsedTime(_lastRunEnd).Ticks)
-                : Timeout.InfiniteTimeSpan);
+                : _trimmed ? Timeout.InfiniteTimeSpan : TrimCheckEvery);
             if (_stop) break;
+            if (!woken && interval == 0 && !_trimmed) MaybeTrim();
 
             var manual = Interlocked.Exchange(ref _recognizeRequested, 0) == 1;
             var save = Interlocked.Exchange(ref _saveRequested, 0) == 1;
@@ -176,6 +188,48 @@ public sealed class CapturePipeline : IDisposable
     internal static TimeSpan NextWait(long intervalTicks, long sinceStepStartTicks, long sinceStepEndTicks)
         => TimeSpan.FromTicks(Math.Max(0, Math.Max(intervalTicks - sinceStepStartTicks, intervalTicks / 2 - sinceStepEndTicks)));
 
+    /// <summary>How often a paused worker checks whether to trim (<see cref="ShouldTrim"/>).</summary>
+    internal static readonly TimeSpan TrimCheckEvery = TimeSpan.FromSeconds(30);
+
+    /// <summary>Paused this long with no game window at all (game closed): trim.</summary>
+    internal static readonly TimeSpan TrimWithoutWindowAfter = TimeSpan.FromSeconds(30);
+
+    /// <summary>Paused this long with the game still there (minimised, not in front, overlay hidden): trim too.</summary>
+    internal static readonly TimeSpan TrimPausedAfter = TimeSpan.FromMinutes(10);
+
+    /// <summary>
+    /// Whether a pause has become a long idle in which the capturer should also drop its device and frame buffer
+    /// (<see cref="IFrameCapturer.Trim"/>). Not on a short alt-tab: re-creating the D3D device costs a few hundred ms
+    /// up to ~2 s on a busy PC, which would delay the first look at the game. With the game closed that cost is hidden
+    /// behind the game's own start-up.
+    /// </summary>
+    internal static bool ShouldTrim(TimeSpan paused, bool gameWindowExists)
+        => paused >= (gameWindowExists ? TrimPausedAfter : TrimWithoutWindowAfter);
+
+    private long _pausedSince; // Stopwatch timestamp when periodic capture stopped; 0 = running
+    private bool _trimmed;     // the capturer was trimmed during this pause and has not captured since
+
+    private void MaybeTrim()
+    {
+        if (_pausedSince == 0) return;
+        var paused = Stopwatch.GetElapsedTime(_pausedSince);
+        var windowExists = _target() is not null;
+        if (!ShouldTrim(paused, windowExists)) return;
+        _trimmed = true;
+        try
+        {
+            _capturer.Trim();
+        }
+        catch (Exception ex)
+        {
+            AppLog.Warn($"capture trim failed: {ex.Message}");
+        }
+        // The 33 MB frame buffer just dropped is on the large-object heap, which only a gen2 collection gives back, and
+        // an idle overlay may not run one for hours. One background (non-blocking) collection per long idle.
+        GC.Collect(2, GCCollectionMode.Forced, blocking: false);
+        AppLog.Info($"capture trimmed after {paused.TotalSeconds:0} s paused ({(windowExists ? "game window still there" : "no game window")}): device and frame buffer released");
+    }
+
     private void SuspendCapturer()
     {
         try
@@ -200,6 +254,7 @@ public sealed class CapturePipeline : IDisposable
         }
 
         var t0 = Stopwatch.GetTimestamp();
+        _trimmed = false; // this capture re-creates what a trim released
         var frame = _capturer.Capture(info);
         var captureDone = Stopwatch.GetTimestamp();
         var captureMs = Stopwatch.GetElapsedTime(t0, captureDone).TotalMilliseconds;

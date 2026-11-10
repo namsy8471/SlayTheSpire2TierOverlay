@@ -30,6 +30,16 @@ internal static partial class CaptureVerify
 {
     private const int LiveRounds = 5;
 
+    /// <summary>
+    /// The verifier starts a new WGC session for every replay and for every size change of its static test window, and
+    /// a new session's first frame can take longer than the app's 1 s on a busy PC (MemProbe sessions). The app then
+    /// takes one GDI frame and carries on; the verifier would report a false "no frame within 1000 ms" or, in the resize
+    /// step, "backend gdi". It checks pixels, not latency, so it waits longer.
+    /// </summary>
+    private static readonly TimeSpan FirstFrameTimeout = TimeSpan.FromSeconds(10);
+
+    private static WgcCapturer NewWgc() => new(firstFrameTimeout: FirstFrameTimeout);
+
     public static int Run(AppOptions options)
     {
         CaptureBench.AttachParentConsole();
@@ -81,7 +91,7 @@ internal static partial class CaptureVerify
 
         var failures = 0;
         using var gdi = new ScreenCapturer();
-        using var wgc = new WgcCapturer();
+        using var wgc = NewWgc();
         for (var round = 1; round <= LiveRounds; round++)
         {
             var t = CaptureBench.Refresh(target);
@@ -243,7 +253,7 @@ internal static partial class CaptureVerify
 
         var failures = 0;
         using var window = new ReplayWindow();
-        using var wgc = new WgcCapturer();
+        using var wgc = NewWgc();
         var origin = Interop.Dpi.PrimaryMonitorRect();
         if (liveGdi is not null)
         {
@@ -281,7 +291,7 @@ internal static partial class CaptureVerify
     {
         var failures = 0;
         var window = new ReplayWindow();
-        using var capturer = FrameCapturerFactory.Create("auto");
+        using var capturer = new FallbackFrameCapturer(NewWgc(), new ScreenCapturer()); // what FrameCapturerFactory builds, with the longer first-frame wait
         int[][] sizes = [[800, 600], [1001, 601], [1280, 720], [640, 480], [1919, 1079]];
         foreach (var size in sizes)
         {

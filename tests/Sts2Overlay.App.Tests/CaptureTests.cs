@@ -144,6 +144,10 @@ public class FallbackFrameCapturerTests
 
         public void Suspend() => Suspends++;
 
+        public int Trims { get; private set; }
+
+        public void Trim() => Trims++;
+
         public void Dispose() => Disposed = true;
     }
 
@@ -289,6 +293,51 @@ public class FallbackFrameCapturerTests
         Assert.Equal(1, wgc.Suspends);
         Assert.Equal(1, gdi.Suspends);
         Assert.True(wgc.Disposed && gdi.Disposed);
+    }
+
+    [Fact]
+    public void Trim_reaches_both_backends()
+    {
+        var wgc = new FakeCapturer("wgc");
+        var gdi = new FakeCapturer("gdi");
+        using var c = new FallbackFrameCapturer(wgc, gdi);
+        c.Trim();
+        Assert.Equal(1, wgc.Trims);
+        Assert.Equal(1, gdi.Trims);
+    }
+
+    [Fact]
+    public void Back_on_the_primary_after_a_fallback_frame_trims_the_fallback()
+    {
+        var wgc = new FakeCapturer("wgc");
+        var gdi = new FakeCapturer("gdi");
+        wgc.Script.Enqueue(false);
+        using var c = new FallbackFrameCapturer(wgc, gdi);
+        c.Capture(Target); // gdi frame
+        Assert.Equal(0, gdi.Trims);
+        c.Capture(Target); // wgc again: the gdi frame is no longer in use
+        Assert.Equal(1, gdi.Trims);
+        c.Capture(Target);
+        Assert.Equal(1, gdi.Trims);
+        Assert.Equal(0, wgc.Trims);
+    }
+}
+
+public class CaptureTrimPolicyTests
+{
+    [Fact]
+    public void A_short_pause_keeps_the_capturer_warm()
+    {
+        Assert.False(CapturePipeline.ShouldTrim(TimeSpan.FromSeconds(5), gameWindowExists: true));
+        Assert.False(CapturePipeline.ShouldTrim(TimeSpan.FromSeconds(5), gameWindowExists: false));
+        Assert.False(CapturePipeline.ShouldTrim(TimeSpan.FromMinutes(9), gameWindowExists: true));
+    }
+
+    [Fact]
+    public void No_game_window_trims_after_half_a_minute_a_long_pause_after_ten_minutes()
+    {
+        Assert.True(CapturePipeline.ShouldTrim(TimeSpan.FromSeconds(30), gameWindowExists: false));
+        Assert.True(CapturePipeline.ShouldTrim(TimeSpan.FromMinutes(10), gameWindowExists: true));
     }
 }
 

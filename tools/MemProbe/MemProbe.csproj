@@ -14,6 +14,8 @@
     <!-- The panel providers return WPF BitmapSources; no window is created. -->
     <UseWPF>true</UseWPF>
     <IsPackable>false</IsPackable>
+    <!-- CaptureProbe / GpuMemory call DXGI and WGC through raw COM vtables, like the app's Interop folder. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>

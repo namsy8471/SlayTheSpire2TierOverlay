@@ -22,6 +22,8 @@ namespace MemProbe;
 //       per-frame recognition times go to --times (they differ run to run, the output must not)
 //   MemProbe allocs [--frames 60] [--upscale 2]
 //       managed bytes allocated per frame by each per-frame vision stage, and by type (GC allocation ticks)
+//   MemProbe capture | devices | poolage
+//       the capture side alone on a test window: memory per capture step, D3D11 device costs, frame age (CaptureProbe.cs)
 //   MemProbe heap [--frames 60] [--upscale 2] [--idle 0,30] [--min 65536] [--threads 1]
 //       what stays alive between frames: every big array and its holder (ClrMD snapshot of this process), ArrayPool.Shared
 //       contents, after recognising and after idle waits (HeapCensus.cs)
@@ -47,6 +49,19 @@ internal static class Program
                 return Dump(local, opts);
             case "allocs":
                 return Allocs(local, opts);
+            // The capture side alone (CaptureProbe.cs): no data/local needed.
+            case "capture":
+                return CaptureProbe.Capture(opts);
+            case "devices":
+                return CaptureProbe.Devices();
+            case "device":
+                return CaptureProbe.Device(opts);
+            case "poolage":
+                return CaptureProbe.PoolAge(opts);
+            case "sessions":
+                return CaptureProbe.Sessions(opts);
+            case "readback":
+                return ReadbackProbe.Run(opts);
             case "heap":
                 return HeapCensus.Run(local, opts);
             case "builddb":
