@@ -987,7 +987,7 @@ public sealed partial class AppController : IDisposable
                 $"게임 {info.CaptureRect.Width}x{info.CaptureRect.Height} · x{Dpi.ScaleForRect(info.CaptureRect):0.##}{(info.IsForeground ? "" : " (뒤에 있음)")}",
                 $"Game {info.CaptureRect.Width}x{info.CaptureRect.Height} · x{Dpi.ScaleForRect(info.CaptureRect):0.##}{(info.IsForeground ? "" : " (in background)")}"),
         };
-        UpdateShellForGame(info); // 16:9 notice, panel on the game's monitor (AppController.Shell.cs)
+        UpdateShellForGame(info); // notices, panel on the game's monitor (AppController.Shell.cs)
         ApplyUiScale();
         UpdateVisibility();
     }
