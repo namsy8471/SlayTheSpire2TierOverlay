@@ -39,7 +39,11 @@ public class WgcSessionSoakTests(ITestOutputHelper output)
             for (var i = 1; i <= cycles; i++)
             {
                 Cycle(wgc, info, src);
-                if (i % 50 == 0 || i == cycles) output.WriteLine($"session cycles {i}/{cycles}");
+                if (i % 100 == 0 || i == cycles)
+                {
+                    var now = Snapshot();
+                    output.WriteLine($"session cycles {i}/{cycles}: handles {now.Handles}, private bytes {now.PrivateBytes / 1048576.0:0.0} MB, live delegate objects {ComEventHandler.LiveObjects}");
+                }
             }
             wgc.Suspend();
             Report("session start/stop", cycles, before, Snapshot());
@@ -89,8 +93,12 @@ public class WgcSessionSoakTests(ITestOutputHelper output)
     {
         output.WriteLine($"{phase} x{count}: handles {before.Handles} -> {after.Handles} ({after.Handles - before.Handles:+0;-0;0}), "
             + $"private bytes {before.PrivateBytes / 1048576.0:0.0} -> {after.PrivateBytes / 1048576.0:0.0} MB ({(after.PrivateBytes - before.PrivateBytes) / 1048576.0:+0.0;-0.0;0.0})");
-        // Generous bounds against noise (thread pool, driver caches); a per-cycle leak of even one handle exceeds them.
-        Assert.True(after.Handles - before.Handles < Math.Max(30, count / 4), $"{phase}: handle count grew {before.Handles} -> {after.Handles}");
+        // Windows itself keeps one "ALPC Port" handle per capture session started while no other session is alive in the
+        // process (seen on Windows 11 10.0.26300 with a bare session created straight through the ABI, and absent while a
+        // second session stays open); the C#/WinRT build kept pool "Section" handles instead. That costs at most one
+        // handle per cycle, which we cannot release, so the bound allows exactly that plus noise (thread pool, driver
+        // caches). Anything we leak per session (a texture, an event, a device) adds more and fails it.
+        Assert.True(after.Handles - before.Handles < count + 30, $"{phase}: handle count grew {before.Handles} -> {after.Handles}");
         Assert.True(after.PrivateBytes - before.PrivateBytes < 64L * 1048576, $"{phase}: private bytes grew {before.PrivateBytes} -> {after.PrivateBytes}");
     }
 
