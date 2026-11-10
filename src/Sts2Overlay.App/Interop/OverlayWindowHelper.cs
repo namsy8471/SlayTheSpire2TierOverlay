@@ -59,6 +59,12 @@ internal static class OverlayWindowHelper
         SetWindowPos(hwnd, HWND_TOPMOST, r.X, r.Y, r.Width, r.Height, SWP_NOACTIVATE | SWP_NOOWNERZORDER);
     }
 
+    /// <summary>Like <see cref="SetPhysicalBounds"/>, but the window keeps its place in the z-order.</summary>
+    public static void SetPhysicalBoundsInPlace(IntPtr hwnd, PixelRect r)
+    {
+        SetWindowPos(hwnd, IntPtr.Zero, r.X, r.Y, r.Width, r.Height, SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+    }
+
     /// <param name="topmost">false = keep the current z-order (the panel with "항상 맨 앞" off).</param>
     public static void SetPhysicalPosition(IntPtr hwnd, int x, int y, bool topmost = true)
     {
@@ -103,19 +109,31 @@ internal static class OverlayWindowHelper
 /// suggests (the old size scaled by the DPI ratio), so the layer could cover only part of the game. So every placement
 /// is checked with GetWindowRect and done again when the window is not where it should be, and a DPI change puts it
 /// back (<see cref="Reapply"/>). A rect that still differs is logged once at INFO, so it shows in a user's app.log.</para>
-/// <para>The two native calls and the log are injectable for tests.</para>
+/// <para>The native calls and the log are injectable for tests. <paramref name="setBoundsInPlace"/> (default:
+/// <paramref name="setBounds"/>) is the move used by <see cref="SetTrimmed"/>, which must not lift the layer above the
+/// panel the way a placement does (the controller re-orders the windows after a placement).</para>
 /// </summary>
-internal sealed class LayerPlacement(string name, Func<IntPtr, PixelRect> getBounds, Action<IntPtr, PixelRect> setBounds, Action<string> log)
+internal sealed class LayerPlacement(string name, Func<IntPtr, PixelRect> getBounds, Action<IntPtr, PixelRect> setBounds, Action<string> log,
+    Action<IntPtr, PixelRect>? setBoundsInPlace = null)
 {
     private string? _lastMismatch;
 
     public LayerPlacement(string name)
-        : this(name, OverlayWindowHelper.GetPhysicalBounds, OverlayWindowHelper.SetPhysicalBounds, AppLog.Info)
+        : this(name, OverlayWindowHelper.GetPhysicalBounds, OverlayWindowHelper.SetPhysicalBounds, AppLog.Info, OverlayWindowHelper.SetPhysicalBoundsInPlace)
     {
     }
 
     /// <summary>Where the layer should be (empty until the first placement).</summary>
     public PixelRect Intended { get; private set; }
+
+    /// <summary>
+    /// The layer is cut down to one pixel at the game's top-left corner (<see cref="SetTrimmed"/>): an empty layer that
+    /// gives its full-screen surface back. It still follows the game (and so its monitor) while trimmed.
+    /// </summary>
+    public bool Trimmed { get; private set; }
+
+    /// <summary>Where the window is put: <see cref="Intended"/>, or its 1x1 corner while trimmed.</summary>
+    public PixelRect Target => Trimmed ? new PixelRect(Intended.X, Intended.Y, 1, 1) : Intended;
 
     /// <summary>
     /// Puts the window on <paramref name="rect"/> unless it already is there. Returns true when the intended rect
@@ -129,29 +147,94 @@ internal sealed class LayerPlacement(string name, Func<IntPtr, PixelRect> getBou
         return changed;
     }
 
+    /// <summary>
+    /// Trims the layer to its 1x1 corner, or brings it back to the full rect. A WPF layered window keeps a surface of
+    /// its own size for as long as it exists (hidden or not; tools/BadgeRenderBench --layer-mem), about 65 MB of RAM at
+    /// 4K, and only a smaller size gives it back. Returns true when the state changed.
+    /// </summary>
+    public bool SetTrimmed(IntPtr hwnd, bool trimmed)
+    {
+        if (trimmed == Trimmed) return false;
+        Trimmed = trimmed;
+        Apply(hwnd, trimmed ? "trim" : "untrim", setBoundsInPlace ?? setBounds);
+        return true;
+    }
+
     /// <summary>After a DPI change: WPF may have resized the window to Windows' suggested rect; put it back.</summary>
     public void Reapply(IntPtr hwnd)
     {
         if (Intended.IsEmpty) return;
+        var target = Target;
         var before = getBounds(hwnd);
-        if (before != Intended) log($"{name} layer: window was {before} after a DPI change, intended {Intended}; placing it again");
+        if (before != target) log($"{name} layer: window was {before} after a DPI change, intended {target}; placing it again");
         Apply(hwnd, "after a DPI change");
     }
 
-    private void Apply(IntPtr hwnd, string when)
+    private void Apply(IntPtr hwnd, string when, Action<IntPtr, PixelRect>? move = null)
     {
         if (hwnd == IntPtr.Zero || Intended.IsEmpty) return;
+        var target = Target;
+        move ??= setBounds;
         // Twice at most: the first move may cross into a monitor with another DPI, and WPF's resize then wins.
-        for (var i = 0; i < 2 && getBounds(hwnd) != Intended; i++) setBounds(hwnd, Intended);
+        for (var i = 0; i < 2 && getBounds(hwnd) != target; i++) move(hwnd, target);
         var actual = getBounds(hwnd);
-        if (actual == Intended)
+        if (actual == target)
         {
             _lastMismatch = null;
             return;
         }
-        var key = $"{Intended}|{actual}";
+        var key = $"{target}|{actual}";
         if (key == _lastMismatch) return;
         _lastMismatch = key;
-        log($"{name} layer: intended {Intended}, actual {actual} ({when})");
+        log($"{name} layer: intended {target}, actual {actual} ({when})");
     }
+}
+
+/// <summary>
+/// When an empty layer is trimmed (<see cref="LayerPlacement.SetTrimmed"/>): after it has had nothing to draw for
+/// <see cref="DelayMs"/>, so the map's short gaps (marks cleared while the map scrolls) never cost a resize, and never
+/// while the controller holds it ready for marks it expects (<see cref="SetHold"/>). Marks bring it back at once,
+/// before they are drawn. Pure: the window drives it from its content changes and a timer.
+/// </summary>
+internal sealed class EmptyLayerTrim(long delayMs)
+{
+    private long? _emptySince;
+    private bool _hold;
+
+    public long DelayMs => delayMs;
+
+    /// <summary>
+    /// The controller expects marks soon (the map is about to open, an event room is open): keep the layer full size,
+    /// so the marks come up as fast as on a layer that was never trimmed. True when a trimmed layer must come back now.
+    /// Once the hold ends, an empty layer waits a whole delay again before it is trimmed.
+    /// </summary>
+    public bool SetHold(bool hold, bool trimmed, long nowMs)
+    {
+        if (hold == _hold) return false;
+        _hold = hold;
+        if (!hold && _emptySince is not null) _emptySince = nowMs;
+        return hold && trimmed;
+    }
+
+    /// <summary>
+    /// The layer's content changed, or it was placed (a layer placed before its first marks counts as empty from then).
+    /// True when it is trimmed and must be full size again before drawing.
+    /// </summary>
+    public bool OnContent(bool hasMarks, bool trimmed, long nowMs)
+    {
+        if (hasMarks)
+        {
+            _emptySince = null;
+            return trimmed;
+        }
+        _emptySince ??= nowMs;
+        return false;
+    }
+
+    /// <summary>True when the layer is still empty, not trimmed yet, and has been empty long enough.</summary>
+    public bool ShouldTrim(bool trimmed, long nowMs)
+        => !trimmed && !_hold && _emptySince is { } since && nowMs - since >= delayMs;
+
+    /// <summary>Whether a timer should run to call <see cref="ShouldTrim"/> later.</summary>
+    public bool Waiting(bool trimmed) => !trimmed && _emptySince is not null;
 }
