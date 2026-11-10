@@ -16,6 +16,11 @@ namespace Sts2Overlay.Tools.BadgeRenderBench;
 // Usage:
 //   BadgeRenderBench [--rounds N] [--variants a,b,..] [--churn N]   warm process, variants alternated in rounds
 //   BadgeRenderBench --cold N [--variants a]                        N fresh processes, first show of each
+//   BadgeRenderBench --hold S --windows K --variants a              K layers held S seconds (read GPU memory outside)
+//   BadgeRenderBench --decode <card_art dir> N                      no window: thumbnail decode time
+//   BadgeRenderBench --panel <card_art dir> ROUNDS                  no window: panel offer tab layout, offscreen
+// Variants: full-* = the window covers the screen, fit-* = only the box around the badges, -hidden = Show() in the
+// timed change, -sw = software rendering, -seq = reward and shop screens in turn on one window.
 //
 // What one sample is (the app's perf log "render" stage, AppController.Perf.cs): ShowBadges on the real BadgeWindow,
 // then a Dispatcher callback at Loaded priority. Pieces: the first CompositionTarget.Rendering after the change
@@ -85,16 +90,16 @@ internal sealed class BenchApp(Options? opts) : Application
     }
 }
 
-internal sealed record Options(int Rounds, string[] Variants, bool Instrument, int Cold, bool Child, int Churn, int Shows, int FpsMs)
+internal sealed record Options(int Rounds, string[] Variants, bool Instrument, int Cold, bool Child, int Churn, int Shows, int FpsMs, int HoldSeconds = 0, int HoldWindows = 3)
 {
     public static readonly string[] AllVariants =
     [
-        "full-reward", "fit-reward", "full-reward-hidden", "full-reward-sw", "full-shop", "fit-shop", "full-tiny",
+        "full-reward", "fit-reward", "full-reward-hidden", "full-reward-sw", "full-shop", "fit-shop", "full-tiny", "full-reward-seq",
     ];
 
     public static Options Parse(string[] args)
     {
-        int rounds = 15, cold = 0, churn = 0, shows = 3, fpsMs = 0;
+        int rounds = 15, cold = 0, churn = 0, shows = 3, fpsMs = 0, holdSeconds = 0, holdWindows = 3;
         string[] variants = AllVariants;
         bool instrument = true, child = false;
         for (var i = 0; i < args.Length; i++)
@@ -109,10 +114,12 @@ internal sealed record Options(int Rounds, string[] Variants, bool Instrument, i
                 case "--churn": churn = int.Parse(args[++i], CultureInfo.InvariantCulture); break;
                 case "--shows": shows = int.Parse(args[++i], CultureInfo.InvariantCulture); break;
                 case "--fps": fpsMs = int.Parse(args[++i], CultureInfo.InvariantCulture); break;
+                case "--hold": holdSeconds = int.Parse(args[++i], CultureInfo.InvariantCulture); break;
+                case "--windows": holdWindows = int.Parse(args[++i], CultureInfo.InvariantCulture); break;
                 default: throw new ArgumentException($"unknown argument {args[i]}");
             }
         }
-        return new Options(rounds, variants, instrument, cold, child, churn, shows, fpsMs);
+        return new Options(rounds, variants, instrument, cold, child, churn, shows, fpsMs, holdSeconds, holdWindows);
     }
 }
 
@@ -131,6 +138,7 @@ internal static class Bench
     public static async Task<int> RunAsync(Options o)
     {
         var screen = Screen.Primary();
+        if (o.HoldSeconds > 0) return await HoldAsync(o, screen);
         var load = new CpuLoad();
         if (!o.Child)
         {
@@ -204,6 +212,40 @@ internal static class Bench
     }
 
     /// <summary>One short-lived window: shown, then <see cref="Options.Shows"/> timed badge changes (each from empty), then closed.</summary>
+    /// <summary>
+    /// Memory of the overlay's three layers (badges, map, events): <see cref="Options.HoldWindows"/> badge windows of the
+    /// first variant, all showing badges, held for a few seconds so GPU memory can be read from outside
+    /// (Get-Counter "\GPU Process Memory(pid_N*)\Dedicated Usage").
+    /// </summary>
+    private static async Task<int> HoldAsync(Options o, Screen screen)
+    {
+        var variant = o.Variants[0];
+        var content = Content.For(variant, screen);
+        var layer = variant.StartsWith("fit", StringComparison.Ordinal) ? content.Fit : screen.Rect;
+        var before = PrivateBytes();
+        var windows = new List<BadgeWindow>();
+        try
+        {
+            for (var i = 0; i < o.HoldWindows; i++)
+            {
+                var w = new BadgeWindow(new OverlayCaptureVisibility(false));
+                new WindowInteropHelper(w).EnsureHandle();
+                w.SetLayerRect(layer);
+                w.Show();
+                w.ShowBadges(content.Specs(i * 5), content.Skip, content.Removal, false);
+                windows.Add(w);
+            }
+            await Settle(windows[0]);
+            Console.WriteLine($"HOLD pid {Environment.ProcessId} {variant} x{o.HoldWindows}: private +{(PrivateBytes() - before) / 1048576.0:0} MB");
+            await Task.Delay(o.HoldSeconds * 1000);
+        }
+        finally
+        {
+            foreach (var w in windows) w.Close();
+        }
+        return 0;
+    }
+
     private sealed record WindowResult(List<Sample> Samples, List<double> Churn, List<double> FrameMs, double PrivateMb);
 
     private static async Task<WindowResult> RunWindowAsync(string variant, Screen screen, Options o)
@@ -227,13 +269,16 @@ internal static class Bench
         double grownMb;
         try
         {
+            // "-seq": a session's screens in turn (reward, shop, reward, ...) on one window.
+            var shop = variant.Contains("-seq") ? Content.For("shop", screen) : null;
             for (var s = 0; s < o.Shows; s++)
             {
                 var shift = s * 7; // a few pixels apart, like a re-recognised card
+                var c = shop is not null && s % 2 == 1 ? shop : content;
                 samples.Add(await TimeChange(window, () =>
                 {
                     if (hidden && !window.IsVisible) window.Show();
-                    window.ShowBadges(content.Specs(shift), content.Skip, content.Removal, false);
+                    window.ShowBadges(c.Specs(shift), c.Skip, c.Removal, false);
                 }, o.Instrument));
                 window.Clear();
                 if (hidden) window.Hide();
