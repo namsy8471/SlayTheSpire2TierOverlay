@@ -159,6 +159,28 @@ public class RunSaveParserTests
         Assert.Equal(["RELIC.BURNING_BLOOD"], s.State.Relics);
     }
 
+    [Theory]
+    [InlineData("\"net_id\": 76561190000000001,", "")]                          // property missing
+    [InlineData("\"net_id\": 76561190000000001,", "\"net_id\": \"76561190000000001\",")] // string
+    public void Coop_net_id_missing_or_not_a_number_reads_as_0_instead_of_throwing(string from, string to)
+    {
+        string json = CoopJson.Replace(from, to);
+        Assert.NotEqual(CoopJson, json);
+        ParsedSave s = RunSaveParser.Parse(json, TestPaths.Me);
+        Assert.Equal([0UL, TestPaths.Friend], s.PlayerNetIds);
+        Assert.False(s.MyPlayerMatched); // our id is gone: falls back to the first player as before
+        Assert.Equal(0UL, s.MyNetId);
+    }
+
+    [Fact]
+    public void Non_numeric_map_odds_are_skipped()
+    {
+        string json = SingleJson.Replace("\"rng\":{\"seed\":\"SOLO1\"},",
+            "\"rng\":{\"seed\":\"SOLO1\"},\"odds\":{\"a_odds\":0.25,\"b_odds\":\"high\",\"c_odds\":null,\"d_odds\":{}},");
+        ParsedSave s = RunSaveParser.Parse(json, null);
+        Assert.Equal(new Dictionary<string, double> { ["a_odds"] = 0.25 }, s.UnknownMapPointOdds);
+    }
+
     [Fact]
     public void Truncated_json_throws_so_the_watcher_can_retry() =>
         Assert.ThrowsAny<JsonException>(() => RunSaveParser.Parse(CoopJson[..200], TestPaths.Me));

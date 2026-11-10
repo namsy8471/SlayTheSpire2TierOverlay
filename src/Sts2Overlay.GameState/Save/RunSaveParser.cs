@@ -37,7 +37,7 @@ public static class RunSaveParser
         var playerList = players.ValueKind == JsonValueKind.Array ? players.EnumerateArray().ToList() : [];
         if (playerList.Count == 0) throw new JsonException("save has no players");
 
-        var netIds = playerList.Select(p => Prop(p, "net_id").TryGetUInt64(out ulong id) ? id : 0UL).ToList();
+        var netIds = playerList.Select(p => ULong(p, "net_id") ?? 0UL).ToList();
         int myIndex = playerList.Count == 1 ? 0 : localNetId is { } want ? netIds.IndexOf(want) : -1;
         bool matched = myIndex >= 0;
         if (!matched) myIndex = 0; // unknown id in co-op: show the host's (first) player rather than nothing
@@ -109,7 +109,7 @@ public static class RunSaveParser
         var mapOdds = new Dictionary<string, double>(StringComparer.Ordinal);
         if (Prop(root, "odds") is { ValueKind: JsonValueKind.Object } runOdds)
             foreach (JsonProperty p in runOdds.EnumerateObject())
-                if (p.Value.TryGetDouble(out double v)) mapOdds[p.Name] = v;
+                if (p.Value.ValueKind == JsonValueKind.Number && p.Value.TryGetDouble(out double v)) mapOdds[p.Name] = v;
 
         return new ParsedSave
         {
@@ -251,6 +251,9 @@ public static class RunSaveParser
 
     private static int? Int(JsonElement e, string name) =>
         Prop(e, name) is { ValueKind: JsonValueKind.Number } n && n.TryGetInt32(out int v) ? v : null;
+
+    private static ulong? ULong(JsonElement e, string name) =>
+        Prop(e, name) is { ValueKind: JsonValueKind.Number } n && n.TryGetUInt64(out ulong v) ? v : null;
 
     private static long? Long(JsonElement e, string name) =>
         Prop(e, name) is { ValueKind: JsonValueKind.Number } n && n.TryGetInt64(out long v) ? v : null;
