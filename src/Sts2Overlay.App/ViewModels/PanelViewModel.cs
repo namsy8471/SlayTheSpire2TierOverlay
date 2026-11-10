@@ -11,6 +11,9 @@ public enum PanelTab
     Build,
     Path,
     Review,
+
+    /// <summary>티어표: the whole tier list (shown after 빌드; never selected automatically).</summary>
+    Tiers,
 }
 
 /// <summary>Root view model of the panel window. Sections are replaced wholesale by <see cref="Controllers.AppController"/>.</summary>
@@ -199,4 +202,7 @@ public sealed class PanelViewModel : ObservableObject
 
     /// <summary>Banner "닫기": hide the banner; the review stays in the 리뷰 tab.</summary>
     public ICommand DismissReviewCommand { get; }
+
+    /// <summary>티어표 tab (Controllers/AppController.Tiers.cs). One long-lived object: its search box binds to it.</summary>
+    public TierListVm Tiers { get; } = new();
 }

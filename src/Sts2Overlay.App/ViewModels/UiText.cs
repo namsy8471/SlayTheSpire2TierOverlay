@@ -89,6 +89,14 @@ public sealed class UiText : INotifyPropertyChanged
     public string HideBuildCards => Loc.T("▾ 빌드 카드 접기", "▾ Hide build cards");
     public string BuildRelics => Loc.T("어울리는 유물", "Relics for this build");
 
+    // ---- 티어표 tab ----
+    public string TabTiers => Loc.T("티어표", "Tiers");
+    public string TierNote => Controllers.TierListPresenter.Note;
+    public string TierSearchHint => Loc.T("카드 이름 검색 (초성 가능: ㅂㅂ)", "Search card names");
+    public string TierSearchToolTip => Loc.T("클릭하면 입력할 수 있습니다. Enter(검색어 유지)·Esc(검색어 지움)·바깥 클릭으로 키보드가 게임에 돌아갑니다.",
+        "Click to type. Enter (keeps the search), Esc (clears it) or a click outside gives the keyboard back to the game.");
+    public string CoopTag => Loc.T("협동", "Co-op");
+
     // ---- 경로 tab ----
     public string PathEmpty => Loc.T("경로 추천 준비 중\n지도 정보가 연결되면 표시됩니다.", "Path advice not ready\nShown once map info is available.");
     public string PathEmptyCoopGuest => Loc.T("경로 추천 없음\n협동 게스트는 지도 정보를 받을 수 없어 경로 추천이 표시되지 않습니다.",

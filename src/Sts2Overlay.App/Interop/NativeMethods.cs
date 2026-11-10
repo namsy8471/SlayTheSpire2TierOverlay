@@ -122,6 +122,7 @@ internal static class NativeMethods
     [DllImport("user32.dll")] public static extern bool GetCursorPos(out POINT point);
     [DllImport("user32.dll")] public static extern bool SetWindowDisplayAffinity(IntPtr hWnd, uint affinity);
     [DllImport("user32.dll")] public static extern bool GetWindowDisplayAffinity(IntPtr hWnd, out uint affinity);
+    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
 
     /// <summary>Blocks until DWM presents its next composed frame (returns an HRESULT).</summary>
     [DllImport("dwmapi.dll")] public static extern int DwmFlush();

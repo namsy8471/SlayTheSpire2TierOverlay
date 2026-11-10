@@ -399,6 +399,108 @@
         </Grid>
       </Border>
     </DataTemplate>
+
+    <!-- ==== 티어표 tab ==== -->
+    <!-- Toggle chip (pool, type, rarity, co-op cards): gold when on. Not focusable, so a click never moves keyboard focus. -->
+    <DataTemplate x:Key="TierChipTemplate" DataType="{x:Type vm:TierChipVm}">
+      <Button Command="{Binding Command}" Focusable="False" Cursor="Hand" Margin="0,0,4,4" ToolTip="{Binding ToolTip}">
+        <Button.Template>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="Bd" CornerRadius="9" Padding="7,1,7,2" Background="#14FFFFFF" BorderBrush="#33FFFFFF" BorderThickness="1">
+              <TextBlock x:Name="Label" Text="{Binding Text}" FontSize="11.5" Foreground="{StaticResource TextDim}" />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Bd" Property="Background" Value="#30FFFFFF" />
+              </Trigger>
+              <DataTrigger Binding="{Binding IsOn}" Value="True">
+                <Setter TargetName="Bd" Property="Background" Value="#38F1C40F" />
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Gold}" />
+                <Setter TargetName="Label" Property="Foreground" Value="{StaticResource TextMain}" />
+              </DataTrigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Button.Template>
+      </Button>
+    </DataTemplate>
+
+    <!--
+      티어표 card tile (same size and hover as the 빌드 tab's tile, 5 per row): portrait with the energy cost (top left), the
+      owned check with a count (top right), "추정" / "협동" tags (bottom), then the name and, when the current act's tier
+      differs, a small "1막 A" line. The thumbnail is decoded off the UI thread (IsAsync; the art provider caches it).
+    -->
+    <DataTemplate x:Key="TierCardTileTemplate" DataType="{x:Type vm:TierCardVm}">
+      <StackPanel Width="62" Margin="0,0,4,5" Background="Transparent" Cursor="Help"
+                  ToolTipService.InitialShowDelay="120" ToolTipService.ShowDuration="60000" ToolTipService.Placement="Left">
+        <Border x:Name="Frame" Height="46" CornerRadius="3" BorderThickness="1" BorderBrush="#40FFFFFF" Background="#40000000">
+          <Grid>
+            <TextBlock Text="{Binding NoArt, Source={x:Static vm:UiText.Instance}}" FontSize="9.5" Foreground="{StaticResource TextDim}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Visibility="{Binding Art, Converter={StaticResource BoolVis}, ConverterParameter=!}" />
+            <Image Source="{Binding Art.Thumb, IsAsync=True}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
+            <Border Width="14" Height="14" CornerRadius="7" Margin="1" HorizontalAlignment="Left" VerticalAlignment="Top" Background="#E6F08A24"
+                    Visibility="{Binding CostText, Converter={StaticResource BoolVis}}">
+              <TextBlock Text="{Binding CostText}" FontSize="9.5" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+            <Border MinWidth="14" Height="14" CornerRadius="7" Padding="2,0" Margin="1" HorizontalAlignment="Right" VerticalAlignment="Top" Background="{StaticResource Gold}"
+                    Visibility="{Binding IsOwned, Converter={StaticResource BoolVis}}">
+              <TextBlock Text="{Binding OwnedText}" FontSize="9.5" FontWeight="Bold" Foreground="#1A1A1A" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+            <Border CornerRadius="3" Padding="3,0,3,1" Margin="1" HorizontalAlignment="Left" VerticalAlignment="Bottom" Background="{StaticResource EstimateBg}"
+                    Visibility="{Binding IsEstimate, Converter={StaticResource BoolVis}}">
+              <TextBlock Text="{Binding EstimateTag, Source={x:Static vm:UiText.Instance}}" FontSize="8.5" FontWeight="Bold" Foreground="White" />
+            </Border>
+            <Border CornerRadius="3" Padding="3,0,3,1" Margin="1" HorizontalAlignment="Right" VerticalAlignment="Bottom" Background="#E61F7A8C"
+                    Visibility="{Binding IsCoop, Converter={StaticResource BoolVis}}">
+              <TextBlock Text="{Binding CoopTag, Source={x:Static vm:UiText.Instance}}" FontSize="8.5" FontWeight="Bold" Foreground="White" />
+            </Border>
+          </Grid>
+        </Border>
+        <TextBlock Text="{Binding Name}" FontSize="10.5" TextAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
+        <Border CornerRadius="3" Padding="3,0,3,1" Margin="0,1,0,0" HorizontalAlignment="Center"
+                Background="{Binding ActMarkerTier, Converter={StaticResource TierBrush}}"
+                Visibility="{Binding ActMarker, Converter={StaticResource BoolVis}}">
+          <TextBlock Text="{Binding ActMarker}" FontSize="9" FontWeight="Bold"
+                     Foreground="{Binding ActMarkerTier, Converter={StaticResource TierBrush}, ConverterParameter=fg}" />
+        </Border>
+        <StackPanel.ToolTip>
+          <ToolTip Padding="6" Background="#F0101318" BorderBrush="{StaticResource Gold}" BorderThickness="1.5" Foreground="{StaticResource TextMain}">
+            <StackPanel MaxWidth="380">
+              <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="Bold" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding DetailText}" FontSize="12" Foreground="{StaticResource TextDim}" Margin="0,1,0,0" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding ActTiersText}" FontSize="12" Foreground="{StaticResource TextDim}" Margin="0,1,0,0" TextWrapping="Wrap"
+                         Visibility="{Binding ActTiersText, Converter={StaticResource BoolVis}}" />
+              <TextBlock Text="{Binding OwnedLine}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Gold}" Margin="0,1,0,0"
+                         Visibility="{Binding OwnedLine, Converter={StaticResource BoolVis}}" />
+              <TextBlock Text="{Binding Tip}" FontSize="12.5" Foreground="#F7DC6F" Margin="0,4,0,0" TextWrapping="Wrap"
+                         Visibility="{Binding Tip, Converter={StaticResource BoolVis}}" />
+              <!-- Effect text (game localization + extracted numbers); hidden when the localization isn't extracted. -->
+              <Border Padding="7,6" Margin="0,5,0,6" CornerRadius="3" Background="#26FFFFFF"
+                      Visibility="{Binding Text, Converter={StaticResource BoolVis}}">
+                <StackPanel>
+                  <ContentControl Content="{Binding Text.Base}" ContentTemplate="{StaticResource CardFaceTemplate}" Focusable="False" />
+                  <StackPanel Visibility="{Binding Text.Upgraded, Converter={StaticResource BoolVis}}">
+                    <Border Height="1" Margin="0,6,0,5" Background="#33FFFFFF" />
+                    <TextBlock FontSize="11.5" Foreground="{StaticResource UpgradeFg}" Margin="0,0,0,3">
+                      <Run Text="{Binding AfterUpgrade, Source={x:Static vm:UiText.Instance}, Mode=OneWay}" /> <Run Text="{Binding Text.Upgraded.Title, Mode=OneWay}" FontWeight="SemiBold" />
+                    </TextBlock>
+                    <ContentControl Content="{Binding Text.Upgraded}" ContentTemplate="{StaticResource CardFaceTemplate}" Focusable="False" />
+                  </StackPanel>
+                </StackPanel>
+              </Border>
+              <Image Source="{Binding Art.Large}" Width="380" Height="289" RenderOptions.BitmapScalingMode="HighQuality"
+                     Visibility="{Binding Art, Converter={StaticResource BoolVis}}" />
+            </StackPanel>
+          </ToolTip>
+        </StackPanel.ToolTip>
+      </StackPanel>
+      <DataTemplate.Triggers>
+        <DataTrigger Binding="{Binding IsOwned}" Value="True">
+          <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource Gold}" />
+          <Setter TargetName="Frame" Property="BorderThickness" Value="1.5" />
+        </DataTrigger>
+      </DataTemplate.Triggers>
+    </DataTemplate>
+    <!-- ==== /티어표 tab ==== -->
   </Window.Resources>
 
   <Grid>
@@ -458,13 +560,15 @@
             </DockPanel>
           </Border>
           <!-- ==== /run review banner ==== -->
-          <UniformGrid Columns="5" Margin="8,0,8,0">
+          <UniformGrid Columns="6" Margin="8,0,8,0">
             <RadioButton Style="{StaticResource TabButton}" GroupName="Tabs" Content="{Binding TabOffer, Source={x:Static vm:UiText.Instance}}"
                          IsChecked="{Binding SelectedTab, Converter={StaticResource EnumMatch}, ConverterParameter=Offer}" />
             <RadioButton Style="{StaticResource TabButton}" GroupName="Tabs" Content="{Binding TabDeck, Source={x:Static vm:UiText.Instance}}"
                          IsChecked="{Binding SelectedTab, Converter={StaticResource EnumMatch}, ConverterParameter=Deck}" />
             <RadioButton Style="{StaticResource TabButton}" GroupName="Tabs" Content="{Binding TabBuild, Source={x:Static vm:UiText.Instance}}"
                          IsChecked="{Binding SelectedTab, Converter={StaticResource EnumMatch}, ConverterParameter=Build}" />
+            <RadioButton Style="{StaticResource TabButton}" GroupName="Tabs" Content="{Binding TabTiers, Source={x:Static vm:UiText.Instance}}"
+                         IsChecked="{Binding SelectedTab, Converter={StaticResource EnumMatch}, ConverterParameter=Tiers}" />
             <RadioButton Style="{StaticResource TabButton}" GroupName="Tabs" Content="{Binding TabPath, Source={x:Static vm:UiText.Instance}}"
                          IsChecked="{Binding SelectedTab, Converter={StaticResource EnumMatch}, ConverterParameter=Path}" />
             <RadioButton Style="{StaticResource TabButton}" GroupName="Tabs" Content="{Binding TabReview, Source={x:Static vm:UiText.Instance}}"
@@ -831,6 +935,58 @@
               </StackPanel>
               </Border>
               <!-- ==== /리뷰 ==== -->
+
+              <!-- ==== 티어표 (Controllers/AppController.Tiers.cs) ==== -->
+              <Border Visibility="{Binding SelectedTab, Converter={StaticResource EnumMatch}, ConverterParameter=Tiers}">
+              <StackPanel DataContext="{Binding Tiers}">
+                <ItemsControl ItemsSource="{Binding Characters}" ItemsPanel="{StaticResource WrapPanelTemplate}" ItemTemplate="{StaticResource TierChipTemplate}" Focusable="False" />
+                <TextBlock Text="{Binding TierNote, Source={x:Static vm:UiText.Instance}}" Style="{StaticResource Dim}" Margin="1,1,0,6" />
+                <TextBlock Style="{StaticResource Empty}" Text="{Binding EmptyText}" Visibility="{Binding EmptyText, Converter={StaticResource BoolVis}}" />
+                <StackPanel Visibility="{Binding HasContent, Converter={StaticResource BoolVis}}">
+                  <!--
+                    Name search. The panel never takes the keyboard, so a click on the box hands it to the panel for typing
+                    (Korean IME too); Enter, Esc or a click outside gives it back to the game (PanelWindow.xaml.cs).
+                  -->
+                  <Grid Margin="0,0,0,6" ToolTip="{Binding TierSearchToolTip, Source={x:Static vm:UiText.Instance}}">
+                    <TextBox x:Name="TierSearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" FontSize="12.5" Padding="4,2,22,2"
+                             Background="#26FFFFFF" Foreground="{StaticResource TextMain}" CaretBrush="{StaticResource TextMain}" BorderBrush="#40FFFFFF"
+                             ContextMenuService.IsEnabled="False" MaxLength="40"
+                             PreviewMouseLeftButtonDown="TierSearchBox_PreviewMouseLeftButtonDown" PreviewKeyDown="TierSearchBox_PreviewKeyDown" />
+                    <TextBlock Text="{Binding TierSearchHint, Source={x:Static vm:UiText.Instance}}" Style="{StaticResource Dim}" IsHitTestVisible="False"
+                               Margin="7,0,22,0" VerticalAlignment="Center" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                               Visibility="{Binding SearchText, Converter={StaticResource BoolVis}, ConverterParameter=!}" />
+                    <Button Style="{StaticResource FlatButton}" Command="{Binding ClearSearchCommand}" Focusable="False" HorizontalAlignment="Right" Margin="0,2,2,2"
+                            Visibility="{Binding SearchText, Converter={StaticResource BoolVis}}">
+                      <TextBlock Text="✕" FontSize="10" />
+                    </Button>
+                  </Grid>
+                  <ItemsControl ItemsSource="{Binding TypeChips}" ItemsPanel="{StaticResource WrapPanelTemplate}" ItemTemplate="{StaticResource TierChipTemplate}" Focusable="False" />
+                  <ItemsControl ItemsSource="{Binding RarityChips}" ItemsPanel="{StaticResource WrapPanelTemplate}" ItemTemplate="{StaticResource TierChipTemplate}" Focusable="False" />
+                  <DockPanel Margin="0,0,0,2">
+                    <ItemsControl DockPanel.Dock="Left" ItemsSource="{Binding OptionChips}" ItemsPanel="{StaticResource WrapPanelTemplate}" ItemTemplate="{StaticResource TierChipTemplate}" Focusable="False" />
+                    <TextBlock Text="{Binding SummaryText}" Style="{StaticResource Dim}" TextWrapping="NoWrap" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="6,0,2,4" />
+                  </DockPanel>
+                  <TextBlock Style="{StaticResource Empty}" Text="{Binding NoMatchText}" Visibility="{Binding NoMatchText, Converter={StaticResource BoolVis}}" />
+                  <ItemsControl ItemsSource="{Binding Groups}" Focusable="False">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate DataType="{x:Type vm:TierGroupVm}">
+                        <StackPanel Margin="0,6,0,0">
+                          <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                            <Border Width="22" Height="22" Style="{StaticResource TierTile}" Background="{Binding TierText, Converter={StaticResource TierBrush}}">
+                              <TextBlock Text="{Binding TierText}" FontSize="13" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                         Foreground="{Binding TierText, Converter={StaticResource TierBrush}, ConverterParameter=fg}" />
+                            </Border>
+                            <TextBlock Text="{Binding Title}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextDim}" Margin="7,0,0,0" VerticalAlignment="Center" />
+                          </StackPanel>
+                          <ItemsControl ItemsSource="{Binding Cards}" ItemsPanel="{StaticResource WrapPanelTemplate}" ItemTemplate="{StaticResource TierCardTileTemplate}" Focusable="False" />
+                        </StackPanel>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </StackPanel>
+              </Border>
+              <!-- ==== /티어표 ==== -->
             </Grid>
           </ScrollViewer>
 

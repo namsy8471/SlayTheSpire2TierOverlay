@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
 using Sts2Overlay.App.Infrastructure;
 using Sts2Overlay.App.Integration;
@@ -167,6 +168,7 @@ public partial class PanelWindow : Window
     protected override void OnPreviewMouseDown(MouseButtonEventArgs e)
     {
         if (!_keepOnTop) OverlayWindowHelper.BringToTop(_hwnd);
+        if (_typing && !IsInSearchBox(e.OriginalSource)) EndTyping(returnFocus: true); // 티어표 search: a click outside the box
         base.OnPreviewMouseDown(e);
     }
 
@@ -193,6 +195,81 @@ public partial class PanelWindow : Window
         _settings.PanelX = r.X;
         _settings.PanelY = r.Y;
         SettingsStore.Save(AppPaths.SettingsFile, _settings);
+    }
+
+    // ---- 티어표 search box: the one place the panel takes the keyboard ------------------------------------------
+    //
+    // The panel is WS_EX_NOACTIVATE, so keys always go to the game. Typing needs the panel to be the foreground window,
+    // so ONLY while the search box is in use: a click on the box drops NOACTIVATE and activates the panel (allowed: the
+    // click is the last input event, so Windows lets this process take the foreground), and Enter / Esc / a click
+    // anywhere else puts NOACTIVATE back and hands the foreground to the window that had it before (the game). If the
+    // user clicks the game or Alt+Tabs, Windows moves the foreground itself; Deactivated then just restores the style.
+    // While the panel is in front the tracker counts it as "the game is in front" (OwnForegroundRule), so the overlay
+    // stays up; capture pauses until the game is back in front.
+
+    private bool _typing;
+    private IntPtr _focusReturn;
+
+    private void TierSearchBox_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (_typing || _hwnd == IntPtr.Zero) return;
+        var before = GetForegroundWindow();
+        OverlayWindowHelper.SetExStyle(_hwnd, WS_EX_NOACTIVATE, false);
+        _typing = true;
+        Activate();
+        if (GetForegroundWindow() != _hwnd)
+        {
+            // Windows refused the foreground (focus-steal protection): stay a no-activate panel, the click does nothing.
+            _typing = false;
+            OverlayWindowHelper.SetExStyle(_hwnd, WS_EX_NOACTIVATE, true);
+            AppLog.Info("tier search: the panel could not take the keyboard");
+            e.Handled = true;
+            return;
+        }
+        _focusReturn = before == _hwnd ? IntPtr.Zero : before;
+        TierSearchBox.Focus(); // the TextBox's own mouse handling then places the caret
+    }
+
+    private void TierSearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        // During an IME composition the IME owns Enter/Esc (e.Key is ImeProcessed then), so they finish the syllable first.
+        if (e.Key == Key.Escape)
+        {
+            TierSearchBox.Clear();
+            EndTyping(returnFocus: true);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Enter)
+        {
+            EndTyping(returnFocus: true);
+            e.Handled = true;
+        }
+    }
+
+    protected override void OnDeactivated(EventArgs e)
+    {
+        EndTyping(returnFocus: false); // another window took the foreground already (game clicked, Alt+Tab, panel hidden)
+        base.OnDeactivated(e);
+    }
+
+    /// <summary>Puts the panel back to no-activate; <paramref name="returnFocus"/> also gives the foreground back to the game.</summary>
+    private void EndTyping(bool returnFocus)
+    {
+        if (!_typing) return;
+        _typing = false;
+        Keyboard.ClearFocus();
+        OverlayWindowHelper.SetExStyle(_hwnd, WS_EX_NOACTIVATE, true);
+        if (returnFocus && _focusReturn != IntPtr.Zero && IsWindow(_focusReturn)) SetForegroundWindow(_focusReturn);
+        _focusReturn = IntPtr.Zero;
+    }
+
+    private bool IsInSearchBox(object? source)
+    {
+        for (var d = source as DependencyObject; d is not null; d = d is Visual or System.Windows.Media.Media3D.Visual3D ? VisualTreeHelper.GetParent(d) : LogicalTreeHelper.GetParent(d))
+        {
+            if (ReferenceEquals(d, TierSearchBox)) return true;
+        }
+        return false;
     }
 }
 
