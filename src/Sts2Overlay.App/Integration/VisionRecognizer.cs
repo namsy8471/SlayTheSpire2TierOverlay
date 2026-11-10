@@ -82,8 +82,14 @@ public sealed class VisionRecognizer : ICardRecognizer
                 ? new PixelRect(b.X, b.Y, b.Width, b.Height).Offset(frame.ScreenRect.X, frame.ScreenRect.Y)
                 : null,
             RestSite = restSeen,
+            Slots = shown.SlotCount,
+            ScreenId = shown.Generation,
+            Unsettled = shown.Unsettled,
         };
     }
+
+    /// <summary>The log says the screen closed: forget the merged frames (capture worker thread, like Recognize).</summary>
+    public void Reset() => _tracker.Reset();
 
     private CardRecognizer? Load()
     {
