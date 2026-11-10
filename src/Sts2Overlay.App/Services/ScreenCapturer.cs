@@ -122,5 +122,12 @@ internal sealed class ScreenCapturer : IFrameCapturer
     {
     }
 
+    /// <summary>DIB section and managed buffer released (2 x 33 MB at 4K); the next capture makes new ones.</summary>
+    public void Trim()
+    {
+        ReleaseSurface();
+        _buffer = [];
+    }
+
     public void Dispose() => ReleaseSurface();
 }

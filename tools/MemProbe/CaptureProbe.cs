@@ -48,9 +48,8 @@ internal static class CaptureProbe
         report.Header();
         Row(report, "a. baseline (test window shown)");
         var wgc = new WgcCapturer();
-        var sw = Stopwatch.StartNew();
-        var first = wgc.Capture(info);
-        Console.WriteLine(Inv($"   (first capture {sw.Elapsed.TotalMilliseconds:F0} ms: device + session + first frame; {Diff(first, images[0])} pixels differ, row pitch {wgc.LastRowPitch})"));
+        var (firstMs, firstDiff) = CaptureOnce(wgc, info, images[0]);
+        Console.WriteLine(Inv($"   (first capture {firstMs:F0} ms: device + session + first frame; {firstDiff} pixels differ, row pitch {wgc.LastRowPitch})"));
         Row(report, "b. first capture");
         int mismatched = Poll(wgc, window, info, images, polls, hz, origin, "c");
         Row(report, $"c. + {polls} polls");
@@ -58,12 +57,12 @@ internal static class CaptureProbe
         Row(report, "d. Suspend()");
         Thread.Sleep(1000);
         Row(report, "d2. Suspend() + 1 s");
-        sw.Restart();
-        var resumed = wgc.Capture(info);
-        Console.WriteLine(Inv($"   (capture after Suspend {sw.Elapsed.TotalMilliseconds:F0} ms; {Diff(resumed, images[0])} pixels differ)"));
+        var (resumedMs, resumedDiff) = CaptureOnce(wgc, info, images[0]);
+        Console.WriteLine(Inv($"   (capture after Suspend {resumedMs:F0} ms; {resumedDiff} pixels differ)"));
         Row(report, "e. capture after Suspend");
         mismatched += Poll(wgc, window, info, images, Math.Max(4, polls / 4), hz, origin, "f");
         Row(report, "f. + polls");
+        mismatched += TrimStep(wgc, window, info, images[0], origin, report);
         wgc.Dispose();
         Row(report, "g. Dispose()");
         Console.WriteLine(mismatched == 0 ? "frames: all identical to the window's pixels" : $"FRAMES DIFFER: {mismatched} frames with mismatched pixels");
@@ -102,6 +101,33 @@ internal static class CaptureProbe
         }
         Console.WriteLine(Inv($"   ({label}: {total.Count} new frames, {reused} reused; capture median {Median(total):F2} ms (acquire {Median(acquire):F2}, copy {Median(copy):F2}), p90 {P90(total):F2} ms; {bad} frames differ) [measured under full CPU load]"));
         return bad;
+    }
+
+    /// <summary>The long-idle trim (CapturePipeline.MaybeTrim: Trim + one background gen2), then a capture that re-creates it all.</summary>
+    private static int TrimStep(WgcCapturer wgc, ReplayWindow window, GameWindowInfo info, ScreenFrame image, AppRect origin, MemReport report)
+    {
+        wgc.Trim();
+        GC.Collect(2, GCCollectionMode.Forced, blocking: false);
+        Thread.Sleep(500);
+        Row(report, "f2. Trim() (long idle)");
+        window.Show(image, origin.X, origin.Y);
+        var (ms, diff) = CaptureOnce(wgc, info, image);
+        Console.WriteLine(Inv($"   (capture after Trim {ms:F0} ms: new device + session + first frame; {diff} pixels differ) [measured under full CPU load]"));
+        Row(report, "f3. capture after Trim");
+        return diff == 0 ? 0 : 1;
+    }
+
+    /// <summary>
+    /// One capture, timed and compared. Its own non-inlined method so the CapturedFrame (and with it the capturer's buffer)
+    /// is not kept alive by a JIT temporary of the caller through the memory rows that follow.
+    /// </summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static (double Ms, long Diff) CaptureOnce(WgcCapturer wgc, GameWindowInfo info, ScreenFrame image)
+    {
+        var sw = Stopwatch.StartNew();
+        var frame = wgc.Capture(info);
+        var ms = sw.Elapsed.TotalMilliseconds;
+        return (ms, Diff(frame, image));
     }
 
     private static void Row(MemReport report, string step)

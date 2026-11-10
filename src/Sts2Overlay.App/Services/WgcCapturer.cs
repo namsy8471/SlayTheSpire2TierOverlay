@@ -552,6 +552,17 @@ internal sealed class WgcCapturer : IFrameCapturer
         _readback = null;
     }
 
+    /// <summary>
+    /// Long idle: session, staging, device AND the frame buffer go. Measured (MemProbe devices/capture, 4K, NVIDIA): the
+    /// device is ~51 MB of private bytes of which ~34 MB return on release, the buffer is 33 MB; re-creating the device
+    /// took 0.36-1.9 s on a fully loaded CPU, which is why a short pause (<see cref="Suspend"/>) keeps it.
+    /// </summary>
+    public void Trim()
+    {
+        Reset();
+        _buffer = [];
+    }
+
     /// <summary>Drops session AND device (device lost, unknown failure).</summary>
     private void Reset()
     {

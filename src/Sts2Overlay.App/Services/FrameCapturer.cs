@@ -40,6 +40,13 @@ internal interface IFrameCapturer : IDisposable
 
     /// <summary>Periodic capture stopped: release what is expensive to keep running (WGC session). Idempotent.</summary>
     void Suspend();
+
+    /// <summary>
+    /// Nothing will be captured for a long while (no game window, or paused for many minutes): <see cref="Suspend"/> and
+    /// also release what is only kept to make the next capture fast (D3D device, frame buffer, GDI surface). The next
+    /// <see cref="Capture"/> creates them again. Idempotent.
+    /// </summary>
+    void Trim() => Suspend();
 }
 
 public enum CaptureBackend
@@ -143,14 +150,36 @@ internal sealed class FallbackFrameCapturer : IFrameCapturer
     private void MarkUsed(IFrameCapturer capturer)
     {
         if (ReferenceEquals(capturer, _lastUsed)) return;
+        var previous = _lastUsed;
         _lastUsed = capturer;
         AppLog.Info($"capture backend active: {capturer.Name}");
+        // Back on the primary after fallback frames (WGC hiccup, window closed): the fallback's surface and buffer
+        // (2 x 33 MB for GDI at 4K) would otherwise stay allocated until the app exits.
+        if (ReferenceEquals(previous, _fallback) && !ReferenceEquals(capturer, _fallback)) TrimQuietly(_fallback);
+    }
+
+    private static void TrimQuietly(IFrameCapturer capturer)
+    {
+        try
+        {
+            capturer.Trim();
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            AppLog.Warn($"capture: trimming {capturer.Name} failed: {ex.Message}");
+        }
     }
 
     public void Suspend()
     {
         _primary?.Suspend();
         _fallback.Suspend();
+    }
+
+    public void Trim()
+    {
+        _primary?.Trim();
+        _fallback.Trim();
     }
 
     public void Dispose()
