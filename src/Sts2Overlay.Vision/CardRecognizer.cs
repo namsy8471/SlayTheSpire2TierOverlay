@@ -59,6 +59,12 @@ public sealed record RecognizerOptions
     public bool ChoiceScreens { get; init; } = true;
     /// <summary>Shop price reading; null disables it.</summary>
     public PriceReaderOptions? Price { get; init; } = new();
+    /// <summary>
+    /// Shop: an unidentified card slot whose resting art box is at least this share bare rug, with no price label
+    /// under it, is empty (the card was bought; NMerchantCard hides the card and its label). Calibrated on the real
+    /// shop captures, see <c>ShopEmptySlotTests</c>.
+    /// </summary>
+    public float EmptySlotRugShare { get; init; } = 0.9f;
 
     // ---- occlusion-robust second pass (see TileMatcher); runs only on rejected slots of a confirmed screen ----
 
@@ -331,7 +337,26 @@ public sealed class CardRecognizer
         Parallel.For(0, slots.Length, i => cards[i] = MatchSlot(ImageOf(i), t, slots[i], 0.61f, 0.84f, hints, out boxes[i], f));
         if (cards.Any(c => c.Accepted))
             Parallel.For(0, slots.Length, i => cards[i] = RescueCovered(ImageOf(i), t, slots[i], 0.61f, 0.84f, cards[i], boxes[i], hints, f));
+        // A bought card leaves its slot empty: bare rug where the art was and no price label under it.
+        for (int i = 0; i < slots.Length; i++)
+        {
+            if (cards[i].Accepted) continue;
+            float rug = RugShare(ImageOf(i), t, slots[i]);
+            cards[i] = cards[i] with { RugShare = rug, SlotEmpty = rug >= Options.EmptySlotRugShare && cards[i].PriceReading == null };
+        }
         return [.. cards];
+    }
+
+    /// <summary>Share of the slot's resting art box in bare rug colours (the merchant relic reader's rug test), 16x12 cells.</summary>
+    private static float RugShare(IntegralImage img, RefTransform t, SlotLayout slot)
+    {
+        const int gw = 16, gh = 12;
+        float[] rgb = new float[gw * gh * 3];
+        img.SampleGrid(t.ToPixels(CardGeometry.Place(CardGeometry.Art, slot.CenterX, slot.CenterY, slot.SmallScale)), gw, gh, rgb);
+        int rug = 0;
+        for (int i = 0; i < rgb.Length; i += 3)
+            if (global::Sts2Overlay.Vision.Relics.RelicRecognizer.IsRug(rgb[i], rgb[i + 1], rgb[i + 2])) rug++;
+        return rug / (float)(gw * gh);
     }
 
     // ------------------------------------------------------------------ per-slot matching

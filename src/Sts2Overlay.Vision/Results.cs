@@ -92,6 +92,18 @@ public sealed record RecognizedCard(
     /// <summary>Shop only: the game drew the price in red, i.e. the player cannot afford this card right now.</summary>
     public bool? Unaffordable => PriceReading is { Tint: not PriceTint.Unknown } r ? r.Unaffordable : null;
 
+    /// <summary>
+    /// Shop only, unidentified slots: share of the slot's resting art box that shows bare merchant rug (teal or its
+    /// olive chevrons). A covering tooltip, the merchant's hand or a card has other colours.
+    /// </summary>
+    public float RugShare { get; init; }
+
+    /// <summary>
+    /// Shop only: the slot is positively empty (bare rug and no price label): the card was bought. Never set for an
+    /// identified card. The tracker drops the slot's card when it sees this.
+    /// </summary>
+    public bool SlotEmpty { get; init; }
+
     public override string ToString() =>
         $"#{Slot} {CardId ?? "-"}{(Upgraded ? "+" : UpgradeKnown ? "" : "?")} s={Score:F3} m={Margin:F3}{(Accepted ? "" : " (rejected)")}{(AmbiguousWith != null ? $" ~{AmbiguousWith}" : "")}{(Partial != null ? $" [partial {Partial}]" : "")}{(PriceReading != null ? $" ${PriceReading}" : "")}";
 }
