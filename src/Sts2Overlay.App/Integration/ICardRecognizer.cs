@@ -50,6 +50,24 @@ public sealed record RecognitionResult(ScreenKind ScreenKind, IReadOnlyList<Reco
     /// </summary>
     public Sts2Overlay.Vision.Rest.RestSiteResult? RestSite { get; init; }
 
+    /// <summary>
+    /// Card slots of the screen's layout, read or not (a 3-card reward row: 3 even while only 2 cards are read);
+    /// 0 when unknown. Fewer <see cref="Cards"/> than this means some card is not read yet.
+    /// </summary>
+    public int Slots { get; init; }
+
+    /// <summary>Identifies the open screen: changes when the recogniser's tracker starts a new screen.</summary>
+    public int ScreenId { get; init; }
+
+    /// <summary>
+    /// The recogniser waits for the next frame to decide (the latest frame did not show this screen and it is held for
+    /// a frame or two, or a shop slot looked empty once): the next frame must be recognised even if it looks unchanged.
+    /// </summary>
+    public bool Unsettled { get; init; }
+
+    /// <summary>Set by the capture pipeline: how many recogniser resets happened before this result was computed.</summary>
+    public int Epoch { get; init; }
+
     public static RecognitionResult Other { get; } = new(ScreenKind.Other, []);
 }
 
@@ -67,4 +85,9 @@ public interface ICardRecognizer
     /// <param name="frame">BGRA pixels of the game client area.</param>
     /// <param name="characterHint">Character id from the save (e.g. <c>CHARACTER.DEFECT</c>) to narrow the card pool, or null.</param>
     RecognitionResult? Recognize(CapturedFrame frame, string? characterHint);
+
+    /// <summary>Forget the screen merged over recent frames (the log says it closed). Called on the capture worker thread.</summary>
+    void Reset()
+    {
+    }
 }

@@ -90,6 +90,7 @@ public sealed class GameStateAdapter : IGameStateSource, ICardOfferSink
             TrackerHint.Combat => ScreenHint.Combat,
             TrackerHint.RestSite => ScreenHint.RestSite,
             TrackerHint.Map => ScreenHint.Map,
+            TrackerHint.MainMenu => ScreenHint.MainMenu,
             _ => ScreenHint.None,
         };
         var rewardContext = run.LastCombatKind switch

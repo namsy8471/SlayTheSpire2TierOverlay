@@ -25,6 +25,8 @@ public sealed class CapturePipeline : IDisposable
     private volatile bool _stop;
     private int _recognizeRequested;
     private int _saveRequested;
+    private int _resetRequested;
+    private int _epoch;
     private long _intervalTicks; // 0 = periodic capture off
     private volatile ICardRecognizer _recognizer = new NullCardRecognizer();
     private volatile string? _characterHint;
@@ -92,6 +94,22 @@ public sealed class CapturePipeline : IDisposable
     {
         Interlocked.Exchange(ref _recognizeRequested, 1);
         _wake.Set();
+    }
+
+    /// <summary>
+    /// The log says the card screen closed: the recogniser forgets the frames it merged (on the worker, before its next
+    /// recognition) and a fresh recognition is requested, so a still-open or newly opened screen is read again at once.
+    /// Returns the new epoch: results stamped with a lower <see cref="RecognitionResult.Epoch"/> were computed before
+    /// the reset (they may still be on their way to the UI thread) and must be dropped.
+    /// </summary>
+    public int ResetRecognition()
+    {
+        // Flag first, then the epoch: the worker consumes the flag, then reads the epoch, so a result that saw the new
+        // epoch always comes from a reset tracker (the other orders only drop a fresh result, never keep a stale one).
+        Interlocked.Exchange(ref _resetRequested, 1);
+        var epoch = Interlocked.Increment(ref _epoch);
+        RequestRecognize();
+        return epoch;
     }
 
     /// <summary>
@@ -167,16 +185,23 @@ public sealed class CapturePipeline : IDisposable
         // almost the same to the coarse signature while every node moved.
         if (MapWatcher?.Analyze(frame) is { } sighting) MapSighted?.Invoke(sighting);
 
-        // Skip recognition while the screen is visually unchanged and we already have an answer for it.
+        // Skip recognition while the screen is visually unchanged and we already have an answer for it. An unsettled
+        // answer (the last frame did NOT show the screen and the recogniser holds it for a frame or two; a shop slot
+        // looked empty once) is not one: it only settles by looking at more frames, so a closed screen's marks never
+        // stay over a still picture.
         var sig = Signature(frame);
         var same = _lastSignature is not null && MeanDiff(sig, _lastSignature) < 2.0;
         _lastSignature = sig;
-        if (!manual && same && _lastHadResult) return;
+        if (CanSkip(manual, same, _lastHadResult)) return;
 
+        var recognizer = _recognizer;
+        if (Interlocked.Exchange(ref _resetRequested, 0) == 1) recognizer.Reset();
+        var epoch = Volatile.Read(ref _epoch);
         var t1 = Stopwatch.GetTimestamp();
-        var result = _recognizer.Recognize(frame, _characterHint);
+        var result = recognizer.Recognize(frame, _characterHint);
         var recognizeMs = Stopwatch.GetElapsedTime(t1).TotalMilliseconds;
-        _lastHadResult = result is not null;
+        _lastHadResult = IsSteady(result);
+        if (result is not null) result = result with { Epoch = epoch };
 
         if (manual || captureMs + recognizeMs > 250)
         {
@@ -184,6 +209,12 @@ public sealed class CapturePipeline : IDisposable
         }
         if (result is not null) Recognized?.Invoke(result);
     }
+
+    /// <summary>Recognition may be skipped: a periodic frame, the picture unchanged, and the last answer a steady one.</summary>
+    internal static bool CanSkip(bool manual, bool samePicture, bool lastSteady) => !manual && samePicture && lastSteady;
+
+    /// <summary>An answer that stays right while the picture does not change: not null and settled (see <see cref="RecognitionResult.Unsettled"/>).</summary>
+    internal static bool IsSteady(RecognitionResult? result) => result is { Unsettled: false };
 
     private void SavePng(CapturedFrame frame)
     {

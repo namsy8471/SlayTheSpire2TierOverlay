@@ -55,10 +55,109 @@ public class TrackerAndDatabaseTests
     [Fact]
     public void Short_other_blips_are_held_then_cleared()
     {
+        // Slow polling: the hold also ends HoldTime after the FIRST missed frame.
         var tr = new RecognitionTracker { HoldTime = TimeSpan.FromSeconds(1.5) };
         tr.Update(Frame(ScreenKind.Shop, 7, Card(0, "A")), T0);
         Assert.Equal(ScreenKind.Shop, tr.Update(Frame(ScreenKind.Other, 0), T0.AddSeconds(1)).Kind);
-        Assert.Same(TrackedScreen.None, tr.Update(Frame(ScreenKind.Other, 0), T0.AddSeconds(2)));
+        Assert.Same(TrackedScreen.None, tr.Update(Frame(ScreenKind.Other, 0), T0.AddSeconds(2.6)));
+    }
+
+    [Theory]
+    [InlineData(3.0)] // reward hint: 3 Hz
+    [InlineData(1.5)] // idle watch
+    public void A_closed_screen_clears_on_the_third_missed_frame(double hz)
+    {
+        // The reward closes and the next screen is perfectly still: two held frames, the third clears
+        // (0.67 s after the first miss at 3 Hz, 1.33 s at 1.5 Hz).
+        var tr = new RecognitionTracker();
+        TimeSpan dt = TimeSpan.FromSeconds(1 / hz);
+        tr.Update(Frame(ScreenKind.RewardCardSelect, 3, Card(0, "A"), Card(1, "B"), Card(2, "C")), T0);
+        TrackedScreen s1 = tr.Update(Frame(ScreenKind.Other, 0), T0 + dt);
+        TrackedScreen s2 = tr.Update(Frame(ScreenKind.Other, 0), T0 + 2 * dt);
+        Assert.Equal(ScreenKind.RewardCardSelect, s1.Kind);
+        Assert.Equal(ScreenKind.RewardCardSelect, s2.Kind);
+        Assert.True(s1.Held && s2.Held);
+        Assert.Same(TrackedScreen.None, tr.Update(Frame(ScreenKind.Other, 0), T0 + 3 * dt));
+    }
+
+    [Fact]
+    public void One_or_two_missed_frames_in_an_open_screen_do_not_blink()
+    {
+        var tr = new RecognitionTracker();
+        tr.Update(Frame(ScreenKind.RewardCardSelect, 3, Card(0, "A"), Card(1, "B"), Card(2, "C")), T0);
+        int gen = tr.Generation;
+        for (int i = 1; i <= 2; i++)
+            Assert.Equal(["A", "B", "C"], tr.Update(Frame(ScreenKind.Other, 0), T0.AddSeconds(i / 3.0)).Cards.Select(c => c.CardId));
+        TrackedScreen back = tr.Update(Frame(ScreenKind.RewardCardSelect, 3, Card(0, "A"), Card(1, "B")), T0.AddSeconds(1));
+        Assert.False(back.Held);
+        Assert.Equal(gen, back.Generation); // the same screen, not a new one
+        Assert.Equal(["A", "B", "C"], back.Cards.Select(c => c.CardId));
+        // The miss count starts over: two more blips are held again.
+        tr.Update(Frame(ScreenKind.Other, 0), T0.AddSeconds(1.33));
+        Assert.Equal(ScreenKind.RewardCardSelect, tr.Update(Frame(ScreenKind.Other, 0), T0.AddSeconds(1.67)).Kind);
+    }
+
+    [Fact]
+    public void The_hold_counts_from_the_first_missed_frame_not_from_the_last_sighting()
+    {
+        // The capture loop skips unchanged pictures, so a reward left still for 10 s was last recognised 10 s ago.
+        // Hovering a card then gives one odd frame: it must be held, not taken for a closed screen.
+        var tr = new RecognitionTracker();
+        tr.Update(Frame(ScreenKind.RewardCardSelect, 3, Card(0, "A"), Card(1, "B"), Card(2, "C")), T0);
+        Assert.Equal(ScreenKind.RewardCardSelect, tr.Update(Frame(ScreenKind.Other, 0), T0.AddSeconds(10)).Kind);
+        Assert.Equal(ScreenKind.RewardCardSelect, tr.Update(Frame(ScreenKind.RewardCardSelect, 3, Card(0, "A")), T0.AddSeconds(10.33)).Kind);
+    }
+
+    [Fact]
+    public void Tracked_screen_reports_its_slots_and_generation()
+    {
+        var tr = new RecognitionTracker();
+        TrackedScreen s = tr.Update(Frame(ScreenKind.RewardCardSelect, 3, Card(0, "A"), Card(2, "C")), T0);
+        Assert.Equal(3, s.SlotCount);
+        Assert.Equal(2, s.Cards.Count);
+        Assert.Equal(tr.Generation, s.Generation);
+        tr.Reset();
+        Assert.Same(TrackedScreen.None, tr.Current);
+        Assert.NotEqual(s.Generation, tr.Update(Frame(ScreenKind.RewardCardSelect, 3, Card(0, "A"), Card(2, "C")), T0.AddSeconds(1)).Generation);
+    }
+
+    private static RecognizedCard ShopCard(int slot, string id) => Card(slot, id) with { SlotKind = CardSlotKind.ShopCharacter };
+
+    /// <summary>A shop frame: the given cards read, <paramref name="empty"/> slots bare rug, the rest unread (covered).</summary>
+    private static ScreenRecognition ShopFrame(int[] empty, params RecognizedCard[] accepted)
+    {
+        ScreenRecognition f = Frame(ScreenKind.Shop, 7, accepted);
+        return f with { Slots = f.Slots.Select(s => empty.Contains(s.Slot) ? s with { SlotEmpty = true } : s).ToList() };
+    }
+
+    [Fact]
+    public void A_bought_shop_card_is_dropped_after_two_empty_frames()
+    {
+        var tr = new RecognitionTracker();
+        tr.Update(ShopFrame([], ShopCard(0, "A"), ShopCard(1, "B"), ShopCard(2, "C")), T0);
+        // Bought B: its slot shows bare rug. One frame is not enough ...
+        Assert.Equal(["A", "B", "C"], tr.Update(ShopFrame([1], ShopCard(0, "A"), ShopCard(2, "C")), T0.AddSeconds(0.33)).Cards.Select(c => c.CardId));
+        // ... the second in a row drops it; the rest of the shop stays the same screen.
+        int gen = tr.Generation;
+        TrackedScreen s = tr.Update(ShopFrame([1], ShopCard(0, "A"), ShopCard(2, "C")), T0.AddSeconds(0.67));
+        Assert.Equal(["A", "C"], s.Cards.Select(c => c.CardId));
+        Assert.Equal(gen, tr.Generation);
+    }
+
+    [Fact]
+    public void A_covered_shop_card_is_kept_and_an_interrupted_empty_streak_starts_over()
+    {
+        var tr = new RecognitionTracker();
+        tr.Update(ShopFrame([], ShopCard(0, "A"), ShopCard(1, "B")), T0);
+        // The merchant's hand covers B for a long time: unread but not empty, so B stays.
+        for (int i = 1; i <= 10; i++)
+            Assert.Contains("B", tr.Update(ShopFrame([], ShopCard(0, "A")), T0.AddSeconds(i / 3.0)).Cards.Select(c => c.CardId));
+        // Empty, covered, empty: never two in a row.
+        tr.Update(ShopFrame([1], ShopCard(0, "A")), T0.AddSeconds(4));
+        tr.Update(ShopFrame([], ShopCard(0, "A")), T0.AddSeconds(4.33));
+        Assert.Contains("B", tr.Update(ShopFrame([1], ShopCard(0, "A")), T0.AddSeconds(4.67)).Cards.Select(c => c.CardId));
+        // Seen again: it comes back as it was.
+        Assert.Equal(["A", "B"], tr.Update(ShopFrame([], ShopCard(0, "A"), ShopCard(1, "B")), T0.AddSeconds(5)).Cards.Select(c => c.CardId));
     }
 
     [Fact]

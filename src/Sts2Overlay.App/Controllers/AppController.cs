@@ -195,28 +195,47 @@ public sealed partial class AppController : IDisposable
         var prevHint = _snapshot.Hint;
         _snapshot = snap;
         _pipeline.CharacterHint = snap.Run?.Character;
-        RefreshRunViews(snap.Run);
-        UpdateForecastReview(snap); // AppController.ForecastReview.cs
-        UpdateEvent(snap); // AppController.Events.cs
-        if (Demo is null) RefreshPath(snap);
-        UpdateMapTarget(snap); // AppController.MapOverlay.cs
+        // Every stage on its own: one that throws must not skip the others, nor the badge cleanup and cadence below.
+        RunStage("run views", () => RefreshRunViews(snap.Run));
+        RunStage("forecast/review", () => UpdateForecastReview(snap)); // AppController.ForecastReview.cs
+        RunStage("event", () => UpdateEvent(snap)); // AppController.Events.cs
+        if (Demo is null) RunStage("path", () => RefreshPath(snap));
+        RunStage("map target", () => UpdateMapTarget(snap)); // AppController.MapOverlay.cs
 
         var likely = IsOfferHint(snap.Hint);
-        if (likely && prevHint != snap.Hint)
+        RunStage("badges", () =>
         {
-            _pipeline.RequestRecognize();
-        }
-        else if (!likely && IsOfferHint(prevHint))
+            if (likely && prevHint != snap.Hint)
+            {
+                _pipeline.RequestRecognize();
+            }
+            else if (!likely && IsOfferHint(prevHint))
+            {
+                // The tracker says the reward/shop screen is gone (card picked, map node entered, next combat...).
+                ClearBadges(forgetScreen: true);
+                _removal.EndVisit(); // the next merchant visit starts with its removal service for sale
+            }
+            else if (_lastResult is not null)
+            {
+                ApplyRecognition(_lastResult); // same screen, new run state (gold, deck): re-evaluate
+            }
+        });
+        RunStage("cadence", UpdateCadence);
+    }
+
+    private readonly HashSet<string> _stageErrors = [];
+
+    /// <summary>Runs one stage of <see cref="OnSnapshot"/>; an exception is logged once per stage and message (snapshots come with every log line).</summary>
+    private void RunStage(string name, Action stage)
+    {
+        try
         {
-            // The tracker says the reward/shop screen is gone (map node entered, next combat...).
-            ClearBadges();
-            _removal.EndVisit(); // the next merchant visit starts with its removal service for sale
+            stage();
         }
-        else if (_lastResult is not null)
+        catch (Exception ex)
         {
-            ApplyRecognition(_lastResult); // same screen, new run state (gold, deck): re-evaluate
+            if (_stageErrors.Count < 64 && _stageErrors.Add($"{name}: {ex.GetType().Name}: {ex.Message}")) AppLog.Error($"snapshot stage '{name}' failed", ex);
         }
-        UpdateCadence();
     }
 
     // ---- path tab ---------------------------------------------------------------------------------------------
@@ -318,21 +337,64 @@ public sealed partial class AppController : IDisposable
     /// log hint comes late or never (the hint only speeds things up; nothing needs a key press). The pipeline only
     /// captures while the game is the foreground window and skips recognition of visually unchanged frames, so the idle
     /// watch costs about 5 ms of capture per tick at 4K.
+    /// While nothing can be drawn (overlay hidden with Ctrl+F8, game not in front or minimised) capture stops after
+    /// <see cref="CapturePauseClock.After"/>, which also ends the capture session (no 4K frame copies for hours of
+    /// alt-tab); it resumes the moment the game is in front and the overlay shown (<see cref="UpdateVisibility"/>).
     /// </summary>
     private void UpdateCadence()
     {
         var offer = IsOfferHint(_snapshot.Hint) || (_snapshot.Hint == ScreenHint.None && _badges.HasBadges) || EventScreenLikely;
         var hz = offer ? Math.Clamp(_settings.RecognizeHz, 0.5, 10) : Math.Clamp(_settings.IdleRecognizeHz, 0, 10);
         hz = Math.Max(hz, Math.Max(MapCadenceHz(), RestCadenceHz())); // faster while the map / a rest site is open, so the marks follow
+        var paused = _pauseClock.ShouldPause(!_userHidden && _tracker.Current is { CanCapture: true }, DateTime.UtcNow, out var recheck);
+        if (paused) hz = 0;
+        if (paused != _capturePaused)
+        {
+            _capturePaused = paused;
+            AppLog.Info(paused ? "capture paused (overlay hidden or game not in front)" : "capture resumed");
+        }
+        if (recheck is { } wait) RunLater(ref _pauseTimer, wait, UpdateCadence);
         _pipeline.SetInterval(hz > 0 ? TimeSpan.FromSeconds(1 / hz) : null);
+    }
+
+    private readonly CapturePauseClock _pauseClock = new();
+    private bool _capturePaused;
+    private DispatcherTimer? _pauseTimer;
+
+    /// <summary>One-shot UI-thread callback after <paramref name="delay"/> (restarts the timer if it is pending).</summary>
+    private static void RunLater(ref DispatcherTimer? timer, TimeSpan delay, Action action)
+    {
+        if (timer is null)
+        {
+            var t = new DispatcherTimer();
+            t.Tick += (_, _) =>
+            {
+                t.Stop();
+                action();
+            };
+            timer = t;
+        }
+        timer.Stop();
+        timer.Interval = (delay > TimeSpan.Zero ? delay : TimeSpan.Zero) + TimeSpan.FromMilliseconds(50);
+        timer.Start();
     }
 
     // ---- recognition → engine → UI ------------------------------------------------------------------
 
     private ScreenKind? _loggedKind;
 
+    /// <summary>Which results may draw, when the tab switches, when a half-read row shows its verdict (Integration/OfferLifecycle.cs).</summary>
+    private readonly OfferLifecycle _lifecycle = new();
+    private DispatcherTimer? _verdictTimer;
+
     private void ApplyRecognition(RecognitionResult r)
     {
+        // Computed before the log said the screen closed, or the closing screen's last frames: never drawn again.
+        if (!_lifecycle.Accept(r, DateTime.UtcNow))
+        {
+            UpdateCadence();
+            return;
+        }
         // Periodic captures are only logged when they are slow; log every change of screen so a missed reward screen
         // can be told apart from "the watch was not running" in app.log.
         if (r.ScreenKind != _loggedKind)
@@ -342,13 +404,18 @@ public sealed partial class AppController : IDisposable
         }
         UpdateRestMarks(r); // rest-site buttons / Smith grid (AppController.RestOverlay.cs)
         _removal.Observe(r.ScreenKind, r.RemovalService is not null); // before a deck grid becomes "Other": Shop → Grid → Shop = removal used
+        // In combat a choose-a-card row or a card grid is a temporary pick (Discovery, Attack Potion, the draw/discard
+        // piles with generated cards), not a deck offer: no badges, no skip mark, no panel offer.
+        if (r.ScreenKind is ScreenKind.Choice or ScreenKind.Grid && _snapshot.Hint == ScreenHint.Combat)
+            r = RecognitionResult.Other;
         // A card grid is an offer only when it shows cards the deck does not hold; otherwise it is the deck itself
         // (remove / upgrade / transform screens, deck view), which needs no badges.
-        if (r.ScreenKind == ScreenKind.Grid && !CardGridFilter.IsOffer(r.Cards.Select(c => c.Card).ToList(), _snapshot.Run?.Deck.Select(d => d.Card)))
+        if (r.ScreenKind == ScreenKind.Grid && !CardGridFilter.IsOffer(r.Cards.Select(c => c.Card).ToList(), _snapshot.Run?.Deck.Select(d => d.Card), _snapshot.Hint))
             r = RecognitionResult.Other;
         // A shop counts with relics alone (every card covered, or all bought).
         if (r.ScreenKind == ScreenKind.Other || (r.Cards.Count == 0 && (r.ScreenKind != ScreenKind.Shop || r.Relics.Count == 0)))
         {
+            _lifecycle.ScreenClosed();
             ClearBadges();
             UpdateCadence();
             return;
@@ -357,14 +424,19 @@ public sealed partial class AppController : IDisposable
         // The tracker links the next "obtained CARD.X from card reward" to this screen (upgrade read from the title colour).
         if (r.ScreenKind == ScreenKind.Reward && _source is Sts2Overlay.GameState.Tracking.ICardOfferSink sink) sink.OnCardOfferSeen(r.Cards.Select(c => c.Card).ToList());
 
+        // A reward / choose-a-card row with a card not read yet: tier badges now, the best pick and skip verdict a bit later.
+        var verdict = _lifecycle.Verdict(r, DateTime.UtcNow);
+        if (verdict == PartialVerdict.Hold && _lifecycle.VerdictDue(r) is { } due)
+            RunLater(ref _verdictTimer, due - DateTime.UtcNow, () => { if (_lastResult is { } last) ApplyRecognition(last); });
         var offerKey = r.ScreenKind + ":" + string.Join(",", r.Cards.Select(c => $"{c.Card}${c.Price}{(c.Unaffordable == true ? "r" : "")}{(c.OnSale ? "s" : "")}"))
                        + (r.Relics.Count > 0 ? "|" + string.Join(",", r.Relics.Select(x => $"{x.RelicId}${x.Price}{(x.Unaffordable == true ? "r" : "")}")) : "");
-        var evalKey = $"{offerKey}{(_removal.Available ? "+rm" : "")}@{_snapshot.UpdatedAt.Ticks}#{_engineVersion}@{Loc.CurrentCode}";
+        var evalKey = $"{offerKey}{(_removal.Available ? "+rm" : "")}@{_snapshot.UpdatedAt.Ticks}#{_engineVersion}@{Loc.CurrentCode}/{verdict}";
         if (evalKey != _lastEvalKey)
         {
             try
             {
                 var (offer, badges, skip, removal) = r.ScreenKind == ScreenKind.Shop ? EvaluateShop(r) : EvaluateReward(r);
+                if (verdict != PartialVerdict.Complete) (offer, badges, skip) = PartialRow(r, verdict, offer, badges, skip);
                 _vm.Offer = offer;
                 _offerSource = r;
                 _eventOfferRebuild = null;
@@ -382,9 +454,11 @@ public sealed partial class AppController : IDisposable
             if (offerKey != _lastOfferKey)
             {
                 _lastOfferKey = offerKey;
-                _vm.SelectedTab = PanelTab.Offer; // PLAN §8: switch to 추천 when a reward/shop screen opens
                 AppLog.Info($"offer {offerKey}");
             }
+            // PLAN §8: switch to 추천 when a reward/shop screen opens; not for a price, colour or relic change of the
+            // open screen, and not again for it after the log cleared its badges.
+            if (_lifecycle.SelectTab(r)) _vm.SelectedTab = PanelTab.Offer;
         }
 
         // Card positions can change every frame (hovering enlarges and lifts a card) even when the offer is the same,
@@ -400,6 +474,31 @@ public sealed partial class AppController : IDisposable
         var removalMark = r.RemovalService is { } coin && _lastRemovalText is { } text ? new RemovalSpec(coin, text) : null;
         _badges.ShowBadges(specs, _lastSkip, removalMark, showBounds: Demo is not null || DebugOutlines);
         UpdateCadence();
+    }
+
+    /// <summary>
+    /// A reward / choose-a-card row with unread slots (<see cref="OfferLifecycle.Verdict"/>). Holding: the best pick and
+    /// skip verdict were computed from part of the offer, so the ribbon, the crown, the skip mark and the panel's pick
+    /// wait and the footer says what is being read. After the wait: the verdict, with a note that a card was not read.
+    /// </summary>
+    internal static (OfferSectionVm, IReadOnlyList<BadgeSpec>, SkipSpec?) PartialRow(RecognitionResult r, PartialVerdict verdict,
+        OfferSectionVm offer, IReadOnlyList<BadgeSpec> badges, SkipSpec? skip)
+    {
+        int read = r.Cards.Count, slots = r.Slots, missing = slots - read;
+        if (verdict == PartialVerdict.ShowIncomplete)
+        {
+            var note = Loc.T($"카드 {missing}장을 인식하지 못했습니다 ({slots}장 중 {read}장으로 판단)",
+                $"{missing} card{(missing == 1 ? "" : "s")} not read (judged from {read} of {slots})");
+            return (offer with { Footer = offer.Footer is { } f ? f + "\n" + note : note }, badges, skip);
+        }
+        return (offer with
+            {
+                Rows = offer.Rows.Select(row => row with { IsBest = false }).ToArray(),
+                FlipHint = null,
+                Footer = Loc.T($"{slots}장 중 {read}장 인식 중…", $"Reading {read} of {slots} cards…"),
+            },
+            badges.Select(b => b with { IsBest = false, Ribbon = null }).ToArray(),
+            null);
     }
 
     private (OfferSectionVm, IReadOnlyList<BadgeSpec>, SkipSpec?, string?) EvaluateReward(RecognitionResult r)
@@ -573,8 +672,15 @@ public sealed partial class AppController : IDisposable
     private static string RemovalName() => Loc.T("카드 제거", "Card Removal");
     // --- end shop prices ---
 
-    private void ClearBadges()
+    /// <param name="forgetScreen">
+    /// The log says the card screen closed (card picked, room left): the recogniser also forgets the frames it merged, so
+    /// a held or late result can never draw these badges again, and a fresh recognition reads whatever is open now (a
+    /// second card reward of the same reward list shows at once).
+    /// </param>
+    private void ClearBadges(bool forgetScreen = false)
     {
+        if (forgetScreen) _lifecycle.Forget(_lastResult, _pipeline.ResetRecognition(), DateTime.UtcNow);
+        _verdictTimer?.Stop();
         _badges.Clear();
         _lastResult = null;
         _lastEvalKey = null;
@@ -961,6 +1067,7 @@ public sealed partial class AppController : IDisposable
         {
             _panel.Hide();
         }
+        UpdateCadence(); // capture pauses while nothing can be drawn, and resumes at once
         StateChanged?.Invoke();
     }
 
@@ -1219,6 +1326,8 @@ public sealed partial class AppController : IDisposable
         _topmostTimer.Stop();
         _messageTimer.Stop();
         _hoverTimer?.Stop();
+        _pauseTimer?.Stop();
+        _verdictTimer?.Stop();
         _source.Changed -= OnSourceChanged;
         _source.Dispose();
         DisposeForecastReview(); // AppController.ForecastReview.cs
