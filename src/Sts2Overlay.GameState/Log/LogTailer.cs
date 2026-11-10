@@ -26,6 +26,12 @@ public sealed class LogTailer : IDisposable
     /// <summary>The file was replaced (game relaunch). Raised before the new file's lines.</summary>
     public event EventHandler? Rotated;
 
+    /// <summary>
+    /// A poll or a <see cref="LinesRead"/> handler threw something other than a transient IO error (a log format the
+    /// handlers do not expect). The lines of that read are skipped and tailing goes on with the next ones.
+    /// </summary>
+    public event EventHandler<Exception>? Error;
+
     /// <param name="path">Full path of godot.log.</param>
     /// <param name="startAtEnd">True: skip what is already there. False (default): replay the whole current log,
     /// which is how the tracker rebuilds the in-progress run when the overlay starts mid-run.</param>
@@ -54,6 +60,12 @@ public sealed class LogTailer : IDisposable
         }
         catch (IOException) { /* transient: try again next tick */ }
         catch (UnauthorizedAccessException) { }
+        catch (Exception ex)
+        {
+            // Anything else would end the process (timer thread), and a restart replays the same log into the same
+            // throw. The position is already past these lines, so they are skipped; report and keep tailing.
+            try { Error?.Invoke(this, ex); } catch (Exception) { /* a failing reporter must not stop the tailer */ }
+        }
         finally
         {
             // One-shot timer re-armed after each tick → ticks never overlap even if a handler is slow.

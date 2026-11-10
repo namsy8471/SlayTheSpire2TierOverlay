@@ -31,7 +31,7 @@ public static partial class LogLineParser
     [GeneratedRegex(@"Our player id: (?<id>\d+)|Local player (?<id>\d+) is ready")]
     private static partial Regex LocalId();
 
-    [GeneratedRegex(@"^Profile-scoped data path initialized: user://steam/(?<id>\d+)/")]
+    [GeneratedRegex(@"^Profile-scoped data path initialized: user://steam/(?<id>\d+)/(?<profile>profile\d+)?")]
     private static partial Regex ProfilePath();
 
     [GeneratedRegex(@"^Player vote changed for (?<p>\d+): .*->MapVote \(gen: (?<gen>\d+) coord: \((?<col>\d+), (?<row>\d+)\)\)")]
@@ -153,7 +153,8 @@ public static partial class LogLineParser
                 }
                 if ((m = PotionUse().Match(line)).Success)
                     return new PotionUsedEvent(ULong(m, "p"), "POTION." + m.Groups["id"].Value, m.Groups["verb"].Value == "discarding");
-                if ((m = ProfilePath().Match(line)).Success) return new LocalPlayerIdEvent(ULong(m, "id"), FromProfilePath: true);
+                if ((m = ProfilePath().Match(line)).Success)
+                    return new LocalPlayerIdEvent(ULong(m, "id"), FromProfilePath: true, m.Groups["profile"] is { Success: true } p ? p.Value : null);
                 return null;
 
             case 'O':

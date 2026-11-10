@@ -40,7 +40,9 @@ public sealed record RunContinuedEvent(string Character) : LogEvent;
 /// <c>Local player X is ready</c>, or the Steam ID in <c>Profile-scoped data path initialized: user://steam/X/profile1</c>.
 /// </summary>
 /// <param name="FromProfilePath">True for the profile-path line: that is the Steam ID, which equals our net id only in co-op.</param>
-public sealed record LocalPlayerIdEvent(ulong NetId, bool FromProfilePath) : LogEvent;
+/// <param name="Profile">The profile-path line's profile folder (<c>profile1</c> ...), so the save watcher can follow the
+/// profile the game really uses; null on the other lines.</param>
+public sealed record LocalPlayerIdEvent(ulong NetId, bool FromProfilePath, string? Profile = null) : LogEvent;
 
 /// <summary><c>Player vote changed for 1: -&gt;MapVote (gen: 2 coord: (4, 9))</c> (NMapScreen.cs:938). gen = map generation = act number.</summary>
 public sealed record MapVoteEvent(ulong PlayerId, int Generation, MapCoord Coord) : LogEvent;
