@@ -113,10 +113,10 @@ Func<FightSpec, ICombatPolicy> makePolicy = policyName switch
     _ => throw new ArgumentException("unknown --policy " + policyName),
 };
 Console.WriteLine($"potions={CombatRunner.GivePotions} policy={policyName} " + (policyName == "beam" ? Tun.Describe() : $"horizon={policy.Horizon} enemy-w={LookaheadPolicy.EnemyHpWeight}"));
-int done = 0;
 long simRuns = 0;
 var simWatch = Stopwatch.StartNew();
 var po = new ParallelOptions { MaxDegreeOfParallelism = threads };
+using (var progress = new Progress(outCsv, sample.Count))
 Parallel.For(0, sample.Count, po, i =>
 {
     FightSpec f = sample[i];
@@ -124,9 +124,7 @@ Parallel.For(0, sample.Count, po, i =>
     results[i] = SimulateFight(f, seeds, makePolicy, TimeSpan.FromSeconds(wallCapSec), ref simRuns);
     if (fw.Elapsed.TotalSeconds > 2)
         Console.Error.WriteLine($"  slow fight {fw.Elapsed.TotalSeconds:F1}s {f.Row.character} {f.Row.encounter} deck={f.Row.deck.Count} -> {results[i].Split(',').Skip(12).FirstOrDefault()} runs");
-    int d = Interlocked.Increment(ref done);
-    if (d % 200 == 0)
-        Console.WriteLine($"  {d}/{sample.Count} fights, {d / simWatch.Elapsed.TotalSeconds:F2} fights/s, rollout failures={policy.RolloutFailures}");
+    progress.Tick();
 });
 double simSec = simWatch.Elapsed.TotalSeconds;
 

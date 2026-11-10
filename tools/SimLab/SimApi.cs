@@ -116,7 +116,12 @@ public static class SimApi
             .Select(l => JsonSerializer.Deserialize<FightRequest>(l)!).ToList();
         var results = new FightSummary[reqs.Count];
         var sw = Stopwatch.StartNew();
-        Parallel.For(0, reqs.Count, new ParallelOptions { MaxDegreeOfParallelism = threads }, i => results[i] = Simulate(reqs[i], seeds));
+        using (var progress = new Progress(outPath, reqs.Count))
+            Parallel.For(0, reqs.Count, new ParallelOptions { MaxDegreeOfParallelism = threads }, i =>
+            {
+                results[i] = Simulate(reqs[i], seeds);
+                progress.Tick();
+            });
         var opts = new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
         File.WriteAllLines(outPath, results.Select(r => JsonSerializer.Serialize(r, opts)));
         int combats = results.Sum(r => r.runs);
