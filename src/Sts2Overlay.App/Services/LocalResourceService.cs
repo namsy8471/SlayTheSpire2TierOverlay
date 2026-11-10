@@ -39,7 +39,11 @@ public sealed class LocalResourceService : IDisposable
         _vm = vm;
         _configuredGameDir = configuredGameDir;
         _preparer = new ResourcePreparer(layout);
+        StandingNotices.Changed += OnNoticesChanged; // unreadable save/log format, broken settings.json
+        UpdateBanner(); // a notice set before we existed (settings.json is read first)
     }
+
+    private void OnNoticesChanged() => Post(UpdateBanner);
 
     /// <summary>Raised on the UI thread after new resources were written; the argument is the new catalog path.</summary>
     public event Action<string?>? Prepared;
@@ -103,9 +107,11 @@ public sealed class LocalResourceService : IDisposable
         }
         catch (Exception ex)
         {
-            // Keep the overlay alive: the old resources (if any) stay in place, see ResourcePreparer.
+            // Keep the overlay alive: the old resources (if any) stay in place, see ResourcePreparer. Most likely a game
+            // update changed sts2.dll / the .pck: the player can only get a newer overlay, so say that (details in app.log).
+            // (No extra update check from here: installed builds check by themselves ~15 s after start, UpdateService.)
             AppLog.Error("resources: preparation failed", ex);
-            Post(() => SetPrepareLine(() => Loc.T($"리소스 준비 실패: {ex.Message} (app.log 참고, --prepare로 다시 시도)", $"Resource preparation failed: {ex.Message} (see app.log, retry with --prepare)")));
+            Post(() => SetPrepareLine(PrepareFailedText));
         }
     }
 
@@ -120,7 +126,8 @@ public sealed class LocalResourceService : IDisposable
         if (game is null) return;
 
         var packVersion = PackVersion(pack, packDir);
-        var catalog = VersionGuard.LoadCatalog(_preparer.Layout.ManifestCatalog());
+        var catalogPath = _preparer.Layout.ManifestCatalog();
+        var catalog = VersionGuard.LoadCatalog(catalogPath);
         var result = VersionGuard.Evaluate(
             game.Version?.Text,
             packVersion,
@@ -131,9 +138,14 @@ public sealed class LocalResourceService : IDisposable
 
         AppLog.Info($"version guard: game {game.VersionLabel} vs pack {packVersion}: {result.UnratedCards.Count} offerable cards without a tier"
                     + $"{(result.UnratedCards.Count > 0 ? " (" + string.Join(", ", result.UnratedCards.Take(20)) + ")" : "")}, {result.RemovedCards.Count} tier entries not in the game");
-        _guardLines = result.PanelLines(pack.Weights.UnknownTier.ToString());
+        // Card names in the overlay language (the same lookup as the panel's), not ids like BALL_LIGHTNING.
+        if (_names is not { } names || names.Pack != pack || names.CatalogPath != catalogPath)
+            _names = names = (pack, catalogPath, CardInfoProvider.Load(catalogPath, pack));
+        _guardLines = result.PanelLines(pack.Weights.UnknownTier.ToString(), cardName: names.Provider.Name);
         UpdateBanner();
     }
+
+    private (DataPack Pack, string? CatalogPath, CardInfoProvider Provider)? _names;
 
     /// <summary>The pack's <c>dataVersion</c> (tier files), else its folder name (<c>data/packs/v0.107.1</c>).</summary>
     internal static string PackVersion(DataPack pack, string packDir)
@@ -153,9 +165,15 @@ public sealed class LocalResourceService : IDisposable
         UpdateBanner();
     }
 
+    /// <summary>The banner line after a failed preparation: what the player can do, without the exception text.</summary>
+    internal static string PrepareFailedText() => Loc.T(
+        "게임 파일을 읽지 못했습니다. 게임이 업데이트되었다면 오버레이 새 버전이 필요합니다. 트레이 메뉴의 업데이트 확인을 눌러 주세요.",
+        "Could not read the game files. If the game was updated, a new overlay version is needed. Click Check for updates in the tray menu.");
+
     private void UpdateBanner()
     {
-        var lines = (_prepareLine is null ? Enumerable.Empty<string>() : [_prepareLine()]).Concat(_guardLines).ToList();
+        var lines = (_prepareLine is null ? Enumerable.Empty<string>() : [_prepareLine()]).Concat(_guardLines)
+            .Concat(StandingNotices.Lines()).ToList();
         _vm.ResourceBanner = lines.Count == 0 ? null : string.Join("\n", lines);
     }
 
@@ -165,5 +183,6 @@ public sealed class LocalResourceService : IDisposable
     {
         // Not disposed: the worker may still read the token while it winds down.
         _cts.Cancel();
+        StandingNotices.Changed -= OnNoticesChanged;
     }
 }

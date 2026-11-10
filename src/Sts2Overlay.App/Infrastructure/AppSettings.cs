@@ -1,5 +1,7 @@
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using Sts2Overlay.Core.Localization;
 
 namespace Sts2Overlay.App.Infrastructure;
 
@@ -98,9 +100,22 @@ public sealed class AppSettings
     /// github.com repo URL, any http(s) folder with Velopack release files, or a local folder (for testing).
     /// </summary>
     public string? UpdateUrl { get; set; }
+
+    /// <summary>
+    /// settings.json exists but could not be read, so this run uses defaults. <see cref="SettingsStore.Save"/> then
+    /// leaves the file alone until the user really changes a setting (the original is also copied to settings.json.bad).
+    /// </summary>
+    [JsonIgnore]
+    public bool LoadedFromBrokenFile { get; internal set; }
+
+    /// <summary><see cref="SettingsStore.UserChoices"/> right after a broken load: "nothing changed yet" means equal to this.</summary>
+    internal string? BrokenLoadChoices;
 }
 
-/// <summary>Loads and saves <see cref="AppSettings"/>. A broken file falls back to defaults (and is logged).</summary>
+/// <summary>
+/// Loads and saves <see cref="AppSettings"/>. A broken file falls back to defaults: it is copied to settings.json.bad, a
+/// standing panel notice says so, and it is not overwritten with those defaults unless the user changes something.
+/// </summary>
 public static class SettingsStore
 {
     private static readonly JsonSerializerOptions Options = new()
@@ -110,6 +125,9 @@ public static class SettingsStore
         ReadCommentHandling = JsonCommentHandling.Skip,
         AllowTrailingCommas = true,
     };
+
+    /// <summary>Saved on every exit whether or not the user touched them (window position, last tab): not a user change.</summary>
+    private static readonly string[] SessionKeys = ["panelX", "panelY", "selectedTab"];
 
     public static AppSettings Load(string path)
     {
@@ -123,12 +141,51 @@ public static class SettingsStore
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
         {
             AppLog.Warn($"settings: could not read {path}, using defaults ({ex.Message})");
+            return BrokenFileDefaults(path);
         }
         return new AppSettings();
     }
 
+    /// <summary>Defaults for this run, the unreadable file kept as settings.json.bad, and a standing panel notice.</summary>
+    private static AppSettings BrokenFileDefaults(string path)
+    {
+        var kept = false;
+        try
+        {
+            File.Copy(path, path + ".bad", overwrite: true);
+            kept = true;
+            AppLog.Warn("settings: the unreadable file was copied to settings.json.bad");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            AppLog.Warn($"settings: could not copy it to settings.json.bad ({ex.Message})");
+        }
+        var settings = new AppSettings { LoadedFromBrokenFile = true };
+        settings.BrokenLoadChoices = UserChoices(settings);
+        StandingNotices.Set(StandingNotices.Settings, kept
+            ? () => Loc.T("settings.json을 읽지 못해 기본값으로 실행 중입니다 (원본은 settings.json.bad로 보관)",
+                "settings.json could not be read, running with default settings (the original is kept as settings.json.bad)")
+            : () => Loc.T("settings.json을 읽지 못해 기본값으로 실행 중입니다 (원본은 그대로 둡니다)",
+                "settings.json could not be read, running with default settings (the original is left as it is)"));
+        return settings;
+    }
+
+    /// <summary>The settings as JSON without <see cref="SessionKeys"/>: what counts as "the user changed a setting".</summary>
+    internal static string UserChoices(AppSettings settings)
+    {
+        var node = JsonSerializer.SerializeToNode(settings, Options)!.AsObject();
+        foreach (var key in SessionKeys) node.Remove(key);
+        return node.ToJsonString();
+    }
+
     public static void Save(string path, AppSettings settings)
     {
+        if (settings.LoadedFromBrokenFile && UserChoices(settings) == settings.BrokenLoadChoices)
+        {
+            // Writing now would replace the user's (broken but fixable) file with plain defaults.
+            AppLog.Info("settings: not saved (settings.json could not be read at start and no setting was changed)");
+            return;
+        }
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
@@ -136,6 +193,7 @@ public static class SettingsStore
             var tmp = path + ".tmp";
             File.WriteAllText(tmp, JsonSerializer.Serialize(settings, Options));
             File.Move(tmp, path, overwrite: true);
+            settings.LoadedFromBrokenFile = false; // the file holds the user's own choices now
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

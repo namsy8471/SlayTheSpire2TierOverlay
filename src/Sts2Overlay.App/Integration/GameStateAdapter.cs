@@ -1,5 +1,6 @@
 using System.IO;
 using Sts2Overlay.App.Infrastructure;
+using Sts2Overlay.Core.Localization;
 using Sts2Overlay.Core.Map;
 using Sts2Overlay.Core.Model;
 using Sts2Overlay.GameState;
@@ -31,9 +32,29 @@ public sealed class GameStateAdapter : IGameStateSource, ICardOfferSink
             Changed?.Invoke(this, EventArgs.Empty);
         };
         _tracker.Diagnostic += (_, msg) => AppLog.Info("[state] " + msg);
+        _tracker.FormatProblemDetected += (_, _) =>
+        {
+            AppLog.Warn("game state: a save or log line could not be handled (details above); panel notice shown");
+            StandingNotices.Set(StandingNotices.GameFormat, FormatProblemText);
+            FormatProblemDetected?.Invoke(this, EventArgs.Empty);
+        };
     }
 
     public event EventHandler? Changed;
+
+    /// <summary>
+    /// A save or log line could not be read at all, probably because a game update changed the format
+    /// (<see cref="GameStateTracker.FormatProblem"/>). Stays true for the session; the panel banner says so.
+    /// </summary>
+    public bool FormatProblem => _tracker.FormatProblem;
+
+    /// <summary>Raised once (from a background thread) when <see cref="FormatProblem"/> becomes true.</summary>
+    public event EventHandler? FormatProblemDetected;
+
+    /// <summary>The standing panel line for <see cref="FormatProblem"/>, in the current language.</summary>
+    internal static string FormatProblemText() => Loc.T(
+        "게임 세이브/로그 형식이 달라 읽지 못했습니다. 오버레이 업데이트가 필요할 수 있습니다",
+        "The game's save/log format has changed and could not be read. The overlay may need an update");
 
     public GameStateSnapshot Current => _current;
 
