@@ -163,6 +163,11 @@ public class EventScreenTrackerTests
     /// <summary>
     /// A button's text ink: 2 px dots on a 4 px grid, half of them set by the text's name, so other text is another
     /// dot set. <paramref name="every"/> keeps one dot in that many (a fading text).
+    /// <para>
+    /// The dots come from <see cref="StableHash"/>, not <see cref="HashCode"/>: HashCode is seeded anew in every process,
+    /// so the dots were another set on every test run, and about 1 set in 120 made a fading text line up better one
+    /// grid step aside, which <see cref="TextInk.Judge"/> calls "changed" (a release build failed on that).
+    /// </para>
     /// </summary>
     private static TextInk Ink(string text, int every = 1)
     {
@@ -172,13 +177,23 @@ public class EventScreenTrackerTests
         for (int gy = 0; gy < h / 4; gy++)
             for (int gx = 0; gx < w / 4; gx++)
             {
-                uint k = (uint)HashCode.Combine(text, gx, gy) * 2654435761u;
+                uint k = StableHash(text, gx, gy) * 2654435761u;
                 if (((k >> 11) & 1) == 0 || n++ % every != 0) continue;
                 for (int y = 0; y < 2; y++)
                     for (int x = 0; x < 2; x++)
                         ink[(gy * 4 + y) * w + gx * 4 + x] = true;
             }
         return new TextInk(ink, w, h, w / 2f, h / 2f);
+    }
+
+    /// <summary>FNV-1a over the text and the grid cell: the same value in every process and on every machine.</summary>
+    private static uint StableHash(string text, int gx, int gy)
+    {
+        uint k = 2166136261;
+        foreach (char c in text) k = (k ^ c) * 16777619;
+        k = (k ^ (uint)gx) * 16777619;
+        k = (k ^ (uint)gy) * 16777619;
+        return k ^ (k >> 15);
     }
 
     /// <summary>A screen whose buttons show <paramref name="texts"/> (as ink); the signatures are all the same.</summary>
