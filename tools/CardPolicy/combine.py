@@ -10,6 +10,7 @@ ranker picks, only simulated fights, so the features carry no label information.
 import argparse
 import os
 import sys
+import time
 
 import numpy as np
 
@@ -20,6 +21,14 @@ from value_model import load as load_value_model  # noqa: E402
 
 LAM = (1.0, 3.0, 10.0)
 BASE_COMPS = list(pm.CARD_COMPS)
+
+
+def progress(done, total, start, what):
+    """'progress 3/10 (30%) elapsed 2m10s eta 15:42:01' on stderr, so a long run can be followed."""
+    elapsed = time.time() - start
+    eta = time.strftime('%H:%M:%S', time.localtime(start + elapsed / done * total)) if done else '?'
+    print(f'progress {done}/{total} ({100 * done / total:.0f}%) elapsed {int(elapsed // 60)}m{int(elapsed % 60):02d}s '
+          f'eta {eta}  [{what}]', file=sys.stderr, flush=True)
 
 
 def build(screens, features):
@@ -54,10 +63,13 @@ def main():
 
     res = {}
     weights = []
+    fits, n_fits, start = 0, 2 * args.folds, time.time()
     for name, feats in (('pick model', []), ('+ sim value', features)):
         data = build(screens, feats)
         hit, ll = np.zeros(len(screens)), np.zeros(len(screens))
         for f in range(args.folds):
+            progress(fits, n_fits, start, f'{name} fold {f + 1}/{args.folds}')
+            fits += 1
             tr_idx, te_idx = np.flatnonzero(folds != f), np.flatnonzero(folds == f)
             model = pm.Model(data.n_vocab, args.dim)
             th = model.fit(data.subset(tr_idx), LAM, maxiter=1000)
@@ -68,6 +80,7 @@ def main():
                 w = model.unpack(th)['w']
                 weights.append('/'.join(f'{w[pm.CARD_COMPS.index(k)]:+.2f}' for k in feats))
         res[name] = (hit, ll)
+        progress(fits, n_fits, start, f'{name} done')
         print(f'{name:<12} top-1 {hit.mean():.4f}  LL {ll.mean():.4f}  (v0.111 screens: {hit[v111].mean():.4f} / {ll[v111].mean():.4f})')
     print(f'learned weights on {"/".join(features)} per fold (utility per unit): ' + ', '.join(weights))
 
