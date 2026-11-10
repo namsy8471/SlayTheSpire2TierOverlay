@@ -87,6 +87,25 @@ release.cmd 0.2.0
 
 GitHub의 익명 API는 **IP당 시간당 60회**까지입니다. 같은 공유기 뒤의 PC들은 이 한도를 나눠 씁니다. 오버레이를 자주 껐다 켜거나 여러 대가 켜 두어도 한도를 넘지 않도록, 시작할 때 한 번과 그 뒤 6시간 간격으로만 묻습니다. 앱이 외부와 하는 통신은 이 확인과 내려받기뿐입니다.
 
+## 설치 크기
+
+앱은 **프레임워크 의존(framework-dependent)** 방식으로 배포합니다. .NET을 앱 폴더에 통째로 넣지 않고 PC에 설치된 .NET 10 데스크톱 런타임을 씁니다.
+
+| | v0.1.11 (self-contained) | 지금 |
+|---|---|---|
+| 설치 파일 `…-win-Setup.exe` | 95.5 MB | 23.0 MB |
+| 전체 패키지 `…-full.nupkg` | 88.2 MB | 15.8 MB |
+| 설치된 폴더 `current\` | 214 MB (529개 파일) | 43.6 MB (66개 파일) |
+
+(`v0.1.11`은 공개된 릴리스의 값, "지금"은 같은 코드에 이 설정만 바꿔 개발 PC에서 `vpk pack`한 값입니다.)
+
+- **왜 이렇게 줄어드나.** 예전 214 MB 중 약 150 MB가 .NET 런타임과 WPF·WinForms 자체였습니다. 빈 WPF 창 하나짜리 앱도 self-contained로 만들면 132 MB입니다. 이 부분은 PC에 한 번 설치되면 다른 .NET 앱과 같이 쓰는 공용 구성 요소입니다.
+- **런타임이 없는 PC.** `vpk pack --framework net10.0-x64-desktop`이 패키지에 "이 런타임이 필요함"을 적어 둡니다(`.nuspec`의 `runtimeDependencies`). 설치 파일은 런타임이 없으면 Microsoft에서 받아 설치한 뒤 앱을 설치합니다. 업데이트도 적용 전에 같은 검사를 하므로, self-contained였던 0.1.11 이하에서 올라오는 사용자도 런타임이 없으면 설치 안내를 받습니다. 사용자가 취소하면 업데이트가 적용되지 않고 이전 버전이 그대로 남습니다.
+- **이 옵션을 빼면 안 됩니다.** `--self-contained false`인데 `--framework`가 없으면, 런타임이 없는 PC에서 설치는 되지만 실행이 안 됩니다. `release.yml`과 `tools/release.ps1` 두 곳에 같이 들어 있습니다.
+- **언어 리소스.** UI가 한국어와 영어뿐이라 `SatelliteResourceLanguages=ko;en`으로 다른 언어의 리소스 폴더를 뺍니다.
+- **압축한 단일 실행 파일은 쓰지 않습니다.** 78 MB로 줄지만 켤 때마다 압축을 풀어야 하고, 파일 전체가 매번 달라져 델타 업데이트가 커집니다.
+- **포터블 zip**(`…-win-Portable.zip`)은 런타임을 설치해 주지 않습니다. 런타임이 없으면 Windows가 ".NET 데스크톱 런타임을 설치하라"는 창과 다운로드 링크를 보여 줍니다.
+
 ## 데이터 위치
 
 exe 위치를 보고 데이터를 어디서 읽고 쓸지 정합니다(`AppLayout.Resolve`, `src/Sts2Overlay.App/Infrastructure/AppPaths.cs`, 테스트 `AppLayoutTests.cs`). 처음 맞는 규칙을 씁니다.

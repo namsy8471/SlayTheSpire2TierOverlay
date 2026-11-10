@@ -118,7 +118,7 @@
 **필요한 것**: Windows 10 2004 이상(64비트), Steam으로 설치한 Slay the Spire 2.
 
 1. [**최신 릴리스 페이지**](https://github.com/namsy8471/SlayTheSpire2TierOverlay/releases/latest)에서 `namsy8471.Sts2Overlay-win-Setup.exe`를 받습니다.
-2. 실행하면 바로 설치되고 시작 메뉴와 바탕 화면에 바로 가기가 생깁니다. 관리자 권한은 필요 없습니다(내 계정의 `%LocalAppData%\namsy8471.Sts2Overlay`에 설치).
+2. 실행하면 바로 설치되고 시작 메뉴와 바탕 화면에 바로 가기가 생깁니다(내 계정의 `%LocalAppData%\namsy8471.Sts2Overlay`에 설치, 약 45 MB). PC에 **.NET 10 데스크톱 런타임**이 없으면 설치 프로그램이 먼저 그것을 설치하겠냐고 묻습니다. Microsoft가 배포하는 공용 구성 요소이고, 이때 한 번 관리자 권한 확인 창이 뜹니다. 이미 있으면 아무것도 묻지 않습니다.
 3. **"Windows의 PC 보호"** 파란 창이 뜨면 **추가 정보 → 실행**을 누르세요. 코드 서명 인증서가 없는 개인 프로젝트라서 뜨는 경고입니다.
 4. 첫 실행 때 게임 폴더를 찾아 카드 그림·이름을 `%LOCALAPPDATA%\Sts2Overlay\local`에 만듭니다(몇 초). 진행 상황은 패널 아래 주황색 줄에 나옵니다. Steam을 기본 위치가 아닌 곳에 깔았어도 레지스트리의 Steam 경로로 찾아냅니다.
 
