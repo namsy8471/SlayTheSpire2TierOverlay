@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Windows.Media;
@@ -105,7 +106,7 @@ public sealed partial class AppController : IDisposable
         // The panel moved to a monitor with another DPI: the DPI part of the scale changed, ours must follow.
         _panel.DpiChanged += (_, _) => ApplyUiScale();
         ApplyUiScale();
-        _pipeline.Recognized += r => _ui.BeginInvoke(() => ApplyRecognition(r));
+        _pipeline.Recognized += r => _ui.BeginInvoke(() => OnRecognized(r)); // ApplyRecognition, timed (AppController.Perf.cs)
         _pipeline.Status += s => _ui.BeginInvoke(() => ShowMessage(s));
 
         _panel.KeepOnTop = settings.AlwaysOnTop;
@@ -195,6 +196,7 @@ public sealed partial class AppController : IDisposable
         var snap = _source.Current;
         var prevHint = _snapshot.Hint;
         _snapshot = snap;
+        if (snap.Hint != prevHint) _hintChangedAt = Stopwatch.GetTimestamp(); // perf: how early the hint came (AppController.Perf.cs)
         _pipeline.CharacterHint = snap.Run?.Character;
         // Every stage on its own: one that throws must not skip the others, nor the badge cleanup and cadence below.
         RunStage("run views", () => RefreshRunViews(snap.Run));
@@ -397,6 +399,7 @@ public sealed partial class AppController : IDisposable
             UpdateCadence();
             return;
         }
+        _applyAccepted = true;
         // Periodic captures are only logged when they are slow; log every change of screen so a missed reward screen
         // can be told apart from "the watch was not running" in app.log.
         if (r.ScreenKind != _loggedKind)
@@ -474,6 +477,7 @@ public sealed partial class AppController : IDisposable
         }
         // The removal marker needs both: the engine recommends removal AND the probe sees the service still for sale.
         var removalMark = r.RemovalService is { } coin && _lastRemovalText is { } text ? new RemovalSpec(coin, text) : null;
+        NoteBadgesShown(r); // perf: frame-to-paint of a newly shown screen (AppController.Perf.cs)
         _badges.ShowBadges(specs, _lastSkip, removalMark, showBounds: Demo is not null || DebugOutlines);
         UpdateCadence();
     }
@@ -689,6 +693,7 @@ public sealed partial class AppController : IDisposable
         if (forgetScreen) _lifecycle.Forget(_lastResult, _pipeline.ResetRecognition(), DateTime.UtcNow);
         _verdictTimer?.Stop();
         _badges.Clear();
+        _paintedScreen = null; // the next screen with badges is timed again (AppController.Perf.cs)
         _lastResult = null;
         _lastEvalKey = null;
         _lastOfferKey = null;

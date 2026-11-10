@@ -124,6 +124,12 @@ internal static class NativeMethods
     [DllImport("user32.dll")] public static extern bool GetWindowDisplayAffinity(IntPtr hWnd, out uint affinity);
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
 
+    /// <summary>
+    /// Machine-wide CPU time since boot, in 100 ns units summed over all processors (FILETIMEs read as 64-bit values).
+    /// <paramref name="kernel"/> includes <paramref name="idle"/>.
+    /// </summary>
+    [DllImport("kernel32.dll", SetLastError = true)] public static extern bool GetSystemTimes(out long idle, out long kernel, out long user);
+
     /// <summary>Blocks until DWM presents its next composed frame (returns an HRESULT).</summary>
     [DllImport("dwmapi.dll")] public static extern int DwmFlush();
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetClassName(IntPtr hWnd, char[] buffer, int maxCount);

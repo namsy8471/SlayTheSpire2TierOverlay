@@ -68,8 +68,26 @@ public sealed record RecognitionResult(ScreenKind ScreenKind, IReadOnlyList<Reco
     /// <summary>Set by the capture pipeline: how many recogniser resets happened before this result was computed.</summary>
     public int Epoch { get; init; }
 
+    /// <summary>Set by the capture pipeline: when this frame was captured and recognised (for the perf log), else null.</summary>
+    public FrameTiming? Timing { get; init; }
+
     public static RecognitionResult Other { get; } = new(ScreenKind.Other, []);
 }
+
+/// <summary>
+/// <see cref="System.Diagnostics.Stopwatch"/> timestamps of one captured frame's trip through the capture worker.
+/// </summary>
+/// <param name="PreviousLook">
+/// Start of the previous worker step that captured a frame (0 = none): the last time the pipeline looked at the screen
+/// before this frame. A screen that is new in this frame appeared somewhere after it, so CaptureStart − PreviousLook
+/// bounds the polling wait from above.
+/// </param>
+/// <param name="CaptureStart">The pipeline asked the capturer for a frame. WGC may hand over a game frame presented a
+/// little earlier (or the previous one again), so the game's own frame time is not measured.</param>
+/// <param name="CaptureDone">The pixels are in the managed buffer.</param>
+/// <param name="RecognizeStart">After the event probe, the map check and the "unchanged" test.</param>
+/// <param name="RecognizeDone">The recogniser returned; the result is raised right after.</param>
+public readonly record struct FrameTiming(long PreviousLook, long CaptureStart, long CaptureDone, long RecognizeStart, long RecognizeDone);
 
 /// <summary>
 /// Screen recognition seam. Implemented by an adapter over <c>Sts2Overlay.Vision</c> (lead wires it in

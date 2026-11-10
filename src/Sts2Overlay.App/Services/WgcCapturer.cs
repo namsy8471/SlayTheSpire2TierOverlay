@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Sts2Overlay.App.Infrastructure;
 using Sts2Overlay.App.Integration;
+using Sts2Overlay.App.Services.Perf;
 using Windows.Graphics;
 using Windows.Graphics.Capture;
 using Windows.Graphics.DirectX;
@@ -29,7 +30,8 @@ namespace Sts2Overlay.App.Services;
 /// previous buffer is still exactly right, so it is returned again (<see cref="LastFrameReused"/>).
 ///
 /// Threading: Capture/Suspend/Dispose run on the capture worker; FrameArrived runs on a WGC thread
-/// ("free-threaded" frame pool, no dispatcher needed). They share only <see cref="_latest"/> (under a lock).
+/// ("free-threaded" frame pool, no dispatcher needed). They share only <see cref="_latest"/> (under a lock) and the
+/// perf frame counter (interlocked, see <see cref="FrameRateCounter"/>).
 /// </summary>
 internal sealed class WgcCapturer : IFrameCapturer
 {
@@ -63,6 +65,11 @@ internal sealed class WgcCapturer : IFrameCapturer
     private int _stagingHeight;
     private byte[] _buffer = [];
     private PixelRect _bufferRect; // what _buffer currently holds (empty = nothing valid)
+
+    private readonly FrameRateCounter? _gameFrames;
+
+    /// <param name="gameFrames">Told about every frame that arrives (the game's frame rate in the perf log); null = don't.</param>
+    public WgcCapturer(FrameRateCounter? gameFrames = null) => _gameFrames = gameFrames;
 
     public string Name => "wgc";
 
@@ -317,6 +324,7 @@ internal sealed class WgcCapturer : IFrameCapturer
                 old = _latest;
                 _latest = frame;
             }
+            _gameFrames?.Arrived(Stopwatch.GetTimestamp()); // a few interlocked operations; this runs at the game's frame rate
             // Return the older frame's buffer to the pool right away, so DWM always has one free to write into.
             old?.Dispose();
             _frameArrived.Set();
@@ -368,6 +376,7 @@ internal sealed class WgcCapturer : IFrameCapturer
         _item = null;
         _targetHandle = IntPtr.Zero;
         _bufferRect = default;
+        _gameFrames?.Break(); // the time without a session is no gap between game frames
     }
 
     // ---- device and staging texture ---------------------------------------------------------------------

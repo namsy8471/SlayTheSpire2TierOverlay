@@ -36,7 +36,12 @@ public sealed partial class AppController
     {
         _mapLayer = new MapOverlayWindow(_pipeline.CaptureVisibility);
         _pipeline.MapWatcher = _mapWatcher;
-        _pipeline.MapSighted += s => _ui.BeginInvoke(() => OnMapSighted(s));
+        _pipeline.MapSighted += s => _ui.BeginInvoke(() =>
+        {
+            var start = System.Diagnostics.Stopwatch.GetTimestamp();
+            OnMapSighted(s);
+            Perf.RecordSince(Services.Perf.PerfStage.MapUi, start);
+        });
     }
 
     public bool MapOverlayOn => _settings.MapOverlay;
