@@ -363,7 +363,8 @@
             </Border>
           </StackPanel>
 
-          <ItemsControl Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" ItemsSource="{Binding Chips}" ItemTemplate="{StaticResource ChipTemplate}"
+          <!-- Kept with the row (ReusedRows on the rows list): its chips are kept too, and only get their new text. -->
+          <ItemsControl Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" views:ReusedRows.Template="{StaticResource ChipTemplate}" views:ReusedRows.Source="{Binding Chips}"
                         ItemsPanel="{StaticResource WrapPanelTemplate}" Margin="0,2,0,0" />
         </Grid>
       </Border>
@@ -631,7 +632,8 @@
                              Visibility="{Binding IsStale, Converter={StaticResource BoolVis}}" />
                   <TextBlock Text="{Binding FlipHint}" Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="0,0,0,6"
                              Visibility="{Binding FlipHint, Converter={StaticResource BoolVis}}" />
-                  <ItemsControl ItemsSource="{Binding Rows}" ItemTemplate="{StaticResource OfferRowTemplate}" />
+                  <!-- Row elements are kept from offer to offer and only get their new row (Views/ReusedRows.cs): building them is what costs. -->
+                  <ItemsControl x:Name="OfferRows" views:ReusedRows.Template="{StaticResource OfferRowTemplate}" views:ReusedRows.Source="{Binding Rows}" />
                   <TextBlock Text="{Binding Footer}" TextWrapping="Wrap" FontWeight="SemiBold" Foreground="{StaticResource Gold}" Margin="2,2,0,4"
                              Visibility="{Binding Footer, Converter={StaticResource BoolVis}}" />
                   <!-- 이번에 안 나온 선택지 (고대 존재): 참고용, 흐리게 -->
