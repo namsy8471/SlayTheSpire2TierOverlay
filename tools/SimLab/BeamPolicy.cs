@@ -689,11 +689,14 @@ public sealed class BeamPolicy : ICombatPolicy
                         if (!Execute(clone, p, s)) break;
                     }
                 }
-                else
+                else if (Tun.Rollout == 1)
                 {
-                    if (Tun.Rollout == 1) GreedyTurn(clone, p, t);
-                    else LookaheadPolicy.RolloutTurn(clone, p, t);
+                    // The greedy turn continues on its best probe's clone, so take that state over.
+                    clone = GreedyTurn(clone, p, t);
+                    engine = clone.Engine!;
+                    p = clone.Players[0];
                 }
+                else LookaheadPolicy.RolloutTurn(clone, p, t);
                 if (engine.IsInProgress && clone.CurrentSide == CombatSide.Player && p.PlayerCombatState!.TurnNumber == t)
                 {
                     engine.EndPlayerTurnAsync().GetAwaiter().GetResult();
@@ -711,31 +714,36 @@ public sealed class BeamPolicy : ICombatPolicy
 
     /// <summary>
     /// One-step greedy turn: try every legal move on a clone, keep the one with the best
-    /// <see cref="Eval.Static"/>, repeat while that beats stopping. Plays on <paramref name="state"/> in place.
+    /// <see cref="Eval.Static"/>, repeat while that beats stopping. Returns the state the turn ended
+    /// in: the winning probe's clone is kept and continued, instead of replaying its move on
+    /// <paramref name="state"/> (the move was already played once on that clone).
     /// </summary>
-    private static void GreedyTurn(CombatState state, Player p, int turn)
+    private static CombatState GreedyTurn(CombatState state, Player p, int turn)
     {
-        CombatEngine engine = state.Engine!;
+        var empty = new List<Step>();
         for (int step = 0; step < Tun.MaxDepth; step++)
         {
-            if (!engine.IsInProgress || state.CurrentSide != CombatSide.Player || p.PlayerCombatState!.TurnNumber != turn) return;
+            if (!state.Engine!.IsInProgress || state.CurrentSide != CombatSide.Player || p.PlayerCombatState!.TurnNumber != turn) break;
             double stop = Eval.Static(state, p);
-            Step? best = null;
+            Node? best = null;
             double bestV = stop - 1e-6;
+            var probe = new Node { State = state, Steps = empty };
             foreach ((int hi, int ti) in Moves(state, p))
             {
                 if (hi < 0) continue; // potions are only planned at the top level
-                var probe = new Node { State = state, Steps = new List<Step>() };
                 Node? child = Apply(probe, hi, ti, turn);
                 if (child is null) continue;
                 if (child.Static > bestV)
                 {
                     bestV = child.Static;
-                    best = child.Steps[0];
+                    best = child;
                 }
             }
-            if (best is null || !Execute(state, p, best.Value)) return;
+            if (best is null) break;
+            state = best.State;
+            p = state.Players[0];
         }
+        return state;
     }
 
     /// <summary>Identity of a mid-turn state for merging transpositions (A then B == B then A).</summary>

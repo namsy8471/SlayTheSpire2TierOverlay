@@ -14,8 +14,16 @@ damage numbers order decks the way real fights do, so a card-pick value model ca
 
 ```sh
 git clone https://github.com/iRyougi/sts2-sim ext/sts2-sim   # MIT; stays local (ext/ is git-ignored)
+git -C ext/sts2-sim checkout 31f4dc0                         # the commit the speed patch was made on
+git -C ext/sts2-sim apply ../../patches/sts2-sim-perf.patch  # optional speed patch, same results
 dotnet build -c Release                                      # needs the .NET 9 runtime; SDK 10 builds it
 ```
+
+`patches/sts2-sim-perf.patch` changes only how the simulator does its work, never what it computes:
+same-seed output files are byte-identical with and without it. It caches the combat hook-listener
+list between dispatches (validated by the simulator's own zero-allocation source scan), tests the
+most common listener type first, builds the act-1 map only when something reads it (combat runs
+never do), and shares immutable history entries between combat clones.
 
 `Directory.Build.props` here is intentionally empty: it stops the repo-wide props (net10,
 warnings-as-errors) from applying to this tool and to the clone. The assembly is named `SimFuzz`

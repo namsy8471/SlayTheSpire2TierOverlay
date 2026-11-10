@@ -1,0 +1,207 @@
+diff --git a/src/Sts2Sim.Core/Combat/CombatDamageHistory.cs b/src/Sts2Sim.Core/Combat/CombatDamageHistory.cs
+index 830cb45..0c411fe 100644
+--- a/src/Sts2Sim.Core/Combat/CombatDamageHistory.cs
++++ b/src/Sts2Sim.Core/Combat/CombatDamageHistory.cs
+@@ -35,11 +35,17 @@ public sealed class CombatDamageHistory
+         IReadOnlyDictionary<Creature, Creature> creatureMap,
+         Dictionary<CardModel, CardModel> cardMap)
+     {
++        // SimLab perf patch: entry cloning only ever adds to cardMap, so when its size is
++        // unchanged no detached source appeared and the provenance pass below has nothing to do.
++        // Skip building the per-clone HashSet of every mapped card in that (common) case.
++        int mappedBefore = cardMap.Count;
++        var clone = new CombatDamageHistory();
++        clone._entries.Capacity = _entries.Count;
++        foreach (CombatDamageHistoryEntry entry in _entries) clone._entries.Add(entry.Clone(creatureMap, cardMap));
++        if (cardMap.Count == mappedBefore) return clone;
+         var preexistingSources = new HashSet<CardModel>(
+-            cardMap.Keys,
++            cardMap.Keys.Take(mappedBefore),
+             ReferenceEqualityComparer.Instance);
+-        var clone = new CombatDamageHistory();
+-        clone._entries.AddRange(_entries.Select(entry => entry.Clone(creatureMap, cardMap)));
+ 
+         // History can introduce detached sources after CombatState cloned the ordinary piles.
+         // Complete their provenance graph before any new card restores its references.
+diff --git a/src/Sts2Sim.Core/Combat/CombatSemanticHistory.cs b/src/Sts2Sim.Core/Combat/CombatSemanticHistory.cs
+index 4133c91..320e483 100644
+--- a/src/Sts2Sim.Core/Combat/CombatSemanticHistory.cs
++++ b/src/Sts2Sim.Core/Combat/CombatSemanticHistory.cs
+@@ -135,33 +135,18 @@ public sealed class CombatSemanticHistory
+              entry.PlayOrdinal != currentPlay.PlayOrdinal));
+     }
+ 
++    // SimLab perf patch: entries are immutable value records, and a TurnKey's array is created
++    // once in CaptureTurnKey and only read afterwards, so a clone can share them. Copying the
++    // lists (a memcpy of structs) replaces one array allocation per entry per clone.
+     internal CombatSemanticHistory Clone()
+     {
+         var clone = new CombatSemanticHistory();
+-        clone._exhausts.AddRange(_exhausts.Select(entry => entry with
+-        {
+-            Turn = entry.Turn.Copy(),
+-        }));
+-        clone._cardBlockGains.AddRange(_cardBlockGains.Select(entry => entry with
+-        {
+-            Turn = entry.Turn.Copy(),
+-        }));
+-        clone._orbChannels.AddRange(_orbChannels.Select(entry => entry with
+-        {
+-            Turn = entry.Turn.Copy(),
+-        }));
+-        clone._energySpent.AddRange(_energySpent.Select(entry => entry with
+-        {
+-            Turn = entry.Turn.Copy(),
+-        }));
+-        clone._cardDrawn.AddRange(_cardDrawn.Select(entry => entry with
+-        {
+-            Turn = entry.Turn.Copy(),
+-        }));
+-        clone._actorEvents.AddRange(_actorEvents.Select(entry => entry with
+-        {
+-            Turn = entry.Turn.Copy(),
+-        }));
++        clone._exhausts.AddRange(_exhausts);
++        clone._cardBlockGains.AddRange(_cardBlockGains);
++        clone._orbChannels.AddRange(_orbChannels);
++        clone._energySpent.AddRange(_energySpent);
++        clone._cardDrawn.AddRange(_cardDrawn);
++        clone._actorEvents.AddRange(_actorEvents);
+         return clone;
+     }
+ 
+diff --git a/src/Sts2Sim.Core/Combat/CombatState.cs b/src/Sts2Sim.Core/Combat/CombatState.cs
+index c699f82..59e2756 100644
+--- a/src/Sts2Sim.Core/Combat/CombatState.cs
++++ b/src/Sts2Sim.Core/Combat/CombatState.cs
+@@ -408,6 +408,40 @@ public sealed partial class CombatState : ICombatState
+     // Block retention needs powers-before-relics ordering. Other dispatchers retain
+     // the inventory-free iterator composed with RunState's existing wrapper.
+     internal IEnumerable<AbstractModel> IterateHookListeners(bool includePlayerInventory)
++    {
++        if (!includePlayerInventory) return CombatListenersCached();
++        return BuildHookListeners(includePlayerInventory);
++    }
++
++    // SimLab perf patch: the inventory-free combat listener list is rebuilt for every hook
++    // dispatch. Reuse the last array while a zero-allocation witness scan of exactly the
++    // sources it was built from (creatures, powers, monster/player refs, active flags, orbs,
++    // piles, cards, enchantments, afflictions) still matches. The array is never mutated after
++    // it is published, so a caller holding an older array keeps its snapshot semantics.
++    private object?[]? _combatListenerWitness;
++    private AbstractModel[]? _combatListeners;
++
++    private IEnumerable<AbstractModel> CombatListenersCached()
++    {
++        if (_combatListeners is not null)
++        {
++            var check = new ListenerWitnessScan(_combatListenerWitness!);
++            if (ScanCreatureSources(_allies, ref check) && ScanCreatureSources(_enemies, ref check) && check.Complete)
++                return _combatListeners;
++        }
++        var scan = new ListenerWitnessScan(new List<object?>(128));
++        if (!ScanCreatureSources(_allies, ref scan) || !ScanCreatureSources(_enemies, ref scan))
++        {
++            _combatListeners = null;
++            return BuildHookListeners(false); // malformed sources: keep the original path
++        }
++        var built = (List<AbstractModel>)BuildHookListeners(false);
++        _combatListenerWitness = scan.Captured();
++        _combatListeners = built.ToArray();
++        return _combatListeners;
++    }
++
++    private IEnumerable<AbstractModel> BuildHookListeners(bool includePlayerInventory)
+     {
+         // Build the whole dispatch snapshot before any hook runs. Intermediate copies of
+         // creature, orb, and pile collections are unnecessary during this synchronous pass.
+diff --git a/src/Sts2Sim.Core/Hooks/Hook.cs b/src/Sts2Sim.Core/Hooks/Hook.cs
+index 915f5c2..9db59ca 100644
+--- a/src/Sts2Sim.Core/Hooks/Hook.cs
++++ b/src/Sts2Sim.Core/Hooks/Hook.cs
+@@ -539,13 +539,16 @@ public static class Hook
+     // Source iterators and materialized arrays remain RAW candidates. Qualification is fresh
+     // at each actual dispatch, matching native yield-time Contains without changing capture.
+     // Scope B deliberately retains legacy passthrough for five known kinds (see deviations).
++    // SimLab perf patch: cards are most listeners, so test them first. The eight model classes
++    // are disjoint direct subclasses of AbstractModel, so the arm order cannot change a result.
+     private static bool IsEligibleHookListener(AbstractModel model) => model switch
+     {
++        CardModel => true,
+         PowerModel power => power.Owner.CombatState is not null
+             && (power.Owner.Player?.IsActiveForHooks ?? true),
+         MonsterModel monster => monster.Creature.CombatState is not null,
+         OrbModel orb => !orb.HasBeenRemovedFromState && orb.Owner.IsActiveForHooks,
+-        CardModel or RelicModel or PotionModel or AfflictionModel or EnchantmentModel => true,
++        RelicModel or PotionModel or AfflictionModel or EnchantmentModel => true,
+         _ => throw new ArgumentOutOfRangeException(nameof(model), model?.GetType(),
+             "Unsupported hook listener model type."),
+     };
+diff --git a/src/Sts2Sim.Core/Runs/RunState.cs b/src/Sts2Sim.Core/Runs/RunState.cs
+index 1633545..fb929f8 100644
+--- a/src/Sts2Sim.Core/Runs/RunState.cs
++++ b/src/Sts2Sim.Core/Runs/RunState.cs
+@@ -108,7 +108,25 @@ public sealed partial class RunState : IRunState
+ 
+     public RelicGrabBag? SharedRelicGrabBag { get; private set; }
+ 
+-    public ActMap Map { get; private set; } = null!;
++    // SimLab perf patch: the constructor's act-1 map is built lazily. At construction no player
++    // (so no hook listener) exists yet and the map uses its own seed-derived Rng, so building it
++    // on first read gives the same map and consumes no shared RNG. Combat-only harnesses never
++    // read it and skip the ~0.1 s generation per combat.
++    private ActMap? _map;
++    private bool _initialMapPending;
++    public ActMap Map
++    {
++        get
++        {
++            if (_initialMapPending)
++            {
++                _initialMapPending = false;
++                _map = BuildActMap(0);
++            }
++            return _map!;
++        }
++        private set { _initialMapPending = false; _map = value; }
++    }
+ 
+     public int CurrentActIndex { get; private set; }
+ 
+@@ -200,7 +218,8 @@ public sealed partial class RunState : IRunState
+         _readOnlyActs = Array.AsReadOnly(_acts);
+         CurrentActIndex = 0;
+         Ascension = new AscensionManager(ascensionLevel);
+-        GenerateCurrentMap();
++        // No players yet: ModifyGeneratedMap/AfterMapGenerated have no listeners here.
++        _initialMapPending = true;
+ 
+         Odds = new RunOddsSet(Rng.UnknownMapPoint, new HookOddsAdapter(this));
+     }
+@@ -390,16 +409,21 @@ public sealed partial class RunState : IRunState
+         _bossEncountersVisited = 0;
+     }
+ 
+-    private void GenerateCurrentMap()
++    private StandardActMap BuildActMap(int actIndex)
+     {
+-        ActDefinition act = Act;
+-        var mapRng = new Rng(Rng.Seed, $"act_{CurrentActIndex + 1}_map");
++        ActDefinition act = _acts[actIndex];
++        var mapRng = new Rng(Rng.Seed, $"act_{actIndex + 1}_map");
+         MapPointTypeCounts pointTypeCounts = act.GetMapPointTypes(mapRng, Ascension);
+-        Map = new StandardActMap(
++        return new StandardActMap(
+             mapRng,
+             act.BaseNumberOfRooms,
+             pointTypeCounts,
+-            hasSecondBoss: Ascension.HasLevel(AscensionLevel.DoubleBoss) && CurrentActIndex == _acts.Length - 1);
++            hasSecondBoss: Ascension.HasLevel(AscensionLevel.DoubleBoss) && actIndex == _acts.Length - 1);
++    }
++
++    private void GenerateCurrentMap()
++    {
++        Map = BuildActMap(CurrentActIndex);
+         Map = Hooks.Hook.ModifyGeneratedMap(this, Map, CurrentActIndex);
+         // Run setup is synchronous; map-generated listeners contain no player-choice suspension.
+         Hooks.Hook.AfterMapGenerated(this, Map, CurrentActIndex).GetAwaiter().GetResult();
