@@ -48,6 +48,12 @@ public partial class BadgeWindow : Window, IHoverYield
             Relayout();
             Dispatcher.BeginInvoke(() => _placement.Reapply(_hwnd), System.Windows.Threading.DispatcherPriority.Background);
         };
+        // The first badges of a session took ~40 ms longer than later ones (JIT, first use of every template; measured
+        // with tools/BadgeRenderBench --cold). Do that work when the layer is first shown, while nothing waits for it.
+        IsVisibleChanged += (_, e) =>
+        {
+            if (e.NewValue is true && !_warmed) Dispatcher.BeginInvoke(Prewarm, System.Windows.Threading.DispatcherPriority.Background);
+        };
     }
 
     public BadgeLayerViewModel Model { get; } = new();
@@ -95,6 +101,8 @@ public partial class BadgeWindow : Window, IHoverYield
         _showBounds = showBounds;
         _skip = specs.Count > 0 ? skip : null;
         _removal = removal;
+        // Real badges end a warm-up at once (a Clear keeps it going: its samples may not be laid out yet).
+        if (_warming && HasBadges) EndPrewarm();
         Relayout();
     }
 
@@ -120,8 +128,47 @@ public partial class BadgeWindow : Window, IHoverYield
 
     public void SetHoverHidden(bool hidden) => OverlayWindowHelper.FadeContent(this, hidden);
 
+    // ---- warm-up (see the constructor) ----
+
+    private bool _warmed, _warming;
+
+    /// <summary>
+    /// Lays out one sample of every mark (badge, best badge, ribbon, chips, skip pill, removal marker, outlines) with
+    /// the content Hidden: WPF measures and arranges Hidden elements, so every template, binding, converter and font is
+    /// built once, but draws nothing. Only the view model holds the samples, never <see cref="_specs"/>, so
+    /// <see cref="HasBadges"/>, the hover zones and the controller never see them.
+    /// </summary>
+    private void Prewarm()
+    {
+        if (_warmed || HasBadges || !IsVisible) return;
+        _warmed = true;
+        _warming = true;
+        Root.Visibility = Visibility.Hidden;
+        // The placement math ran cold for the first real frame too.
+        BadgeLayout.Compute([new PxBox(0, 0, 300, 420)], [new PxBox(100, 430, 100, 30)], new PxBox(0, 0, 1920, 1080), 1, 1,
+            skip: true, outlines: true, [new CardMarks(2, true)], new PxBox(1400, 600, 120, 120));
+        ChipVm[] chips = [new("+1", true), new("-1", false)];
+        Model.Badges = [new BadgeVm(0, 0, 1, "A", "1", true, true, true), new BadgeVm(0, 50, 1, "B", "1", false, false, false, true)];
+        Model.Ribbons = [new RibbonVm(0, 0, 1, "+")];
+        Model.ChipStacks = [new ChipStackVm(0, 100, 200, 1, chips)];
+        Model.Bounds = [new BoundsVm(0, 0, 10, 10, false), new BoundsVm(0, 0, 10, 10, true)];
+        Model.Skip = new SkipVm(0, 150, 1, "1", "+");
+        Model.Removal = new MarkerVm(0, 200, 1, "+");
+        // ContextIdle: after the layout pass that builds them.
+        Dispatcher.BeginInvoke(EndPrewarm, System.Windows.Threading.DispatcherPriority.ContextIdle);
+    }
+
+    private void EndPrewarm()
+    {
+        if (!_warming) return;
+        _warming = false;
+        Relayout(); // back to the real marks (usually none)
+        Root.Visibility = Visibility.Visible;
+    }
+
     private void Relayout()
     {
+        if (_warming) return; // EndPrewarm lays out the real marks
         if (_hwnd == IntPtr.Zero || _layer.IsEmpty)
         {
             Model.Badges = [];

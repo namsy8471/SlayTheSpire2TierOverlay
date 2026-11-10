@@ -12,7 +12,8 @@
     Full-game-size transparent layer. Click-through is done with WS_EX_TRANSPARENT in code-behind
     (IsHitTestVisible only affects WPF's own hit testing, not where Windows sends the mouse).
   -->
-  <Grid>
+  <!-- Root is Hidden for a moment after the first Show, while the code-behind warms the templates up. -->
+  <Grid x:Name="Root">
     <!-- Demo and debug outline mode (Ctrl+F11): dashed outline of each recognised card (blue) and price label (orange). -->
     <ItemsControl ItemsSource="{Binding Bounds}">
       <ItemsControl.ItemsPanel>
