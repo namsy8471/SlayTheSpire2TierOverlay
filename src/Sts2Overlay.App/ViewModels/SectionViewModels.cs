@@ -166,7 +166,19 @@ public sealed record PathSectionVm
 {
     public static PathSectionVm Empty { get; } = new() { HasContent = false };
 
+    /// <summary>Empty, because the run is a co-op log-only run: a guest has no save file, so never a map.</summary>
+    public static PathSectionVm CoopGuestEmpty { get; } = new() { HasContent = false, NoMapAsGuest = true };
+
     public bool HasContent { get; init; } = true;
+
+    /// <summary>No path advice because a co-op guest never gets the map (the empty page says so instead of "not ready").</summary>
+    public bool NoMapAsGuest { get; init; }
+
+    /// <summary>Empty page "not ready yet" (<see cref="UiText.PathEmpty"/>).</summary>
+    public bool ShowNotReady => !HasContent && !NoMapAsGuest;
+
+    /// <summary>Empty page "co-op guests get no map" (<see cref="UiText.PathEmptyCoopGuest"/>).</summary>
+    public bool ShowGuestNoMap => !HasContent && NoMapAsGuest;
     public string? NextStep { get; init; }
     public string? Note { get; init; }
     public IReadOnlyList<PathOptionVm> Options { get; init; } = [];

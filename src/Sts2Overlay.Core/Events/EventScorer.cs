@@ -200,6 +200,10 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
         bool lethal = false, unaffordable = false, unmodelled = false, random = false;
         double? winChance = null; // chance to win this option's dummy fight; its OnWin rewards are weighted by it
         int? dummyHp = null;
+        // Log-only run: HP and gold are starting values. HP loss can't be called lethal or safe, and a gold cost can't be
+        // called unaffordable (a locked button is read from the screen instead).
+        var vitalsKnown = state.VitalsKnown;
+        var hpLossUnknown = false;
         var vars = Variables(state, def);
         // Deck pool the option works on; removals/transforms take from it so "remove 2" doesn't count the same curse twice.
         var pool = new DeckPool(Pack, state, profile);
@@ -231,7 +235,8 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
             {
                 case EventEffectTypes.HpLoss when amount is double a:
                 {
-                    if (p >= 1 && a >= sim.Hp) lethal = true;
+                    if (!vitalsKnown) hpLossUnknown |= a > 0;
+                    else if (p >= 1 && a >= sim.Hp) lethal = true;
                     var lost = Math.Min(a, sim.Hp);
                     var v = -HpPoints(lost, sim) * p;
                     acc.Add(new(EventComponentKeys.Hp, Loc.T($"체력 −{a:0}", $"HP −{a:0}"), v));
@@ -258,13 +263,13 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
                     var maxHp = Math.Max(1, sim.MaxHp + a * p);
                     // GainMaxHp heals by the same amount; LoseMaxHp only caps current HP.
                     var hp = a > 0 ? sim.Hp + a * p : Math.Min(sim.Hp, maxHp);
-                    if (p >= 1 && a < 0 && sim.MaxHp + a <= 0) lethal = true;
+                    if (p >= 1 && a < 0 && sim.MaxHp + a <= 0 && vitalsKnown) lethal = true;
                     sim = sim with { MaxHp = maxHp, Hp = hp };
                     break;
                 }
                 case EventEffectTypes.Gold when amount is double a:
                 {
-                    if (a < 0 && -a > sim.Gold + 1e-9 && p >= 1) unaffordable = true;
+                    if (a < 0 && -a > sim.Gold + 1e-9 && p >= 1 && vitalsKnown) unaffordable = true;
                     var v = GoldPoints(a, sim.Gold) * p;
                     acc.Add(new(EventComponentKeys.Gold, a >= 0 ? Loc.T($"골드 +{a:0}", $"Gold +{a:0}") : Loc.T($"골드 −{-a:0}", $"Gold −{-a:0}"), v));
                     texts.Add((a >= 0 ? Loc.T($"골드 {a:0} 획득", $"Gain {a:0} Gold") : Loc.T($"골드 {-a:0} 지불", $"Pay {-a:0} Gold")) + chanceText);
@@ -407,6 +412,7 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
                 case EventEffectTypes.Fight:
                 {
                     var lost = Weights.FightHpLossFraction * sim.MaxHp;
+                    if (!vitalsKnown) hpLossUnknown = true;
                     var v = (-HpPoints(Math.Min(lost, sim.Hp), sim) + Weights.FightReward) * p;
                     var label = Loc.T("전투", "Fight");
                     acc.Add(new(EventComponentKeys.Fight, label, v, e.Encounter));
@@ -446,6 +452,7 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
                 var bestNext = nextEvals.MaxBy(o => o.Total)!;
                 acc.Add(new(EventComponentKeys.Next, Loc.T("다음 선택", "Next choice"), bestNext.Total, bestNext.Option.Key));
                 unmodelled |= bestNext.HasUnmodelled;
+                hpLossUnknown |= bestNext.HpLossUnknown;
                 texts.Add(Loc.T("이어서 선택지", "More choices follow"));
             }
         }
@@ -456,6 +463,7 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
             Score = new ScoreBreakdown(acc),
             IsLethal = lethal,
             IsUnaffordable = unaffordable,
+            HpLossUnknown = hpLossUnknown,
             HasUnmodelled = unmodelled,
             IsRandom = random,
             EffectTexts = texts,

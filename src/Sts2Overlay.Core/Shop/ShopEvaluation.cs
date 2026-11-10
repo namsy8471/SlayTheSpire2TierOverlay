@@ -58,6 +58,13 @@ public sealed record ShopEvaluation
     /// <summary>True when the price colours contradicted the tracked gold and <see cref="Gold"/> was corrected.</summary>
     public bool GoldCorrectedByScreen { get; init; }
 
+    /// <summary>
+    /// False when the run's gold is unknown (<see cref="RunState.VitalsKnown"/>): <see cref="Gold"/> is then only the most the
+    /// red price labels allow (<see cref="ShopPricing.GoldCeiling"/>, <see cref="int.MaxValue"/> without one), affordability
+    /// comes from the label colours alone, and <see cref="Gold"/> / <see cref="GoldLeft"/> must not be shown as the player's gold.
+    /// </summary>
+    public bool GoldKnown { get; init; } = true;
+
     public int GoldLeft { get; init; }
 
     public required ScoreBreakdown Skip { get; init; }

@@ -35,6 +35,12 @@ public sealed record GameStateSnapshot(
 {
     public static GameStateSnapshot Empty { get; } = new(null, null, ScreenHint.None, OfferContext.CardReward, DateTime.MinValue);
 
+    /// <summary>
+    /// The run was rebuilt from the game log alone, with no save file (co-op guest, or no save matched the run): the deck is an
+    /// estimate, there is no map, and HP/gold are unknown (<see cref="RunState.VitalsKnown"/>).
+    /// </summary>
+    public bool LogOnly { get; init; }
+
     /// <summary>Run seed string (save <c>rng.seed</c>): the map overlay needs it to place the nodes exactly.</summary>
     public string? Seed { get; init; }
 

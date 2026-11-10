@@ -69,6 +69,13 @@ public static class ShopPricing
                 .Concat(offer.Relics.Select(r => (r.Price, r.PriceKnown, r.AffordableOnScreen))),
             out corrected);
 
+    /// <summary>
+    /// The most gold the price labels allow when the run's gold is unknown (log-only run): one less than the cheapest red
+    /// (unaffordable) known price, or <see cref="int.MaxValue"/> when no label is red (then everything counts as affordable).
+    /// Contradictory labels also give <see cref="int.MaxValue"/>.
+    /// </summary>
+    public static int GoldCeiling(ShopOffer offer) => EffectiveGold(int.MaxValue, offer, out _);
+
     private static int EffectiveGold(int trackedGold, IEnumerable<(int Price, bool PriceKnown, bool? AffordableOnScreen)> labels, out bool corrected)
     {
         var tracked = Math.Max(0, trackedGold);

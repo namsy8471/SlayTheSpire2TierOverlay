@@ -321,6 +321,7 @@ public sealed partial class AppController
         {
             if (o.IsLethal) sub.Add(LethalText());
             if (o.IsUnaffordable) sub.Add(o.Option.Key.EndsWith(EventSlots.LockedSuffix, StringComparison.Ordinal) ? LockedText() : NoGoldText());
+            if (o.HpLossUnknown) sub.Add(HpUnknownText());
             if (o.WinChance is { } w)
             {
                 sub.Add(w < HardKill
@@ -375,6 +376,9 @@ public sealed partial class AppController
     private static string LockedText() => Loc.T("잠김", "Locked");
 
     private static string NoGoldText() => Loc.T("골드 부족", "Not enough Gold");
+
+    /// <summary>Row caution for an option that costs HP while the current HP is unknown (log-only run).</summary>
+    internal static string HpUnknownText() => Loc.T("HP 모름: 체력 손실 주의", "HP unknown: mind the HP loss");
 
     private static string HardKillText() => Loc.T("처치 어려움", "Hard to kill");
 
