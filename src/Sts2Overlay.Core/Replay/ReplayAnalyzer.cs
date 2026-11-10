@@ -48,7 +48,8 @@ public sealed class ReplayAnalyzer(DataPack pack)
 
         var offer = _engine.EvaluateOffer(decision.StateBefore, decision.Offered, decision.Context);
 
-        if (decision.Picked.Count > 1)
+        // More than one pick, or no rating data for any offered card (no verdict to compare with): nothing to grade.
+        if (decision.Picked.Count > 1 || offer.NoData)
         {
             return new DecisionReplay { Decision = decision, Offer = offer, Verdict = ReplayVerdict.Informational, Recommended = offer.Best };
         }

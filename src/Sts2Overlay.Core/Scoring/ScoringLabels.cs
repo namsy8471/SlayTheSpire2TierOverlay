@@ -25,6 +25,51 @@ public static class ScoringLabels
     /// <summary>Name of a role key in the current language; unknown keys are returned as-is.</summary>
     public static string Role(string role) => RoleNames.TryGetValue(role, out var name) ? Loc.T(name.Kor, name.Eng) : role;
 
+    /// <summary>
+    /// Resource axis / build-need tag (tier <c>provides</c>, archetype <c>needs.tag</c>) → (Korean, English) display name, in the
+    /// game's own terms (data/local localization: 밀집 Focus, 단조 Forge, 단도 Shiv, 골골이 Osty, 종말 Doom).
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, (string Kor, string Eng)> TagNames = new Dictionary<string, (string, string)>(StringComparer.Ordinal)
+    {
+        ["BLOCK"] = ("방어도", "Block"),
+        ["CREATE"] = ("카드 생성", "card creation"),
+        ["DISCARD"] = ("버리기", "Discard"),
+        ["DOOM"] = ("종말", "Doom"),
+        ["DRAW"] = ("드로우", "Draw"),
+        ["ETHEREAL"] = ("휘발성", "Ethereal"),
+        ["EXHAUST"] = ("소멸", "Exhaust"),
+        ["FOCUS"] = ("밀집", "Focus"),
+        ["FORGE"] = ("단조", "Forge"),
+        ["ORB"] = ("구체", "Orbs"),
+        ["ORB_DARK"] = ("암흑 구체", "Dark Orbs"),
+        ["ORB_FROST"] = ("냉기 구체", "Frost Orbs"),
+        ["ORB_GLASS"] = ("유리 구체", "Glass Orbs"),
+        ["ORB_LIGHTNING"] = ("전기 구체", "Lightning Orbs"),
+        ["ORB_PLASMA"] = ("플라즈마 구체", "Plasma Orbs"),
+        ["ORB_SLOT"] = ("구체 슬롯", "Orb slots"),
+        ["OSTY_ATTACK"] = ("골골이 공격", "Osty attacks"),
+        ["POISON"] = ("중독", "Poison"),
+        ["POWER"] = ("파워", "Powers"),
+        ["SELF_DAMAGE"] = ("자해", "self-damage"),
+        ["SHIV"] = ("단도", "Shivs"),
+        ["SOUL"] = ("영혼", "Souls"),
+        ["STAR"] = ("별", "Stars"),
+        ["STATUS"] = ("상태이상 카드", "Status cards"),
+        ["STRENGTH"] = ("힘", "Strength"),
+        ["STRIKE"] = ("타격", "Strikes"),
+        ["SUMMON"] = ("소환", "Summon"),
+        ["VULNERABLE"] = ("취약", "Vulnerable"),
+        ["WEAK"] = ("약화", "Weak"),
+        ["ZERO_COST"] = ("비용 0 카드", "0-cost cards"),
+    };
+
+    /// <summary>
+    /// Display name of a resource axis / build-need tag in the current language. A tag missing from the table is humanised
+    /// (<c>NEW_AXIS</c> → <c>new axis</c>), so the raw upper-case key never reaches the UI.
+    /// </summary>
+    public static string Tag(string tag)
+        => TagNames.TryGetValue(tag, out var name) ? Loc.T(name.Kor, name.Eng) : tag.Replace('_', ' ').Trim().ToLowerInvariant();
+
     /// <summary>Label of the need component for its dominant role, e.g. <c>광역 부족</c> / <c>Lacks AoE</c>.</summary>
     public static string NeedLabel(string role) => Loc.T($"{Role(role)} 부족", $"Lacks {Role(role)}");
 

@@ -49,8 +49,11 @@ public class ReplayIntegrationTests
                     Assert.InRange(c.Rank, 1, offer.Cards.Count);
                     Assert.True(c.Chips.Count <= 3);
                 }
-                Assert.Equal(offer.SkipRecommended, offer.Best is null);
-                Assert.True(offer.Cards.Count(c => c.IsBest) == (offer.SkipRecommended ? 0 : 1));
+                // No pick either when Skip wins or when no offered card has rating data (then no Skip verdict either).
+                Assert.False(offer.SkipRecommended && offer.NoData);
+                Assert.Equal(offer.SkipRecommended || offer.NoData, offer.Best is null);
+                Assert.True(offer.Cards.Count(c => c.IsBest) == (offer.Best is null ? 0 : 1));
+                Assert.Equal(offer.NoData, offer.Cards.All(c => c.Unjudged));
                 Assert.True(d.Regret >= 0);
             }
             else
@@ -87,8 +90,13 @@ public class ReplayIntegrationTests
             Assert.Contains(r.Run.StartTime.ToString(System.Globalization.CultureInfo.InvariantCulture), md);
         }
 
-        // The user's real picks give the engine a non-trivial number of comparable decisions.
-        Assert.True(replays.Sum(r => r.ComparableCount) >= 250);
+        // The user's real picks give the engine a non-trivial number of comparable decisions. This test pack rates only a few
+        // Defect cards: a screen where no offered card has rating data gets no verdict (OfferEvaluation.NoData), so it is not
+        // comparable; it still counts towards the screens replayed.
+        var comparable = replays.Sum(r => r.ComparableCount);
+        var noData = replays.Sum(r => r.Decisions.Count(d => d.Offer?.NoData == true));
+        Assert.True(comparable + noData >= 250, $"{comparable} comparable, {noData} without rating data");
+        Assert.True(comparable >= 150, $"{comparable} comparable");
     }
 
     [Fact]

@@ -30,6 +30,9 @@ public sealed record EventOptionEvaluation
     /// <summary>At least one effect could not be valued (an <c>other</c> effect or an unknown formula).</summary>
     public bool HasUnmodelled { get; init; }
 
+    /// <summary>Nothing about the option could be valued (no priced effect, no measured choice rate): its 0 is "unknown", not "neutral".</summary>
+    public bool HasNoData => HasUnmodelled && Score.Components.Count == 0;
+
     /// <summary>The option has a random outcome (an effect with a chance, or a random pick).</summary>
     public bool IsRandom { get; init; }
 

@@ -22,8 +22,9 @@ public class RecommendationEngineTests
         ScoreAssert.Consistent(result.Skip);
         foreach (var c in result.Cards) ScoreAssert.ConsistentCard(c);
         Assert.Equal(result.Cards.Count, result.Cards.Select(c => c.Rank).Distinct().Count());
-        Assert.Equal(result.SkipRecommended ? 0 : 1, result.Cards.Count(c => c.IsBest));
-        Assert.Equal(result.SkipRecommended, result.Best is null);
+        Assert.Equal(result.Best is null ? 0 : 1, result.Cards.Count(c => c.IsBest));
+        Assert.False(result.SkipRecommended && result.NoData);
+        Assert.Equal(result.SkipRecommended || result.NoData, result.Best is null);
         if (result.Best is { } best) Assert.Equal(best, result.Cards.Single(c => c.IsBest).Card);
     }
 
@@ -90,10 +91,42 @@ public class RecommendationEngineTests
     [Fact]
     public void UnratedCard_CannotBeBest()
     {
-        var r = Evaluate(1, [Unknown], pack: DefectPack(WithT0(20)));
-        Assert.True(r.SkipRecommended);
+        // Unknown has no tier entry: its 35 is the UnknownTier placeholder. Even 115 points over skip it is not the pick.
+        var r = Evaluate(1, [Unknown, Defend], pack: DefectPack(WithT0(-80)));
         Assert.False(r.Cards[0].IsRated);
+        Assert.True(r.Cards[0].Unjudged);
+        Assert.Equal("?", r.Cards[0].TierText);
+        Assert.Equal(Tier.C, r.Cards[0].DisplayTier); // the placeholder stays internal
+        Assert.False(r.Cards[0].IsBest);
+        Assert.Equal(new CardRef(Defend), r.Best);
+        Assert.False(r.NoData);
+    }
+
+    [Fact]
+    public void OnlyUnratedCards_GiveNoPickAndNoSkipVerdict()
+    {
+        var r = Evaluate(1, [Unknown, Unknown + "_2", Unknown + "_3"], pack: DefectPack(WithT0(20)));
+        Assert.True(r.NoData);
+        Assert.Null(r.Best);
+        Assert.False(r.SkipRecommended);
+        Assert.All(r.Cards, c => Assert.False(c.IsBest));
+        Assert.Equal(new[] { 1, 2, 3 }, r.Cards.Select(c => c.Rank)); // ranks still shown, ties by offer order
         Assert.Equal(RecommendationConfidence.Estimate, r.Confidence);
+        Assert.Null(r.FlipHint);
+    }
+
+    [Fact]
+    public void PickBelowRankOne_IsNeverSure()
+    {
+        // LowConf 80 (confidence 0.3) ranks first; Blocker 50 beats skip 20 by 30 (a "Sure" gap) but is the 2nd row.
+        var r = Evaluate(1, [LowConf, Blocker], pack: DefectPack(WithT0(20)));
+        Assert.Equal(new CardRef(Blocker), r.Best);
+        Assert.Equal(2, r.Cards[1].Rank);
+        Assert.Equal(RecommendationConfidence.Normal, r.Confidence);
+
+        // Rank 1 picks keep "Sure".
+        var top = Evaluate(1, [Blocker], pack: DefectPack(WithT0(20)));
+        Assert.Equal(RecommendationConfidence.Sure, top.Confidence);
     }
 
     [Fact]

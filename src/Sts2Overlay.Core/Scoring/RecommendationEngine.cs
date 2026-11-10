@@ -44,8 +44,10 @@ public sealed class RecommendationEngine(DataPack pack)
         var ranks = new int[evals.Count];
         for (var k = 0; k < order.Length; k++) ranks[order[k]] = k + 1;
 
-        // Low-confidence cards cannot beat skip (PLAN §7.2).
-        var eligible = order.Where(i => evals[i].Confidence >= w.Skip.LowConfidence).ToList();
+        // Low-confidence cards cannot beat skip (PLAN §7.2). A card nothing rates (no tier entry, unknown to the model) is never
+        // the pick: its score is a placeholder. When every offered card is like that there is no verdict at all, not even Skip.
+        var noData = evals.Count > 0 && evals.All(e => e.Unjudged);
+        var eligible = order.Where(i => evals[i].Confidence >= w.Skip.LowConfidence && !evals[i].Unjudged).ToList();
         int? best = eligible.Count > 0 && evals[eligible[0]].Total >= skip.Total + w.Skip.Margin ? eligible[0] : null;
         // ...unless no confident card beats skip and a low-confidence one beats it by a full tier step (skip.lowConfidenceStep):
         // even rated one tier lower it would still win, so the uncertainty cannot make skipping right.
@@ -53,7 +55,7 @@ public sealed class RecommendationEngine(DataPack pack)
         if (best is null)
         {
             var step = Math.Max(0.0, w.Skip.LowConfidenceStep);
-            var sure = order.Where(i => evals[i].Total >= skip.Total + w.Skip.Margin + step).Cast<int?>().FirstOrDefault();
+            var sure = order.Where(i => !evals[i].Unjudged && evals[i].Total >= skip.Total + w.Skip.Margin + step).Cast<int?>().FirstOrDefault();
             if (sure is int s)
             {
                 best = s;
@@ -91,7 +93,11 @@ public sealed class RecommendationEngine(DataPack pack)
 
         RecommendationConfidence confidence;
         string? flipHint = null;
-        if (best is int bi && (evals[bi].IsEstimate || lowConfidencePick))
+        if (noData)
+        {
+            confidence = RecommendationConfidence.Estimate;
+        }
+        else if (best is int bi && (evals[bi].IsEstimate || lowConfidencePick))
         {
             confidence = RecommendationConfidence.Estimate;
         }
@@ -116,12 +122,16 @@ public sealed class RecommendationEngine(DataPack pack)
             else confidence = RecommendationConfidence.Normal;
         }
 
+        // The pick is not the top row: a higher-scoring card was passed over because its rating is uncertain, so never "확신".
+        if (best is int pick && ranks[pick] != 1 && confidence == RecommendationConfidence.Sure) confidence = RecommendationConfidence.Normal;
+
         var results = evals.Select((e, i) => e with { Rank = ranks[i], IsBest = best == i }).ToArray();
         return new OfferEvaluation
         {
             Cards = results,
             Skip = skip,
-            SkipRecommended = best is null,
+            SkipRecommended = best is null && !noData,
+            NoData = noData,
             Best = best is int bb ? evals[bb].Card : null,
             Confidence = confidence,
             FlipHint = flipHint,
