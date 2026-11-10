@@ -7,13 +7,26 @@ namespace Sts2Overlay.App.Services.Perf;
 /// <param name="Reason">Shown after the length, e.g. "exit"; null for the periodic summary.</param>
 /// <param name="Stages">Every stage, empty ones included (the formatter leaves those out).</param>
 /// <param name="Resources">Null when no resource sample was taken in the period.</param>
+/// <param name="Hunt">The dense polling while an offer was expected (<see cref="OfferHunt"/>).</param>
 public sealed record PerfSummary(
     double Seconds,
     string? Reason,
     PerfCounts Counts,
     FrameRateStats Game,
     IReadOnlyList<(PerfStage Stage, PerfStats Stats)> Stages,
-    ResourceStats? Resources);
+    ResourceStats? Resources,
+    HuntCounts Hunt = default);
+
+/// <summary>Hunt mode of one period (<see cref="OfferHunt"/>): what the dense polling cost and how the hunts ended.</summary>
+/// <param name="Steps">Worker steps (as in <see cref="PerfCounts.Steps"/>) taken while hunting.</param>
+/// <param name="Seconds">Time spent hunting with capture running (not paused).</param>
+/// <param name="Found">Hunts that ended with badges on screen.</param>
+/// <param name="HintLeft">Hunts that ended because the hint changed to something else.</param>
+/// <param name="RanOut">Hunts that ran out of time (<see cref="OfferHunt.Budget"/>) without a screen.</param>
+public readonly record struct HuntCounts(long Steps, double Seconds, int Found, int HintLeft, int RanOut)
+{
+    public bool IsEmpty => Steps == 0 && Seconds <= 0 && Found == 0 && HintLeft == 0 && RanOut == 0;
+}
 
 /// <summary>Worker counters of one period.</summary>
 /// <param name="Steps">Worker steps that captured a frame for recognition (periodic or manual).</param>
@@ -62,6 +75,7 @@ public static class PerfFormat
         var c = s.Counts;
         var header = string.Create(Inv,
             $"perf: summary {s.Seconds:0} s{(s.Reason is null ? "" : $" ({s.Reason})")} | steps {c.Steps}, recognised {c.Recognised}, unchanged {c.Unchanged}, reused {c.Reused}");
+        if (!s.Hunt.IsEmpty) header += HuntClause(s.Hunt);
         if (s.Game.Fps is { } fps) header += string.Create(Inv, $" | game {fps:0.0} fps (worst gap {s.Game.WorstGapMs:0} ms)");
         lines.Add(header);
         foreach (var (stage, st) in s.Stages)
@@ -73,6 +87,10 @@ public static class PerfFormat
         if (s.Resources is { } r) lines.Add(ResourceLine(r));
         return lines;
     }
+
+    /// <summary>" | hunt 212 steps in 10.6 s (found 4, hint left 1, ran out 1)": the header's hunt part.</summary>
+    internal static string HuntClause(HuntCounts h) => string.Create(Inv,
+        $" | hunt {h.Steps} steps in {h.Seconds:0.0} s (found {h.Found}, hint left {h.HintLeft}, ran out {h.RanOut})");
 
     internal static string ResourceLine(ResourceStats r)
     {

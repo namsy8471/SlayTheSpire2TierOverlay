@@ -40,6 +40,15 @@ public sealed class AppSettings
     public double IdleRecognizeHz { get; set; } = 1.5;
 
     /// <summary>
+    /// Capture rate while the log says a reward or shop screen is coming but it is not on screen yet (the "hunt", see
+    /// <see cref="Integration.OfferHunt"/>): from the hint change until badges show, the hint ends, or 8 s passed. At
+    /// <see cref="RecognizeHz"/> the screen waits up to one interval (~350 ms at 3 Hz) before it is even captured; at
+    /// 20 Hz about 50 ms. Cost: one look is ~13.5 ms of one core at 4K, so 20 Hz is ~27 % of a core for the few seconds
+    /// of each hunt, then the normal rate again. Clamped to 30; 0 = off (no hunt). settings.json only.
+    /// </summary>
+    public double HuntRecognizeHz { get; set; } = 20;
+
+    /// <summary>
     /// How the game window is captured: "auto" (Windows.Graphics.Capture, falling back to GDI when it is unsupported or
     /// fails), "wgc" (same as auto) or "gdi" (always the slower GDI BitBlt). The active backend is logged.
     /// </summary>

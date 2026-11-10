@@ -196,7 +196,11 @@ public sealed partial class AppController : IDisposable
         var snap = _source.Current;
         var prevHint = _snapshot.Hint;
         _snapshot = snap;
-        if (snap.Hint != prevHint) _hintChangedAt = Stopwatch.GetTimestamp(); // perf: how early the hint came (AppController.Perf.cs)
+        if (snap.Hint != prevHint)
+        {
+            _hintChangedAt = Stopwatch.GetTimestamp(); // perf: how early the hint came (AppController.Perf.cs)
+            _hintChangedUtc = DateTime.UtcNow; // a new chance to hunt for the screen (UpdateCadence)
+        }
         _pipeline.CharacterHint = snap.Run?.Character;
         // Every stage on its own: one that throws must not skip the others, nor the badge cleanup and cadence below.
         RunStage("run views", () => RefreshRunViews(snap.Run));
@@ -344,13 +348,25 @@ public sealed partial class AppController : IDisposable
     /// While nothing can be drawn (overlay hidden with Ctrl+F8, game not in front or minimised) capture stops after
     /// <see cref="CapturePauseClock.After"/>, which also ends the capture session (no 4K frame copies for hours of
     /// alt-tab); it resumes the moment the game is in front and the overlay shown (<see cref="UpdateVisibility"/>).
+    /// From the moment the log hints a reward / shop screen until its badges show (at most a few seconds), capture runs
+    /// at the dense hunt rate (<see cref="AppSettings.HuntRecognizeHz"/>, <see cref="OfferHunt"/>), so the screen is
+    /// captured ~50 ms after it appears instead of up to one 3 Hz interval later.
     /// </summary>
     private void UpdateCadence()
     {
+        var now = DateTime.UtcNow;
         var offer = IsOfferHint(_snapshot.Hint) || (_snapshot.Hint == ScreenHint.None && _badges.HasBadges) || EventScreenLikely;
         var hz = offer ? Math.Clamp(_settings.RecognizeHz, 0.5, 10) : Math.Clamp(_settings.IdleRecognizeHz, 0, 10);
         hz = Math.Max(hz, Math.Max(MapCadenceHz(), RestCadenceHz())); // faster while the map / a rest site is open, so the marks follow
-        var paused = _pauseClock.ShouldPause(!_userHidden && _tracker.Current is { CanCapture: true }, DateTime.UtcNow, out var recheck);
+        var wasHunting = _hunt.Hunting;
+        var huntHz = HuntHz;
+        var hunting = _hunt.Update(huntHz > 0, _snapshot.Hint, _hintChangedUtc, _badges.HasBadges, now, out var huntEnds);
+        if (hunting) hz = Math.Max(hz, huntHz);
+        if (wasHunting && !hunting) Perf.CountHuntEnd(_hunt.LastEnd);
+        // The budget ends without any event of its own: wake up then to drop back to the normal rate.
+        if (huntEnds is { } left) RunLater(ref _huntTimer, left, UpdateCadence);
+        else _huntTimer?.Stop();
+        var paused = _pauseClock.ShouldPause(!_userHidden && _tracker.Current is { CanCapture: true }, now, out var recheck);
         if (paused) hz = 0;
         if (paused != _capturePaused)
         {
@@ -358,12 +374,23 @@ public sealed partial class AppController : IDisposable
             AppLog.Info(paused ? "capture paused (overlay hidden or game not in front)" : "capture resumed");
         }
         if (recheck is { } wait) RunLater(ref _pauseTimer, wait, UpdateCadence);
+        Perf.SetHunting(hunting && !paused); // perf summary: "hunt N steps in X s"
         _pipeline.SetInterval(hz > 0 ? TimeSpan.FromSeconds(1 / hz) : null);
     }
 
     private readonly CapturePauseClock _pauseClock = new();
     private bool _capturePaused;
     private DispatcherTimer? _pauseTimer;
+
+    /// <summary>Dense polling while a hinted reward / shop screen is not found yet (Integration/OfferHunt.cs).</summary>
+    private readonly OfferHunt _hunt = new();
+    private DispatcherTimer? _huntTimer;
+
+    /// <summary>When <see cref="GameStateSnapshot.Hint"/> last changed (UTC; default = not yet): the hunt belongs to that change.</summary>
+    private DateTime _hintChangedUtc;
+
+    /// <summary>The hunt rate; 0 (or a negative setting) = no hunt. Capped at 30 Hz: a look costs 13.5 ms (p90 20 ms).</summary>
+    private double HuntHz => Math.Clamp(_settings.HuntRecognizeHz, 0, 30);
 
     /// <summary>One-shot UI-thread callback after <paramref name="delay"/> (restarts the timer if it is pending).</summary>
     private static void RunLater(ref DispatcherTimer? timer, TimeSpan delay, Action action)

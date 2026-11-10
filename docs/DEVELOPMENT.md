@@ -46,7 +46,7 @@ CI(`.github/workflows/ci.yml`)는 Core·GameState·Resources 테스트를 Ubuntu
 dotnet run --project src/Sts2Overlay.App
 ```
 
-- 게임을 켜 두면 창을 찾아 그 위에 패널과 배지를 띄웁니다. 보상·상점 화면일 가능성이 있을 때 초당 3번(`recognizeHz`), 평소에는 초당 1.5번(`idleRecognizeHz`) 캡처합니다.
+- 게임을 켜 두면 창을 찾아 그 위에 패널과 배지를 띄웁니다. 보상·상점 화면일 가능성이 있을 때 초당 3번(`recognizeHz`), 평소에는 초당 1.5번(`idleRecognizeHz`) 캡처합니다. 로그가 보상·상점 화면을 예고한 뒤 아직 배지가 뜨지 않은 동안(최대 8초)은 초당 20번(`huntRecognizeHz`, 0 = 끔) 캡처해 화면이 뜨자마자 잡습니다.
 - 화면 없이 보기: `-- --demo reward` (또는 `shop`, `other`). 트레이 "데모 모드"에서도 바꿀 수 있습니다.
 - 오버레이를 스크린샷에 보이게: `-- --show-in-capture` (기본은 캡처에서 숨김, 레이아웃 확인용)
 - 캡처 경로 점검: `-- --selftest` (2초 뒤 캡처 1장 저장 + 인식 1번, 결과는 app.log)

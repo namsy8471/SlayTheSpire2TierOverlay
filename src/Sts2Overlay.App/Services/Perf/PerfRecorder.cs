@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Sts2Overlay.App.Infrastructure;
+using Sts2Overlay.App.Integration;
 using Sts2Overlay.App.Interop;
 
 namespace Sts2Overlay.App.Services.Perf;
@@ -41,7 +42,7 @@ public enum PerfStage
 /// anything happened) and at exit.
 ///
 /// Cheap by design, so it never needs a setting: recording is a timestamp subtraction and a locked array increment
-/// (frames come at 1.5 to 6 Hz), the only extra thread is a <see cref="Timer"/> tick every <see cref="SampleEvery"/>,
+/// (frames come at 1.5 to 6 Hz, 20 Hz for the few seconds of a hunt), the only extra thread is a <see cref="Timer"/> tick every <see cref="SampleEvery"/>,
 /// and nothing allocates per frame.
 ///
 /// One instance per app (created in <c>App.OnStartup</c>, handed to <see cref="CapturePipeline"/>, which exposes it to
@@ -65,6 +66,13 @@ public sealed class PerfRecorder : IDisposable
     private long _recognised;
     private long _unchanged;
     private long _reused;
+    private readonly Lock _huntGate = new();
+    private long _huntSince; // Stopwatch timestamp the running hunt stretch started; 0 = not hunting
+    private long _huntTicks; // Stopwatch ticks hunted in this period before _huntSince
+    private long _huntSteps;
+    private int _huntFound;
+    private int _huntHintLeft;
+    private int _huntRanOut;
     private bool _disposed;
     private bool _tickFailed;
 
@@ -97,6 +105,42 @@ public sealed class PerfRecorder : IDisposable
     {
         Interlocked.Increment(ref _steps);
         if (reused) Interlocked.Increment(ref _reused);
+        if (Interlocked.Read(ref _huntSince) != 0) Interlocked.Increment(ref _huntSteps);
+    }
+
+    /// <summary>
+    /// The capture runs at the hunt rate now, or no longer (<c>AppController.UpdateCadence</c>, UI thread): steps counted
+    /// meanwhile are hunt steps, and the time is summed. Repeating the same value changes nothing.
+    /// </summary>
+    public void SetHunting(bool hunting)
+    {
+        lock (_huntGate)
+        {
+            var now = Stopwatch.GetTimestamp();
+            if (hunting && _huntSince == 0)
+            {
+                Interlocked.Exchange(ref _huntSince, now);
+            }
+            else if (!hunting && _huntSince != 0)
+            {
+                _huntTicks += now - _huntSince;
+                Interlocked.Exchange(ref _huntSince, 0);
+            }
+        }
+    }
+
+    /// <summary>A hunt ended (<see cref="OfferHunt.LastEnd"/>); <see cref="HuntEnd.Off"/> and <see cref="HuntEnd.None"/> are not counted.</summary>
+    public void CountHuntEnd(HuntEnd end)
+    {
+        lock (_huntGate)
+        {
+            switch (end)
+            {
+                case HuntEnd.Found: _huntFound++; break;
+                case HuntEnd.HintLeft: _huntHintLeft++; break;
+                case HuntEnd.RanOut: _huntRanOut++; break;
+            }
+        }
     }
 
     public void CountUnchanged() => Interlocked.Increment(ref _unchanged);
@@ -163,7 +207,25 @@ public sealed class PerfRecorder : IDisposable
         var game = GameFrames.SnapshotAndReset(Stopwatch.Frequency);
         var resources = _resources.Build(Environment.ProcessorCount);
         _resources = new ResourceAccumulator();
-        return new PerfSummary(seconds, reason, counts, game, stages, resources);
+        return new PerfSummary(seconds, reason, counts, game, stages, resources, TakeHunt(now));
+    }
+
+    /// <summary>The period's hunt figures, reset; a hunt still running counts up to <paramref name="now"/> and goes on in the next period.</summary>
+    private HuntCounts TakeHunt(long now)
+    {
+        lock (_huntGate)
+        {
+            var ticks = _huntTicks;
+            if (_huntSince != 0)
+            {
+                ticks += now - _huntSince;
+                Interlocked.Exchange(ref _huntSince, now);
+            }
+            var hunt = new HuntCounts(Interlocked.Exchange(ref _huntSteps, 0), (double)ticks / Stopwatch.Frequency, _huntFound, _huntHintLeft, _huntRanOut);
+            _huntTicks = 0;
+            _huntFound = _huntHintLeft = _huntRanOut = 0;
+            return hunt;
+        }
     }
 
     /// <summary>Stops the sampler and writes the final summary (app exit).</summary>
