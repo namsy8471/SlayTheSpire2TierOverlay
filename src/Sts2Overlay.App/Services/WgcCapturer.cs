@@ -44,6 +44,13 @@ internal sealed class WgcCapturer : IFrameCapturer
 
     private readonly TimeSpan _firstFrameTimeout;
 
+    /// <summary>
+    /// The first frame on a NEW device (app start, after <see cref="Trim"/> or a reset) waits at least this long.
+    /// Under full CPU load a 4K capture on a cold device took up to 4.7 s (MemProbe sessions --cold), so 1 s would
+    /// hand the first frame after every long idle to GDI; three failures in a row switch to GDI for good.
+    /// </summary>
+    private static readonly TimeSpan ColdFirstFrameTimeout = TimeSpan.FromSeconds(5);
+
     /// <summary>After a resize, how long to wait for a frame that matches the new window size.</summary>
     private static readonly TimeSpan ResizeTimeout = TimeSpan.FromMilliseconds(100);
 
@@ -121,12 +128,22 @@ internal sealed class WgcCapturer : IFrameCapturer
         var t0 = Stopwatch.GetTimestamp();
         try
         {
+            var cold = _d3dDevice == IntPtr.Zero; // EnsureSession is about to create the device
             EnsureSession(target);
             var canReuse = !_bufferRect.IsEmpty && _bufferRect == rect;
-            var frame = TakeLatestFrame(canReuse ? TimeSpan.Zero : _firstFrameTimeout);
+            var wait = canReuse ? TimeSpan.Zero
+                : cold && ColdFirstFrameTimeout > _firstFrameTimeout ? ColdFirstFrameTimeout
+                : _firstFrameTimeout;
+            var waitStart = Stopwatch.GetTimestamp();
+            var frame = TakeLatestFrame(wait);
+            if (cold)
+            {
+                var waited = Stopwatch.GetElapsedTime(waitStart);
+                if (waited > _firstFrameTimeout) AppLog.Info($"wgc: first frame on a new device took {waited.TotalMilliseconds:0} ms");
+            }
             if (frame == IntPtr.Zero)
             {
-                if (!canReuse) throw new TimeoutException($"no frame from Windows.Graphics.Capture within {_firstFrameTimeout.TotalMilliseconds:0} ms");
+                if (!canReuse) throw new TimeoutException($"no frame from Windows.Graphics.Capture within {wait.TotalMilliseconds:0} ms");
                 LastFrameReused = true;
                 LastTimings = new CaptureTimings(Stopwatch.GetElapsedTime(t0).TotalMilliseconds, 0);
                 return new CapturedFrame(_buffer, rect.Width, rect.Height, rect.Width * 4, rect, DateTime.Now);
@@ -186,6 +203,12 @@ internal sealed class WgcCapturer : IFrameCapturer
         catch (FrameSizeMismatchException)
         {
             throw; // transient: keep device and session
+        }
+        catch (TimeoutException)
+        {
+            // The first frame is late (a loaded CPU), not lost: keep device and session, so the next capture picks it
+            // up. A reset here would start a new device and session, whose first frame is just as late.
+            throw;
         }
         catch
         {

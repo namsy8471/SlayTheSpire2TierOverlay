@@ -139,14 +139,16 @@ internal static class CaptureProbe
     // ------------------------------------------------------------------ sessions
 
     /// <summary>
-    ///   MemProbe sessions [--cycles 20] [--width 1919] [--height 1079]
+    ///   MemProbe sessions [--cycles 20] [--width 1919] [--height 1079] [--cold]
     /// How long a NEW capture session takes to deliver its first frame (Suspend, then Capture), the way the verifier
     /// captures every replay: the app's default 1 s timeout against a 10 s one, interleaved.
     /// </summary>
     public static int Sessions(Dictionary<string, string> opts)
     {
         PerMonitorDpi();
-        int cycles = Int(opts, "cycles", 20), width = Int(opts, "width", 1919), height = Int(opts, "height", 1079);        var image = Pattern(width, height, 0);
+        int cycles = Int(opts, "cycles", 20), width = Int(opts, "width", 1919), height = Int(opts, "height", 1079);
+        var cold = opts.ContainsKey("cold"); // Trim instead of Suspend: every capture also creates a new device
+        var image = Pattern(width, height, 0);
         var origin = Dpi.PrimaryMonitorRect();
         using var window = new ReplayWindow();
         window.Show(image, origin.X, origin.Y);
@@ -162,7 +164,8 @@ internal static class CaptureProbe
             {
                 int i = (k + c) % capturers.Length;
                 var wgc = capturers[i].Wgc;
-                wgc.Suspend();
+                if (cold) wgc.Trim();
+                else wgc.Suspend();
                 ReplayWindow.Pump();
                 var t0 = Stopwatch.GetTimestamp();
                 try
@@ -174,11 +177,23 @@ internal static class CaptureProbe
                 catch (Exception ex) when (ex is TimeoutException or InvalidOperationException)
                 {
                     failures[i]++;
-                    Console.WriteLine(Inv($"   {capturers[i].Name}: {ex.GetType().Name} after {Stopwatch.GetElapsedTime(t0).TotalMilliseconds:F0} ms: {ex.Message}"));                }
+                    Console.WriteLine(Inv($"   {capturers[i].Name}: {ex.GetType().Name} after {Stopwatch.GetElapsedTime(t0).TotalMilliseconds:F0} ms: {ex.Message}"));
+                    // What the app's next poll does: the same capturer again, no Suspend/Trim in between.
+                    var t1 = Stopwatch.GetTimestamp();
+                    try
+                    {
+                        var (_, diff) = CaptureOnce(wgc, info, image);
+                        Console.WriteLine(Inv($"     next capture: ok after {Stopwatch.GetElapsedTime(t1).TotalMilliseconds:F0} ms, {diff} pixels differ"));
+                    }
+                    catch (Exception again) when (again is TimeoutException or InvalidOperationException)
+                    {
+                        Console.WriteLine(Inv($"     next capture: {again.GetType().Name} after {Stopwatch.GetElapsedTime(t1).TotalMilliseconds:F0} ms"));
+                    }
+                }
             }
             progress.Step(c + 1);
         }
-        Console.WriteLine($"new session -> first frame, {width}x{height}, {cycles} cycles [measured under CPU load]:");
+        Console.WriteLine($"new {(cold ? "device + session" : "session")} -> first frame, {width}x{height}, {cycles} cycles [measured under CPU load]:");
         for (int i = 0; i < capturers.Length; i++)
         {
             var t = times[i];
