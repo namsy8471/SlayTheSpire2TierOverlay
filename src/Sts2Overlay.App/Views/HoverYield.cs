@@ -72,6 +72,18 @@ public static class HoverGeometry
             (int)Math.Ceiling(px.Width), (int)Math.Ceiling(px.Height));
     }
 
+    /// <summary>
+    /// Whether the overlay should step aside for the mouse at (<paramref name="x"/>, <paramref name="y"/>): on the top
+    /// strip (<paramref name="topStrip"/>, not grown) or a hover zone, and NOT on our own panel. The game draws no tip
+    /// under our panel, and reaching for its tabs (at 4K 150 % its default header sits inside the top strip) must not
+    /// fade the badges.
+    /// </summary>
+    public static bool ShouldYield(int x, int y, PxBox? topStrip, IEnumerable<PxBox> zones, PxBox? panel)
+    {
+        if (panel is { } p && Contains([p], x, y, grow: 0)) return false;
+        return (topStrip is { } t && Contains([t], x, y, grow: 0)) || Contains(zones, x, y);
+    }
+
     /// <summary>True when (<paramref name="x"/>, <paramref name="y"/>) is inside any zone grown by <paramref name="grow"/>.</summary>
     public static bool Contains(IEnumerable<PxBox> zones, int x, int y, double grow = Grow)
     {
@@ -91,30 +103,61 @@ public static class HoverGeometry
 /// <item>Mouse enters a zone: hide at once. The game shows its tip right away, so waiting would leave it covered.</item>
 /// <item>Mouse leaves: come back only after <see cref="ShowDelayMs"/> outside every zone. Moving from one card to the
 /// next crosses a short gap, and the badges should not flash in between.</item>
+/// <item>Mouse parked: after <see cref="IdleShowMs"/> hidden without the cursor moving, come back and stay until it
+/// moves. A cursor resting where a card appeared (the reward was clicked there, or the player uses a gamepad) would
+/// otherwise keep every badge hidden; a tip under the mouse has been read by then. Any movement resumes the rules above.</item>
 /// </list>
 /// </summary>
 public sealed class HoverYieldState
 {
     public const int DefaultShowDelayMs = 300;
+    public const int DefaultIdleShowMs = 2500;
 
     private long? _leftAt;
+    private long _stillSince;   // last cursor movement, or when the layers hid (whichever is later)
+    private (int X, int Y)? _cursor;
+    private bool _parked;       // shown again for a resting cursor; hidden again only after it moves
 
-    public HoverYieldState(int showDelayMs = DefaultShowDelayMs) => ShowDelayMs = showDelayMs;
+    public HoverYieldState(int showDelayMs = DefaultShowDelayMs, int idleShowMs = DefaultIdleShowMs)
+    {
+        ShowDelayMs = showDelayMs;
+        IdleShowMs = idleShowMs;
+    }
 
     public int ShowDelayMs { get; }
 
+    public int IdleShowMs { get; }
+
     public bool Hidden { get; private set; }
+
+    /// <summary>Feeds one mouse sample without a cursor position (never counts as resting). Returns true when <see cref="Hidden"/> changed.</summary>
+    public bool Update(bool overZone, long nowMs) => Update(overZone, nowMs, null);
 
     /// <summary>Feeds one mouse sample. Returns true when <see cref="Hidden"/> changed.</summary>
     /// <param name="overZone">The mouse is on a hover-tip zone of a visible layer.</param>
     /// <param name="nowMs">A monotonic clock in milliseconds (Environment.TickCount64).</param>
-    public bool Update(bool overZone, long nowMs)
+    /// <param name="cursor">Where the cursor is (physical px); null = unknown, treated as moving.</param>
+    public bool Update(bool overZone, long nowMs, (int X, int Y)? cursor)
     {
+        if (cursor is null || cursor != _cursor)
+        {
+            _cursor = cursor;
+            _stillSince = nowMs;
+            _parked = false;
+        }
+        if (_parked) return false;
         if (overZone)
         {
             _leftAt = null;
-            if (Hidden) return false;
+            if (Hidden)
+            {
+                if (cursor is null || nowMs - _stillSince < IdleShowMs) return false;
+                _parked = true;
+                Hidden = false;
+                return true;
+            }
             Hidden = true;
+            _stillSince = nowMs; // the resting time counts from the moment the layers stepped aside
             return true;
         }
         if (!Hidden) return false;
@@ -129,6 +172,7 @@ public sealed class HoverYieldState
     public bool Reset()
     {
         _leftAt = null;
+        _parked = false;
         if (!Hidden) return false;
         Hidden = false;
         return true;

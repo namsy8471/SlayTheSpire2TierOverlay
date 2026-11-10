@@ -1,4 +1,5 @@
 using System.Windows.Threading;
+using Sts2Overlay.App.Interop;
 using Sts2Overlay.App.Views;
 using static Sts2Overlay.App.Interop.NativeMethods;
 
@@ -11,7 +12,8 @@ namespace Sts2Overlay.App.Controllers;
 ///  every 50 ms while the overlay is shown:
 ///  GetCursorPos ─▶ on a hover-tip zone of a shown layer (or one that was shown a moment ago), or on the top bar /
 ///                 relic row?
-///               ─▶ HoverYieldState (hide at once, show again 300 ms after leaving)
+///               ─▶ (never while the mouse is on our own panel)
+///               ─▶ HoverYieldState (hide at once, show again 300 ms after leaving, or after 2.5 s of a resting cursor)
 ///               ─▶ every layer fades out / in together
 /// </code>
 ///
@@ -65,14 +67,24 @@ public sealed partial class AppController
         // The zones of the marks on screen, or the ones that were there a moment ago (HoverZoneMemory: a recognition
         // that comes back empty while a card is hovered must not bring the overlay back over its tip).
         var zones = _hoverZones.Zones(shown.SelectMany(l => l.HoverZones()).ToArray(), now);
-        if ((shown.Length > 0 || zones.Count > 0) && _tracker.Current is { CaptureRect.IsEmpty: false } win && GetCursorPos(out var p))
+        // The cursor is read on every tick: HoverYieldState also needs to know whether it has moved.
+        (int X, int Y)? cursor = GetCursorPos(out var p) ? (p.X, p.Y) : null;
+        if (cursor is not null && (shown.Length > 0 || zones.Count > 0) && _tracker.Current is { CaptureRect.IsEmpty: false } win)
         {
             var r = win.CaptureRect;
             var game = new PxBox(r.X, r.Y, r.Width, r.Height);
-            over = (shown.Length > 0 && HoverGeometry.Contains([HoverGeometry.TopStrip(game)], p.X, p.Y, grow: 0))
-                   || HoverGeometry.Contains(zones, p.X, p.Y);
+            PxBox? strip = shown.Length > 0 ? HoverGeometry.TopStrip(game) : null;
+            over = HoverGeometry.ShouldYield(p.X, p.Y, strip, zones, PanelBox());
         }
-        if (_hoverYield.Update(over, now)) ApplyHoverHidden(_hoverYield.Hidden);
+        if (_hoverYield.Update(over, now, cursor)) ApplyHoverHidden(_hoverYield.Hidden);
+    }
+
+    /// <summary>Our panel's window rect while it is shown (no game tip can appear under it), else null.</summary>
+    private PxBox? PanelBox()
+    {
+        if (!_panel.IsVisible || _panel.Hwnd == IntPtr.Zero) return null;
+        var b = OverlayWindowHelper.GetPhysicalBounds(_panel.Hwnd);
+        return b.IsEmpty ? null : new PxBox(b.X, b.Y, b.Width, b.Height);
     }
 
     private void ApplyHoverHidden(bool hidden)

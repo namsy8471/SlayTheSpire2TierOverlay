@@ -184,4 +184,67 @@ public class HoverYieldTests
         Assert.False(s.Update(false, 20));
         Assert.True(s.Hidden);
     }
+
+    // ---- a resting cursor and our own panel ----
+
+    [Fact]
+    public void A_cursor_parked_on_a_card_brings_the_badges_back_after_a_while()
+    {
+        // The player clicked a reward where the next screen's card appears, or plays on a gamepad: the cursor never moves.
+        var s = new HoverYieldState(showDelayMs: 300, idleShowMs: 2500);
+        var still = (X: 960, Y: 600);
+        Assert.False(s.Update(false, 0, still));
+        Assert.True(s.Update(true, 5000, still)); // a card appeared under it: step aside (its tip may be up)
+        Assert.False(s.Update(true, 7450, still)); // the resting time counts from the hide, not from the last move
+        Assert.True(s.Update(true, 7500, still)); // 2.5 s without a move: back
+        Assert.False(s.Hidden);
+        Assert.False(s.Update(true, 20000, still)); // and it stays back while the cursor rests
+
+        Assert.True(s.Update(true, 20050, (961, 600))); // any movement: normal rules again, on a zone → aside
+        Assert.True(s.Hidden);
+    }
+
+    [Fact]
+    public void A_moving_cursor_never_counts_as_resting()
+    {
+        var s = new HoverYieldState(showDelayMs: 300, idleShowMs: 2500);
+        s.Update(true, 0, (100, 100));
+        for (var t = 50; t <= 5000; t += 50)
+        {
+            Assert.False(s.Update(true, t, (100 + t / 50 % 2, 100))); // reading a tip, the hand trembles a pixel
+        }
+        Assert.True(s.Hidden);
+        // Without a position (the old overload) it never comes back by itself either.
+        var noPos = new HoverYieldState(showDelayMs: 300, idleShowMs: 2500);
+        noPos.Update(true, 0);
+        Assert.False(noPos.Update(true, 10000));
+        Assert.True(noPos.Hidden);
+    }
+
+    [Fact]
+    public void Reset_ends_a_parked_show()
+    {
+        var s = new HoverYieldState(showDelayMs: 300, idleShowMs: 2500);
+        s.Update(true, 0, (5, 5));
+        s.Update(true, 2500, (5, 5));
+        Assert.False(s.Hidden);
+        s.Reset(); // overlay hidden / game left the front
+        Assert.True(s.Update(true, 2600, (5, 5))); // shown again later over a zone: steps aside again first
+    }
+
+    [Fact]
+    public void Our_own_panel_never_makes_the_overlay_step_aside()
+    {
+        // 4K at 150 %: the top strip reaches y 340 px; the panel's default header sits at y 210 px inside it.
+        var game = new PxBox(0, 0, 3840, 2160);
+        var strip = HoverGeometry.TopStrip(game);
+        var panel = new PxBox(3204, 210, 600, 900);
+        PxBox[] zones = [new(3300, 400, 300, 400)];
+
+        Assert.True(HoverGeometry.ShouldYield(3000, 250, strip, zones, panel)); // the top strip next to the panel
+        Assert.False(HoverGeometry.ShouldYield(3300, 250, strip, zones, panel)); // the panel's tabs, inside the strip
+        Assert.False(HoverGeometry.ShouldYield(3400, 500, strip, zones, panel)); // a card zone under the panel
+        Assert.True(HoverGeometry.ShouldYield(3400, 500, strip, zones, null)); // panel hidden: the zone counts
+        Assert.False(HoverGeometry.ShouldYield(1000, 250, null, zones, panel)); // no strip (no marks shown)
+    }
 }
