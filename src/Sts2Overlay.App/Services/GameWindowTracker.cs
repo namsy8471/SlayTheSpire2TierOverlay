@@ -12,7 +12,8 @@ namespace Sts2Overlay.App.Services;
 /// <param name="WindowRect">GetWindowRect: Godot fullscreen makes this 2 px larger than the monitor (PLAN §5.4).</param>
 /// <param name="CaptureRect">Client area clipped to its monitor: what we capture and what the badge layer covers.</param>
 /// <param name="IsForeground">The game owns the foreground window (keyboard focus).</param>
-/// <param name="IsOwnForeground">One of OUR windows (tray menu...) is the foreground window.</param>
+/// <param name="IsOwnForeground">One of OUR windows (tray menu...) is the foreground window AND the game was in front
+/// just before it (<see cref="OwnForegroundRule"/>); opened from another program it does not count.</param>
 /// <param name="IsSimulated">Demo mode: no game, the primary monitor stands in for it.</param>
 public sealed record GameWindowInfo(
     IntPtr Hwnd,
@@ -53,6 +54,7 @@ public sealed class GameWindowTracker : IDisposable
     private DateTime _nextSearch;
     private volatile GameWindowInfo? _current;
     private bool _simulate;
+    private readonly OwnForegroundRule _ownForeground = new();
 
     public GameWindowTracker()
     {
@@ -116,13 +118,23 @@ public sealed class GameWindowTracker : IDisposable
         if (!IsGameWindowStillValid())
         {
             _hwnd = IntPtr.Zero;
+            _ownForeground.Reset();
             if (DateTime.UtcNow < _nextSearch) return null;
             _nextSearch = DateTime.UtcNow.AddSeconds(2);
             if (!FindGameWindow()) return null;
         }
 
-        return Describe(_hwnd, _pid, _ownPid);
+        var info = Describe(_hwnd, _pid, _ownPid);
+        // The tray menu opened from a browser must not bring the overlay up over the browser: our window in front only
+        // counts when the game was in front before it. The taskbar in between (clicking the tray icon) is ignored.
+        var shell = !info.IsForeground && !info.IsOwnForeground && IsTaskbar(GetForegroundWindow());
+        var own = _ownForeground.Update(info.IsForeground, info.IsOwnForeground, shell);
+        return own == info.IsOwnForeground ? info : info with { IsOwnForeground = own };
     }
+
+    /// <summary>The taskbar, its notification area or the hidden-icons flyout (what is clicked to reach the tray menu).</summary>
+    private static bool IsTaskbar(IntPtr hwnd)
+        => hwnd != IntPtr.Zero && ClassName(hwnd) is "Shell_TrayWnd" or "Shell_SecondaryTrayWnd" or "NotifyIconOverflowWindow" or "TopLevelWindowForOverflowXamlIsland";
 
     /// <summary>Position and foreground state of a top-level window (also used by the capture benchmark).</summary>
     internal static GameWindowInfo Describe(IntPtr hwnd, int pid, int ownPid)
@@ -190,4 +202,28 @@ public sealed class GameWindowTracker : IDisposable
         }
         _hooks.Clear();
     }
+}
+
+/// <summary>
+/// Whether one of our own windows in front counts as "the game is in front" (pure, unit-tested). It does only when the
+/// game was the foreground window before ours: the tray menu opened while playing keeps the overlay up (so a menu
+/// toggle shows its effect), the tray menu opened from a browser does not lift the panel and old badges over the
+/// browser. Taskbar windows in between (clicking the tray icon activates the taskbar first) are passed over.
+/// </summary>
+public sealed class OwnForegroundRule
+{
+    private bool _gameBeforeOwn;
+
+    /// <summary>Feeds the current foreground; returns whether our own foreground window counts as the game.</summary>
+    /// <param name="gameForeground">The game is the foreground window.</param>
+    /// <param name="ownForeground">One of our windows is.</param>
+    /// <param name="taskbarForeground">The taskbar / notification area is (does not change what came before).</param>
+    public bool Update(bool gameForeground, bool ownForeground, bool taskbarForeground = false)
+    {
+        if (!ownForeground && !taskbarForeground) _gameBeforeOwn = gameForeground;
+        return ownForeground && _gameBeforeOwn;
+    }
+
+    /// <summary>The game window is gone: nothing was in front before.</summary>
+    public void Reset() => _gameBeforeOwn = false;
 }

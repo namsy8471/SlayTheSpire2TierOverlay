@@ -20,9 +20,9 @@ public sealed class TrayIcon : IDisposable
     private readonly Icon _drawnIcon;
     private readonly string _versionText;
     private readonly bool _devBuild;
-    private readonly ToolStripMenuItem _demoReward, _demoShop, _demoOther, _demoOff, _toggle, _scaleAuto, _outlines, _onTop, _mapOverlay, _inCapture;
+    private readonly ToolStripMenuItem _demoReward, _demoShop, _demoOther, _demoOff, _toggle, _scaleAuto, _outlines, _onTop, _clickThrough, _mapOverlay, _inCapture;
     private readonly ToolStripMenuItem _applyUpdate;
-    private readonly ToolStripMenuItem _demo, _scaleMenu, _recognize, _reloadPack, _version, _checkUpdate, _exit;
+    private readonly ToolStripMenuItem _demo, _scaleMenu, _recognize, _reloadPack, _advanced, _version, _checkUpdate, _exit;
     private readonly ToolStripMenuItem _languageMenu, _languageAuto, _languageKor, _languageEng;
     private readonly List<ToolStripMenuItem> _scaleItems = [];
 
@@ -71,11 +71,15 @@ public sealed class TrayIcon : IDisposable
 
         _outlines = new ToolStripMenuItem("", null, (_, _) => DebugOutlinesRequested?.Invoke());
         _onTop = new ToolStripMenuItem("", null, (_, _) => AlwaysOnTopRequested?.Invoke());
+        _clickThrough = new ToolStripMenuItem("", null, (_, _) => ClickThroughRequested?.Invoke());
         _mapOverlay = new ToolStripMenuItem("", null, (_, _) => MapOverlayRequested?.Invoke());
         _inCapture = new ToolStripMenuItem("", null, (_, _) => ShowInCaptureRequested?.Invoke());
         _recognize = new ToolStripMenuItem("", null, (_, _) => RecognizeRequested?.Invoke());
         // No capture / log items: players never need them. Debug captures are a settings.json switch (debugCaptures).
         _reloadPack = new ToolStripMenuItem("", null, (_, _) => ReloadPackRequested?.Invoke());
+        // 고급 / Advanced: checking and developer items, out of the player's way.
+        _advanced = new ToolStripMenuItem("");
+        _advanced.DropDownItems.AddRange([_outlines, _demo, new ToolStripSeparator(), _reloadPack]);
         _version = new ToolStripMenuItem("") { Enabled = false };
         _checkUpdate = new ToolStripMenuItem("", null, (_, _) => CheckUpdateRequested?.Invoke());
         _applyUpdate = new ToolStripMenuItem("", null, (_, _) => ApplyUpdateRequested?.Invoke()) { Visible = false };
@@ -86,15 +90,14 @@ public sealed class TrayIcon : IDisposable
         [
             _toggle,
             _onTop,
+            _clickThrough,
             _mapOverlay,
             _inCapture,
             _scaleMenu,
             _languageMenu,
             _recognize,
-            _outlines,
-            _demo,
             new ToolStripSeparator(),
-            _reloadPack,
+            _advanced,
             new ToolStripSeparator(),
             _version,
             _checkUpdate,
@@ -102,6 +105,8 @@ public sealed class TrayIcon : IDisposable
             new ToolStripSeparator(),
             _exit,
         ]);
+        menu.Opening += (_, _) => MenuOpenChanged?.Invoke(true);
+        menu.Closed += (_, _) => MenuOpenChanged?.Invoke(false);
 
         _icon = new NotifyIcon
         {
@@ -128,6 +133,8 @@ public sealed class TrayIcon : IDisposable
         _languageAuto.Text = Loc.T("자동 (게임 설정 따름)", "Auto (follow the game)");
         _outlines.Text = Loc.T("인식 영역 표시 (Ctrl+F11)", "Show recognition areas (Ctrl+F11)");
         _onTop.Text = Loc.T("항상 맨 앞에 표시 (Ctrl+F6)", "Always on top (Ctrl+F6)");
+        _clickThrough.Text = Loc.T("클릭 통과 (Ctrl+F7)", "Click-through (Ctrl+F7)");
+        _advanced.Text = Loc.T("고급", "Advanced");
         _mapOverlay.Text = Loc.T("맵·휴식처 위 추천 표시 (Ctrl+F5)", "Show advice on Map / Rest Site (Ctrl+F5)");
         _inCapture.Text = InCaptureLabel(_inCapture.Checked, _inCaptureForcedHidden);
         _recognize.Text = Loc.T("지금 인식 (Ctrl+F10)", "Recognize now (Ctrl+F10)");
@@ -157,6 +164,14 @@ public sealed class TrayIcon : IDisposable
     public event Action? AlwaysOnTopRequested;
 
     public void SetAlwaysOnTop(bool on) => _onTop.Checked = on;
+
+    /// <summary>"클릭 통과": the panel lets the mouse through to the game (same toggle as Ctrl+F7).</summary>
+    public event Action? ClickThroughRequested;
+
+    public void SetClickThrough(bool on) => _clickThrough.Checked = on;
+
+    /// <summary>The context menu opened (true) or closed (false).</summary>
+    public event Action<bool>? MenuOpenChanged;
 
     /// <summary>"맵 위 추천 표시": the recommended node and path drawn on the game's map screen.</summary>
     public event Action? MapOverlayRequested;

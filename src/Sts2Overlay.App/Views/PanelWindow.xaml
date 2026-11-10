@@ -472,7 +472,7 @@
           </UniformGrid>
           <Border Height="1" Background="#26FFFFFF" Margin="8,0,8,0" />
 
-          <ScrollViewer MaxHeight="620" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="10,8,6,4" Padding="0,0,4,0">
+          <ScrollViewer x:Name="Scroll" MaxHeight="620" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="10,8,6,4" Padding="0,0,4,0">
             <!--
               Each page is an outer Border (Visibility from the ROOT view model's SelectedTab) wrapping an inner
               StackPanel whose DataContext is the section (Offer/Deck/...). If both bindings sat on one element, the
@@ -835,6 +835,9 @@
           <!-- local resources / version guard banner (Services.LocalResourceService) -->
           <TextBlock Text="{Binding ResourceBanner}" Style="{StaticResource Dim}" Foreground="#F0B27A" TextWrapping="Wrap" Margin="12,2,12,2"
                      Visibility="{Binding ResourceBanner, Converter={StaticResource BoolVis}}" />
+          <!-- standing app notices: hotkeys taken by another program, game not 16:9 (Controllers/AppController.Shell.cs) -->
+          <TextBlock Text="{Binding ShellNotice}" Style="{StaticResource Dim}" Foreground="#F0B27A" TextWrapping="Wrap" Margin="12,2,12,2"
+                     Visibility="{Binding ShellNotice, Converter={StaticResource BoolVis}}" />
           <!-- downloaded update waiting to be applied (Services.UpdateService) -->
           <TextBlock Text="{Binding UpdateText}" Style="{StaticResource Dim}" Foreground="#58D68D" TextWrapping="Wrap" Margin="12,2,12,2"
                      Visibility="{Binding UpdateText, Converter={StaticResource BoolVis}}" />
