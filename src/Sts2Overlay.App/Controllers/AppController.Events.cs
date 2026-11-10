@@ -99,7 +99,7 @@ public sealed partial class AppController
                 _lastEvent = null;
                 _eventKey = null;
                 _eventMarkers?.Clear();
-                if (_lastResult is null && _vm.Offer.HasContent && !_vm.Offer.IsStale) _vm.Offer = _vm.Offer with { IsStale = true };
+                if (_lastResult is null && PanelOffer.HasContent && !PanelOffer.IsStale) PanelOffer = PanelOffer with { IsStale = true };
             }
             return;
         }
@@ -140,11 +140,11 @@ public sealed partial class AppController
         if (eval is null)
         {
             AppLog.Info($"event {active.EventId}: not in events.json");
-            var newEvent = _lastEvent is not null || !_vm.Offer.HasContent || _vm.Offer.IsStale;
+            var newEvent = _lastEvent is not null || !PanelOffer.HasContent || PanelOffer.IsStale;
             _lastEvent = null;
             _eventMarkers?.Clear();
             var unknownId = active.EventId;
-            _vm.Offer = NoEventDataOffer(unknownId);
+            PanelOffer = NoEventDataOffer(unknownId);
             _offerSource = null;
             _eventOfferRebuild = () => NoEventDataOffer(unknownId);
             if (newEvent) _vm.SelectedTab = PanelTab.Offer;
@@ -152,7 +152,7 @@ public sealed partial class AppController
         }
         var first = _lastEvent?.Event.Id != eval.Event.Id;
         _lastEvent = eval;
-        _vm.Offer = EventOffer(eval, active, match);
+        PanelOffer = EventOffer(eval, active, match);
         _offerSource = null;
         // Core bakes its reason labels in the current language when it scores, so a re-render scores again.
         var scorer = _eventScorer;
