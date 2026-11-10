@@ -17,6 +17,31 @@ public static class ImageLoader
         return Decode(codec, "<stream>");
     }
 
+    /// <summary>
+    /// Decodes straight into <paramref name="reuse"/> (replaced by a new array when the image does not fit), so a loop over
+    /// many images (the art database build: 1000x760 portraits, 3 MB each) reuses one managed buffer per worker instead
+    /// of allocating a native bitmap plus a large-object-heap copy for every file. The frame covers exactly the image's
+    /// bytes, which are the ones <see cref="Load(string)"/> returns: same codec call, same BGRA/unpremul format, rows packed.
+    /// </summary>
+    internal static ScreenFrame Load(string path, [System.Diagnostics.CodeAnalysis.NotNull] ref byte[]? reuse)
+    {
+        using SKCodec codec = SKCodec.Create(path) ?? throw new InvalidDataException($"Cannot decode image: {path}");
+        var info = new SKImageInfo(codec.Info.Width, codec.Info.Height, SKColorType.Bgra8888, SKAlphaType.Unpremul);
+        if (reuse is null || reuse.Length < info.BytesSize) reuse = new byte[info.BytesSize];
+        var pin = System.Runtime.InteropServices.GCHandle.Alloc(reuse, System.Runtime.InteropServices.GCHandleType.Pinned);
+        try
+        {
+            SKCodecResult result = codec.GetPixels(info, pin.AddrOfPinnedObject());
+            if (result is not (SKCodecResult.Success or SKCodecResult.IncompleteInput))
+                throw new InvalidDataException($"Cannot decode {path}: {result}");
+        }
+        finally
+        {
+            pin.Free();
+        }
+        return new ScreenFrame(reuse.AsMemory(0, info.BytesSize), info.Width, info.Height, info.RowBytes);
+    }
+
     private static ScreenFrame Decode(SKCodec codec, string name)
     {
         // Ask the codec for BGRA directly so no per-pixel conversion is needed afterwards.

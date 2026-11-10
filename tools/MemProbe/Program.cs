@@ -44,6 +44,27 @@ internal static class Program
                 return Dump(local, opts);
             case "allocs":
                 return Allocs(local, opts);
+            case "builddb":
+            {
+                // The art database build alone (what a cache miss costs at start), with allocations by type.
+                var layout = new Sts2Overlay.Resources.LocalLayout(local);
+                string catalogPath = layout.ManifestCatalog() ?? Path.Combine(repo, DataPackLoader.DefaultCatalogRelativePath);
+                var catalog = VisionCatalog.Load(catalogPath);
+                var report = new MemReport(Console.Out);
+                report.Header();
+                report.Row("before build");
+                using var sampler = new AllocSampler { Active = true };
+                var sw = Stopwatch.StartNew();
+                var db = CardArtDatabase.Build(layout.CardArtDir, catalog);
+                Console.WriteLine($"   ({db.Count} entries in {sw.ElapsedMilliseconds} ms)");
+                sampler.Active = false;
+                report.Row("after build");
+                Thread.Sleep(3000);
+                report.Row("after build + 3 s");
+                sampler.Print(Console.Out, 12);
+                GC.KeepAlive(db);
+                return 0;
+            }
             default:
                 Console.WriteLine("commands: steps | dump --out file | allocs");
                 return 1;

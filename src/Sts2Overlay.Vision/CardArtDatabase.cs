@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -119,7 +120,17 @@ public sealed class CardArtDatabase
     private static void Insert(List<ArtMatch> best, ArtMatch m, int k)
     {
         // Keep one entry per card id (art variants of the same card must not push other cards out).
-        int same = best.FindIndex(b => b.CardId == m.CardId);
+        // A plain loop, not FindIndex(b => b.CardId == m.CardId): that lambda captures m, so every call (once per database
+        // entry per scan, ~20k per 4K frame) allocated a closure and a delegate, about 3 MB of garbage per frame.
+        int same = -1;
+        for (int j = 0; j < best.Count; j++)
+        {
+            if (best[j].CardId == m.CardId)
+            {
+                same = j;
+                break;
+            }
+        }
         if (same >= 0)
         {
             if (best[same].Score >= m.Score) return;
@@ -145,10 +156,18 @@ public sealed class CardArtDatabase
         var entries = files.Select((f, i) => new ArtEntry(i, f.CardId, f.Pool, f.Character, f.RelativePath, f.IsBeta)).ToList();
         float[] full = new float[entries.Count * Ncc.FullLength];
         float[] coarse = new float[entries.Count * Ncc.CoarseLength];
-        Parallel.For(0, entries.Count, i =>
+        // Portraits are decoded into reused pixel buffers (ImageLoader.Load(path, ref buffer)), one per running worker: a
+        // fresh native bitmap plus a 3 MB managed copy per portrait made ~580 large-object allocations (2.3 GB in all),
+        // a dozen gen2 collections and ~200 MB of committed GC heap that stayed after the build. The worker count is capped
+        // for the same reason: every worker holds a 3 MB pixel buffer and a 4 MB integral table at once.
+        var options = new ParallelOptions { MaxDegreeOfParallelism = BuildWorkers };
+        var buffers = new ConcurrentBag<byte[]>();
+        Parallel.For(0, entries.Count, options, i =>
         {
-            ScreenFrame art = ImageLoader.Load(Path.Combine(artRoot, entries[i].ArtPath));
+            byte[]? pixels = buffers.TryTake(out byte[]? free) ? free : null;
+            ScreenFrame art = ImageLoader.Load(Path.Combine(artRoot, entries[i].ArtPath), ref pixels);
             ComputeArtVectors(art, full.AsSpan(i * Ncc.FullLength, Ncc.FullLength), coarse.AsSpan(i * Ncc.CoarseLength, Ncc.CoarseLength));
+            buffers.Add(pixels);
         });
         log?.Invoke($"art vectors: {entries.Count} entries in {sw.ElapsedMilliseconds} ms");
 
@@ -165,6 +184,12 @@ public sealed class CardArtDatabase
         log?.Invoke($"identical-art pairs (NCC >= {twinThreshold}): {twins.Count}");
         return new CardArtDatabase(entries, full, coarse, twins, Fingerprint(artRoot, files, catalog));
     }
+
+    /// <summary>
+    /// Parallel decoders of <see cref="Build"/>. Measured on 24 cores (tools/MemProbe builddb): 24 workers 1.1 s and ~214 MB
+    /// committed GC heap afterwards, 8 workers 2.4 s and ~78 MB, 4 workers 3.5 s and ~42 MB.
+    /// </summary>
+    private static readonly int BuildWorkers = Math.Clamp(Environment.ProcessorCount, 1, 8);
 
     /// <summary>Vectors of a full portrait image (the reference side of the comparison).</summary>
     public static void ComputeArtVectors(in ScreenFrame art, Span<float> full, Span<float> coarse)

@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Diagnostics;
 using System.Globalization;
 
@@ -105,6 +106,11 @@ public sealed class CardRecognizer
 {
     private readonly CardArtDatabase _db;
     private readonly bool[] _offerable;
+    /// <summary>
+    /// The candidate filter (offerable pools), created once: passing an instance method as a Func allocates a new
+    /// delegate at every call site, and the scans run thousands of times per frame.
+    /// </summary>
+    private readonly Func<ArtEntry, bool> _allowed;
     private readonly Lazy<TileMatcher> _blocks;
     private readonly Lazy<TileMatcher> _rows;
     private readonly ShopPriceReader? _priceReader;
@@ -123,6 +129,7 @@ public sealed class CardRecognizer
         _db = db;
         Options = options ?? new RecognizerOptions();
         _offerable = db.Entries.Select(e => Options.CandidatePools?.Contains(e.Pool) ?? true).ToArray();
+        _allowed = e => _offerable[e.Index];
         _blocks = new Lazy<TileMatcher>(() => new TileMatcher(db, TileGrid.Blocks));
         _rows = new Lazy<TileMatcher>(() => new TileMatcher(db, TileGrid.Rows));
         _priceReader = Options.Price is { } po ? new ShopPriceReader(options: po) : null;
@@ -379,7 +386,7 @@ public sealed class CardRecognizer
             {
                 if (s < minScale || s > maxScale) continue;
                 if (!ExtractAt(img, t, slot.CenterX, slot.CenterY, s, v)) continue;
-                ArtMatch[] top = _db.TopK(v, 1, Allowed);
+                ArtMatch[] top = _db.TopK(v, 1, _allowed);
                 if (top.Length > 0) best = Math.Max(best, top[0].Score);
             }
             sum += best;
@@ -388,8 +395,6 @@ public sealed class CardRecognizer
         }
         return new Presence(present, strong, layout.Length - present, sum);
     }
-
-    private bool Allowed(ArtEntry e) => _offerable[e.Index];
 
     /// <summary>
     /// Diagnostics (VisionBench probe): the best whole-art NCC of one card over a grid of boxes around (cx, cy, scale),
@@ -439,7 +444,7 @@ public sealed class CardRecognizer
         foreach (float s in (float[])[slot.SmallScale, slot.HoverScale])
         {
             if (!ExtractAt(img, t, slot.CenterX, slot.CenterY, s, coarse)) continue;
-            foreach (ArtMatch m in _db.TopK(coarse, Options.SearchCandidates, Allowed)) candidates.Add(m.EntryIndex);
+            foreach (ArtMatch m in _db.TopK(coarse, Options.SearchCandidates, _allowed)) candidates.Add(m.EntryIndex);
         }
         if (candidates.Count == 0) return Empty(t, slot);
         int[] cand = candidates.ToArray();
@@ -475,7 +480,7 @@ public sealed class CardRecognizer
             foreach (float s in (float[])[slot.SmallScale, slot.HoverScale])
                 for (float dy = -Options.WideSearchUp * 0.75f; dy < -1; dy += Options.WideSearchUp / 4)
                     if (ExtractAt(img, t, slot.CenterX, slot.CenterY + dy, s, coarse))
-                        foreach (ArtMatch m in _db.TopK(coarse, Options.SearchCandidates / 2, Allowed)) candidates.Add(m.EntryIndex);
+                        foreach (ArtMatch m in _db.TopK(coarse, Options.SearchCandidates / 2, _allowed)) candidates.Add(m.EntryIndex);
             cand = candidates.ToArray();
             foreach (float s in (float[])[slot.SmallScale, slot.HoverScale])
                 for (float dy = -Options.WideSearchUp; dy <= r + 1e-3f; dy += 4)
@@ -491,7 +496,7 @@ public sealed class CardRecognizer
                 for (float dy = -w / 2; dy <= w / 2 + 1e-3f; dy += w / 2)
                     for (float dx = -w / 2; dx <= w / 2 + 1e-3f; dx += w / 2)
                         if ((dx != 0 || dy != 0) && ExtractAt(img, t, slot.CenterX + dx, slot.CenterY + dy, s, coarse))
-                            foreach (ArtMatch m in _db.TopK(coarse, Options.SearchCandidates / 2, Allowed)) candidates.Add(m.EntryIndex);
+                            foreach (ArtMatch m in _db.TopK(coarse, Options.SearchCandidates / 2, _allowed)) candidates.Add(m.EntryIndex);
             cand = candidates.ToArray();
             foreach (float s in (float[])[slot.SmallScale, slot.HoverScale])
                 for (float dy = -w; dy <= w + 1e-3f; dy += 4)
@@ -511,7 +516,7 @@ public sealed class CardRecognizer
         float[] full = new float[Ncc.FullLength];
         if (!ExtractAt(img, t, bx, by, bs, full)) return Empty(t, slot);
         box = new SlotBox(full, bx, by, bs);
-        ArtMatch[] top = _db.TopK(full, 8, Allowed);
+        ArtMatch[] top = _db.TopK(full, 8, _allowed);
         if (top.Length == 0) return Empty(t, slot);
 
         (ArtMatch pick, string? ambiguous) = Decide(top, hints);
@@ -617,8 +622,8 @@ public sealed class CardRecognizer
 
         // Candidates for the refinement: what the whole-art scan and both partial scans at the first box suggest.
         string[] firstTop = c.Candidates.Select(m => m.CardId).ToArray();
-        PartialMatch? firstBlocks = EvaluatePartial(box.Full, firstTop, _blocks.Value, Options.BlockStage, Allowed, hints, out ArtMatch[] r1, out _);
-        PartialMatch? firstRows = EvaluatePartial(box.Full, firstTop, _rows.Value, Options.RowStage, Allowed, hints, out ArtMatch[] r2, out _);
+        PartialMatch? firstBlocks = EvaluatePartial(box.Full, firstTop, _blocks.Value, Options.BlockStage, _allowed, hints, out ArtMatch[] r1, out _);
+        PartialMatch? firstRows = EvaluatePartial(box.Full, firstTop, _rows.Value, Options.RowStage, _allowed, hints, out ArtMatch[] r2, out _);
         PartialMatch? firstBest = firstBlocks ?? firstRows;
         int[] cand = c.Candidates.Take(3).Concat(r1.Take(3)).Concat(r2.Take(3)).Select(m => m.EntryIndex).Distinct().ToArray();
         if (cand.Length == 0) return firstBest == null ? c : c with { Partial = firstBest };
@@ -715,7 +720,7 @@ public sealed class CardRecognizer
     private Func<ArtEntry, bool> StageFilter(PartialStage stage, RecognitionHints? hints)
     {
         string? pool = stage.HintedPoolOnly && hints?.CharacterId is { } ch ? VisionCatalog.PoolOfCharacter(ch) : null;
-        if (pool == null) return Allowed;
+        if (pool == null) return _allowed;
         return e => _offerable[e.Index] && (e.Pool == pool || e.Pool == VisionCatalog.ColorlessPool);
     }
 
@@ -723,7 +728,7 @@ public sealed class CardRecognizer
     private (PartialMatch?, ArtMatch[], string?) DecideCovered(float[] full, RecognitionHints? hints)
     {
         // The whole-art ranking at this box (for the agreement condition of the block stage).
-        string[] wholeTop = _db.TopK(full, 8, Allowed).Select(m => m.CardId).ToArray();
+        string[] wholeTop = _db.TopK(full, 8, _allowed).Select(m => m.CardId).ToArray();
         PartialMatch? blocks = EvaluatePartial(full, wholeTop, _blocks.Value, Options.BlockStage, StageFilter(Options.BlockStage, hints), hints,
             out ArtMatch[] ranking, out string? ambiguous);
         if (blocks?.Accepted == true) return (blocks, ranking, ambiguous);
@@ -801,15 +806,25 @@ public static class UpgradeDetector
         // About one sample per table cell: thin glyph strokes must not be averaged away.
         int gw = Math.Clamp((int)(title.Width / img.Step), 8, 400);
         int gh = Math.Clamp((int)(title.Height / img.Step), 4, 120);
-        float[] rgb = new float[gw * gh * 3];
-        img.SampleGrid(title, gw, gh, rgb);
-        int green = 0, slate = 0;
-        for (int i = 0; i < rgb.Length; i += 3)
+        // Pooled: at 4K the grid is ~220x40 cells (100+ KB of floats, i.e. a large-object-heap array) and this runs several
+        // times per slot. SampleGrid writes every value of the span, so leftovers in the rented array never show.
+        float[] rented = ArrayPool<float>.Shared.Rent(gw * gh * 3);
+        try
         {
-            if (IsUpgradeGreen(rgb[i], rgb[i + 1], rgb[i + 2])) green++;
-            else if (IsTooltipSlate(rgb[i], rgb[i + 1], rgb[i + 2])) slate++;
+            Span<float> rgb = rented.AsSpan(0, gw * gh * 3);
+            img.SampleGrid(title, gw, gh, rgb);
+            int green = 0, slate = 0;
+            for (int i = 0; i < rgb.Length; i += 3)
+            {
+                if (IsUpgradeGreen(rgb[i], rgb[i + 1], rgb[i + 2])) green++;
+                else if (IsTooltipSlate(rgb[i], rgb[i + 1], rgb[i + 2])) slate++;
+            }
+            return (green / (float)(gw * gh), slate / (float)(gw * gh));
         }
-        return (green / (float)(gw * gh), slate / (float)(gw * gh));
+        finally
+        {
+            ArrayPool<float>.Shared.Return(rented);
+        }
     }
 }
 

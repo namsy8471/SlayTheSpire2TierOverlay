@@ -241,9 +241,30 @@ public sealed class ShopPriceReader
         int gw = pr.Width / step, gh = pr.Height / step;
         if (gw < 8 || gh < 8) return null;
 
+        // Scratch grids from the pool: at 4K the coverage grid alone is ~50k floats (a large-object-heap array), and a
+        // shop frame reads up to ~20 labels. Exact-length spans keep the bounds checks of the old per-call arrays.
+        int n = gw * gh;
+        float[] coverArray = System.Buffers.ArrayPool<float>.Shared.Rent(n * Channels), textArray = System.Buffers.ArrayPool<float>.Shared.Rent(n);
+        int[] labelArray = System.Buffers.ArrayPool<int>.Shared.Rent(n);
+        try
+        {
+            return Segment(frame, cx, cy, scale, trace, t, pr, step, gw, gh,
+                coverArray.AsSpan(0, n * Channels), textArray.AsSpan(0, n), labelArray.AsSpan(0, n));
+        }
+        finally
+        {
+            System.Buffers.ArrayPool<float>.Shared.Return(coverArray);
+            System.Buffers.ArrayPool<float>.Shared.Return(textArray);
+            System.Buffers.ArrayPool<int>.Shared.Return(labelArray);
+        }
+    }
+
+    private static DigitRow? Segment(in ScreenFrame frame, float cx, float cy, float scale, Action<string>? trace, RefTransform t, PixelRect pr,
+        int step, int gw, int gh, Span<float> cover, Span<float> text, Span<int> label)
+    {
         // (1) colour coverage per cell, per class
         int n = gw * gh;
-        float[] cover = new float[n * Channels];
+        cover.Clear(); // rented: start from zero like a new array (the loop below adds up)
         ReadOnlySpan<byte> px = frame.Bgra.Span;
         float w1 = 1f / (step * step);
         for (int gy = 0; gy < gh; gy++)
@@ -258,11 +279,10 @@ public sealed class ShopPriceReader
                         if (c >= 0) cover[(gy * gw + gx) * Channels + c] += w1;
                     }
             }
-        float[] text = new float[n];
         for (int i = 0; i < n; i++) text[i] = cover[i * Channels + Cream] + cover[i * Channels + Red] + cover[i * Channels + Green];
 
         // (2) 8-connected components of text >= 0.5
-        int[] label = new int[n];
+        label.Clear();
         var comps = new List<Comp>();
         var stack = new Stack<int>();
         for (int i = 0; i < n; i++)
@@ -276,7 +296,7 @@ public sealed class ShopPriceReader
             {
                 int j = stack.Pop();
                 int x = j % gw, y = j / gw;
-                comp.Add(x, y, cover.AsSpan(j * Channels, 3));
+                comp.Add(x, y, cover.Slice(j * Channels, 3));
                 for (int dy = -1; dy <= 1; dy++)
                     for (int dx = -1; dx <= 1; dx++)
                     {
@@ -356,7 +376,7 @@ public sealed class ShopPriceReader
                     for (int x = cuts[j]; x < cuts[j + 1]; x++)
                     {
                         int idx = y * gw + x;
-                        if (label[idx] != 0 && Find(label[idx]) == c.Root) part.Add(x, y, cover.AsSpan(idx * Channels, 3));
+                        if (label[idx] != 0 && Find(label[idx]) == c.Root) part.Add(x, y, cover.Slice(idx * Channels, 3));
                     }
                 if (part.Area > 0) pieces.Add(part);
             }
