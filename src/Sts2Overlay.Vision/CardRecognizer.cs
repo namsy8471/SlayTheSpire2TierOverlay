@@ -198,7 +198,7 @@ public sealed class CardRecognizer
     {
         // Band covering portrait + title of every possible slot (cards at scale <= 1.04 plus the search radius).
         // The choose-a-card row (centre y 600) fits in the same band as the reward row (616).
-        using IntegralImage img = IntegralImage.Build(frame, t.ToPixelRect(new RectF(80, 380, 1760, 285)), step);
+        using IntegralImage img = IntegralImage.Build(frame, t.ToPixelRect(new RectF(80, 380, 1760, 285)), step, VisionScratch.Tables);
 
         // Both screens share the banner, so every row hypothesis is scored and the best one wins (see Better): most
         // slots with a clear card, then the fewest empty slots (a 3-card row also fills 3 of the 5 slots of a 5-card
@@ -308,7 +308,7 @@ public sealed class CardRecognizer
     {
         // Band: titles of the top row of a tall grid (y 328.8 - 204 = 125) down to the art bottom of its second row
         // (706.4 + 22 = 728), plus the search radius and the hover lift; x covers the five columns (375..1495 +- 150).
-        using IntegralImage img = IntegralImage.Build(frame, t.ToPixelRect(new RectF(215, 70, 1440, 680)), step);
+        using IntegralImage img = IntegralImage.Build(frame, t.ToPixelRect(new RectF(215, 70, 1440, 680)), step, VisionScratch.Tables);
         SlotLayout[]? chosen = null;
         Presence best = default;
         foreach (bool twoRows in (bool[])[false, true])
@@ -332,8 +332,8 @@ public sealed class CardRecognizer
     private List<RecognizedCard> RecognizeShop(in ScreenFrame frame, RefTransform t, int step, RecognitionHints? hints)
     {
         // Two bands: the character-card row (centre y 383) and the colourless row (centre y 756).
-        using IntegralImage top = IntegralImage.Build(frame, t.ToPixelRect(new RectF(285, 190, 1355, 235)), step);
-        using IntegralImage bottom = IntegralImage.Build(frame, t.ToPixelRect(new RectF(375, 563, 535, 235)), step);
+        using IntegralImage top = IntegralImage.Build(frame, t.ToPixelRect(new RectF(285, 190, 1355, 235)), step, VisionScratch.Tables);
+        using IntegralImage bottom = IntegralImage.Build(frame, t.ToPixelRect(new RectF(375, 563, 535, 235)), step, VisionScratch.Tables);
         SlotLayout[] slots = ScreenLayouts.Shop();
         var cards = new RecognizedCard[slots.Length];
         var boxes = new SlotBox[slots.Length];

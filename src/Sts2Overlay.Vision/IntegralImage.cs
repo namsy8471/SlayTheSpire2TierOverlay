@@ -22,11 +22,13 @@ namespace Sts2Overlay.Vision;
 /// frame, so cells are ~1 reference pixel). That halves the table in each direction (4x less memory and
 /// cache traffic) without losing anything we use: card thumbnails are 48x36.</para>
 ///
-/// Memory comes from <see cref="ArrayPool{T}"/> so polling several frames per second does not churn the GC.
+/// Memory comes from a pool so polling several frames per second does not churn the GC: the per-frame recognisers pass
+/// <see cref="VisionScratch.Tables"/> (exact sizes, two tables kept), others get <see cref="ArrayPool{T}.Shared"/>.
 /// </summary>
 internal sealed class IntegralImage : IDisposable
 {
     private int[]? _sat;
+    private readonly ScratchPool<int>? _pool;
     private readonly int _rowLen; // ints per table row = (Width + 1) * 3
 
     /// <summary>Number of cells horizontally/vertically.</summary>
@@ -40,9 +42,10 @@ internal sealed class IntegralImage : IDisposable
     public int OriginX { get; }
     public int OriginY { get; }
 
-    private IntegralImage(int[] sat, int width, int height, int step, int originX, int originY)
+    private IntegralImage(int[] sat, ScratchPool<int>? pool, int width, int height, int step, int originX, int originY)
     {
         _sat = sat;
+        _pool = pool;
         Width = width;
         Height = height;
         Step = step;
@@ -53,12 +56,19 @@ internal sealed class IntegralImage : IDisposable
 
     public void Dispose()
     {
-        if (_sat is { } a) ArrayPool<int>.Shared.Return(a);
+        if (_sat is { } a)
+        {
+            if (_pool is not null) _pool.Return(a);
+            else ArrayPool<int>.Shared.Return(a);
+        }
         _sat = null;
     }
 
-    /// <summary>Builds the table for <paramref name="region"/> (frame pixels, clipped to the frame).</summary>
-    public static IntegralImage Build(in ScreenFrame frame, PixelRect region, int step)
+    /// <summary>
+    /// Builds the table for <paramref name="region"/> (frame pixels, clipped to the frame). <paramref name="pool"/> is
+    /// where the table memory comes from; null = <see cref="ArrayPool{T}.Shared"/> (the art database build).
+    /// </summary>
+    public static IntegralImage Build(in ScreenFrame frame, PixelRect region, int step, ScratchPool<int>? pool = null)
     {
         step = Math.Max(1, step);
         region = region.Intersect(frame.Width, frame.Height);
@@ -67,7 +77,8 @@ internal sealed class IntegralImage : IDisposable
             throw new ArgumentException($"Region {region} is too large for an int summed-area table.");
         int w = region.Width / step, h = region.Height / step;
         int rowLen = (w + 1) * 3;
-        int[] sat = ArrayPool<int>.Shared.Rent(Math.Max(1, rowLen * (h + 1)));
+        int length = Math.Max(1, rowLen * (h + 1));
+        int[] sat = pool?.Rent(length) ?? ArrayPool<int>.Shared.Rent(length);
         Array.Clear(sat, 0, rowLen); // row 0 is all zeros (sum over nothing)
 
         // A 2-D prefix sum is separable: (1) prefix-sum every row on its own, (2) add each row to the one below.
@@ -131,7 +142,7 @@ internal sealed class IntegralImage : IDisposable
             for (int i = 0; i < vc.Length; i++) vc[i] += va[i];
             for (int i = vc.Length * Vector<int>.Count; i < rowLen; i++) cur[i] += above[i];
         }
-        return new IntegralImage(sat, w, h, step, region.X, region.Y);
+        return new IntegralImage(sat, pool, w, h, step, region.X, region.Y);
     }
 
     /// <summary>Frame pixel → cell coordinate.</summary>

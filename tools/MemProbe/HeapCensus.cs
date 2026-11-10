@@ -91,6 +91,8 @@ internal static class HeapCensus
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
             $"   --- raw (no GC) '{label}': private {p.PrivateMemorySize64 / 1048576.0:F1} MB, managed {GC.GetTotalMemory(false) / 1048576.0:F1} MB, " +
             $"gen0/1/2 so far {GC.CollectionCount(0)}/{GC.CollectionCount(1)}/{GC.CollectionCount(2)}"));
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+            $"   --- recogniser scratch pools (VisionScratch) hold {VisionScratch.HeldBytes / 1048576.0:F2} MB"));
         var pooled = PoolCensus.Collect();
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
             $"   --- ArrayPool.Shared holds {pooled.Count} arrays, {pooled.Sum(x => (double)x.Bytes) / 1048576.0:F2} MB (>= {min:N0} B: {pooled.Where(x => x.Bytes >= min).Sum(x => (double)x.Bytes) / 1048576.0:F2} MB)"));
