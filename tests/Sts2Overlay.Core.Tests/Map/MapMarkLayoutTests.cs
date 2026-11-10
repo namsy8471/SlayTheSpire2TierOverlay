@@ -1,3 +1,4 @@
+using Sts2Overlay.Core.Localization;
 using Sts2Overlay.Core.Map;
 using Xunit;
 
@@ -109,6 +110,55 @@ public class MapMarkLayoutTests
         Assert.Equal(MapNodeMarkKind.Partner, tag.Kind);
         Assert.Equal(vote, tag.Coord);
         Assert.Equal("동료 ×2", tag.Caption);
+    }
+
+    [Theory]
+    [InlineData(Lang.Kor, "내 투표", "동료")]
+    [InlineData(Lang.Eng, "My vote", "Ally")]
+    public void My_vote_gets_its_own_tag_and_the_recommendation_still_starts_from_where_we_are(Lang lang, string mine, string ally)
+    {
+        using var _ = Loc.Use(lang);
+        var (map, layout, rec) = Setup();
+        // Co-op: I voted for a next-row node other than the recommended one, the partner for yet another (if any).
+        var choices = rec.NextSteps.Select(s => s.Coord).ToList();
+        Assert.True(choices.Count >= 3, "the stand-in map offers three first steps");
+        MapCoord myVote = choices[1], partnerVote = choices[2]; // neither is the recommended one (choices[0])
+        var plan = MapMarkLayout.Build(map, layout, 50, rec, [partnerVote], null, myVote);
+
+        var tag = Assert.Single(plan.Nodes, n => n.Kind == MapNodeMarkKind.MyVote);
+        Assert.Equal((myVote, mine), (tag.Coord, tag.Caption));
+        Assert.Equal((layout.Centers[myVote].X, layout.Centers[myVote].Y + 50), (tag.X, tag.Y));
+        var partner = Assert.Single(plan.Nodes, n => n.Kind == MapNodeMarkKind.Partner);
+        Assert.Equal((partnerVote, ally), (partner.Coord, partner.Caption));
+
+        // The votes change nothing else: the path still starts from the real current node and "추천!" stays on.
+        Assert.Equal(map.Current ?? map.Start, rec.Origin);
+        Assert.Equal(MapMarkLayout.Build(map, layout, 50, rec, [], null).Lines, plan.Lines);
+        Assert.Equal(rec.NextStep, Assert.Single(plan.Nodes, n => n.Kind == MapNodeMarkKind.Recommended).Coord);
+    }
+
+    [Theory]
+    [InlineData(Lang.Kor, "투표 일치")]
+    [InlineData(Lang.Eng, "Both voted")]
+    public void Same_vote_as_the_partner_is_one_combined_tag(Lang lang, string caption)
+    {
+        using var _ = Loc.Use(lang);
+        var (map, layout, rec) = Setup();
+        var vote = rec.NextStep!.Value;
+        var plan = MapMarkLayout.Build(map, layout, 50, rec, [vote], null, vote);
+
+        var tag = Assert.Single(plan.Nodes, n => n.Coord == vote && n.Kind is MapNodeMarkKind.BothVoted or MapNodeMarkKind.MyVote or MapNodeMarkKind.Partner);
+        Assert.Equal((MapNodeMarkKind.BothVoted, caption), (tag.Kind, tag.Caption));
+        Assert.Contains(plan.Nodes, n => n.Kind == MapNodeMarkKind.Recommended && n.Coord == vote);
+    }
+
+    [Fact]
+    public void No_vote_of_mine_draws_no_my_vote_tag()
+    {
+        var (map, layout, rec) = Setup();
+        var plan = MapMarkLayout.Build(map, layout, 50, rec, [rec.NextStep!.Value], null);
+        Assert.DoesNotContain(plan.Nodes, n => n.Kind is MapNodeMarkKind.MyVote or MapNodeMarkKind.BothVoted);
+        Assert.Single(plan.Nodes, n => n.Kind == MapNodeMarkKind.Partner);
     }
 
     [Fact]

@@ -49,6 +49,9 @@ public sealed record GameStateSnapshot(
     /// <summary>Co-op: the nodes the other players currently vote for on this act's map (empty in single player).</summary>
     public IReadOnlyList<MapCoord> PartnerVotes { get; init; } = [];
 
+    /// <summary>Co-op: the node I currently vote for (only a vote: <see cref="Map"/>'s Current has not moved). Null in single player.</summary>
+    public MapCoord? MyVote { get; init; }
+
     /// <summary>What the next "?" room turns into, from the save's run odds. Null when unknown (log-only run).</summary>
     public UnknownRoomOdds? UnknownOdds { get; init; }
 }

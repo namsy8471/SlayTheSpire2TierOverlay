@@ -182,6 +182,13 @@ public sealed record TrackedRun
     /// </summary>
     public IReadOnlyList<PartnerVote> PartnerVotes { get; init; } = [];
 
+    /// <summary>
+    /// Co-op: the node I currently vote for on this act's map. Only a vote: <see cref="Map"/>'s <c>Current</c> stays
+    /// where the party is until the room-entry save (the game draws between differing votes). Null in single player,
+    /// where a vote is the move itself and moves <c>Current</c> right away, and right after entering a room.
+    /// </summary>
+    public MapCoord? MyVote { get; init; }
+
     public string? Seed { get; init; }
     public RunOutcome Outcome { get; init; }
 

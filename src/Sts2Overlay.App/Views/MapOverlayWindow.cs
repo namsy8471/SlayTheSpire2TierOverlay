@@ -186,6 +186,16 @@ public sealed class MapOverlayWindow : Window, IHoverYield
                     r.StrokeDashArray = [2.5, 1.5];
                     LabelRightAligned(n.Caption ?? ViewModels.UiText.Instance.Teammate, n.X - 44 * m, n.Y, 15 * m, PartnerDark, Partner);
                     break;
+                case MapNodeMarkKind.MyVote:
+                    // Same dashed ring as a partner's vote; the tag is inverted (dark chip, blue text) to tell them apart.
+                    var mine = Ring(n.X, n.Y, 36 * m, Partner, 3.5 * m);
+                    mine.StrokeDashArray = [2.5, 1.5];
+                    LabelRightAligned(n.Caption ?? "", n.X - 44 * m, n.Y, 15 * m, Partner, ChipBack);
+                    break;
+                case MapNodeMarkKind.BothVoted:
+                    Ring(n.X, n.Y, 36 * m, Partner, 5 * m); // solid: the votes agree
+                    LabelRightAligned(n.Caption ?? "", n.X - 44 * m, n.Y, 15 * m, PartnerDark, Partner);
+                    break;
             }
         }
 

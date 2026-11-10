@@ -116,9 +116,10 @@ public sealed partial class AppController
             _mapLayer.Clear();
             return;
         }
-        // The recommendation must start where the map says we are (it lags a save behind right after a move).
+        // The recommendation must start where the map says we are (it lags a save behind right after a move). In co-op my
+        // own vote does not move "Current" (only the room-entry save does), so "추천!" stays up while the votes are open.
         var rec = _mapRec is { } r && r.Origin == (t.Map.Current ?? t.Map.Start) ? r : null;
-        _mapLayer.ShowPlan(MapMarkLayout.Build(t.Map, t.Layout, s.Scroll, rec, _snapshot.PartnerVotes, _snapshot.UnknownOdds));
+        _mapLayer.ShowPlan(MapMarkLayout.Build(t.Map, t.Layout, s.Scroll, rec, _snapshot.PartnerVotes, _snapshot.UnknownOdds, _snapshot.MyVote));
     }
 
     /// <summary>Capture rate the map needs: fast while it is open (or about to be), else 0.</summary>
