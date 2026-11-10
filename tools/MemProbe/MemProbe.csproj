@@ -25,4 +25,9 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Sts2Overlay.App\Sts2Overlay.App.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- ClrMD: `heap` snapshots this process and lists the big arrays with their holders (HeapCensus.cs). -->
+    <PackageReference Include="Microsoft.Diagnostics.Runtime" Version="3.1.512801" />
+  </ItemGroup>
 </Project>

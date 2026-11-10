@@ -22,6 +22,9 @@ namespace MemProbe;
 //       per-frame recognition times go to --times (they differ run to run, the output must not)
 //   MemProbe allocs [--frames 60] [--upscale 2]
 //       managed bytes allocated per frame by each per-frame vision stage, and by type (GC allocation ticks)
+//   MemProbe heap [--frames 60] [--upscale 2] [--idle 0,30] [--min 65536] [--threads 1]
+//       what stays alive between frames: every big array and its holder (ClrMD snapshot of this process), ArrayPool.Shared
+//       contents, after recognising and after idle waits (HeapCensus.cs)
 //
 // --local: the generated data folder (card art, localization, catalog, test-captures). Default: the nearest data/local
 // above this checkout (a clone under .worktrees\ uses the main checkout's). It is only READ: the art cache is copied to
@@ -44,6 +47,8 @@ internal static class Program
                 return Dump(local, opts);
             case "allocs":
                 return Allocs(local, opts);
+            case "heap":
+                return HeapCensus.Run(local, opts);
             case "builddb":
             {
                 // The art database build alone (what a cache miss costs at start), with allocations by type.

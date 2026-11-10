@@ -1,4 +1,3 @@
-using System.Buffers;
 using System.Diagnostics;
 using System.Globalization;
 
@@ -199,7 +198,7 @@ public sealed class CardRecognizer
     {
         // Band covering portrait + title of every possible slot (cards at scale <= 1.04 plus the search radius).
         // The choose-a-card row (centre y 600) fits in the same band as the reward row (616).
-        using IntegralImage img = IntegralImage.Build(frame, t.ToPixelRect(new RectF(80, 380, 1760, 285)), step);
+        using IntegralImage img = IntegralImage.Build(frame, t.ToPixelRect(new RectF(80, 380, 1760, 285)), step, VisionScratch.Tables);
 
         // Both screens share the banner, so every row hypothesis is scored and the best one wins (see Better): most
         // slots with a clear card, then the fewest empty slots (a 3-card row also fills 3 of the 5 slots of a 5-card
@@ -309,7 +308,7 @@ public sealed class CardRecognizer
     {
         // Band: titles of the top row of a tall grid (y 328.8 - 204 = 125) down to the art bottom of its second row
         // (706.4 + 22 = 728), plus the search radius and the hover lift; x covers the five columns (375..1495 +- 150).
-        using IntegralImage img = IntegralImage.Build(frame, t.ToPixelRect(new RectF(215, 70, 1440, 680)), step);
+        using IntegralImage img = IntegralImage.Build(frame, t.ToPixelRect(new RectF(215, 70, 1440, 680)), step, VisionScratch.Tables);
         SlotLayout[]? chosen = null;
         Presence best = default;
         foreach (bool twoRows in (bool[])[false, true])
@@ -333,8 +332,8 @@ public sealed class CardRecognizer
     private List<RecognizedCard> RecognizeShop(in ScreenFrame frame, RefTransform t, int step, RecognitionHints? hints)
     {
         // Two bands: the character-card row (centre y 383) and the colourless row (centre y 756).
-        using IntegralImage top = IntegralImage.Build(frame, t.ToPixelRect(new RectF(285, 190, 1355, 235)), step);
-        using IntegralImage bottom = IntegralImage.Build(frame, t.ToPixelRect(new RectF(375, 563, 535, 235)), step);
+        using IntegralImage top = IntegralImage.Build(frame, t.ToPixelRect(new RectF(285, 190, 1355, 235)), step, VisionScratch.Tables);
+        using IntegralImage bottom = IntegralImage.Build(frame, t.ToPixelRect(new RectF(375, 563, 535, 235)), step, VisionScratch.Tables);
         SlotLayout[] slots = ScreenLayouts.Shop();
         var cards = new RecognizedCard[slots.Length];
         var boxes = new SlotBox[slots.Length];
@@ -806,24 +805,26 @@ public static class UpgradeDetector
         // About one sample per table cell: thin glyph strokes must not be averaged away.
         int gw = Math.Clamp((int)(title.Width / img.Step), 8, 400);
         int gh = Math.Clamp((int)(title.Height / img.Step), 4, 120);
-        // Pooled: at 4K the grid is ~220x40 cells (100+ KB of floats, i.e. a large-object-heap array) and this runs several
-        // times per slot. SampleGrid writes every value of the span, so leftovers in the rented array never show.
-        float[] rented = ArrayPool<float>.Shared.Rent(gw * gh * 3);
-        try
+        // At 4K the grid is ~220x40 cells and this runs several times per slot. Each cell is only counted, so the grid is
+        // sampled one row at a time into a stack buffer (gw <= 400: at most 4.8 KB) instead of a whole-grid array (100+ KB,
+        // a large-object-heap array that every Parallel.For worker kept a pooled copy of).
+        Span<float> row = stackalloc float[gw * 3];
+        var counts = new TitleCounts();
+        img.SampleGridRows(title, gw, gh, row, ref counts);
+        return (counts.Green / (float)(gw * gh), counts.Slate / (float)(gw * gh));
+    }
+
+    private struct TitleCounts : IntegralImage.IRowSink
+    {
+        public int Green, Slate;
+
+        public void Row(ReadOnlySpan<float> rgb)
         {
-            Span<float> rgb = rented.AsSpan(0, gw * gh * 3);
-            img.SampleGrid(title, gw, gh, rgb);
-            int green = 0, slate = 0;
             for (int i = 0; i < rgb.Length; i += 3)
             {
-                if (IsUpgradeGreen(rgb[i], rgb[i + 1], rgb[i + 2])) green++;
-                else if (IsTooltipSlate(rgb[i], rgb[i + 1], rgb[i + 2])) slate++;
+                if (IsUpgradeGreen(rgb[i], rgb[i + 1], rgb[i + 2])) Green++;
+                else if (IsTooltipSlate(rgb[i], rgb[i + 1], rgb[i + 2])) Slate++;
             }
-            return (green / (float)(gw * gh), slate / (float)(gw * gh));
-        }
-        finally
-        {
-            ArrayPool<float>.Shared.Return(rented);
         }
     }
 }

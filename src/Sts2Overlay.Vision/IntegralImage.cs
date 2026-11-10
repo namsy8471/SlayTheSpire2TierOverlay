@@ -22,11 +22,13 @@ namespace Sts2Overlay.Vision;
 /// frame, so cells are ~1 reference pixel). That halves the table in each direction (4x less memory and
 /// cache traffic) without losing anything we use: card thumbnails are 48x36.</para>
 ///
-/// Memory comes from <see cref="ArrayPool{T}"/> so polling several frames per second does not churn the GC.
+/// Memory comes from a pool so polling several frames per second does not churn the GC: the per-frame recognisers pass
+/// <see cref="VisionScratch.Tables"/> (exact sizes, two tables kept), others get <see cref="ArrayPool{T}.Shared"/>.
 /// </summary>
 internal sealed class IntegralImage : IDisposable
 {
     private int[]? _sat;
+    private readonly ScratchPool<int>? _pool;
     private readonly int _rowLen; // ints per table row = (Width + 1) * 3
 
     /// <summary>Number of cells horizontally/vertically.</summary>
@@ -40,9 +42,10 @@ internal sealed class IntegralImage : IDisposable
     public int OriginX { get; }
     public int OriginY { get; }
 
-    private IntegralImage(int[] sat, int width, int height, int step, int originX, int originY)
+    private IntegralImage(int[] sat, ScratchPool<int>? pool, int width, int height, int step, int originX, int originY)
     {
         _sat = sat;
+        _pool = pool;
         Width = width;
         Height = height;
         Step = step;
@@ -53,12 +56,19 @@ internal sealed class IntegralImage : IDisposable
 
     public void Dispose()
     {
-        if (_sat is { } a) ArrayPool<int>.Shared.Return(a);
+        if (_sat is { } a)
+        {
+            if (_pool is not null) _pool.Return(a);
+            else ArrayPool<int>.Shared.Return(a);
+        }
         _sat = null;
     }
 
-    /// <summary>Builds the table for <paramref name="region"/> (frame pixels, clipped to the frame).</summary>
-    public static IntegralImage Build(in ScreenFrame frame, PixelRect region, int step)
+    /// <summary>
+    /// Builds the table for <paramref name="region"/> (frame pixels, clipped to the frame). <paramref name="pool"/> is
+    /// where the table memory comes from; null = <see cref="ArrayPool{T}.Shared"/> (the art database build).
+    /// </summary>
+    public static IntegralImage Build(in ScreenFrame frame, PixelRect region, int step, ScratchPool<int>? pool = null)
     {
         step = Math.Max(1, step);
         region = region.Intersect(frame.Width, frame.Height);
@@ -67,7 +77,8 @@ internal sealed class IntegralImage : IDisposable
             throw new ArgumentException($"Region {region} is too large for an int summed-area table.");
         int w = region.Width / step, h = region.Height / step;
         int rowLen = (w + 1) * 3;
-        int[] sat = ArrayPool<int>.Shared.Rent(Math.Max(1, rowLen * (h + 1)));
+        int length = Math.Max(1, rowLen * (h + 1));
+        int[] sat = pool?.Rent(length) ?? ArrayPool<int>.Shared.Rent(length);
         Array.Clear(sat, 0, rowLen); // row 0 is all zeros (sum over nothing)
 
         // A 2-D prefix sum is separable: (1) prefix-sum every row on its own, (2) add each row to the one below.
@@ -131,7 +142,7 @@ internal sealed class IntegralImage : IDisposable
             for (int i = 0; i < vc.Length; i++) vc[i] += va[i];
             for (int i = vc.Length * Vector<int>.Count; i < rowLen; i++) cur[i] += above[i];
         }
-        return new IntegralImage(sat, w, h, step, region.X, region.Y);
+        return new IntegralImage(sat, pool, w, h, step, region.X, region.Y);
     }
 
     /// <summary>Frame pixel → cell coordinate.</summary>
@@ -162,37 +173,70 @@ internal sealed class IntegralImage : IDisposable
     /// </summary>
     public void SampleGrid(RectF frameBox, int gw, int gh, Span<float> dst)
     {
-        int gx = gw + 1, gy = gh + 1;
-        double[] grid = ArrayPool<double>.Shared.Rent(gx * gy * 3);
-        try
+        var none = new NoRows();
+        SampleRows(frameBox, gw, gh, dst, wholeGrid: true, ref none);
+    }
+
+    /// <summary>Receives a grid one output row at a time (gw cells, interleaved R,G,B), top to bottom.</summary>
+    internal interface IRowSink
+    {
+        void Row(ReadOnlySpan<float> rgb);
+    }
+
+    private struct NoRows : IRowSink
+    {
+        public readonly void Row(ReadOnlySpan<float> rgb)
         {
-            double x0 = ToCellX(frameBox.X), y0 = ToCellY(frameBox.Y);
-            double cw = frameBox.Width / Step / gw, ch = frameBox.Height / Step / gh;
-            for (int j = 0; j < gy; j++)
-            {
-                double y = y0 + j * ch;
-                for (int i = 0; i < gx; i++)
-                {
-                    int o = (j * gx + i) * 3;
-                    Sample(x0 + i * cw, y, out grid[o], out grid[o + 1], out grid[o + 2]);
-                }
-            }
-            // Cell sums cover Step*Step source pixels each, so divide by that too to get a per-pixel mean.
-            double inv = cw * ch > 1e-9 ? 1.0 / (cw * ch * Step * Step) : 0;
-            for (int j = 0; j < gh; j++)
-            {
-                for (int i = 0; i < gw; i++)
-                {
-                    int a = (j * gx + i) * 3, b = a + 3, c = a + gx * 3, d = c + 3;
-                    int o = (j * gw + i) * 3;
-                    for (int k = 0; k < 3; k++)
-                        dst[o + k] = (float)((grid[d + k] - grid[b + k] - grid[c + k] + grid[a + k]) * inv);
-                }
-            }
         }
-        finally
+    }
+
+    /// <summary>
+    /// <see cref="SampleGrid"/> for a caller that only looks at each row once (the upgrade-green title count): the row
+    /// lands in <paramref name="row"/> (length gw*3), is handed to <paramref name="sink"/>, then overwritten by the next.
+    /// The values are exactly those SampleGrid writes, without a gw x gh buffer.
+    /// </summary>
+    internal void SampleGridRows<TSink>(RectF frameBox, int gw, int gh, Span<float> row, ref TSink sink) where TSink : struct, IRowSink
+        => SampleRows(frameBox, gw, gh, row, wholeGrid: false, ref sink);
+
+    /// <summary>Rows of S at grid points: a cell row needs only the grid row above and below it, so two are kept.</summary>
+    private const int StackRowDoubles = 1536;
+
+    private void SampleRows<TSink>(RectF frameBox, int gw, int gh, Span<float> dst, bool wholeGrid, ref TSink sink) where TSink : struct, IRowSink
+    {
+        int gx = gw + 1, rowLen = gx * 3;
+        // Two grid rows (title boxes at 4K: ~2 x 700 doubles) on the stack, instead of the whole (gw+1) x (gh+1) grid in a
+        // pooled array (every Parallel.For worker kept its own copy of each size class).
+        Span<double> rows = rowLen <= StackRowDoubles ? stackalloc double[2 * rowLen] : new double[2 * rowLen];
+        Span<double> above = rows[..rowLen], below = rows[rowLen..];
+        double x0 = ToCellX(frameBox.X), y0 = ToCellY(frameBox.Y);
+        double cw = frameBox.Width / Step / gw, ch = frameBox.Height / Step / gh;
+        // Cell sums cover Step*Step source pixels each, so divide by that too to get a per-pixel mean.
+        double inv = cw * ch > 1e-9 ? 1.0 / (cw * ch * Step * Step) : 0;
+        SampleGridRow(x0, cw, y0 + 0 * ch, gx, above);
+        for (int j = 0; j < gh; j++)
         {
-            ArrayPool<double>.Shared.Return(grid);
+            SampleGridRow(x0, cw, y0 + (j + 1) * ch, gx, below);
+            Span<float> o = wholeGrid ? dst.Slice(j * gw * 3, gw * 3) : dst[..(gw * 3)];
+            for (int i = 0; i < gw; i++)
+            {
+                // Cell (i, j): corners a = above[i], b = above[i + 1], c = below[i], d = below[i + 1].
+                int a = i * 3, b = a + 3;
+                for (int k = 0; k < 3; k++)
+                    o[a + k] = (float)((below[b + k] - above[b + k] - below[a + k] + above[a + k]) * inv);
+            }
+            sink.Row(o);
+            Span<double> t = above;
+            above = below;
+            below = t;
+        }
+    }
+
+    private void SampleGridRow(double x0, double cw, double y, int gx, Span<double> dst)
+    {
+        for (int i = 0; i < gx; i++)
+        {
+            int o = i * 3;
+            Sample(x0 + i * cw, y, out dst[o], out dst[o + 1], out dst[o + 2]);
         }
     }
 

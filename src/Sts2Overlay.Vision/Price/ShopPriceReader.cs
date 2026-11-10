@@ -241,11 +241,12 @@ public sealed class ShopPriceReader
         int gw = pr.Width / step, gh = pr.Height / step;
         if (gw < 8 || gh < 8) return null;
 
-        // Scratch grids from the pool: at 4K the coverage grid alone is ~50k floats (a large-object-heap array), and a
-        // shop frame reads up to ~20 labels. Exact-length spans keep the bounds checks of the old per-call arrays.
+        // Scratch grids from the recognisers' own pools (VisionScratch): at 4K the coverage grid alone is ~80k floats (a
+        // large-object-heap array), and a shop frame reads up to ~20 labels from several slot workers at once.
+        // Exact-length spans keep the bounds checks of the old per-call arrays.
         int n = gw * gh;
-        float[] coverArray = System.Buffers.ArrayPool<float>.Shared.Rent(n * Channels), textArray = System.Buffers.ArrayPool<float>.Shared.Rent(n);
-        int[] labelArray = System.Buffers.ArrayPool<int>.Shared.Rent(n);
+        float[] coverArray = VisionScratch.PriceCover.Rent(n * Channels), textArray = VisionScratch.PriceText.Rent(n);
+        int[] labelArray = VisionScratch.PriceLabels.Rent(n);
         try
         {
             return Segment(frame, cx, cy, scale, trace, t, pr, step, gw, gh,
@@ -253,9 +254,9 @@ public sealed class ShopPriceReader
         }
         finally
         {
-            System.Buffers.ArrayPool<float>.Shared.Return(coverArray);
-            System.Buffers.ArrayPool<float>.Shared.Return(textArray);
-            System.Buffers.ArrayPool<int>.Shared.Return(labelArray);
+            VisionScratch.PriceCover.Return(coverArray);
+            VisionScratch.PriceText.Return(textArray);
+            VisionScratch.PriceLabels.Return(labelArray);
         }
     }
 
