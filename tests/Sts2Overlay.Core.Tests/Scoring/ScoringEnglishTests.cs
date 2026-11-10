@@ -214,6 +214,8 @@ public partial class ScoringEnglishTests(ITestOutputHelper output)
                 var offer = engine.EvaluateOffer(state, profile, d.Offered, d.Context);
                 foreach (var e in offer.Cards) CheckCard(where, state.Character, e);
                 CheckBreakdown($"{where} skip", state.Character, offer.Skip);
+                // The learned skip shows a sign-flipped engine part inside "skip tendency": reach every engine template too.
+                CheckBreakdown($"{where} engine skip", state.Character, new SkipScorer(pack).Score(state, profile));
                 Check($"{where} offer flip", offer.FlipHint);
                 CheckHints(where, offer.Cards, offer.Skip);
 

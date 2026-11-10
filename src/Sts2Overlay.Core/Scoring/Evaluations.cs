@@ -41,6 +41,18 @@ public sealed record CardEvaluation
 
     public bool IsRated { get; init; } = true;
 
+    /// <summary>The learned model rates this card itself (<see cref="Learning.CardPolicyModel.Knows"/>); always false in engine-only mode.</summary>
+    public bool KnownToModel { get; init; }
+
+    /// <summary>
+    /// Nothing rates this card: no tier entry and the learned model does not know it, so its base is only a placeholder
+    /// (<see cref="Weights.UnknownTier"/>). Such a card is never the recommended pick.
+    /// </summary>
+    public bool Unjudged => !IsRated && !KnownToModel;
+
+    /// <summary>Badge / panel letter: the tier, or "?" for a card without a tier entry (its placeholder tier is not a rating).</summary>
+    public string TierText => IsRated ? DisplayTier.ToString() : "?";
+
     /// <summary>Top reasons (max 3), signed.</summary>
     public IReadOnlyList<ReasonChip> Chips { get; init; } = [];
 
@@ -83,7 +95,13 @@ public sealed record OfferEvaluation
 
     public bool SkipRecommended { get; init; }
 
-    /// <summary>The recommended card, null when Skip is recommended.</summary>
+    /// <summary>
+    /// Every offered card is <see cref="CardEvaluation.Unjudged"/>: no pick and no Skip verdict (<see cref="Best"/> null,
+    /// <see cref="SkipRecommended"/> false). The panel says there is no rating data instead.
+    /// </summary>
+    public bool NoData { get; init; }
+
+    /// <summary>The recommended card, null when Skip is recommended (or when <see cref="NoData"/>).</summary>
     public CardRef? Best { get; init; }
 
     public RecommendationConfidence Confidence { get; init; }
