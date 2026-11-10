@@ -13,7 +13,7 @@
     <ServerGarbageCollection>true</ServerGarbageCollection>
     <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
     <TieredPGO>true</TieredPGO>
-    <DefaultItemExcludes>$(DefaultItemExcludes);ext/**;out/**</DefaultItemExcludes>
+    <DefaultItemExcludes>$(DefaultItemExcludes);ext/**;out/**;profiling/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>
