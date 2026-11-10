@@ -48,7 +48,7 @@
   <text x="806" y="148" class="t" style="fill:#F1C40F">배지 · 패널</text>
   <text x="806" y="172" class="s" style="fill:#D8CFA8">카드 위 티어 배지</text>
   <text x="806" y="192" class="s" style="fill:#D8CFA8">"추천!" 리본 · 이유 칩</text>
-  <text x="806" y="212" class="s" style="fill:#D8CFA8">패널: 추천/덱/빌드/경로</text>
+  <text x="806" y="212" class="s" style="fill:#D8CFA8">패널 탭 6개</text>
   <text x="806" y="232" class="s" style="fill:#D8CFA8">맵·휴식처 위 표시</text>
 
   <!-- local resources -->

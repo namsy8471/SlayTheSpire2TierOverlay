@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 400" width="1000" height="400" role="img" aria-label="Automatic updates: the app checks GitHub Releases, downloads in the background and applies on restart or exit">
+  <style>
+    text { font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; fill: #EEF0F4; }
+    .t { font-size: 17px; font-weight: 700; }
+    .s { font-size: 13px; fill: #9AA3B2; }
+    .l { font-size: 13px; fill: #C8CDD6; }
+    .box { fill: #1F2330; stroke: #3A4152; stroke-width: 1.5; }
+    .gh { fill: #18202B; stroke: #3498DB; stroke-width: 1.5; }
+    .hl { fill: #2A2410; stroke: #F1C40F; stroke-width: 2; }
+    .arrow { stroke: #9AA3B2; stroke-width: 2; fill: none; marker-end: url(#a); }
+    .m { font-family: Consolas, 'Cascadia Mono', monospace; font-size: 13px; fill: #9AA3B2; }
+    .back { stroke: #3498DB; stroke-width: 2; fill: none; marker-end: url(#b); }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#9AA3B2"/></marker>
+    <marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#3498DB"/></marker>
+  </defs>
+  <rect x="0" y="0" width="1000" height="400" rx="16" fill="#14161D"/>
+  <text x="32" y="44" class="t" style="font-size:20px">Automatic updates</text>
+  <text x="232" y="44" class="s">Installed version (Setup.exe) only · never restarts on its own</text>
+
+  <!-- GitHub -->
+  <rect x="32" y="84" width="210" height="104" rx="10" class="gh"/>
+  <text x="48" y="114" class="t">GitHub Releases</text>
+  <text x="48" y="138" class="s">namsy8471/</text>
+  <text x="48" y="156" class="s">SlayTheSpire2TierOverlay</text>
+  <text x="48" y="176" class="s">new version + delta package</text>
+
+  <!-- app check -->
+  <rect x="290" y="84" width="210" height="104" rx="10" class="box"/>
+  <text x="306" y="114" class="t">The app checks</text>
+  <text x="306" y="138" class="s">once ~15 s after start</text>
+  <text x="306" y="156" class="s">then at most every 6 hours</text>
+  <text x="306" y="176" class="s">tray "Check for updates"</text>
+
+  <!-- download -->
+  <rect x="548" y="84" width="210" height="104" rx="10" class="box"/>
+  <text x="564" y="114" class="t">Background download</text>
+  <text x="564" y="138" class="s">delta: only what changed</text>
+  <text x="564" y="156" class="s">game and overlay keep running</text>
+  <text x="564" y="176" class="s">a failure is only logged</text>
+
+  <!-- arrows top row -->
+  <path d="M290,120 L246,120" class="back"/>
+  <path d="M246,152 L286,152" class="arrow"/>
+  <path d="M500,136 L544,136" class="arrow"/>
+
+  <!-- apply options -->
+  <path d="M758,136 L800,136 L800,96 L820,96" class="arrow"/>
+  <path d="M800,136 L800,176 L820,176" class="arrow"/>
+  <rect x="824" y="68" width="148" height="56" rx="10" class="hl"/>
+  <text x="836" y="92" class="l" style="font-weight:700;fill:#F1C40F">Apply update</text>
+  <text x="836" y="112" class="s" style="fill:#D8CFA8">(restart) · panel/tray</text>
+  <rect x="824" y="148" width="148" height="56" rx="10" class="box"/>
+  <text x="836" y="172" class="l" style="font-weight:700">or when you exit</text>
+  <text x="836" y="192" class="s">applied quietly</text>
+
+
+  <!-- bottom notes -->
+  <rect x="32" y="240" width="300" height="128" rx="10" class="box"/>
+  <text x="48" y="270" class="t" style="font-size:15px">Settings are kept</text>
+  <text x="48" y="296" class="m">%LOCALAPPDATA%\Sts2Overlay</text>
+  <text x="48" y="316" class="s">settings.json · app.log · decisions · local</text>
+  <text x="48" y="336" class="s">survive updates and uninstalling</text>
+
+  <rect x="350" y="240" width="300" height="128" rx="10" class="box"/>
+  <text x="366" y="270" class="t" style="font-size:15px">Turn off or redirect</text>
+  <text x="366" y="296" class="s">"autoUpdate": false → no automatic checks</text>
+  <text x="366" y="316" class="s">"updateUrl": another repo/folder (testing)</text>
+  <text x="366" y="336" class="s">tray shows the current version</text>
+
+  <rect x="668" y="240" width="300" height="128" rx="10" fill="#17251D" stroke="#2E7D4F" stroke-width="1.5"/>
+  <text x="684" y="270" class="t" style="font-size:15px;fill:#7FD6A1">The only network traffic</text>
+  <text x="684" y="296" class="s" style="fill:#B9D9C5">asking GitHub whether a new version exists</text>
+  <text x="684" y="316" class="s" style="fill:#B9D9C5">every 6 hours, to stay well inside the</text>
+  <text x="684" y="336" class="s" style="fill:#B9D9C5">anonymous API limit (60 per hour)</text>
+</svg>
