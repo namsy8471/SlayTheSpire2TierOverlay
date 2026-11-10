@@ -14,8 +14,9 @@ namespace Sts2Overlay.App.Services;
 /// One dedicated thread does capture → recognise → (optional) save, strictly in sequence. That is what makes it
 /// safe to reuse the frame buffer: the next capture can't start while the recogniser still reads the previous one.
 /// The thread sleeps on an <see cref="AutoResetEvent"/>: with a timeout while periodic capture is on (3 Hz on likely
-/// reward/shop screens), forever when it's off, and it wakes early for hotkey requests. Before sleeping forever it
-/// suspends the capturer, so a WGC session doesn't keep copying 4K frames while nobody asks for them.
+/// reward/shop screens, 20 Hz while one is expected but not found yet), forever when it's off, and it wakes early for
+/// hotkey requests and rate changes. Before sleeping forever it suspends the capturer, so a WGC session doesn't keep
+/// copying 4K frames while nobody asks for them.
 /// </summary>
 public sealed class CapturePipeline : IDisposable
 {
@@ -34,6 +35,7 @@ public sealed class CapturePipeline : IDisposable
     private byte[]? _lastSignature;
     private bool _lastHadResult;
     private long _lastRun;
+    private long _lastRunEnd;
     private long _lastLook; // start of the last step that captured a frame (FrameTiming.PreviousLook)
 
     /// <param name="target">Current game window (read on the worker thread).</param>
@@ -137,7 +139,9 @@ public sealed class CapturePipeline : IDisposable
         {
             var interval = Interlocked.Read(ref _intervalTicks);
             if (interval == 0) SuspendCapturer();
-            _wake.WaitOne(interval > 0 ? TimeSpan.FromTicks(interval) : Timeout.InfiniteTimeSpan);
+            _wake.WaitOne(interval > 0
+                ? NextWait(interval, Stopwatch.GetElapsedTime(_lastRun).Ticks, Stopwatch.GetElapsedTime(_lastRunEnd).Ticks)
+                : Timeout.InfiniteTimeSpan);
             if (_stop) break;
 
             var manual = Interlocked.Exchange(ref _recognizeRequested, 0) == 1;
@@ -155,8 +159,22 @@ public sealed class CapturePipeline : IDisposable
                 AppLog.Error("capture pipeline step failed", ex);
                 Status?.Invoke(Loc.T("캡처/인식 실패: ", "Capture/recognition failed: ") + ex.Message);
             }
+            finally
+            {
+                _lastRunEnd = Stopwatch.GetTimestamp();
+            }
         }
     }
+
+    /// <summary>
+    /// How long the worker sleeps before the next periodic look: the rest of the interval since the last step STARTED,
+    /// so the rate is the one asked for (sleeping a whole interval after each step made 3 Hz a ~347 ms rhythm, and 20 Hz
+    /// would be ~16 Hz), but at least half an interval after it ENDED, so slow steps on a loaded PC never run back to
+    /// back. Zero when the next look is already due (a rate change woke the worker long after the last step).
+    /// All values in <see cref="TimeSpan"/> ticks.
+    /// </summary>
+    internal static TimeSpan NextWait(long intervalTicks, long sinceStepStartTicks, long sinceStepEndTicks)
+        => TimeSpan.FromTicks(Math.Max(0, Math.Max(intervalTicks - sinceStepStartTicks, intervalTicks / 2 - sinceStepEndTicks)));
 
     private void SuspendCapturer()
     {

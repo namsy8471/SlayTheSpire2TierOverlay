@@ -123,6 +123,19 @@ public class PerfTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void Hunt_clause_follows_the_counters_when_anything_hunted()
+    {
+        var summary = Summary(new FrameRateStats(17940, 17900, 299.2, 41.3)) with { Hunt = new HuntCounts(212, 10.63, 4, 1, 1) };
+        var header = PerfFormat.SummaryLines(summary)[0];
+        output.WriteLine(header);
+        Assert.Equal(
+            "perf: summary 300 s | steps 912, recognised 310, unchanged 590, reused 12 | hunt 212 steps in 10.6 s (found 4, hint left 1, ran out 1) | game 59.8 fps (worst gap 41 ms)",
+            header);
+        Assert.True(default(HuntCounts).IsEmpty);
+        Assert.DoesNotContain("hunt", PerfFormat.SummaryLines(Summary(default))[0]); // nothing hunted: no clause
+    }
+
+    [Fact]
     public void Summary_and_resource_lines_use_dots_whatever_the_culture()
     {
         var resources = new ResourceStats(60, 1.84, 6.1, 12, 23.4, 71.0, 140.2, 180.9, 412.3, 440.0, 388.0, 96.4, 14, 3, 0);
@@ -138,6 +151,7 @@ public class PerfTests(ITestOutputHelper output)
             var lines = PerfFormat.SummaryLines(Summary(new FrameRateStats(100, 99, 1.65, 41.3), resources));
             foreach (var l in lines) output.WriteLine(l);
             Assert.Contains("game 60.0 fps", lines[0]);
+            Assert.Contains("in 10.6 s", PerfFormat.HuntClause(new HuntCounts(1, 10.63, 0, 0, 0)));
             Assert.Contains("mean 5.4 p50", lines[1]);
             Assert.Equal(
                 "perf: process cpu avg 1.8% of a core (max 6.1%) = 0.15% of 12 cores, machine load avg 23% (max 71%), game cpu avg 140% of a core (max 181%), ws 412 MB (max 440), private 388 MB, managed 96 MB, gc 14/3/0 (60 samples)",
@@ -194,6 +208,35 @@ public class PerfTests(ITestOutputHelper output)
             Assert.Empty(perf.WriteSummary()); // nothing since: nothing written
         }
         Assert.Equal(3, log.Count); // nothing new at Dispose either
+    }
+
+    [Fact]
+    public void Recorder_counts_steps_taken_while_hunting_and_how_hunts_ended()
+    {
+        using var perf = new PerfRecorder(sampleResources: false, log: _ => { });
+        perf.CountStep(reused: false); // before the hunt
+        perf.SetHunting(true);
+        perf.SetHunting(true); // repeated: no new stretch
+        perf.CountStep(reused: false);
+        perf.CountStep(reused: true);
+        perf.SetHunting(false);
+        perf.CountHuntEnd(HuntEnd.Found);
+        perf.CountStep(reused: false); // after it
+        perf.SetHunting(true); // a second hunt, still running at the summary
+        perf.CountStep(reused: false);
+        perf.CountHuntEnd(HuntEnd.RanOut);
+        perf.CountHuntEnd(HuntEnd.Off); // not counted
+
+        var lines = perf.WriteSummary("test");
+        output.WriteLine(lines[0]);
+        Assert.Matches(@"\| steps 5, recognised 0, unchanged 0, reused 1 \| hunt 3 steps in \d+\.\d s \(found 1, hint left 0, ran out 1\)$", lines[0]);
+
+        // The running hunt goes on into the next period; the end counts start over.
+        perf.CountStep(reused: false);
+        Assert.Matches(@"\| hunt 1 steps in \d+\.\d s \(found 0, hint left 0, ran out 0\)$", perf.WriteSummary()[0]);
+        perf.SetHunting(false);
+        perf.CountStep(reused: false);
+        Assert.DoesNotContain("hunt 1", perf.WriteSummary()[0]);
     }
 
     // ---- game frames through WGC ----
