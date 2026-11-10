@@ -136,14 +136,19 @@
       </StackPanel>
     </DataTemplate>
 
-    <!-- Relic icon next to a row's name; hovering shows the relic's name and effect (RelicTipContentTemplate) -->
+    <!--
+      Relic icon next to a row's name; hovering shows the relic's name and effect (RelicTipContentTemplate).
+      The icon is decoded off the UI thread (IsAsync), like the card thumbnail: a shop's relic rows are built in the pass
+      after its badges, and an icon not seen before is a PNG decode. The "?" stays hidden while the icon is on its way
+      (FallbackValue) and shows only when there is no icon.
+    -->
     <DataTemplate x:Key="RelicIconTemplate" DataType="{x:Type svc:RelicTipVm}">
       <Border CornerRadius="4" BorderBrush="#66FFFFFF" BorderThickness="1" Background="#40000000" Cursor="Help" Margin="0,0,3,0"
               ToolTipService.InitialShowDelay="120" ToolTipService.ShowDuration="60000" ToolTipService.Placement="Left">
         <Grid>
           <TextBlock Text="?" FontSize="13" FontWeight="Bold" Foreground="{StaticResource TextDim}" HorizontalAlignment="Center" VerticalAlignment="Center"
-                     Visibility="{Binding Thumb, Converter={StaticResource BoolVis}, ConverterParameter=!}" />
-          <Image Source="{Binding Thumb}" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" />
+                     Visibility="{Binding Thumb, IsAsync=True, FallbackValue=Collapsed, Converter={StaticResource BoolVis}, ConverterParameter=!}" />
+          <Image Source="{Binding Thumb, IsAsync=True}" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" />
         </Grid>
         <Border.ToolTip>
           <ToolTip Padding="7" Background="#F0101318" BorderBrush="{StaticResource Gold}" BorderThickness="1.5" Foreground="{StaticResource TextMain}">
