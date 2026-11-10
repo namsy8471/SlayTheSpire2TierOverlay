@@ -465,11 +465,12 @@ public sealed partial class AppController : IDisposable
         var evalKey = $"{offerKey}{(_removal.Available ? "+rm" : "")}@{_snapshot.UpdatedAt.Ticks}#{_engineVersion}@{Loc.CurrentCode}/{verdict}";
         if (evalKey != _lastEvalKey)
         {
+            OfferSectionVm panelOffer;
             try
             {
                 var (offer, badges, skip, removal) = r.ScreenKind == ScreenKind.Shop ? EvaluateShop(r) : EvaluateReward(r);
                 if (verdict != PartialVerdict.Complete) (offer, badges, skip) = PartialRow(r, verdict, offer, badges, skip);
-                _vm.Offer = offer;
+                panelOffer = offer;
                 _offerSource = r;
                 _eventOfferRebuild = null;
                 _lastBadges = badges;
@@ -490,7 +491,9 @@ public sealed partial class AppController : IDisposable
             }
             // PLAN §8: switch to 추천 when a reward/shop screen opens; not for a price, colour or relic change of the
             // open screen, and not again for it after the log cleared its badges.
-            if (_lifecycle.SelectTab(r)) _vm.SelectedTab = PanelTab.Offer;
+            // The panel's rows (and the tab switch) wait for the next pass, after the badges below are drawn: WPF lays out
+            // all windows on this one thread, and 3-7 rows cost more than the badges themselves (AppController.PanelOffer.cs).
+            DeferPanelOffer(panelOffer, _lifecycle.SelectTab(r));
         }
 
         // Card positions can change every frame (hovering enlarges and lifts a card) even when the offer is the same,
@@ -725,13 +728,13 @@ public sealed partial class AppController : IDisposable
         _lastEvalKey = null;
         _lastOfferKey = null;
         // In an event room the 추천 tab shows the event's options (AppController.Events.cs): keep it fresh.
-        if (_vm.Offer.HasContent && !_vm.Offer.IsStale && _lastEvent is null) _vm.Offer = _vm.Offer with { IsStale = true };
+        if (PanelOffer.HasContent && !PanelOffer.IsStale && _lastEvent is null) PanelOffer = PanelOffer with { IsStale = true };
     }
 
     private void ResetOffer()
     {
         ClearBadges();
-        _vm.Offer = OfferSectionVm.Empty;
+        PanelOffer = OfferSectionVm.Empty;
         _offerSource = null;
         _eventOfferRebuild = null;
     }

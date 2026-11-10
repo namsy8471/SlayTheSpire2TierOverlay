@@ -136,14 +136,19 @@
       </StackPanel>
     </DataTemplate>
 
-    <!-- Relic icon next to a row's name; hovering shows the relic's name and effect (RelicTipContentTemplate) -->
+    <!--
+      Relic icon next to a row's name; hovering shows the relic's name and effect (RelicTipContentTemplate).
+      The icon is decoded off the UI thread (IsAsync), like the card thumbnail: a shop's relic rows are built in the pass
+      after its badges, and an icon not seen before is a PNG decode. The "?" stays hidden while the icon is on its way
+      (FallbackValue) and shows only when there is no icon.
+    -->
     <DataTemplate x:Key="RelicIconTemplate" DataType="{x:Type svc:RelicTipVm}">
       <Border CornerRadius="4" BorderBrush="#66FFFFFF" BorderThickness="1" Background="#40000000" Cursor="Help" Margin="0,0,3,0"
               ToolTipService.InitialShowDelay="120" ToolTipService.ShowDuration="60000" ToolTipService.Placement="Left">
         <Grid>
           <TextBlock Text="?" FontSize="13" FontWeight="Bold" Foreground="{StaticResource TextDim}" HorizontalAlignment="Center" VerticalAlignment="Center"
-                     Visibility="{Binding Thumb, Converter={StaticResource BoolVis}, ConverterParameter=!}" />
-          <Image Source="{Binding Thumb}" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" />
+                     Visibility="{Binding Thumb, IsAsync=True, FallbackValue=Collapsed, Converter={StaticResource BoolVis}, ConverterParameter=!}" />
+          <Image Source="{Binding Thumb, IsAsync=True}" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" />
         </Grid>
         <Border.ToolTip>
           <ToolTip Padding="7" Background="#F0101318" BorderBrush="{StaticResource Gold}" BorderThickness="1.5" Foreground="{StaticResource TextMain}">
@@ -363,7 +368,8 @@
             </Border>
           </StackPanel>
 
-          <ItemsControl Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" ItemsSource="{Binding Chips}" ItemTemplate="{StaticResource ChipTemplate}"
+          <!-- Kept with the row (ReusedRows on the rows list): its chips are kept too, and only get their new text. -->
+          <ItemsControl Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" views:ReusedRows.Template="{StaticResource ChipTemplate}" views:ReusedRows.Source="{Binding Chips}"
                         ItemsPanel="{StaticResource WrapPanelTemplate}" Margin="0,2,0,0" />
         </Grid>
       </Border>
@@ -631,7 +637,8 @@
                              Visibility="{Binding IsStale, Converter={StaticResource BoolVis}}" />
                   <TextBlock Text="{Binding FlipHint}" Style="{StaticResource Dim}" TextWrapping="Wrap" Margin="0,0,0,6"
                              Visibility="{Binding FlipHint, Converter={StaticResource BoolVis}}" />
-                  <ItemsControl ItemsSource="{Binding Rows}" ItemTemplate="{StaticResource OfferRowTemplate}" />
+                  <!-- Row elements are kept from offer to offer and only get their new row (Views/ReusedRows.cs): building them is what costs. -->
+                  <ItemsControl x:Name="OfferRows" views:ReusedRows.Template="{StaticResource OfferRowTemplate}" views:ReusedRows.Source="{Binding Rows}" />
                   <TextBlock Text="{Binding Footer}" TextWrapping="Wrap" FontWeight="SemiBold" Foreground="{StaticResource Gold}" Margin="2,2,0,4"
                              Visibility="{Binding Footer, Converter={StaticResource BoolVis}}" />
                   <!-- 이번에 안 나온 선택지 (고대 존재): 참고용, 흐리게 -->

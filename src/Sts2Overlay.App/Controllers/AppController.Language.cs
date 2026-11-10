@@ -67,8 +67,8 @@ public sealed partial class AppController
             ApplyRecognition(_lastResult); // re-scores (eval key cleared) and redraws badges, skip pill, removal mark
             return;
         }
-        if (!_vm.Offer.HasContent) return;
-        var stale = _vm.Offer.IsStale;
+        if (!PanelOffer.HasContent) return;
+        var stale = PanelOffer.IsStale;
         OfferSectionVm? offer = null;
         if (_offerSource is { } r)
         {
@@ -78,6 +78,6 @@ public sealed partial class AppController
         {
             offer = rebuild(); // an event room that has closed; an open one is redone by UpdateEvent
         }
-        if (offer is not null) _vm.Offer = offer with { IsStale = stale };
+        if (offer is not null) PanelOffer = offer with { IsStale = stale };
     }
 }

@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Sts2Overlay.App.Infrastructure;
@@ -19,25 +18,7 @@ namespace Sts2Overlay.App.Tests;
 public class TierTabRenderTests
 {
     [Fact]
-    public void Tier_tab_lays_out_five_tiles_per_row_binds_cleanly_and_switches_language()
-    {
-        Exception? failure = null;
-        var thread = new Thread(() =>
-        {
-            try
-            {
-                Run();
-            }
-            catch (Exception ex)
-            {
-                failure = ex;
-            }
-        });
-        thread.SetApartmentState(ApartmentState.STA);
-        thread.Start();
-        thread.Join();
-        if (failure is not null) throw new Xunit.Sdk.XunitException(failure.ToString());
-    }
+    public void Tier_tab_lays_out_five_tiles_per_row_binds_cleanly_and_switches_language() => WpfThread.Run(Run);
 
     private sealed class ErrorListener : TraceListener
     {
@@ -55,10 +36,6 @@ public class TierTabRenderTests
 
     private static void Run()
     {
-        // Tests run with invariant globalization; WPF's default "en-US" language would need culture data.
-        FrameworkElement.LanguageProperty.OverrideMetadata(typeof(FrameworkElement), new FrameworkPropertyMetadata(XmlLanguage.GetLanguage("")));
-        if (Application.Current is null) new App().InitializeComponent(); // App.xaml resources (brushes, converters, font)
-
         var errors = new ErrorListener();
         PresentationTraceSources.Refresh(); // WPF traces binding errors only under a debugger unless tracing is refreshed on
         PresentationTraceSources.DataBindingSource.Listeners.Add(errors);
