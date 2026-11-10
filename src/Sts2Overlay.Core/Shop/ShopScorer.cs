@@ -19,7 +19,9 @@ public sealed class ShopScorer(DataPack pack)
 
     public ShopEvaluation Evaluate(RunState state, DeckProfile profile, ShopOffer offer)
     {
-        var gold = ShopPricing.EffectiveGold(state.Gold, offer, out var goldCorrected);
+        bool goldCorrected = false;
+        // Unknown gold (log-only run): plan with the most the price colours allow, so only a red label makes an item unaffordable.
+        var gold = state.VitalsKnown ? ShopPricing.EffectiveGold(state.Gold, offer, out goldCorrected) : ShopPricing.GoldCeiling(offer);
         var skip = new SkipScorer(Pack).Score(state, profile);
         var scorer = new CardScorer(Pack);
         var items = new List<ShopItemEvaluation>();
@@ -57,6 +59,7 @@ public sealed class ShopScorer(DataPack pack)
             RecommendedPurchase = bundle,
             Gold = gold,
             GoldCorrectedByScreen = goldCorrected,
+            GoldKnown = state.VitalsKnown,
             GoldLeft = Math.Max(0, gold - bundle.Sum(i => i.Price)),
             Skip = skip,
         };
