@@ -156,6 +156,14 @@ internal static unsafe class D3D11Interop
         }
     }
 
+    /// <summary>
+    /// ID3D11DeviceContext::Flush (slot 111): sends the queued commands to the GPU now instead of at the next Map. Also
+    /// the point where D3D11 really destroys objects released since the last flush: a released texture keeps its memory
+    /// until then ("deferred destruction").
+    /// </summary>
+    public static void Flush(IntPtr context)
+        => ((delegate* unmanaged[Stdcall]<IntPtr, void>)Slot(context, 111))(context);
+
     /// <summary>IDirect3DDxgiInterfaceAccess::GetInterface (slot 3): the D3D11 texture behind a WinRT IDirect3DSurface.</summary>
     public static int GetDxgiInterface(IntPtr access, in Guid iid, out IntPtr result)
     {

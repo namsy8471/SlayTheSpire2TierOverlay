@@ -17,10 +17,12 @@ namespace Sts2Overlay.App.Services;
 /// Data flow for one <see cref="Capture"/>:
 /// 1. A capture session (one per target window, kept alive between captures) makes DWM copy every new frame of the
 ///    window into a small pool of GPU textures. <see cref="OnFrameArrived"/> keeps only the newest one.
-/// 2. Capture takes that frame and asks the GPU to copy the game rectangle into a STAGING texture. A staging texture
-///    lives in memory the CPU can read; normal textures live in VRAM, which the CPU cannot address.
-/// 3. <c>Map</c> waits for that GPU copy to finish and returns a pointer + <c>RowPitch</c> (bytes per row, maybe padded).
-/// 4. <see cref="PixelCopy"/> copies row by row into the reused managed buffer of <see cref="CapturedFrame"/>.
+/// 2. Capture takes that frame and asks the GPU to copy the game rectangle into STAGING textures, a band of rows at a
+///    time (<see cref="StagingReadback"/>). A staging texture lives in memory the CPU can read; normal textures live in
+///    VRAM, which the CPU cannot address.
+/// 3. <c>Map</c> waits for a band's GPU copy to finish and returns a pointer + <c>RowPitch</c> (bytes per row, maybe padded).
+/// 4. <see cref="PixelCopy"/> copies row by row into the reused managed buffer of <see cref="CapturedFrame"/>; the GPU
+///    copies the next band meanwhile.
 ///
 /// The window does not have to be in front: WGC sees the window's content even when something covers it.
 /// WGC only delivers frames when the window's content changes. If no new frame arrived since the last capture the
@@ -62,9 +64,7 @@ internal sealed class WgcCapturer : IFrameCapturer
     private IntPtr _latest; // IDirect3D11CaptureFrame, owned; zero = none
 
     // CPU side.
-    private IntPtr _staging;
-    private int _stagingWidth;
-    private int _stagingHeight;
+    private StagingReadback? _readback; // staging textures (band by band); created with the device
     private byte[] _buffer = [];
     private PixelRect _bufferRect; // what _buffer currently holds (empty = nothing valid)
 
@@ -184,6 +184,8 @@ internal sealed class WgcCapturer : IFrameCapturer
             throw new FrameSizeMismatchException($"capture rect {rect} outside captured window {origin}");
         }
 
+        var stride = rect.Width * 4;
+        double copyMs;
         var texture = SurfaceTexture(frame);
         try
         {
@@ -193,37 +195,30 @@ internal sealed class WgcCapturer : IFrameCapturer
                 // Pool buffers are still the old size right after a resize; the next frame will fit.
                 throw new FrameSizeMismatchException($"frame texture {desc.Width}x{desc.Height} smaller than capture region {src}");
             }
-            EnsureStaging(rect.Width, rect.Height);
-            var box = new D3D11_BOX
+            if (_buffer.Length != stride * rect.Height) _buffer = new byte[stride * rect.Height];
+            _readback ??= new StagingReadback(_d3dDevice, _d3dContext);
+            _bufferRect = default; // overwritten from here on: not a valid frame until the read completes
+            try
             {
-                Left = (uint)src.X, Top = (uint)src.Y, Front = 0,
-                Right = (uint)src.Right, Bottom = (uint)src.Bottom, Back = 1,
-            };
-            CopySubresourceRegion(_d3dContext, _staging, texture, box); // queued on the GPU, returns at once
+                // GPU copies into staging textures and CPU copies into _buffer, band by band (StagingReadback). The
+                // frame's texture must stay alive until every band's copy is queued, so it is released only afterwards.
+                _readback.Read(texture, src.X, src.Y, rect.Width, rect.Height, _buffer, stride, out _, out copyMs);
+            }
+            catch (COMException ex) when (ex.HResult is DXGI_ERROR_DEVICE_REMOVED or DXGI_ERROR_DEVICE_RESET)
+            {
+                ThrowDeviceError(ex.HResult, "staging readback");
+                throw; // not reached: ThrowDeviceError always throws
+            }
         }
         finally
         {
             Marshal.Release(texture);
         }
-
-        var hr = Map(_d3dContext, _staging, out var mapped); // blocks until the GPU copy is done
-        if (hr < 0) ThrowDeviceError(hr, "Map");
-        var acquireMs = Stopwatch.GetElapsedTime(t0).TotalMilliseconds;
-        var t1 = Stopwatch.GetTimestamp();
-        var stride = rect.Width * 4;
-        try
-        {
-            if (_buffer.Length != stride * rect.Height) _buffer = new byte[stride * rect.Height];
-            LastRowPitch = (int)mapped.RowPitch;
-            PixelCopy.CopyRows(mapped.Data, (int)mapped.RowPitch, _buffer, stride, stride, rect.Height);
-        }
-        finally
-        {
-            Unmap(_d3dContext, _staging);
-        }
+        LastRowPitch = _readback.LastRowPitch;
         _bufferRect = rect;
         LastFrameReused = false;
-        LastTimings = new CaptureTimings(acquireMs, Stopwatch.GetElapsedTime(t1).TotalMilliseconds);
+        // Acquire = everything but the CPU row copies (session, frame, GPU copies, Map waits), as before the bands.
+        LastTimings = new CaptureTimings(Stopwatch.GetElapsedTime(t0).TotalMilliseconds - copyMs, copyMs);
         return new CapturedFrame(_buffer, rect.Width, rect.Height, stride, rect, DateTime.Now);
     }
 
@@ -502,27 +497,6 @@ internal sealed class WgcCapturer : IFrameCapturer
         }
     }
 
-    private void EnsureStaging(int width, int height)
-    {
-        if (_staging != IntPtr.Zero && width == _stagingWidth && height == _stagingHeight) return;
-        Release(ref _staging);
-        var desc = new D3D11_TEXTURE2D_DESC
-        {
-            Width = (uint)width,
-            Height = (uint)height,
-            MipLevels = 1,
-            ArraySize = 1,
-            Format = DXGI_FORMAT_B8G8R8A8_UNORM,
-            SampleCount = 1,
-            Usage = D3D11_USAGE_STAGING,
-            CPUAccessFlags = D3D11_CPU_ACCESS_READ,
-        };
-        var hr = CreateTexture2D(_d3dDevice, desc, out _staging);
-        if (hr < 0) ThrowDeviceError(hr, "CreateTexture2D");
-        _stagingWidth = width;
-        _stagingHeight = height;
-    }
-
     /// <summary>The ID3D11Texture2D behind a WGC frame's surface (caller releases it).</summary>
     private static IntPtr SurfaceTexture(IntPtr frame)
     {
@@ -560,10 +534,22 @@ internal sealed class WgcCapturer : IFrameCapturer
     public void Suspend()
     {
         // _item also counts: a session that failed half-way has an item (and maybe a pool) but no _session yet.
-        if (_session == IntPtr.Zero && _item == IntPtr.Zero && _staging == IntPtr.Zero) return;
-        StopSession();
-        Release(ref _staging);
-        _stagingWidth = _stagingHeight = 0;
+        if (_session == IntPtr.Zero && _item == IntPtr.Zero && _readback is null) return;
+        try
+        {
+            StopSession();
+        }
+        finally
+        {
+            ReleaseReadback();
+        }
+    }
+
+    /// <summary>Staging textures released AND freed (StagingReadback.Release flushes the context; Flush cannot fail).</summary>
+    private void ReleaseReadback()
+    {
+        _readback?.Release();
+        _readback = null;
     }
 
     /// <summary>Drops session AND device (device lost, unknown failure).</summary>
@@ -578,8 +564,8 @@ internal sealed class WgcCapturer : IFrameCapturer
             // StopSession has released everything before rethrowing, so the device below can still go.
             AppLog.Warn($"wgc: teardown failed: {ex.Message}");
         }
+        ReleaseReadback();
         Release(ref _device);
-        Release(ref _staging);
         Release(ref _d3dContext);
         Release(ref _d3dDevice);
     }

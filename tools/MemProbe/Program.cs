@@ -55,6 +55,8 @@ internal static class Program
                 return CaptureProbe.Device(opts);
             case "poolage":
                 return CaptureProbe.PoolAge(opts);
+            case "readback":
+                return ReadbackProbe.Run(opts);
             case "builddb":
             {
                 // The art database build alone (what a cache miss costs at start), with allocations by type.
