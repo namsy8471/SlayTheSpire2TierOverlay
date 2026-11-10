@@ -80,7 +80,8 @@ if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Recurse -F
 Write-Host ''
 Write-Host '빌드 중... (처음에는 1~3분 걸릴 수 있습니다)'
 $started = Get-Date
-dotnet publish src/Sts2Overlay.App -c Release -r win-x64 --self-contained true `
+# --self-contained false: 이 PC에는 빌드에 쓰는 .NET 10 SDK(런타임 포함)가 있으므로 .NET을 exe에 넣지 않습니다 (205 MB → 약 40 MB).
+dotnet publish src/Sts2Overlay.App -c Release -r win-x64 --self-contained false `
     -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None `
     -o $stage --nologo -v quiet
 if ($LASTEXITCODE -ne 0) { Fail '빌드가 실패했습니다. 위의 오류 메시지를 확인해 주세요.' }

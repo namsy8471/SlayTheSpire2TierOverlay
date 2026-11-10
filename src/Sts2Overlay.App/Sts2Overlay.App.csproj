@@ -37,6 +37,14 @@
       install/update/uninstall hooks (VelopackApp.Build().Run()) must run before anything else, including WPF start-up.
     -->
     <StartupObject>Sts2Overlay.App.App</StartupObject>
+    <!--
+      Install size (docs/DISTRIBUTION.md "설치 크기"). Framework-dependent: the app uses the .NET 10 Desktop Runtime
+      installed on the PC instead of carrying its own copy (about 150 MB of the old 214 MB install). The installer and
+      the updater put the runtime in when it is missing (the "framework" option of vpk pack in the release scripts).
+      Satellite resources: the UI is Korean or English, so the other languages' resource folders are left out.
+    -->
+    <SelfContained>false</SelfContained>
+    <SatelliteResourceLanguages>ko;en</SatelliteResourceLanguages>
   </PropertyGroup>
 
   <ItemGroup>
