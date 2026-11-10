@@ -1,15 +1,12 @@
 using System.Diagnostics;
+using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using Sts2Overlay.App.Infrastructure;
 using Sts2Overlay.App.Integration;
 using Sts2Overlay.App.Services.Perf;
-using Windows.Graphics;
-using Windows.Graphics.Capture;
-using Windows.Graphics.DirectX;
-using Windows.Graphics.DirectX.Direct3D11;
-using WinRT;
 using static Sts2Overlay.App.Interop.D3D11Interop;
 using static Sts2Overlay.App.Interop.NativeMethods;
+using static Sts2Overlay.App.Interop.WgcInterop;
 
 namespace Sts2Overlay.App.Services;
 
@@ -30,12 +27,15 @@ namespace Sts2Overlay.App.Services;
 /// previous buffer is still exactly right, so it is returned again (<see cref="LastFrameReused"/>).
 ///
 /// Threading: Capture/Suspend/Dispose run on the capture worker; FrameArrived runs on a WGC thread
-/// ("free-threaded" frame pool, no dispatcher needed). They share only <see cref="_latest"/> (under a lock) and the
-/// perf frame counter (interlocked, see <see cref="FrameRateCounter"/>).
+/// ("free-threaded" frame pool, no dispatcher needed). They share only <see cref="_latest"/> and <see cref="_pool"/>
+/// (under a lock) and the perf frame counter (interlocked, see <see cref="FrameRateCounter"/>).
+///
+/// WinRT objects are raw COM pointers (Interop/WgcInterop.cs), each holding one reference that the teardown paths
+/// (StopSession, Reset, the frame's try/finally) close and release deterministically: this runs for hours.
 /// </summary>
 internal sealed class WgcCapturer : IFrameCapturer
 {
-    private const DirectXPixelFormat PixelFormat = DirectXPixelFormat.B8G8R8A8UIntNormalized;
+    private const int PixelFormat = PixelFormatB8G8R8A8UIntNormalized;
     private const int PoolBuffers = 2;
     private static readonly TimeSpan FirstFrameTimeout = TimeSpan.FromSeconds(1);
 
@@ -45,19 +45,21 @@ internal sealed class WgcCapturer : IFrameCapturer
     // Device (kept until a failure or Dispose).
     private IntPtr _d3dDevice;
     private IntPtr _d3dContext;
-    private IDirect3DDevice? _device;
+    private IntPtr _device; // WinRT IDirect3DDevice wrapping _d3dDevice; FrameArrived reads it only under _frameLock
 
     // Session (kept while periodic capture runs; recreated for a new window or after the window closed).
     private IntPtr _targetHandle;
-    private GraphicsCaptureItem? _item;
-    private Direct3D11CaptureFramePool? _pool;
-    private GraphicsCaptureSession? _session;
+    private IntPtr _item;           // IGraphicsCaptureItem
+    private long _itemClosedToken;  // its Closed registration (0 = none)
+    private IntPtr _pool;           // IDirect3D11CaptureFramePool; written under _frameLock
+    private long _frameArrivedToken;
+    private IntPtr _session;        // IGraphicsCaptureSession
     private SizeInt32 _poolSize; // touched by FrameArrived only once the session runs
     private volatile bool _itemClosed;
 
     private readonly Lock _frameLock = new();
     private readonly AutoResetEvent _frameArrived = new(false);
-    private Direct3D11CaptureFrame? _latest;
+    private IntPtr _latest; // IDirect3D11CaptureFrame, owned; zero = none
 
     // CPU side.
     private IntPtr _staging;
@@ -86,9 +88,9 @@ internal sealed class WgcCapturer : IFrameCapturer
     {
         try
         {
-            return OperatingSystem.IsWindowsVersionAtLeast(10, 0, 19041) && GraphicsCaptureSession.IsSupported();
+            return OperatingSystem.IsWindowsVersionAtLeast(10, 0, 19041) && Interop.WgcInterop.IsSupported();
         }
-        catch (Exception ex) when (ex is COMException or TypeLoadException or DllNotFoundException or EntryPointNotFoundException)
+        catch (Exception ex) when (ex is COMException or InvalidCastException or TypeLoadException or DllNotFoundException or EntryPointNotFoundException)
         {
             AppLog.Warn($"wgc: support check failed: {ex.Message}");
             return false;
@@ -111,7 +113,7 @@ internal sealed class WgcCapturer : IFrameCapturer
             EnsureSession(target);
             var canReuse = !_bufferRect.IsEmpty && _bufferRect == rect;
             var frame = TakeLatestFrame(canReuse ? TimeSpan.Zero : FirstFrameTimeout);
-            if (frame is null)
+            if (frame == IntPtr.Zero)
             {
                 if (!canReuse) throw new TimeoutException($"no frame from Windows.Graphics.Capture within {FirstFrameTimeout.TotalMilliseconds:0} ms");
                 LastFrameReused = true;
@@ -121,9 +123,13 @@ internal sealed class WgcCapturer : IFrameCapturer
 
             try
             {
-                using (frame)
+                try
                 {
                     return CopyFrame(frame, target, rect, t0);
+                }
+                finally
+                {
+                    CloseAndRelease(ref frame); // gives the buffer back to the pool (was: using (frame))
                 }
             }
             catch (FrameSizeMismatchException ex)
@@ -133,16 +139,21 @@ internal sealed class WgcCapturer : IFrameCapturer
                 // content changes. A game redraws constantly; a static window may never, so restart the session
                 // (a new session's first frame is always the current content).
                 var next = TakeLatestFrame(ResizeTimeout);
-                if (next is null)
+                if (next == IntPtr.Zero)
                 {
                     AppLog.Info($"wgc: {ex.Message}; restarting the session for the new size");
                     StopSession();
                     EnsureSession(target);
-                    next = TakeLatestFrame(FirstFrameTimeout) ?? throw new FrameSizeMismatchException("no frame of the new window size");
+                    next = TakeLatestFrame(FirstFrameTimeout);
+                    if (next == IntPtr.Zero) throw new FrameSizeMismatchException("no frame of the new window size");
                 }
-                using (next)
+                try
                 {
                     return CopyFrame(next, target, rect, t0);
+                }
+                finally
+                {
+                    CloseAndRelease(ref next);
                 }
             }
         }
@@ -158,11 +169,11 @@ internal sealed class WgcCapturer : IFrameCapturer
         }
     }
 
-    private CapturedFrame CopyFrame(Direct3D11CaptureFrame frame, GameWindowInfo target, PixelRect rect, long t0)
+    private CapturedFrame CopyFrame(IntPtr frame, GameWindowInfo target, PixelRect rect, long t0)
     {
         // Where the frame's (0, 0) is on screen: window capture covers the window's visible (DWM) bounds.
         var origin = FrameOrigin(target);
-        var content = frame.ContentSize;
+        var content = GetFrameContentSize(frame);
         if (content.Width != origin.Width || content.Height != origin.Height)
         {
             throw new FrameSizeMismatchException($"frame content {content.Width}x{content.Height} != window bounds {origin}");
@@ -173,7 +184,7 @@ internal sealed class WgcCapturer : IFrameCapturer
             throw new FrameSizeMismatchException($"capture rect {rect} outside captured window {origin}");
         }
 
-        var texture = SurfaceTexture(frame.Surface);
+        var texture = SurfaceTexture(frame);
         try
         {
             var desc = GetDesc(texture);
@@ -243,57 +254,63 @@ internal sealed class WgcCapturer : IFrameCapturer
         // Demo mode has no game window: capture the monitor instead.
         var isMonitor = target.Hwnd == IntPtr.Zero;
         var handle = isMonitor ? MonitorForRect(target.CaptureRect) : target.Hwnd;
-        if (_session is not null && !_itemClosed && handle == _targetHandle) return;
+        if (_session != IntPtr.Zero && !_itemClosed && handle == _targetHandle) return;
 
         if (_itemClosed) AppLog.Info("wgc: capture item closed (window gone); restarting session");
         StopSession();
         EnsureDevice();
 
+        // Each object goes into its field as soon as it exists, so a failure further down leaves nothing that
+        // StopSession (via Reset) would not release.
         var item = CreateItem(isMonitor, handle);
-        item.Closed += (sender, _) =>
-        {
-            if (ReferenceEquals(sender, _item)) _itemClosed = true;
-        };
         _item = item;
+        _itemClosedToken = AddItemClosed(item, sender =>
+        {
+            // The callback is bound to this item; the sender is the same object.
+            if (_item == item) _itemClosed = true;
+        });
         _itemClosed = false;
         _targetHandle = handle;
-        _poolSize = item.Size;
-        var pool = Direct3D11CaptureFramePool.CreateFreeThreaded(_device, PixelFormat, PoolBuffers, _poolSize);
-        pool.FrameArrived += OnFrameArrived;
+        _poolSize = GetItemSize(item);
+        var pool = CreateFreeThreadedFramePool(_device, PixelFormat, PoolBuffers, _poolSize);
+        try
+        {
+            _frameArrivedToken = AddFrameArrived(pool, sender => OnFrameArrived(sender, pool));
+        }
+        catch
+        {
+            ReleaseQuietly(ref pool);
+            throw;
+        }
         lock (_frameLock) _pool = pool;
-        _session = pool.CreateCaptureSession(item);
-        _session.IsCursorCaptureEnabled = false;
+        _session = CreateCaptureSession(pool, item);
+        SetCursorCaptureEnabled(_session, false);
         var border = "required";
         if (OperatingSystem.IsWindowsVersionAtLeast(10, 0, 20348))
         {
             try
             {
-                _session.IsBorderRequired = false; // no yellow frame around the game
+                SetBorderRequired(_session, false); // no yellow frame around the game
                 border = "off";
             }
-            catch (Exception ex) when (ex is COMException or UnauthorizedAccessException or NotSupportedException)
+            catch (Exception ex) when (ex is COMException or UnauthorizedAccessException or NotSupportedException or InvalidCastException)
             {
+                // InvalidCastException: the session has no IGraphicsCaptureSession3 (QueryInterface failed).
                 border = "required (" + ex.Message + ")";
             }
         }
-        _session.StartCapture();
+        StartCapture(_session);
         AppLog.Info($"wgc: session started for {(isMonitor ? "monitor" : "window")} 0x{handle:X} ({_poolSize.Width}x{_poolSize.Height}), cursor off, border {border}");
     }
 
-    private static GraphicsCaptureItem CreateItem(bool monitor, IntPtr handle)
+    /// <summary>A GraphicsCaptureItem (IGraphicsCaptureItem, caller releases) for a window or a monitor.</summary>
+    private static IntPtr CreateItem(bool monitor, IntPtr handle)
     {
         var interop = GetActivationFactory("Windows.Graphics.Capture.GraphicsCaptureItem", IID_IGraphicsCaptureItemInterop);
         try
         {
-            Marshal.ThrowExceptionForHR(CreateCaptureItem(interop, monitor, handle, out var itemPtr));
-            try
-            {
-                return GraphicsCaptureItem.FromAbi(itemPtr); // the projection takes its own reference
-            }
-            finally
-            {
-                Marshal.Release(itemPtr);
-            }
+            Marshal.ThrowExceptionForHR(CreateCaptureItem(interop, monitor, handle, out var item));
+            return item;
         }
         finally
         {
@@ -301,33 +318,40 @@ internal sealed class WgcCapturer : IFrameCapturer
         }
     }
 
-    private void OnFrameArrived(Direct3D11CaptureFramePool sender, object args)
+    /// <param name="sender">The pool raising the event (valid only during this call).</param>
+    /// <param name="pool">The pool this handler was registered on: frames from any pool but the current one are dropped.</param>
+    private void OnFrameArrived(IntPtr sender, IntPtr pool)
     {
         try
         {
-            var frame = sender.TryGetNextFrame();
-            if (frame is null) return;
-            if (frame.ContentSize.Width != _poolSize.Width || frame.ContentSize.Height != _poolSize.Height)
+            var frame = TryGetNextFrame(sender);
+            if (frame == IntPtr.Zero) return;
+            try
             {
-                // Window resized: new buffers of the new size for the following frames.
-                _poolSize = frame.ContentSize;
-                sender.Recreate(_device, PixelFormat, PoolBuffers, _poolSize);
-            }
-            Direct3D11CaptureFrame? old;
-            lock (_frameLock)
-            {
-                if (!ReferenceEquals(sender, _pool))
+                var content = GetFrameContentSize(frame);
+                if (content.Width != _poolSize.Width || content.Height != _poolSize.Height)
                 {
-                    frame.Dispose(); // a pool we are shutting down
-                    return;
+                    // Window resized: new buffers of the new size for the following frames.
+                    _poolSize = content;
+                    RecreatePool(sender, pool);
                 }
-                old = _latest;
-                _latest = frame;
+                IntPtr old;
+                lock (_frameLock)
+                {
+                    if (_pool != pool) return; // a pool we are shutting down: the finally drops the frame
+                    old = _latest;
+                    _latest = frame;
+                    frame = IntPtr.Zero; // _latest owns it now
+                }
+                _gameFrames?.Arrived(Stopwatch.GetTimestamp()); // a few interlocked operations; this runs at the game's frame rate
+                // Return the older frame's buffer to the pool right away, so DWM always has one free to write into.
+                CloseAndRelease(ref old);
+                _frameArrived.Set();
             }
-            _gameFrames?.Arrived(Stopwatch.GetTimestamp()); // a few interlocked operations; this runs at the game's frame rate
-            // Return the older frame's buffer to the pool right away, so DWM always has one free to write into.
-            old?.Dispose();
-            _frameArrived.Set();
+            finally
+            {
+                CloseAndRelease(ref frame);
+            }
         }
         catch (Exception ex) when (ex is COMException or ObjectDisposedException or InvalidOperationException)
         {
@@ -335,55 +359,120 @@ internal sealed class WgcCapturer : IFrameCapturer
         }
     }
 
-    private Direct3D11CaptureFrame? TakeLatestFrame(TimeSpan wait)
+    /// <summary>
+    /// Pool buffers of the new <see cref="_poolSize"/>. The device is borrowed under the lock: once StopSession has taken
+    /// the pool away, Reset may release the device on the worker at any moment.
+    /// </summary>
+    private void RecreatePool(IntPtr sender, IntPtr pool)
+    {
+        IntPtr device;
+        lock (_frameLock)
+        {
+            if (_pool != pool) return;
+            device = _device;
+            Marshal.AddRef(device);
+        }
+        try
+        {
+            Recreate(sender, device, PixelFormat, PoolBuffers, _poolSize);
+        }
+        finally
+        {
+            Marshal.Release(device);
+        }
+    }
+
+    /// <summary>The newest frame (caller closes and releases it), or zero when none arrived within <paramref name="wait"/>.</summary>
+    private IntPtr TakeLatestFrame(TimeSpan wait)
     {
         var deadline = Stopwatch.GetTimestamp() + (long)(wait.TotalSeconds * Stopwatch.Frequency);
         while (true)
         {
             lock (_frameLock)
             {
-                if (_latest is { } f)
+                if (_latest != IntPtr.Zero)
                 {
-                    _latest = null;
+                    var f = _latest;
+                    _latest = IntPtr.Zero;
                     return f;
                 }
             }
             var remaining = deadline - Stopwatch.GetTimestamp();
-            if (remaining <= 0 || _itemClosed) return null;
+            if (remaining <= 0 || _itemClosed) return IntPtr.Zero;
             _frameArrived.WaitOne(TimeSpan.FromSeconds((double)remaining / Stopwatch.Frequency));
         }
     }
 
     private void StopSession()
     {
-        Direct3D11CaptureFrame? latest;
-        Direct3D11CaptureFramePool? pool;
+        IntPtr latest;
+        IntPtr pool;
         lock (_frameLock)
         {
             latest = _latest;
-            _latest = null;
+            _latest = IntPtr.Zero;
             pool = _pool;
-            _pool = null;
+            _pool = IntPtr.Zero;
         }
-        latest?.Dispose();
-        _session?.Dispose(); // stops the capture
-        _session = null;
-        if (pool is not null)
-        {
-            pool.FrameArrived -= OnFrameArrived;
-            pool.Dispose();
-        }
-        _item = null;
+        var session = _session;
+        var item = _item;
+        var frameArrivedToken = _frameArrivedToken;
+        var itemClosedToken = _itemClosedToken;
+        _session = IntPtr.Zero;
+        _item = IntPtr.Zero;
+        _frameArrivedToken = _itemClosedToken = 0;
         _targetHandle = IntPtr.Zero;
         _bufferRect = default;
+
+        // Everything is released even when a step fails; the first failure is rethrown at the end (as the projection's
+        // Dispose would have thrown it), so the caller still sees it.
+        Exception? error = null;
+        void Step(Action step)
+        {
+            try
+            {
+                step();
+            }
+            catch (Exception ex)
+            {
+                error ??= ex; // deferred, not swallowed: rethrown below once everything is released
+            }
+        }
+        Step(() => CloseAndRelease(ref latest));
+        Step(() => CloseAndRelease(ref session)); // stops the capture
+        if (pool != IntPtr.Zero)
+        {
+            if (frameArrivedToken != 0) Step(() => Marshal.ThrowExceptionForHR(RemoveFrameArrived(pool, frameArrivedToken)));
+            Step(() => CloseAndRelease(ref pool));
+        }
+        if (item != IntPtr.Zero)
+        {
+            // The projection never unsubscribed Closed (it dropped the item to the GC); a failure here changes nothing.
+            if (itemClosedToken != 0) RemoveItemClosed(item, itemClosedToken);
+            Release(ref item);
+        }
         _gameFrames?.Break(); // the time without a session is no gap between game frames
+        if (error is not null) ExceptionDispatchInfo.Throw(error);
+    }
+
+    /// <summary>Close + release on an error path that is already throwing something more useful.</summary>
+    private static void ReleaseQuietly(ref IntPtr obj)
+    {
+        try
+        {
+            CloseAndRelease(ref obj);
+        }
+        catch (Exception ex) when (ex is COMException or ObjectDisposedException or InvalidOperationException)
+        {
+            // The reference is gone either way.
+        }
     }
 
     // ---- device and staging texture ---------------------------------------------------------------------
 
     private void EnsureDevice()
     {
-        if (_device is not null) return;
+        if (_device != IntPtr.Zero) return;
         var hr = D3D11CreateDevice(IntPtr.Zero, D3D_DRIVER_TYPE_HARDWARE, IntPtr.Zero, D3D11_CREATE_DEVICE_BGRA_SUPPORT,
             IntPtr.Zero, 0, D3D11_SDK_VERSION, out _d3dDevice, out _, out _d3dContext);
         if (hr < 0)
@@ -399,7 +488,8 @@ internal sealed class WgcCapturer : IFrameCapturer
             Marshal.ThrowExceptionForHR(CreateDirect3D11DeviceFromDXGIDevice(dxgi, out var inspectable));
             try
             {
-                _device = MarshalInterface<IDirect3DDevice>.FromAbi(inspectable);
+                // The frame pool takes an IDirect3DDevice*, not the IInspectable* we got.
+                Marshal.ThrowExceptionForHR(Marshal.QueryInterface(inspectable, in IID_IDirect3DDevice, out _device));
             }
             finally
             {
@@ -433,13 +523,13 @@ internal sealed class WgcCapturer : IFrameCapturer
         _stagingHeight = height;
     }
 
-    /// <summary>The ID3D11Texture2D behind a WGC frame surface (caller releases it).</summary>
-    private static IntPtr SurfaceTexture(IDirect3DSurface surface)
+    /// <summary>The ID3D11Texture2D behind a WGC frame's surface (caller releases it).</summary>
+    private static IntPtr SurfaceTexture(IntPtr frame)
     {
-        var abi = MarshalInterface<IDirect3DSurface>.FromManaged(surface);
+        var surface = GetFrameSurface(frame);
         try
         {
-            Marshal.ThrowExceptionForHR(Marshal.QueryInterface(abi, in IID_IDirect3DDxgiInterfaceAccess, out var access));
+            Marshal.ThrowExceptionForHR(Marshal.QueryInterface(surface, in IID_IDirect3DDxgiInterfaceAccess, out var access));
             try
             {
                 Marshal.ThrowExceptionForHR(GetDxgiInterface(access, IID_ID3D11Texture2D, out var texture));
@@ -452,7 +542,7 @@ internal sealed class WgcCapturer : IFrameCapturer
         }
         finally
         {
-            Marshal.Release(abi);
+            Marshal.Release(surface);
         }
     }
 
@@ -469,7 +559,8 @@ internal sealed class WgcCapturer : IFrameCapturer
 
     public void Suspend()
     {
-        if (_session is null && _staging == IntPtr.Zero) return;
+        // _item also counts: a session that failed half-way has an item (and maybe a pool) but no _session yet.
+        if (_session == IntPtr.Zero && _item == IntPtr.Zero && _staging == IntPtr.Zero) return;
         StopSession();
         Release(ref _staging);
         _stagingWidth = _stagingHeight = 0;
@@ -482,14 +573,12 @@ internal sealed class WgcCapturer : IFrameCapturer
         {
             Suspend();
         }
-        catch (Exception ex) when (ex is COMException or ObjectDisposedException or InvalidOperationException)
+        catch (Exception ex)
         {
+            // StopSession has released everything before rethrowing, so the device below can still go.
             AppLog.Warn($"wgc: teardown failed: {ex.Message}");
         }
-        _session = null;
-        _item = null;
-        _device?.Dispose();
-        _device = null;
+        Release(ref _device);
         Release(ref _staging);
         Release(ref _d3dContext);
         Release(ref _d3dDevice);

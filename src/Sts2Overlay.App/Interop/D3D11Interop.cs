@@ -90,6 +90,13 @@ internal static unsafe class D3D11Interop
     [DllImport("combase.dll")]
     public static extern int RoGetActivationFactory(IntPtr activatableClassId, in Guid iid, out IntPtr factory);
 
+    /// <summary>combaseapi.h line 556.</summary>
+    [DllImport("combase.dll")]
+    private static extern int CoIncrementMTAUsage(out IntPtr cookie);
+
+    /// <summary>The calling thread has not initialised COM (winerror.h).</summary>
+    private const int CO_E_NOTINITIALIZED = unchecked((int)0x800401F0);
+
     [DllImport("dwmapi.dll")]
     public static extern int DwmGetWindowAttribute(IntPtr hwnd, int attribute, out NativeMethods.RECT value, int size);
 
@@ -98,7 +105,7 @@ internal static unsafe class D3D11Interop
 
     // ---- vtable calls -----------------------------------------------------------------------------------
 
-    private static void* Slot(IntPtr comObject, int index) => (*(void***)comObject)[index];
+    internal static void* Slot(IntPtr comObject, int index) => (*(void***)comObject)[index];
 
     /// <summary>ID3D11Device::CreateTexture2D (slot 5).</summary>
     public static int CreateTexture2D(IntPtr device, in D3D11_TEXTURE2D_DESC desc, out IntPtr texture)
@@ -173,13 +180,21 @@ internal static unsafe class D3D11Interop
         return hr;
     }
 
-    /// <summary>Activation factory of a WinRT class, asked directly for one of its (non-WinRT) interop interfaces.</summary>
+    /// <summary>Activation factory of a WinRT class, asked directly for one of its interfaces (statics or interop).</summary>
     public static IntPtr GetActivationFactory(string className, in Guid iid)
     {
         Marshal.ThrowExceptionForHR(WindowsCreateString(className, className.Length, out var hstring));
         try
         {
-            Marshal.ThrowExceptionForHR(RoGetActivationFactory(hstring, iid, out var factory));
+            var hr = RoGetActivationFactory(hstring, iid, out var factory);
+            if (hr == CO_E_NOTINITIALIZED)
+            {
+                // A thread that never initialised COM. The projection handled this the same way: keep the process-wide
+                // MTA alive (for the rest of the process) so WinRT can be used from this thread, then retry.
+                Marshal.ThrowExceptionForHR(CoIncrementMTAUsage(out _));
+                hr = RoGetActivationFactory(hstring, iid, out factory);
+            }
+            Marshal.ThrowExceptionForHR(hr);
             return factory;
         }
         finally
