@@ -22,6 +22,8 @@
   <ItemGroup>
     <!-- The app's resource dictionary, read as loose XAML (the App class itself must not run: its OnStartup is the overlay). -->
     <EmbeddedResource Include="..\..\src\Sts2Overlay.App\App.xaml" LogicalName="App.xaml" />
+    <!-- The panel's XAML as text: PanelProfile cuts the offer row template out of it and parses variants at run time. -->
+    <EmbeddedResource Include="..\..\src\Sts2Overlay.App\Views\PanelWindow.xaml" LogicalName="PanelWindow.xaml" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Sts2Overlay.App\Sts2Overlay.App.csproj" />

@@ -19,6 +19,8 @@ namespace Sts2Overlay.Tools.BadgeRenderBench;
 //   BadgeRenderBench --hold S --windows K --variants a              K layers held S seconds (read GPU memory outside)
 //   BadgeRenderBench --decode <card_art dir> N                      no window: thumbnail decode time
 //   BadgeRenderBench --panel <card_art dir> ROUNDS                  no window: panel offer tab layout, offscreen
+//   BadgeRenderBench --panel-profile <card_art dir> ROUNDS          no window: offer row template parts, offscreen
+//   BadgeRenderBench --offer-live <card_art dir> ROUNDS             panel + badges shown: new offer, panel in one pass or deferred
 // Variants: full-* = the window covers the screen, fit-* = only the box around the badges, -hidden = Show() in the
 // timed change, -sw = software rendering, -seq = reward and shop screens in turn on one window.
 //
@@ -35,11 +37,15 @@ internal static class Program
         if (args is ["--decode", var artDir, var count]) return DecodeBench.Run(artDir, int.Parse(count, CultureInfo.InvariantCulture));
         // No window either: the panel's offer tab laid out offscreen after a new offer.
         if (args is ["--panel", var panelArt, var rounds]) return PanelBench.Run(panelArt, int.Parse(rounds, CultureInfo.InvariantCulture));
+        // No window: what each part of the offer row template costs (PanelProfile.cs).
+        if (args is ["--panel-profile", var profileArt, var profileRounds]) return PanelProfile.Run(profileArt, int.Parse(profileRounds, CultureInfo.InvariantCulture));
         if (GameGuard.IsGameRunning())
         {
             Console.Error.WriteLine("Slay the Spire 2 is running: this bench shows windows over the screen, so it does not run now.");
             return 3;
         }
+        // Shown panel + badge layer in one process: a new offer applied in one pass or with the panel deferred (OfferApplyBench.cs).
+        if (args is ["--offer-live", var liveArt, var liveRounds]) return OfferApplyBench.Run(liveArt, int.Parse(liveRounds, CultureInfo.InvariantCulture));
         var opts = Options.Parse(args);
         if (opts.Cold > 0 && !opts.Child) return ColdRunner.Run(opts);
         var app = new BenchApp(opts) { Resources = AppResources(), ShutdownMode = ShutdownMode.OnExplicitShutdown };
