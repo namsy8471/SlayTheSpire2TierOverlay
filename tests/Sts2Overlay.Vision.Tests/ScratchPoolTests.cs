@@ -80,6 +80,20 @@ public class ScratchPoolTests
     }
 
     [Fact]
+    public void Idle_scratch_is_dropped_only_after_the_idle_time()
+    {
+        // A registered pool of its own (other tests use the shared ones in parallel); the clock is passed in.
+        var pool = new ScratchPool<int>("test idle", keep: 1);
+        pool.Return(pool.Rent(1000));
+        long now = System.Diagnostics.Stopwatch.GetTimestamp();
+        Assert.Equal(0, VisionScratch.ReleaseIfIdle(now)); // just used
+        Assert.Equal(4000, pool.HeldBytes());
+        long later = now + (long)((VisionScratch.IdleRelease.TotalSeconds + 1) * System.Diagnostics.Stopwatch.Frequency);
+        Assert.True(VisionScratch.ReleaseIfIdle(later) >= 4000);
+        Assert.Equal(0, pool.HeldBytes());
+    }
+
+    [Fact]
     public void Release_drops_the_free_arrays()
     {
         var pool = new ScratchPool<float>("test", keep: 3, register: false);

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
 namespace Sts2Overlay.Vision;
@@ -14,7 +15,8 @@ namespace Sts2Overlay.Vision;
 ///
 /// <para>Here a role keeps at most <see cref="Keep"/> arrays of exactly the size asked for (see <see cref="Rent"/> for
 /// which one a request gets), so the integral tables settle at one grid-band table plus one shop-bottom-row table.
-/// The arrays are not cleared: callers write before they read.</para>
+/// The arrays are not cleared: callers write before they read. All pools let go of their arrays once recognition has
+/// been idle for <see cref="VisionScratch.IdleRelease"/>.</para>
 /// </summary>
 internal sealed class ScratchPool<T>
 {
@@ -39,6 +41,7 @@ internal sealed class ScratchPool<T>
     public T[] Rent(int length)
     {
         length = Math.Max(1, length);
+        VisionScratch.Touch();
         lock (_lock)
         {
             // The first array of a burst (none rented out) is the one that must be large: the card-grid band follows the
@@ -88,6 +91,7 @@ internal sealed class ScratchPool<T>
             if (empty >= 0) _free[empty] = array;
             else if (_free[smallest]!.Length < array.Length) _free[smallest] = array; // keep the larger one
         }
+        VisionScratch.Touch();
     }
 
     /// <summary>Drops every free array; returns their size in bytes.</summary>
@@ -120,12 +124,21 @@ internal sealed class ScratchPool<T>
 
 /// <summary>
 /// The scratch memory of the per-frame recognisers (<see cref="CardRecognizer"/>, the merchant relic reader, the shop
-/// price reader).
+/// price reader) and its idle release. While frames come in (1.5-20 Hz) the arrays are reused; once no recogniser has
+/// touched them for <see cref="IdleRelease"/> (capture paused: game not in front or overlay hidden; or the screen did not
+/// change) they are dropped, and one background GC hands them back to the system: the app hardly allocates while it
+/// idles, so the dropped large arrays could otherwise stay committed until some much later gen2 collection.
 /// </summary>
 public static class VisionScratch
 {
     private static readonly Lock Gate = new();
     private static readonly List<(Func<long> Release, Func<long> Held)> Pools = [];
+    private static long _lastUse = Stopwatch.GetTimestamp();
+    private static Timer? _timer;
+    private static TimeSpan _idleRelease = TimeSpan.FromSeconds(30);
+
+    /// <summary>Released at least this much: start the background GC (smaller amounts wait for the next natural one).</summary>
+    private const long CollectAfterRelease = 4 << 20;
 
     /// <summary>Card-grid, reward, shop and relic band integral tables: at most two are in use at once (the shop's two rows).</summary>
     internal static readonly ScratchPool<int> Tables = new("integral tables", keep: 2);
@@ -150,8 +163,54 @@ public static class VisionScratch
         lock (Gate) return Pools.Sum(p => p.Release());
     }
 
+    /// <summary>Idle time after which the scratch arrays are dropped; <see cref="Timeout.InfiniteTimeSpan"/> keeps them.</summary>
+    public static TimeSpan IdleRelease
+    {
+        get => _idleRelease;
+        set
+        {
+            lock (Gate) _idleRelease = value;
+        }
+    }
+
     internal static void Register(Func<long> release, Func<long> held)
     {
         lock (Gate) Pools.Add((release, held));
+    }
+
+    /// <summary>A recogniser used its scratch: restart the idle clock, and the idle check if it had stopped.</summary>
+    internal static void Touch()
+    {
+        Volatile.Write(ref _lastUse, Stopwatch.GetTimestamp());
+        if (Volatile.Read(ref _timer) is not null) return;
+        lock (Gate)
+        {
+            if (_timer is not null || _idleRelease == Timeout.InfiniteTimeSpan) return;
+            // A third of the idle time: arrays go at most a third later than asked; the check itself is a clock read.
+            TimeSpan period = TimeSpan.FromTicks(Math.Max(TimeSpan.TicksPerSecond, _idleRelease.Ticks / 3));
+            _timer = new Timer(static _ => OnTimer(), null, period, period);
+        }
+    }
+
+    private static void OnTimer()
+    {
+        if (ReleaseIfIdle(Stopwatch.GetTimestamp()) >= CollectAfterRelease)
+            GC.Collect(2, GCCollectionMode.Forced, blocking: false, compacting: false);
+    }
+
+    /// <summary>
+    /// At <paramref name="now"/> (a <see cref="Stopwatch"/> timestamp): when nothing used the scratch for
+    /// <see cref="IdleRelease"/>, stops the idle check (the next use starts it again) and drops the free arrays.
+    /// Returns the bytes dropped (0 when not idle).
+    /// </summary>
+    internal static long ReleaseIfIdle(long now)
+    {
+        lock (Gate)
+        {
+            if (_idleRelease == Timeout.InfiniteTimeSpan || Stopwatch.GetElapsedTime(Volatile.Read(ref _lastUse), now) < _idleRelease) return 0;
+            _timer?.Dispose();
+            _timer = null;
+            return Pools.Sum(p => p.Release());
+        }
     }
 }
