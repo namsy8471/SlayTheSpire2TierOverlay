@@ -23,10 +23,19 @@ public sealed class CardArtProvider
     /// <summary>Hover size in pixels; the tooltip shows it at 380x289 DIPs.</summary>
     public const int LargeWidth = 600, LargeHeight = 456;
 
+    /// <summary>
+    /// Hover images kept decoded. One is 600x456 BGRA = 1.1 MB of native bitmap memory, and the old unbounded cache kept
+    /// every card ever hovered for the whole session (60 hovered cards = 60 MB, tools/MemProbe step e2). A tooltip
+    /// shows one card at a time, so the last few are enough; an older one is decoded again (~10 ms) if hovered again.
+    /// </summary>
+    internal const int LargeCacheSize = 8;
+
     private readonly string _artRoot;
     private readonly string? _catalogPath;
     private readonly Lazy<IReadOnlyDictionary<string, string>> _files;
-    private readonly ConcurrentDictionary<(string Id, bool Large), ImageSource?> _cache = new();
+    private readonly ConcurrentDictionary<string, ImageSource?> _thumbs = new();
+    private readonly Lock _largeLock = new();
+    private readonly LinkedList<(string Id, ImageSource? Image)> _large = new(); // most recently used first
 
     public CardArtProvider(string artRoot, string? catalogPath)
     {
@@ -47,27 +56,55 @@ public sealed class CardArtProvider
     /// <summary>Lazy pair for one card; the large image is decoded only when the tooltip asks for it.</summary>
     public CardArtVm? For(string cardId) => PathOf(cardId) is null ? null : new CardArtVm(this, cardId);
 
-    public ImageSource? Thumb(string cardId) => Get(cardId, large: false);
+    /// <summary>Thumbnails stay cached: all of them together are ~16 MB (577 x 96x73 BGRA), and the tier list shows them all.</summary>
+    public ImageSource? Thumb(string cardId) => _thumbs.GetOrAdd(cardId, id => Load(id, large: false));
 
-    public ImageSource? Large(string cardId) => Get(cardId, large: true);
+    public ImageSource? Large(string cardId)
+    {
+        lock (_largeLock)
+        {
+            for (var node = _large.First; node is not null; node = node.Next)
+            {
+                if (node.Value.Id != cardId) continue;
+                _large.Remove(node);
+                _large.AddFirst(node);
+                return node.Value.Image;
+            }
+        }
+        var image = Load(cardId, large: true); // decoded outside the lock: the UI thread never waits on another decode
+        lock (_largeLock)
+        {
+            if (_large.All(x => x.Id != cardId)) _large.AddFirst((cardId, image));
+            while (_large.Count > LargeCacheSize) _large.RemoveLast();
+        }
+        return image;
+    }
+
+    /// <summary>Hover images currently kept decoded (tests).</summary>
+    internal int LargeCached
+    {
+        get
+        {
+            lock (_largeLock) return _large.Count;
+        }
+    }
 
     private string? PathOf(string cardId) => _files.Value.GetValueOrDefault(cardId);
 
-    private ImageSource? Get(string cardId, bool large)
-        => _cache.GetOrAdd((cardId, large), key =>
+    private ImageSource? Load(string cardId, bool large)
+    {
+        var file = PathOf(cardId);
+        if (file is null) return null;
+        try
         {
-            var file = PathOf(key.Id);
-            if (file is null) return null;
-            try
-            {
-                return Decode(file, key.Large ? LargeWidth : ThumbWidth, key.Large ? LargeHeight : ThumbHeight);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
-            {
-                AppLog.Warn($"card art: could not read {file} ({ex.Message})");
-                return null;
-            }
-        });
+            return Decode(file, large ? LargeWidth : ThumbWidth, large ? LargeHeight : ThumbHeight);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            AppLog.Warn($"card art: could not read {file} ({ex.Message})");
+            return null;
+        }
+    }
 
     private IReadOnlyDictionary<string, string> Index()
     {

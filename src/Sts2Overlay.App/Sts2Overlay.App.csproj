@@ -97,6 +97,8 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Sts2Overlay.App.Tests" />
+    <!-- Offline memory harness: builds the app's recogniser and providers against explicit data paths. -->
+    <InternalsVisibleTo Include="MemProbe" />
     <!-- Minimum Windows version (see GenerateSupportedOSPlatformAttribute above). -->
     <AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatformAttribute">
       <_Parameter1>windows10.0.19041.0</_Parameter1>
