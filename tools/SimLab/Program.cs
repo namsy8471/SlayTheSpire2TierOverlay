@@ -8,17 +8,25 @@ using Sts2Sim.Core.Models;
 
 // Usage: SimFuzz <fights.jsonl> <out.csv> [--act1cap 3000] [--totalcap 8000] [--seeds 5]
 //                [--threads N] [--wallcap-sec 20] [--coverage-only] [--report coverage.txt]
-// Bigger gen0 budget (1 GB): beam-search states then die young instead of being promoted, so
-// gen2 GCs drop 19 -> 2 on the dev boss sample. The GC reads this only at process start and
-// ignores the runtimeconfig keys, so relaunch once with the env var set. The runtime caps the
-// value, so going above 1 GB changes nothing. Set DOTNET_GCgen0size=0 to keep the default.
-if (Environment.GetEnvironmentVariable("DOTNET_GCgen0size") is null && Environment.ProcessPath is { } exe)
+// GC settings the runtime reads only at process start (runtimeconfig keys for them are not
+// honored), so relaunch once with them set unless the caller already chose:
+// - gen0 budget 1 GB: beam-search states then die young instead of being promoted (gen2 GCs
+//   19 -> 2 on the dev boss sample); the runtime caps the value, so more changes nothing.
+// - one server-GC heap per worker thread: by default every process makes a heap and a GC thread
+//   per core, so run.sh's 4 processes x 6 threads ran 4 x 24 GC threads on 24 cores. At 24
+//   threads (dev set, 4 x 6) GC pause fell from ~12% to ~5% of wall and combats/s 36.9 -> 39.5.
+// Set either variable yourself (DOTNET_GCgen0size=0 keeps the default) to skip the relaunch.
+if ((Environment.GetEnvironmentVariable("DOTNET_GCgen0size") is null || Environment.GetEnvironmentVariable("DOTNET_GCHeapCount") is null)
+    && Environment.ProcessPath is { } exe)
 {
     var psi = new ProcessStartInfo(exe) { UseShellExecute = false };
     if (Path.GetFileNameWithoutExtension(exe).Equals("dotnet", StringComparison.OrdinalIgnoreCase))
         psi.ArgumentList.Add(Environment.GetCommandLineArgs()[0]);
     foreach (var a in args) psi.ArgumentList.Add(a);
-    psi.Environment["DOTNET_GCgen0size"] = "40000000"; // hex: 0x40000000 = 1 GB
+    int workers = IntArg("--threads", Environment.ProcessorCount);
+    // DOTNET_GC* numbers are hex.
+    psi.Environment.TryAdd("DOTNET_GCgen0size", "40000000"); // 0x40000000 = 1 GB
+    psi.Environment.TryAdd("DOTNET_GCHeapCount", Math.Clamp(workers, 1, Environment.ProcessorCount).ToString("x"));
     using var child = Process.Start(psi)!;
     child.WaitForExit();
     Environment.Exit(child.ExitCode);
