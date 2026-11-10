@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Offline memory harness for the overlay: loads what the app loads, step by step (data pack, recogniser, a few hundred
+    saved captures through the app's own VisionRecognizer, the panel's image providers, the D3D11 capture objects) and
+    prints process / GC numbers after each step. Also dumps the raw recognition output of every saved capture, so a
+    Vision change can be proven bit-identical. Console only: it never opens a window and never writes into data/local.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- Same unversioned TFM and Windows 10 2004 minimum as the app (see its csproj). -->
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <GenerateSupportedOSPlatformAttribute>false</GenerateSupportedOSPlatformAttribute>
+    <!-- The panel providers return WPF BitmapSources; no window is created. -->
+    <UseWPF>true</UseWPF>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatformAttribute">
+      <_Parameter1>windows10.0.19041.0</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Sts2Overlay.App\Sts2Overlay.App.csproj" />
+  </ItemGroup>
+</Project>

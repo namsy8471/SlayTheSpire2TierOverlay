@@ -19,12 +19,31 @@ public sealed class VisionRecognizer : ICardRecognizer
     private readonly Lock _loadLock = new();
     private volatile CardRecognizer? _recognizer;
     private bool _unavailable;
+    private readonly string? _localDir;  // null = AppPaths.LocalDataDir
+    private readonly string? _cachePath; // null = <local>/vision/card-art.bin
+
+    public VisionRecognizer()
+    {
+    }
+
+    /// <summary>
+    /// Reads another local data folder and keeps the art cache at <paramref name="cachePath"/> (tools/MemProbe: measures the
+    /// app's recogniser without ever writing the shared cache).
+    /// </summary>
+    internal VisionRecognizer(string localDir, string cachePath)
+    {
+        _localDir = localDir;
+        _cachePath = cachePath;
+    }
 
     /// <summary>
     /// Builds the art database now (call on a background thread right after the resources were prepared), so the first
     /// reward screen does not pay for it.
     /// </summary>
     public bool Preload() => (_recognizer ?? Load()) is not null;
+
+    /// <summary>The loaded Vision recogniser, or null before <see cref="Preload"/> (tools/MemProbe dumps its raw output).</summary>
+    internal CardRecognizer? Loaded => _recognizer;
 
     public RecognitionResult? Recognize(CapturedFrame frame, string? characterHint)
     {
@@ -132,13 +151,13 @@ public sealed class VisionRecognizer : ICardRecognizer
     private CardRecognizer? LoadLocked()
     {
         if (_unavailable) return null;
-        var local = AppPaths.LocalDataDir;
+        var local = _localDir ?? AppPaths.LocalDataDir;
         var artRoot = Path.Combine(local, "pck", "card_art");
         // The catalog generated from the INSTALLED game (data/local, see LocalResourceService) knows cards added by a game
         // update; the committed names-free catalog is the fallback.
         var catalog = new Sts2Overlay.Resources.LocalLayout(local).ManifestCatalog()
             ?? AppPaths.CommittedCatalogFile;
-        var cache = Path.Combine(local, "vision", "card-art.bin");
+        var cache = _cachePath ?? Path.Combine(local, "vision", "card-art.bin");
         if (!Directory.Exists(artRoot))
         {
             _unavailable = true;
