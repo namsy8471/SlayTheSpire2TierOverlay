@@ -17,6 +17,9 @@ public sealed record TrackerOptions
     public TimeSpan LogPollInterval { get; init; } = TimeSpan.FromMilliseconds(300);
     public TimeSpan SaveDebounce { get; init; } = TimeSpan.FromMilliseconds(250);
 
+    /// <summary>How often a missing saves folder is looked for again (the game creates it on its first run).</summary>
+    public TimeSpan SavesRetryInterval { get; init; } = TimeSpan.FromSeconds(10);
+
     /// <summary>Replay the existing godot.log on start (needed to rebuild a run that is already in progress).</summary>
     public bool ReplayExistingLog { get; init; } = true;
 
@@ -50,13 +53,22 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
     private static readonly (string Relic, string Type)[] s_eggs =
         [("RELIC.FROZEN_EGG", "Power"), ("RELIC.MOLTEN_EGG", "Attack"), ("RELIC.TOXIC_EGG", "Skill")];
 
-    private readonly TrackerOptions _options;
+    private TrackerOptions _options; // Paths change when the saves folder shows up later or the game switches profile
     private readonly StartingLoadouts _loadouts;
     private readonly Func<DateTime> _clock;
     private readonly object _gate = new();
 
     private SaveWatcher? _watcher;
     private LogTailer? _tailer;
+
+    // --- input health and saves-folder following (see Start / CheckSavesFolder) --------------------
+    private readonly ReportThrottle _problemThrottle = new(TimeSpan.FromMinutes(1));
+    private int _formatProblem;                          // 1 once a save or log line could not be handled
+    private readonly object _savesGate = new();          // creates/replaces _watcher
+    private Timer? _savesTimer;
+    private volatile string? _watchedSaves;              // folder _watcher watches
+    private volatile string? _wantedSaves;               // folder the log's "Profile-scoped data path" line names
+    private volatile bool _disposed;
 
     // --- log-derived state (guarded by _gate) -----------------------------------------------------
     private long _seq;                                   // log line counter: total order of log events
@@ -125,33 +137,142 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
     /// <summary>Human-readable notes (save read errors, log rotation ...).</summary>
     public event EventHandler<string>? Diagnostic;
 
+    /// <summary>
+    /// True once a save or a log line could not be handled at all (not a half-written file: an exception the parser
+    /// or the tracker did not expect, typically after a game update changed the format). Stays true for the session.
+    /// </summary>
+    public bool FormatProblem => Volatile.Read(ref _formatProblem) == 1;
+
+    /// <summary>Raised once, when <see cref="FormatProblem"/> becomes true (from a background thread).</summary>
+    public event EventHandler? FormatProblemDetected;
+
     /// <summary>Starts the save watcher and the log tailer using <see cref="TrackerOptions.Paths"/>.</summary>
     public void Start()
     {
         GamePaths? paths = _options.Paths;
         if (paths?.SavesDirectory is { } saves && Directory.Exists(saves))
         {
-            _watcher = new SaveWatcher(saves, () => _options.LocalNetIdOverride ?? paths.SteamId ?? _logLocalId, _options.SaveDebounce);
-            _watcher.SaveChanged += (_, s) => OnSave(s);
-            _watcher.SaveRemoved += (_, p) => OnSaveRemoved(p);
-            _watcher.SaveError += (_, e) => Diagnostic?.Invoke(this, $"save read failed: {e.Path}: {e.Error.Message}");
-            _watcher.Start();
+            lock (_savesGate) WatchSaves(saves);
         }
-        else Diagnostic?.Invoke(this, "saves folder not found; save watching disabled");
+        else Diagnostic?.Invoke(this, paths?.Root is null
+            ? "saves folder not found; save watching disabled"
+            : "saves folder not found yet; looking for it again periodically");
+        // With a known data root, keep checking: the folder appears on the game's first run, and the log names the
+        // profile the game really uses (FollowProfile). A check with nothing to do touches no file.
+        if (paths?.Root is not null)
+            _savesTimer = new Timer(_ => CheckSavesFolder(), null, _options.SavesRetryInterval, _options.SavesRetryInterval);
 
         if (paths?.LogFile is { } log)
         {
             _tailer = new LogTailer(log, startAtEnd: !_options.ReplayExistingLog);
             _tailer.Rotated += (_, _) => OnLogRotated();
             _tailer.LinesRead += (_, lines) => ProcessLines(lines);
+            _tailer.Error += (_, ex) => ReportProblem("godot.log handling failed", ex);
             _tailer.Start(_options.LogPollInterval);
         }
     }
 
     public void Dispose()
     {
-        _watcher?.Dispose();
+        _disposed = true;
+        _savesTimer?.Dispose();
+        lock (_savesGate) _watcher?.Dispose();
         _tailer?.Dispose();
+    }
+
+    /// <summary>Starts watching <paramref name="dir"/> (the caller holds <see cref="_savesGate"/>).</summary>
+    private void WatchSaves(string dir)
+    {
+        ulong? steamId = GamePaths.SteamIdFromPath(dir);
+        if (_options.Paths is { } paths)
+            _options = _options with { Paths = paths with { SavesDirectory = dir, SteamId = steamId ?? paths.SteamId } };
+        var watcher = new SaveWatcher(dir, () => _options.LocalNetIdOverride ?? steamId ?? _logLocalId, _options.SaveDebounce);
+        watcher.SaveChanged += (_, s) => OnSave(s);
+        watcher.SaveRemoved += (_, p) => OnSaveRemoved(p);
+        watcher.SaveError += (_, e) => OnSaveError(e.Path, e.Error);
+        _watcher = watcher;
+        _watchedSaves = dir;
+        watcher.Start();
+    }
+
+    /// <summary>
+    /// Timer: starts watching once the saves folder exists, and moves to the folder of the profile the log names when
+    /// that differs from the watched one (another profile or Steam account picked in the game). It only switches to a
+    /// folder that exists, so a wrong guess never leaves us watching nothing.
+    /// </summary>
+    private void CheckSavesFolder()
+    {
+        if (!Monitor.TryEnter(_savesGate)) return; // the previous check is still running
+        try
+        {
+            if (_disposed) return;
+            string? want = _wantedSaves, current = _watchedSaves;
+            if (current is not null && (want is null || SamePath(want, current))) return;
+            string? dir = want is not null ? (Directory.Exists(want) ? want : null)
+                : _options.Paths?.Root is { } root ? GamePaths.FindSavesDirectory(root) : null;
+            if (dir is null) return; // not there yet: next tick
+
+            if (_watcher is { } old && current is not null)
+            {
+                old.Dispose();
+                _watcher = null;
+                Diagnostic?.Invoke(this, $"saves folder switched to the profile the game uses: {current} -> {dir}");
+                TrackedRun? run;
+                lock (_gate)
+                {
+                    // The old profile's saves are another run: forget them.
+                    foreach (string path in _saves.Keys.Where(p => SamePath(Path.GetDirectoryName(p) ?? "", current)).ToList())
+                        _saves.Remove(path);
+                    run = Recompute();
+                }
+                Changed?.Invoke(this, run);
+            }
+            else Diagnostic?.Invoke(this, $"saves folder found: {dir}");
+            WatchSaves(dir);
+        }
+        catch (Exception ex)
+        {
+            ReportProblem("saves folder check failed", ex);
+        }
+        finally
+        {
+            Monitor.Exit(_savesGate);
+        }
+    }
+
+    /// <summary>The log's profile line (under _gate): remember its saves folder and have the timer look right away.</summary>
+    private void FollowProfile(LocalPlayerIdEvent id)
+    {
+        if (id.Profile is not { } profile || _options.Paths?.Root is not { } root) return;
+        string dir = GamePaths.SavesDirectoryFor(root, id.NetId, profile);
+        if (_wantedSaves is { } known && SamePath(known, dir)) return;
+        _wantedSaves = dir;
+        if (_watchedSaves is not { } watched || !SamePath(watched, dir))
+            _savesTimer?.Change(TimeSpan.Zero, _options.SavesRetryInterval);
+    }
+
+    private static bool SamePath(string a, string b) =>
+        string.Equals(Path.TrimEndingDirectorySeparator(Path.GetFullPath(a)),
+            Path.TrimEndingDirectorySeparator(Path.GetFullPath(b)), StringComparison.OrdinalIgnoreCase);
+
+    private void OnSaveError(string path, Exception error)
+    {
+        if (error is System.Text.Json.JsonException or IOException or UnauthorizedAccessException)
+            Diagnostic?.Invoke(this, $"save read failed: {path}: {error.Message}"); // usually read mid-write; the next write fixes it
+        else ReportProblem($"save could not be handled ({Path.GetFileName(path)})", error);
+    }
+
+    /// <summary>
+    /// Something in a save or a log line broke the parser or the tracker. Logged at most once a minute per message (a
+    /// bad line comes back on every replay), and <see cref="FormatProblem"/> is raised once for the panel.
+    /// </summary>
+    private void ReportProblem(string what, Exception ex, string? line = null)
+    {
+        string key = $"{what}: {ex.GetType().Name}: {ex.Message}";
+        if (_problemThrottle.ShouldReport(key, _clock()))
+            Diagnostic?.Invoke(this, (line is null ? key : $"{key} (line skipped: {(line.Length > 200 ? line[..200] + "..." : line)})")
+                                     + Environment.NewLine + ex.StackTrace);
+        if (Interlocked.Exchange(ref _formatProblem, 1) == 0) FormatProblemDetected?.Invoke(this, EventArgs.Empty);
     }
 
     // =============================================================================================
@@ -202,6 +323,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
     public void ProcessLines(IEnumerable<string> lines)
     {
         var parsed = new List<LogEvent>();
+        var failures = new List<(string? Line, Exception Error)>();
         TrackedRun? run;
         bool dirty = false;
         lock (_gate)
@@ -209,17 +331,34 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
             foreach (string line in lines)
             {
                 _seq++;
-                if (LogLineParser.Parse(line) is not { } e) continue;
-                parsed.Add(e);
-                // Rarity lines come in a burst (one per card slot). Batch them, and interpret the batch as soon
-                // as any other event arrives (co-op logs every player's rolls back to back).
-                if (e is CardRarityRolledEvent r) { _rollBatch.Add(r); dirty = true; continue; }
-                FlushRolls();
-                dirty |= Apply(e);
+                try
+                {
+                    if (LogLineParser.Parse(line) is not { } e) continue;
+                    parsed.Add(e);
+                    // Rarity lines come in a burst (one per card slot). Batch them, and interpret the batch as soon
+                    // as any other event arrives (co-op logs every player's rolls back to back).
+                    if (e is CardRarityRolledEvent r) { _rollBatch.Add(r); dirty = true; continue; }
+                    FlushRolls();
+                    dirty |= Apply(e);
+                }
+                catch (Exception ex)
+                {
+                    failures.Add((line, ex)); // skip just this line: the rest of the log still counts
+                    dirty = true;
+                }
             }
-            FlushRolls(); // end of this read: the burst is complete (the game flushes the log once per ~1 s)
-            run = dirty ? Recompute() : _current;
+            try
+            {
+                FlushRolls(); // end of this read: the burst is complete (the game flushes the log once per ~1 s)
+                run = dirty ? Recompute() : _current;
+            }
+            catch (Exception ex)
+            {
+                failures.Add((null, ex));
+                run = _current; // keep showing the last good snapshot
+            }
         }
+        foreach (var (line, ex) in failures) ReportProblem(line is null ? "log update failed" : "log line could not be handled", ex, line);
         foreach (LogEvent e in parsed) LogEventParsed?.Invoke(this, e);
         if (dirty) Changed?.Invoke(this, run);
     }
@@ -246,7 +385,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
                 return true;
 
             case LocalPlayerIdEvent id:
-                if (id.FromProfilePath) _profileSteamId = id.NetId;
+                if (id.FromProfilePath) { _profileSteamId = id.NetId; FollowProfile(id); }
                 else if (id.NetId > 1) _logLocalId = id.NetId; // "Local player 1 is ready" = single player, not an id
                 return false;
 

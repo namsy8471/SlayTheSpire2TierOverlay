@@ -112,6 +112,13 @@ public sealed class SaveWatcher : IDisposable
                 if (attempt == 3) { SaveError?.Invoke(this, (path, ex)); return; }
                 Thread.Sleep(150 * attempt);
             }
+            catch (Exception ex)
+            {
+                // Not a half-written file: a save the parser or a SaveChanged handler cannot handle (format change?).
+                // Retrying would fail the same way; this runs on a timer thread, where an escaping exception ends the app.
+                try { SaveError?.Invoke(this, (path, ex)); } catch (Exception) { /* nothing left to report to */ }
+                return;
+            }
         }
     }
 
