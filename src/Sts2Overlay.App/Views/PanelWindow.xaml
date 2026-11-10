@@ -101,11 +101,15 @@
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
-    <!-- Card portrait: small thumbnail next to the name; hovering shows it large (the large image is decoded lazily) -->
+    <!--
+      Card portrait: small thumbnail next to the name; hovering shows it large (the large image is decoded lazily).
+      The thumbnail is decoded off the UI thread (IsAsync): a new offer's rows are laid out in the same UI pass that
+      draws its badges, and a portrait not seen before costs ~10-15 ms to decode, so three of them held the badges back.
+    -->
     <DataTemplate x:Key="CardThumbTemplate" DataType="{x:Type svc:CardArtVm}">
       <Border CornerRadius="3" BorderBrush="#66FFFFFF" BorderThickness="1" Background="#40000000" Cursor="Help"
               ToolTipService.InitialShowDelay="120" ToolTipService.ShowDuration="60000" ToolTipService.Placement="Left">
-        <Image Source="{Binding Thumb}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
+        <Image Source="{Binding Thumb, IsAsync=True}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
         <Border.ToolTip>
           <ToolTip Padding="2" Background="#F0101318" BorderBrush="{StaticResource Gold}" BorderThickness="1.5">
             <Image Source="{Binding Large}" Width="380" Height="289" RenderOptions.BitmapScalingMode="HighQuality" />
