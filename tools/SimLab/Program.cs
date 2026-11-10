@@ -146,8 +146,10 @@ Parallel.ForEach(Partitioner.Create(order, EnumerablePartitionerOptions.NoBuffer
     FileStream? claim = null;
     if (claimDir != "")
     {
-        try { claim = new FileStream(Path.Combine(claimDir, i + ".row"), FileMode.CreateNew, FileAccess.Write); }
-        catch (IOException) { return; } // another process has it
+        string claimPath = Path.Combine(claimDir, i + ".row");
+        if (File.Exists(claimPath)) return; // taken; checked first so the exception counter stays about the sim
+        try { claim = new FileStream(claimPath, FileMode.CreateNew, FileAccess.Write); }
+        catch (IOException) { return; } // another process took it between the check and the create
     }
     FightSpec f = sample[i];
     var fw = Stopwatch.StartNew();

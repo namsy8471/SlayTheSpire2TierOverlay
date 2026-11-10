@@ -620,10 +620,10 @@ index 915f5c2..6a4fb7e 100644
              if (!item.ShouldAllowHitting(creature))
 diff --git a/src/Sts2Sim.Core/Hooks/HookQueryFilter.cs b/src/Sts2Sim.Core/Hooks/HookQueryFilter.cs
 new file mode 100644
-index 0000000..e333cbb
+index 0000000..ceaa73b
 --- /dev/null
 +++ b/src/Sts2Sim.Core/Hooks/HookQueryFilter.cs
-@@ -0,0 +1,154 @@
+@@ -0,0 +1,167 @@
 +using System.Collections.Concurrent;
 +using System.Reflection;
 +using Sts2Sim.Core.Combat;
@@ -657,6 +657,10 @@ index 0000000..e333cbb
 +        HpLostAfterOstyLate,
 +        CardPlayCount,
 +        CardPlayResultLocation,
++        // Not dispatch slots: RunState asks whether a map hook has any listener (lazy act maps).
++        MapGenerated,
++        MapGeneratedLate,
++        AfterMapGenerated,
 +        Count,
 +    }
 +
@@ -679,6 +683,9 @@ index 0000000..e333cbb
 +        Set(Slot.HpLostAfterOstyLate, nameof(AbstractModel.ModifyHpLostAfterOstyLate));
 +        Set(Slot.CardPlayCount, nameof(AbstractModel.ModifyCardPlayCount));
 +        Set(Slot.CardPlayResultLocation, nameof(AbstractModel.ModifyCardPlayResultLocation));
++        Set(Slot.MapGenerated, nameof(AbstractModel.ModifyGeneratedMap));
++        Set(Slot.MapGeneratedLate, nameof(AbstractModel.ModifyGeneratedMapLate));
++        Set(Slot.AfterMapGenerated, nameof(AbstractModel.AfterMapGenerated));
 +        for (int i = 0; i < (int)Slot.Count; i++)
 +        {
 +            int bit = 1 << i;
@@ -697,6 +704,12 @@ index 0000000..e333cbb
 +    }
 +
 +    internal static bool Overrides(AbstractModel model, Slot slot) => Predicates[(int)slot](model);
++
++    private const int MapHookBits =
++        (1 << (int)Slot.MapGenerated) | (1 << (int)Slot.MapGeneratedLate) | (1 << (int)Slot.AfterMapGenerated);
++
++    /// <summary>Whether the model overrides any map-generation hook (unknown types count as yes).</summary>
++    internal static bool OverridesMapHooks(AbstractModel model) => (CoverageOf(model.GetType()) & MapHookBits) != 0;
 +
 +    private static int CoverageOf(Type type) => Coverage.GetOrAdd(type, static t => Resolve(t));
 +
@@ -827,47 +840,50 @@ index 5e45efe..8ae81a1 100644
      }
  
 diff --git a/src/Sts2Sim.Core/Runs/RunState.cs b/src/Sts2Sim.Core/Runs/RunState.cs
-index 1633545..8177fc6 100644
+index 1633545..3d61e73 100644
 --- a/src/Sts2Sim.Core/Runs/RunState.cs
 +++ b/src/Sts2Sim.Core/Runs/RunState.cs
-@@ -108,7 +108,25 @@ public sealed partial class RunState : IRunState
+@@ -108,7 +108,28 @@ public sealed partial class RunState : IRunState
  
      public RelicGrabBag? SharedRelicGrabBag { get; private set; }
  
 -    public ActMap Map { get; private set; } = null!;
-+    // SimLab perf patch: the constructor's act-1 map is built lazily. At construction no player
-+    // (so no hook listener) exists yet and the map uses its own seed-derived Rng, so building it
-+    // on first read gives the same map and consumes no shared RNG. Combat-only harnesses never
-+    // read it and skip the ~0.1 s generation per combat.
++    // SimLab perf patch: an act map is built on first read when building it now could have no
++    // effect besides the map itself. That holds for the constructor's act-1 map (no player, so no
++    // hook listener, exists yet) and for a later act when no hook listener overrides the map
++    // hooks (GoldenCompass, SpoilsMap). The map uses its own seed-derived Rng, so building it
++    // later gives the same map and consumes no shared RNG. Combat-only harnesses never read it
++    // and skip ~0.1 s of generation per combat (about 8% of a beam-search combat in act 2/3).
 +    private ActMap? _map;
-+    private bool _initialMapPending;
++    private int _pendingMapAct = -1;
 +    public ActMap Map
 +    {
 +        get
 +        {
-+            if (_initialMapPending)
++            if (_pendingMapAct >= 0)
 +            {
-+                _initialMapPending = false;
-+                _map = BuildActMap(0);
++                int act = _pendingMapAct;
++                _pendingMapAct = -1;
++                _map = BuildActMap(act);
 +            }
 +            return _map!;
 +        }
-+        private set { _initialMapPending = false; _map = value; }
++        private set { _pendingMapAct = -1; _map = value; }
 +    }
  
      public int CurrentActIndex { get; private set; }
  
-@@ -200,7 +218,8 @@ public sealed partial class RunState : IRunState
+@@ -200,7 +221,8 @@ public sealed partial class RunState : IRunState
          _readOnlyActs = Array.AsReadOnly(_acts);
          CurrentActIndex = 0;
          Ascension = new AscensionManager(ascensionLevel);
 -        GenerateCurrentMap();
 +        // No players yet: ModifyGeneratedMap/AfterMapGenerated have no listeners here.
-+        _initialMapPending = true;
++        _pendingMapAct = 0;
  
          Odds = new RunOddsSet(Rng.UnknownMapPoint, new HookOddsAdapter(this));
      }
-@@ -390,16 +409,21 @@ public sealed partial class RunState : IRunState
+@@ -390,21 +412,41 @@ public sealed partial class RunState : IRunState
          _bossEncountersVisited = 0;
      }
  
@@ -890,11 +906,31 @@ index 1633545..8177fc6 100644
 +
 +    private void GenerateCurrentMap()
 +    {
++        if (!HasMapHookListener())
++        {
++            _map = null;
++            _pendingMapAct = CurrentActIndex; // see Map: built on first read, same map
++            return;
++        }
 +        Map = BuildActMap(CurrentActIndex);
          Map = Hooks.Hook.ModifyGeneratedMap(this, Map, CurrentActIndex);
          // Run setup is synchronous; map-generated listeners contain no player-choice suspension.
          Hooks.Hook.AfterMapGenerated(this, Map, CurrentActIndex).GetAwaiter().GetResult();
-@@ -598,9 +622,11 @@ public sealed partial class RunState : IRunState
+     }
+ 
++    /// <summary>Whether any current hook listener overrides a map-generation hook, i.e. whether
++    /// generating the map now could change anything besides the map.</summary>
++    private bool HasMapHookListener()
++    {
++        foreach (AbstractModel model in IterateHookListeners(null))
++            if (Hooks.HookQueryFilter.OverridesMapHooks(model)) return true;
++        return false;
++    }
++
+     /// <summary>Regenerate the current act map when an obtained relic replaces its topology.</summary>
+     internal void RegenerateCurrentMap() => GenerateCurrentMap();
+ 
+@@ -598,9 +640,11 @@ public sealed partial class RunState : IRunState
                      yield return relic;
              }
  
@@ -908,20 +944,20 @@ index 1633545..8177fc6 100644
              }
  
              if (childCombatState is null)
-@@ -614,9 +640,18 @@ public sealed partial class RunState : IRunState
+@@ -614,9 +658,18 @@ public sealed partial class RunState : IRunState
  
          if (childCombatState != null)
          {
 -            foreach (AbstractModel listener in childCombatState.IterateHookListeners())
 +            IEnumerable<AbstractModel> combat = childCombatState.IterateHookListeners();
 +            if (combat is AbstractModel[] array)
-             {
--                yield return listener;
++            {
 +                for (int i = 0; i < array.Length; i++)
 +                    yield return array[i];
 +            }
 +            else
-+            {
+             {
+-                yield return listener;
 +                foreach (AbstractModel listener in combat)
 +                {
 +                    yield return listener;
