@@ -840,6 +840,7 @@ public sealed partial class AppController : IDisposable
                 $"게임 {info.CaptureRect.Width}x{info.CaptureRect.Height} · x{Dpi.ScaleForRect(info.CaptureRect):0.##}{(info.IsForeground ? "" : " (뒤에 있음)")}",
                 $"Game {info.CaptureRect.Width}x{info.CaptureRect.Height} · x{Dpi.ScaleForRect(info.CaptureRect):0.##}{(info.IsForeground ? "" : " (in background)")}"),
         };
+        UpdateShellForGame(info); // notices, panel on the game's monitor (AppController.Shell.cs)
         ApplyUiScale();
         UpdateVisibility();
     }
@@ -925,6 +926,7 @@ public sealed partial class AppController : IDisposable
     private void ReassertTopmost()
     {
         if (!_panel.IsVisible && !_badges.IsVisible) return;
+        if (TrayMenuOpen) return; // would lift our windows above the open tray menu (AppController.Shell.cs)
         // Badges first, then the panel, so the panel ends up above the badge layer.
         OverlayWindowHelper.AssertTopmost(_badges.Hwnd);
         ReassertMapTopmost();
@@ -985,6 +987,7 @@ public sealed partial class AppController : IDisposable
         ShowMessage(_clickThrough
             ? Loc.T("클릭 통과 켜짐: 마우스가 게임으로 갑니다", "Click-through on: the mouse goes to the game")
             : Loc.T("클릭 통과 꺼짐: 패널을 클릭할 수 있습니다", "Click-through off: the panel can be clicked"));
+        StateChanged?.Invoke(); // tray check mark
     }
 
     // ---- debug outline mode (tray / Ctrl+F11): draw the recognised card and price boxes on the badge layer ----

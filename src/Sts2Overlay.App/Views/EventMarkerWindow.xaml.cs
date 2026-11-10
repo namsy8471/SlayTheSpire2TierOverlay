@@ -60,6 +60,7 @@ public partial class EventMarkerWindow : Window, IHoverYield
 {
     private IntPtr _hwnd;
     private PixelRect _layer;
+    private readonly LayerPlacement _placement = new("event");
     private IReadOnlyList<EventMarkerSpec> _specs = [];
 
     public EventMarkerWindow(OverlayCaptureVisibility captureVisibility)
@@ -73,7 +74,12 @@ public partial class EventMarkerWindow : Window, IHoverYield
             captureVisibility.Register(_hwnd);
             Closed += (_, _) => captureVisibility.Unregister(_hwnd);
         };
-        DpiChanged += (_, _) => Relayout();
+        DpiChanged += (_, _) =>
+        {
+            Relayout();
+            // WPF resized the window to Windows' suggested rect: put it back on the game (see LayerPlacement).
+            Dispatcher.BeginInvoke(() => _placement.Reapply(_hwnd), System.Windows.Threading.DispatcherPriority.Background);
+        };
     }
 
     public EventMarkerLayerViewModel Model { get; } = new();
@@ -87,9 +93,10 @@ public partial class EventMarkerWindow : Window, IHoverYield
 
     public void SetLayerRect(PixelRect gameRect)
     {
-        if (_hwnd == IntPtr.Zero || gameRect.IsEmpty || gameRect == _layer) return;
+        if (_hwnd == IntPtr.Zero || gameRect.IsEmpty) return;
+        // Placed (and checked) even when the rect is unchanged: the window itself may have been moved or resized.
+        if (!_placement.Place(_hwnd, gameRect)) return;
         _layer = gameRect;
-        OverlayWindowHelper.SetPhysicalBounds(_hwnd, gameRect);
         Relayout();
     }
 

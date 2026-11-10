@@ -184,4 +184,108 @@ public class HoverYieldTests
         Assert.False(s.Update(false, 20));
         Assert.True(s.Hidden);
     }
+
+    // ---- a resting cursor and our own panel ----
+
+    [Fact]
+    public void A_cursor_parked_on_a_card_brings_the_badges_back_after_a_while()
+    {
+        // The player clicked a reward where the next screen's card appears, or plays on a gamepad: the cursor never moves.
+        var s = new HoverYieldState(showDelayMs: 300, idleShowMs: 2500);
+        var still = (X: 960, Y: 600);
+        Assert.False(s.Update(false, 0, still));
+        Assert.True(s.Update(true, 5000, still)); // a card appeared under it: step aside (its tip may be up)
+        Assert.False(s.Update(true, 7450, still)); // the resting time counts from the hide, not from the last move
+        Assert.True(s.Update(true, 7500, still)); // 2.5 s without a move: back
+        Assert.False(s.Hidden);
+        Assert.False(s.Update(true, 20000, still)); // and it stays back while the cursor rests
+
+        Assert.True(s.Update(true, 20050, (961, 600))); // any movement: normal rules again, on a zone → aside
+        Assert.True(s.Hidden);
+        Assert.False(s.Update(true, 40000, (961, 600))); // and that hide came from a movement: it never times out
+        Assert.True(s.Hidden);
+    }
+
+    [Fact]
+    public void Reading_a_long_tip_with_the_mouse_held_still_keeps_the_overlay_aside()
+    {
+        // The player moves onto a card and holds still to read its tip: the badges must not come back over it.
+        var s = new HoverYieldState(showDelayMs: 300, idleShowMs: 2500);
+        s.Update(false, 0, (200, 900));
+        s.Update(false, 50, (600, 700));
+        Assert.True(s.Update(true, 100, (900, 600))); // moved onto the card on this sample
+        for (long t = 150; t <= 10100; t += 50)
+        {
+            Assert.False(s.Update(true, t, (900, 600)), $"overlay came back at {t} ms");
+        }
+        Assert.True(s.Hidden);
+
+        // Stopping just short of the card and the card's zone growing under it a moment later is still deliberate.
+        var s2 = new HoverYieldState(showDelayMs: 300, idleShowMs: 2500);
+        s2.Update(false, 0, (10, 10));
+        s2.Update(false, 1000, (900, 600)); // last movement
+        Assert.True(s2.Update(true, 1000 + HoverYieldState.SettleMs - 50, (900, 600)));
+        Assert.False(s2.Update(true, 10000, (900, 600)));
+        Assert.True(s2.Hidden);
+    }
+
+    [Fact]
+    public void After_a_deliberate_hover_a_zone_appearing_under_a_resting_cursor_still_comes_back()
+    {
+        var s = new HoverYieldState(showDelayMs: 300, idleShowMs: 2500);
+        s.Update(false, 0, (100, 100));
+        Assert.True(s.Update(true, 50, (300, 300))); // moved onto a card: deliberate
+        Assert.False(s.Update(false, 100, (700, 300))); // moved off it ...
+        Assert.True(s.Update(false, 400, (700, 300))); // ... back after 300 ms
+        // Rests there; a second later the next screen puts a card under it.
+        Assert.True(s.Update(true, 1400, (700, 300)));
+        Assert.False(s.Update(true, 3850, (700, 300)));
+        Assert.True(s.Update(true, 3900, (700, 300))); // 2.5 s after the hide: back
+        Assert.False(s.Hidden);
+    }
+
+    [Fact]
+    public void A_moving_cursor_never_counts_as_resting()
+    {
+        var s = new HoverYieldState(showDelayMs: 300, idleShowMs: 2500);
+        s.Update(true, 0, (100, 100));
+        for (var t = 50; t <= 5000; t += 50)
+        {
+            Assert.False(s.Update(true, t, (100 + t / 50 % 2, 100))); // reading a tip, the hand trembles a pixel
+        }
+        Assert.True(s.Hidden);
+        // Without a position (the old overload) it never comes back by itself either.
+        var noPos = new HoverYieldState(showDelayMs: 300, idleShowMs: 2500);
+        noPos.Update(true, 0);
+        Assert.False(noPos.Update(true, 10000));
+        Assert.True(noPos.Hidden);
+    }
+
+    [Fact]
+    public void Reset_ends_a_parked_show()
+    {
+        var s = new HoverYieldState(showDelayMs: 300, idleShowMs: 2500);
+        s.Update(false, 0, (5, 5));
+        s.Update(true, 1000, (5, 5)); // a zone appeared under the resting cursor
+        s.Update(true, 3500, (5, 5));
+        Assert.False(s.Hidden);
+        s.Reset(); // overlay hidden / game left the front
+        Assert.True(s.Update(true, 3600, (5, 5))); // shown again later over a zone: steps aside again first
+    }
+
+    [Fact]
+    public void Our_own_panel_never_makes_the_overlay_step_aside()
+    {
+        // 4K at 150 %: the top strip reaches y 340 px; the panel's default header sits at y 210 px inside it.
+        var game = new PxBox(0, 0, 3840, 2160);
+        var strip = HoverGeometry.TopStrip(game);
+        var panel = new PxBox(3204, 210, 600, 900);
+        PxBox[] zones = [new(3300, 400, 300, 400)];
+
+        Assert.True(HoverGeometry.ShouldYield(3000, 250, strip, zones, panel)); // the top strip next to the panel
+        Assert.False(HoverGeometry.ShouldYield(3300, 250, strip, zones, panel)); // the panel's tabs, inside the strip
+        Assert.False(HoverGeometry.ShouldYield(3400, 500, strip, zones, panel)); // a card zone under the panel
+        Assert.True(HoverGeometry.ShouldYield(3400, 500, strip, zones, null)); // panel hidden: the zone counts
+        Assert.False(HoverGeometry.ShouldYield(1000, 250, null, zones, panel)); // no strip (no marks shown)
+    }
 }

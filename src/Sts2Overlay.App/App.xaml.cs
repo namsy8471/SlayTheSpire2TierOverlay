@@ -23,6 +23,7 @@ public partial class App : Application
 {
     private Mutex? _singleInstance;
     private AppSettings _settings = new();
+    private bool _settingsLoaded; // OnExit saves only settings that were read in this run
     private GameWindowTracker? _tracker;
     private CapturePipeline? _pipeline;
     private HotkeyManager? _hotkeys;
@@ -92,6 +93,7 @@ public partial class App : Application
 
         // Language first, so every text below (including --prepare's console lines) is in the right one.
         _settings = SettingsStore.Load(AppPaths.SettingsFile);
+        _settingsLoaded = true;
         _gameLanguage = new GameLanguageWatcher(Sts2Overlay.GameState.GamePaths.DefaultRoot);
         ApplyLanguage();
 
@@ -171,8 +173,8 @@ public partial class App : Application
             UpdateTray();
         };
 
-        SetUpHotkeys();
         SetUpTray();
+        SetUpHotkeys(); // after the tray: a key another program holds is also reported with a balloon
         _controller.StateChanged += UpdateTray;
         Loc.Changed += OnLanguageChanged;
         StartLanguageWatch();
@@ -221,24 +223,42 @@ public partial class App : Application
     private void SetUpHotkeys()
     {
         _hotkeys = new HotkeyManager();
-        var failed = new List<string>();
-        void Reg(uint vk, string name, Action a)
-        {
-            if (!_hotkeys!.RegisterCtrl(vk, name, a)) failed.Add("Ctrl+" + name);
-        }
-        Reg(HotkeyManager.VK_F5, "F5", () => _controller!.ToggleMapOverlay());
-        Reg(HotkeyManager.VK_F6, "F6", () => _controller!.ToggleAlwaysOnTop());
-        Reg(HotkeyManager.VK_F7, "F7", () => _controller!.ToggleClickThrough());
-        Reg(HotkeyManager.VK_F8, "F8", () => _controller!.ToggleHidden());
+        _hotkeys.AddCtrl(HotkeyManager.VK_F5, "F5", () => _controller!.ToggleMapOverlay());
+        _hotkeys.AddCtrl(HotkeyManager.VK_F6, "F6", () => _controller!.ToggleAlwaysOnTop());
+        _hotkeys.AddCtrl(HotkeyManager.VK_F7, "F7", () => _controller!.ToggleClickThrough());
+        _hotkeys.AddCtrl(HotkeyManager.VK_F8, "F8", () => _controller!.ToggleHidden());
         // Debug-only screenshot key: registered only with "debugCaptures" on, so Ctrl+F9 stays free for other programs.
-        if (_settings.DebugCaptures) Reg(HotkeyManager.VK_F9, "F9", () => _controller!.SaveCapture());
-        Reg(HotkeyManager.VK_F10, "F10", () => _controller!.RecognizeNow());
-        Reg(HotkeyManager.VK_F11, "F11", () => _controller!.ToggleDebugOutlines());
-        if (failed.Count > 0) _controller!.ShowMessage(Loc.T($"단축키 등록 실패 (다른 프로그램이 사용 중): {string.Join(", ", failed)}",
-                $"Hotkeys not registered (used by another program): {string.Join(", ", failed)}")
-            + (System.Diagnostics.Process.GetProcessesByName("OverlaySpike").Length > 0
-                ? Loc.T(" · 예전 OverlaySpike를 닫아 주세요", " · please close the old OverlaySpike")
-                : ""));
+        if (_settings.DebugCaptures) _hotkeys.AddCtrl(HotkeyManager.VK_F9, "F9", () => _controller!.SaveCapture());
+        _hotkeys.AddCtrl(HotkeyManager.VK_F10, "F10", () => _controller!.RecognizeNow());
+        _hotkeys.AddCtrl(HotkeyManager.VK_F11, "F11", () => _controller!.ToggleDebugOutlines());
+        // Registered only while the game (or our tray menu opened from it) is in front, so Ctrl+F5 still refreshes the
+        // browser and so on; every activation retries the keys another program held.
+        _tracker!.Changed += (_, _) => UpdateHotkeys();
+        UpdateHotkeys();
+    }
+
+    private bool _hotkeyBalloonShown;
+
+    private void UpdateHotkeys()
+    {
+        if (_hotkeys is null || _controller is null) return;
+        if (!_hotkeys.SetActive(HotkeyPolicy.ShouldBeActive(_tracker?.Current))) return;
+        var failed = _hotkeys.Failed;
+        var spike = false;
+        if (failed.Count > 0)
+        {
+            var procs = Process.GetProcessesByName("OverlaySpike");
+            spike = procs.Length > 0;
+            foreach (var p in procs) p.Dispose();
+        }
+        _controller.SetHotkeyFailures(failed, spike);
+        // The panel line stays until the keys register; the balloon once per run (the panel may be hidden right now).
+        // Deferred, so the "실행 중입니다" balloon at the end of OnStartup does not replace it.
+        if (failed.Count > 0 && !_hotkeyBalloonShown && _tray is not null && AppController.HotkeyNotice(failed, spike) is { } text)
+        {
+            _hotkeyBalloonShown = true;
+            Dispatcher.BeginInvoke(() => _tray?.ShowBalloon(UiText.Instance.AppName, text), DispatcherPriority.Background);
+        }
     }
 
     private void SetUpTray()
@@ -257,6 +277,9 @@ public partial class App : Application
         _tray.DemoRequested += s => _controller!.SetDemo(s);
         _tray.DebugOutlinesRequested += () => _controller!.ToggleDebugOutlines();
         _tray.AlwaysOnTopRequested += () => _controller!.ToggleAlwaysOnTop();
+        _tray.ClickThroughRequested += () => _controller!.ToggleClickThrough();
+        // While the menu is open the 1 s topmost re-assert must not lift the panel above it.
+        _tray.MenuOpenChanged += open => _controller!.TrayMenuOpen = open;
         _tray.MapOverlayRequested += () => _controller!.ToggleMapOverlay();
         _tray.ShowInCaptureRequested += () =>
         {
@@ -300,9 +323,13 @@ public partial class App : Application
     /// <summary>On "auto", re-reads the game's language every few seconds (the player can change it mid-session).</summary>
     private void StartLanguageWatch()
     {
+        // The game's "Aspect Ratio" option comes from the same settings.save read: polled whatever the language setting.
+        _gameLanguage!.AspectRatioChanged += () => _controller?.SetGameAspectRatio(_gameLanguage.AspectRatio);
+        _controller?.SetGameAspectRatio(_gameLanguage.AspectRatio);
         _languageTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
         _languageTimer.Tick += (_, _) =>
         {
+            _gameLanguage.Poll(); // cheap when the file is unchanged; ApplyLanguage's own poll then does nothing
             if (GameLanguage.NormalizeSetting(_settings.Language) == GameLanguage.Auto) ApplyLanguage();
         };
         _languageTimer.Start();
@@ -339,6 +366,7 @@ public partial class App : Application
         _tray.SetState(_controller.UserHidden, _controller.Demo, scale, isAuto, UiText.Instance.AppName + " — " + _controller.StatusLine);
         _tray.SetDebugOutlines(_controller.DebugOutlines);
         _tray.SetAlwaysOnTop(_controller.AlwaysOnTop);
+        _tray.SetClickThrough(_controller.ClickThrough);
         _tray.SetMapOverlay(_controller.MapOverlayOn);
         _tray.SetShowInCapture(_controller.ShowOverlayInCapture, _controller.CaptureForcedHidden);
         _tray.SetUpdateReady(_updates?.ReadyVersion);
@@ -364,8 +392,13 @@ public partial class App : Application
             }
             Loc.Changed -= OnLanguageChanged;
             _languageTimer?.Stop();
-            _panel?.SavePosition(); // also saves the other settings
-            SettingsStore.Save(AppPaths.SettingsFile, _settings);
+            // Only settings read in this run: --verify-capture / --bench-capture exit before loading them, and saving
+            // the fresh defaults would overwrite the user's file.
+            if (_settingsLoaded)
+            {
+                _panel?.SavePosition(); // also saves the other settings
+                SettingsStore.Save(AppPaths.SettingsFile, _settings);
+            }
             _hotkeys?.Dispose();
             _tray?.Dispose();
             _resources?.Dispose();

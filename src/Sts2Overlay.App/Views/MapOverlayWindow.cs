@@ -41,6 +41,7 @@ public sealed class MapOverlayWindow : Window, IHoverYield
     private readonly Canvas _canvas = new() { IsHitTestVisible = false };
     private IntPtr _hwnd;
     private PixelRect _layer;
+    private readonly LayerPlacement _placement = new("map");
     private MapMarkPlan _plan = MapMarkPlan.Empty;
     private double _scaleMultiplier = 1.0;
 
@@ -70,7 +71,12 @@ public sealed class MapOverlayWindow : Window, IHoverYield
             _captureVisibility.Register(_hwnd);
             Closed += (_, _) => _captureVisibility.Unregister(_hwnd);
         };
-        DpiChanged += (_, _) => Redraw();
+        DpiChanged += (_, _) =>
+        {
+            Redraw();
+            // WPF resized the window to Windows' suggested rect: put it back on the game (see LayerPlacement).
+            Dispatcher.BeginInvoke(() => _placement.Reapply(_hwnd), System.Windows.Threading.DispatcherPriority.Background);
+        };
     }
 
     public IntPtr Hwnd => _hwnd;
@@ -92,9 +98,10 @@ public sealed class MapOverlayWindow : Window, IHoverYield
     /// <summary>Covers <paramref name="gameRect"/> (physical px).</summary>
     public void SetLayerRect(PixelRect gameRect)
     {
-        if (_hwnd == IntPtr.Zero || gameRect.IsEmpty || gameRect == _layer) return;
+        if (_hwnd == IntPtr.Zero || gameRect.IsEmpty) return;
+        // Placed (and checked) even when the rect is unchanged: the window itself may have been moved or resized.
+        if (!_placement.Place(_hwnd, gameRect)) return;
         _layer = gameRect;
-        OverlayWindowHelper.SetPhysicalBounds(_hwnd, gameRect);
         Redraw();
     }
 

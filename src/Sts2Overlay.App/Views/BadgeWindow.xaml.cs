@@ -23,6 +23,7 @@ public partial class BadgeWindow : Window, IHoverYield
     private readonly OverlayCaptureVisibility _captureVisibility;
     private IntPtr _hwnd;
     private PixelRect _layer;
+    private readonly LayerPlacement _placement = new("badge");
     private IReadOnlyList<BadgeSpec> _specs = [];
     private SkipSpec? _skip;
     private RemovalSpec? _removal;
@@ -40,8 +41,13 @@ public partial class BadgeWindow : Window, IHoverYield
             _captureVisibility.Register(_hwnd);
             Closed += (_, _) => _captureVisibility.Unregister(_hwnd);
         };
-        // Moving to a monitor with another DPI changes the physical→DIP factor: lay out again.
-        DpiChanged += (_, _) => Relayout();
+        // Moving to a monitor with another DPI changes the physical→DIP factor: lay out again. WPF has also resized the
+        // window to Windows' suggested rect by then: put it back on the game (after WPF is done with the message).
+        DpiChanged += (_, _) =>
+        {
+            Relayout();
+            Dispatcher.BeginInvoke(() => _placement.Reapply(_hwnd), System.Windows.Threading.DispatcherPriority.Background);
+        };
     }
 
     public BadgeLayerViewModel Model { get; } = new();
@@ -70,9 +76,10 @@ public partial class BadgeWindow : Window, IHoverYield
     /// <summary>Covers <paramref name="gameRect"/> (physical px). Re-lays out the badges when the rect changes.</summary>
     public void SetLayerRect(PixelRect gameRect)
     {
-        if (_hwnd == IntPtr.Zero || gameRect.IsEmpty || gameRect == _layer) return;
+        if (_hwnd == IntPtr.Zero || gameRect.IsEmpty) return;
+        // Placed (and checked) even when the rect is unchanged: the window itself may have been moved or resized.
+        if (!_placement.Place(_hwnd, gameRect)) return;
         _layer = gameRect;
-        OverlayWindowHelper.SetPhysicalBounds(_hwnd, gameRect);
         Relayout();
     }
 

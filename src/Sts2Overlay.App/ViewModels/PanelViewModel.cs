@@ -118,6 +118,18 @@ public sealed class PanelViewModel : ObservableObject
     }
     // ---- end local resources ----
 
+    private string? _shellNotice;
+
+    /// <summary>
+    /// Standing app notices (hotkeys another program holds, a game that is not 16:9; Controllers/AppController.Shell.cs).
+    /// Like <see cref="ResourceBanner"/> it does not time out. Null hides it.
+    /// </summary>
+    public string? ShellNotice
+    {
+        get => _shellNotice;
+        set => Set(ref _shellNotice, value);
+    }
+
     private string? _updateText;
 
     /// <summary>"새 버전 v0.2.0 준비됨 …" once an update was downloaded (Services.UpdateService). Null hides it.</summary>

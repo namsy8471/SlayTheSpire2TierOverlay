@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
 using Sts2Overlay.App.Infrastructure;
+using Sts2Overlay.App.Integration;
 using Sts2Overlay.App.Interop;
 using Sts2Overlay.App.Services;
 using Sts2Overlay.App.ViewModels;
@@ -25,6 +26,9 @@ public partial class PanelWindow : Window
     private readonly DispatcherTimer _saveTimer;
     private IntPtr _hwnd;
     private bool _positioned;
+    private bool _userPlaced;    // a saved position was restored, or the user dragged the panel
+    private bool _followedGame;  // the default spot was taken on the game's monitor (done once)
+    private PixelRect? _gameRect;
 
     public PanelWindow(PanelViewModel vm, AppSettings settings, OverlayCaptureVisibility captureVisibility)
     {
@@ -65,26 +69,55 @@ public partial class PanelWindow : Window
         Closed += (_, _) => _captureVisibility.Unregister(_hwnd);
     }
 
-    /// <summary>Restores the saved physical position, or docks to the right edge of the primary monitor's work area.</summary>
+    /// <summary>
+    /// Restores the saved physical position, or docks to the right edge of the work area of the game's monitor (the
+    /// primary monitor while the game is not known yet; <see cref="FollowGame"/> moves it once the game is found).
+    /// </summary>
     private void PlaceInitially()
     {
         if (_positioned || _hwnd == IntPtr.Zero) return;
         if (_settings.PanelX is int x && _settings.PanelY is int y && Dpi.IsOnAnyMonitor(x + 20, y + 20))
         {
             OverlayWindowHelper.SetPhysicalPosition(_hwnd, x, y, KeepOnTop);
+            _userPlaced = true;
         }
         else
         {
-            var work = Dpi.WorkAreaForPoint(0, 0);
-            var scale = GetDpiForWindow(_hwnd) / 96.0;
-            var widthPx = (int)(ActualWidth * scale);
-            OverlayWindowHelper.SetPhysicalPosition(_hwnd, work.Right - widthPx - (int)(24 * scale), work.Y + (int)(140 * scale), KeepOnTop);
+            PlaceDefault();
         }
         _positioned = true;
         Dispatcher.BeginInvoke(EnsureOnScreen, DispatcherPriority.Background);
     }
 
-    /// <summary>Keeps the whole panel inside the work area of the monitor it is on (physical pixels).</summary>
+    /// <summary>
+    /// The game window was found at <paramref name="gameRect"/> (physical px). On a first run (no saved position, not
+    /// dragged yet) the panel takes its default spot on that monitor, once.
+    /// </summary>
+    public void FollowGame(PixelRect gameRect)
+    {
+        // A saved position sets _userPlaced when PlaceInitially restores it; before that, PlaceInitially decides anyway.
+        // (Not settings.PanelX: the panel's own nudges are saved too, and they are not the user's choice.)
+        if (_followedGame || _userPlaced || gameRect.IsEmpty) return;
+        _followedGame = true;
+        _gameRect = gameRect;
+        if (!_positioned || _hwnd == IntPtr.Zero) return; // PlaceInitially uses it when the panel is first shown
+        PlaceDefault();
+        Dispatcher.BeginInvoke(EnsureOnScreen, DispatcherPriority.Background);
+    }
+
+    private void PlaceDefault()
+    {
+        var work = _gameRect is { } g ? Dpi.WorkAreaForPoint(g.X + g.Width / 2, g.Y + g.Height / 2) : Dpi.WorkAreaForPoint(0, 0);
+        // Physical width now (the UI scale keeps it the same on a monitor with another DPI); margins in that monitor's DPI.
+        var widthPx = (int)(ActualWidth * GetDpiForWindow(_hwnd) / 96.0);
+        var (px, py) = PanelPlacement.DefaultPosition(work, widthPx, Dpi.ScaleForRect(work));
+        OverlayWindowHelper.SetPhysicalPosition(_hwnd, px, py, KeepOnTop);
+    }
+
+    /// <summary>
+    /// Keeps the whole panel inside the work area of the monitor it is on (physical pixels). The scroll area's height is
+    /// capped first, so a big UI 배율 on a small screen scrolls instead of running off the bottom.
+    /// </summary>
     private void EnsureOnScreen()
     {
         if (!_positioned || _hwnd == IntPtr.Zero) return;
@@ -92,9 +125,20 @@ public partial class PanelWindow : Window
         if (r.IsEmpty) return;
         var work = Dpi.WorkAreaForPoint(r.X + 20, r.Y + 20);
         if (work.IsEmpty) return;
+        FitScrollHeight(r, work);
         var x = Math.Max(work.X, Math.Min(r.X, work.Right - r.Width));
         var y = Math.Max(work.Y, Math.Min(r.Y, work.Bottom - r.Height));
         if (x != r.X || y != r.Y) OverlayWindowHelper.SetPhysicalPosition(_hwnd, x, y, KeepOnTop);
+    }
+
+    /// <summary>Caps the scroll area so the whole panel fits the work area's height (re-checked on every size change).</summary>
+    private void FitScrollHeight(PixelRect window, PixelRect work)
+    {
+        if (!Scroll.IsVisible || DataContext is not PanelViewModel vm) return;
+        // Scroll DIPs → physical px: our UI-scale transform times the monitor's DPI.
+        var dipToPx = vm.UiScale * GetDpiForWindow(_hwnd) / 96.0;
+        var max = PanelPlacement.ScrollMaxHeight(work.Height, window.Height, Scroll.ActualHeight, dipToPx);
+        if (Math.Abs(max - Scroll.MaxHeight) > 1) Scroll.MaxHeight = max;
     }
 
     /// <summary>Ctrl+F7: let mouse input fall through to the game.</summary>
@@ -129,6 +173,7 @@ public partial class PanelWindow : Window
     private void Header_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ButtonState != MouseButtonState.Pressed) return;
+        _userPlaced = true; // the game being found later must not move it away again
         // DragMove runs the system move loop (like dragging a title bar); it does not activate a NOACTIVATE window.
         try
         {
@@ -148,5 +193,35 @@ public partial class PanelWindow : Window
         _settings.PanelX = r.X;
         _settings.PanelY = r.Y;
         SettingsStore.Save(AppPaths.SettingsFile, _settings);
+    }
+}
+
+/// <summary>Where the panel goes and how tall its scroll area may be (pure, unit-tested; physical pixels).</summary>
+public static class PanelPlacement
+{
+    /// <summary>The design height of the scroll area (PanelWindow.xaml), in the panel's own DIPs.</summary>
+    public const double DesignScrollMaxHeight = 620;
+
+    /// <summary>Never smaller than this, so a tiny screen still shows a few rows.</summary>
+    public const double MinScrollHeight = 120;
+
+    /// <summary>Top-left of a panel <paramref name="widthPx"/> wide docked to the right of <paramref name="work"/>.</summary>
+    /// <param name="dpiScale">The monitor's scale (1.5 at 150 %): 24 DIPs from the right edge, 140 from the top.</param>
+    public static (int X, int Y) DefaultPosition(PixelRect work, int widthPx, double dpiScale)
+        => (work.Right - widthPx - (int)(24 * dpiScale), work.Y + (int)(140 * dpiScale));
+
+    /// <summary>
+    /// The scroll area's MaxHeight (its own DIPs) so the whole window fits <paramref name="workHeightPx"/>.
+    /// Everything but the scroll area (header, tabs, notices, footer) keeps its height, so the scroll area gets the rest.
+    /// </summary>
+    /// <param name="windowHeightPx">The panel window's height now.</param>
+    /// <param name="scrollHeightDip">The scroll area's height now, in its own DIPs.</param>
+    /// <param name="dipToPx">Its DIPs → physical px (UI-scale transform × monitor DPI scale).</param>
+    public static double ScrollMaxHeight(int workHeightPx, int windowHeightPx, double scrollHeightDip, double dipToPx)
+    {
+        if (dipToPx <= 0 || workHeightPx <= 0) return DesignScrollMaxHeight;
+        var chromePx = Math.Max(0, windowHeightPx - scrollHeightDip * dipToPx);
+        var fit = (workHeightPx - chromePx) / dipToPx;
+        return Math.Clamp(Math.Floor(fit), MinScrollHeight, DesignScrollMaxHeight);
     }
 }

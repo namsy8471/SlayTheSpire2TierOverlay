@@ -94,3 +94,64 @@ internal static class OverlayWindowHelper
         }
     }
 }
+
+/// <summary>
+/// Keeps a full-game layer window (badges, map marks, event markers) exactly on the game's client rect.
+///
+/// <para>The layers are created at (0,0) on the primary monitor and moved over the game with SetWindowPos. When the game
+/// is on a monitor with another DPI scale, the move sends WM_DPICHANGED and WPF resizes the window to the rect Windows
+/// suggests (the old size scaled by the DPI ratio), so the layer could cover only part of the game. So every placement
+/// is checked with GetWindowRect and done again when the window is not where it should be, and a DPI change puts it
+/// back (<see cref="Reapply"/>). A rect that still differs is logged once at INFO, so it shows in a user's app.log.</para>
+/// <para>The two native calls and the log are injectable for tests.</para>
+/// </summary>
+internal sealed class LayerPlacement(string name, Func<IntPtr, PixelRect> getBounds, Action<IntPtr, PixelRect> setBounds, Action<string> log)
+{
+    private string? _lastMismatch;
+
+    public LayerPlacement(string name)
+        : this(name, OverlayWindowHelper.GetPhysicalBounds, OverlayWindowHelper.SetPhysicalBounds, AppLog.Info)
+    {
+    }
+
+    /// <summary>Where the layer should be (empty until the first placement).</summary>
+    public PixelRect Intended { get; private set; }
+
+    /// <summary>
+    /// Puts the window on <paramref name="rect"/> unless it already is there. Returns true when the intended rect
+    /// changed (the layer's content must be laid out again).
+    /// </summary>
+    public bool Place(IntPtr hwnd, PixelRect rect)
+    {
+        var changed = rect != Intended;
+        Intended = rect;
+        Apply(hwnd, "placement");
+        return changed;
+    }
+
+    /// <summary>After a DPI change: WPF may have resized the window to Windows' suggested rect; put it back.</summary>
+    public void Reapply(IntPtr hwnd)
+    {
+        if (Intended.IsEmpty) return;
+        var before = getBounds(hwnd);
+        if (before != Intended) log($"{name} layer: window was {before} after a DPI change, intended {Intended}; placing it again");
+        Apply(hwnd, "after a DPI change");
+    }
+
+    private void Apply(IntPtr hwnd, string when)
+    {
+        if (hwnd == IntPtr.Zero || Intended.IsEmpty) return;
+        // Twice at most: the first move may cross into a monitor with another DPI, and WPF's resize then wins.
+        for (var i = 0; i < 2 && getBounds(hwnd) != Intended; i++) setBounds(hwnd, Intended);
+        var actual = getBounds(hwnd);
+        if (actual == Intended)
+        {
+            _lastMismatch = null;
+            return;
+        }
+        var key = $"{Intended}|{actual}";
+        if (key == _lastMismatch) return;
+        _lastMismatch = key;
+        log($"{name} layer: intended {Intended}, actual {actual} ({when})");
+    }
+}
