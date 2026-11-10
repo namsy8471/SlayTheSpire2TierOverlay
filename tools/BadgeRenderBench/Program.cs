@@ -21,6 +21,10 @@ namespace Sts2Overlay.Tools.BadgeRenderBench;
 //   BadgeRenderBench --panel <card_art dir> ROUNDS                  no window: panel offer tab layout, offscreen
 //   BadgeRenderBench --panel-profile <card_art dir> ROUNDS          no window: offer row template parts, offscreen
 //   BadgeRenderBench --offer-live <card_art dir> ROUNDS             panel + badges shown: new offer, panel in one pass or deferred
+//   BadgeRenderBench --layer-mem badge,map,event --sets N           memory per layer window state (LayerStates.cs)
+//   BadgeRenderBench --layer-restore badge --rounds N --dwell MS [--flash]   cost of coming back from each state
+//                                                                    (LayerRestore.cs); --flash: in-between frames check
+//   BadgeRenderBench --layer-cycles map N                           memory over N trim / untrim rounds (leak check)
 // Variants: full-* = the window covers the screen, fit-* = only the box around the badges, -hidden = Show() in the
 // timed change, -sw = software rendering, -seq = reward and shop screens in turn on one window.
 //
@@ -46,11 +50,24 @@ internal static class Program
         }
         // Shown panel + badge layer in one process: a new offer applied in one pass or with the panel deferred (OfferApplyBench.cs).
         if (args is ["--offer-live", var liveArt, var liveRounds]) return OfferApplyBench.Run(liveArt, int.Parse(liveRounds, CultureInfo.InvariantCulture));
+        // Layer window states (LayerStates.cs, LayerRestore.cs): memory per state, and the cost of coming back from each.
+        if (args is ["--layer-mem", var memKinds, "--sets", var sets])
+            return LayerMemBench.RunParent(memKinds.Split(','), int.Parse(sets, CultureInfo.InvariantCulture));
+        if (args is ["--layer-mem-child", var memKind]) return RunApp(() => LayerMemBench.RunChildAsync(memKind));
+        if (args is ["--layer-cycles", var cycleKind, var cycles])
+            return RunApp(() => LayerMemBench.RunCyclesAsync(cycleKind, int.Parse(cycles, CultureInfo.InvariantCulture)));
+        if (args is ["--layer-restore", var restoreKind, "--rounds", var restoreRounds, "--dwell", var dwell, .. var restoreRest])
+        {
+            return RunApp(() => LayerRestoreBench.RunAsync(restoreKind, int.Parse(restoreRounds, CultureInfo.InvariantCulture),
+                int.Parse(dwell, CultureInfo.InvariantCulture), flash: restoreRest is ["--flash"]));
+        }
         var opts = Options.Parse(args);
         if (opts.Cold > 0 && !opts.Child) return ColdRunner.Run(opts);
-        var app = new BenchApp(opts) { Resources = AppResources(), ShutdownMode = ShutdownMode.OnExplicitShutdown };
-        return app.Run();
+        return RunApp(() => Bench.RunAsync(opts));
     }
+
+    private static int RunApp(Func<Task<int>> run)
+        => new BenchApp(run) { Resources = AppResources(), ShutdownMode = ShutdownMode.OnExplicitShutdown }.Run();
 
     /// <summary>
     /// App.xaml's resources (brushes, converters, font) that BadgeWindow.xaml looks up, loaded as loose XAML. The App
@@ -72,7 +89,7 @@ internal static class Program
 }
 
 /// <summary>Runs the bench once the dispatcher is up, then exits with its code.</summary>
-internal sealed class BenchApp(Options? opts) : Application
+internal sealed class BenchApp(Func<Task<int>> run) : Application
 {
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -81,7 +98,7 @@ internal sealed class BenchApp(Options? opts) : Application
             var code = 1;
             try
             {
-                if (opts is not null) code = await Bench.RunAsync(opts);
+                code = await run();
             }
             catch (Exception ex)
             {

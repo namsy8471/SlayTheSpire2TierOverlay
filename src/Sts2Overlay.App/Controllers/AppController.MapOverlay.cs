@@ -110,6 +110,8 @@ public sealed partial class AppController
     private void RedrawMap()
     {
         if (_mapLayer is null) return;
+        // Marks expected soon: keep the layer full size (an empty layer is trimmed otherwise, see LayerTrimmer).
+        _mapLayer.SetLayerReady(_settings.MapOverlay && (MapCadenceHz() > 0 || _snapshot.Hint == ScreenHint.RestSite || !_restPlan.IsEmpty));
         // Rest-site marks (AppController.RestOverlay.cs) use the same layer; the map can't be open at the same time.
         if (!_restPlan.IsEmpty)
         {
@@ -134,20 +136,22 @@ public sealed partial class AppController
     private void UpdateMapLayerVisibility(bool show, GameWindowInfo? info)
     {
         if (_mapLayer is null) return;
+        // SetLayerOn, not Show/Hide: the window stays hidden while it is on but trimmed (empty for a while, LayerTrimmer).
         if (show && _settings.MapOverlay && info is not null)
         {
-            if (!_mapLayer.IsVisible) _mapLayer.Show();
+            _mapLayer.SetLayerOn(true);
             _mapLayer.SetLayerRect(info.CaptureRect);
         }
-        else if (_mapLayer.IsVisible)
+        else
         {
-            _mapLayer.Hide();
+            _mapLayer.SetLayerOn(false);
         }
     }
 
     private void ReassertMapTopmost()
     {
-        if (_mapLayer is { IsVisible: true }) OverlayWindowHelper.AssertTopmost(_mapLayer.Hwnd);
+        // Also while trimmed (on but hidden): it comes back in its place among the layers, under the panel.
+        if (_mapLayer is { IsLayerOn: true }) OverlayWindowHelper.AssertTopmost(_mapLayer.Hwnd);
     }
 
     private void SetMapScale(double multiplier)

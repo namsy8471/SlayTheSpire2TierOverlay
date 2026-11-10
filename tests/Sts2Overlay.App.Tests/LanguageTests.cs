@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.IO;
 using System.Reflection;
 using System.Text.RegularExpressions;
@@ -176,10 +177,24 @@ public class LanguageTests
     [Fact]
     public void Ui_text_raises_a_change_for_every_property()
     {
-        var names = new List<string?>();
-        UiText.Instance.PropertyChanged += (_, e) => names.Add(e.PropertyName);
-        UiText.Instance.RaiseAll();
-        Assert.Contains(string.Empty, names); // "" = all properties (WPF re-reads every binding)
+        // RaiseAll raises on the UI thread: at once when there is none, but posted to it when another test class has
+        // already started the shared WPF thread (WpfThread creates the App). So wait for the event instead of reading a
+        // list right after the call; test classes run in parallel and the order differs from run to run.
+        using var raised = new ManualResetEventSlim();
+        PropertyChangedEventHandler handler = (_, e) =>
+        {
+            if (e.PropertyName == string.Empty) raised.Set(); // "" = all properties (WPF re-reads every binding)
+        };
+        UiText.Instance.PropertyChanged += handler;
+        try
+        {
+            UiText.Instance.RaiseAll();
+            Assert.True(raised.Wait(TimeSpan.FromSeconds(30)), "no change event for all properties within 30 s");
+        }
+        finally
+        {
+            UiText.Instance.PropertyChanged -= handler;
+        }
     }
 
     [Fact]
