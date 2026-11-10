@@ -27,6 +27,12 @@ public enum MapNodeMarkKind
 
     /// <summary>A "?" node with the odds of what it turns into (Caption).</summary>
     UnknownOdds,
+
+    /// <summary>Co-op: my own current vote, where no partner voted: "내 투표" tag (a vote, not where we are).</summary>
+    MyVote,
+
+    /// <summary>Co-op: my vote and a partner's on the same node: one "투표 일치" tag instead of two.</summary>
+    BothVoted,
 }
 
 /// <summary>A mark pinned on node <paramref name="Coord"/>, whose centre is at (X, Y) design px on screen.</summary>
@@ -84,13 +90,15 @@ public static class MapMarkLayout
     /// <param name="rec">Path recommendation for the current position, or null.</param>
     /// <param name="partnerVotes">Co-op partners' current votes.</param>
     /// <param name="odds">Odds of the next "?" room, or null.</param>
+    /// <param name="myVote">Co-op: my own current vote (the party has not moved there yet), or null.</param>
     public static MapMarkPlan Build(
         MapGraph map,
         MapScreenLayout layout,
         float scroll,
         PathRecommendation? rec,
         IReadOnlyList<MapCoord> partnerVotes,
-        UnknownRoomOdds? odds)
+        UnknownRoomOdds? odds,
+        MapCoord? myVote = null)
     {
         var lines = new List<MapLineMark>();
         var nodes = new List<MapNodeMark>();
@@ -136,9 +144,19 @@ public static class MapMarkLayout
             }
         }
 
-        foreach (var g in partnerVotes.GroupBy(c => c))
+        foreach (var g in partnerVotes.Where(c => c != myVote).GroupBy(c => c))
             if (At(g.Key, out var px, out var py) && Visible(py))
                 nodes.Add(new MapNodeMark(g.Key, px, py, MapNodeMarkKind.Partner, g.Count() > 1 ? Loc.T($"동료 ×{g.Count()}", $"Ally ×{g.Count()}") : Loc.T("동료", "Ally")));
+
+        // My own vote: a tag like the partners', and one shared tag where we agree (two labels would overlap).
+        if (myVote is { } mine && At(mine, out var mx, out var my) && Visible(my))
+        {
+            int agree = partnerVotes.Count(c => c == mine);
+            nodes.Add(agree == 0
+                ? new MapNodeMark(mine, mx, my, MapNodeMarkKind.MyVote, Loc.T("내 투표", "My vote"))
+                : new MapNodeMark(mine, mx, my, MapNodeMarkKind.BothVoted,
+                    agree == 1 ? Loc.T("투표 일치", "Both voted") : Loc.T($"나 + 동료 ×{agree}", $"Me + ally ×{agree}")));
+        }
 
         return new MapMarkPlan(lines, nodes);
 

@@ -107,6 +107,8 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
     private ulong _liveEpochs = ulong.MaxValue;          // epoch-lock hypotheses (bit h) the picks so far allow
     private IReadOnlyList<CardRef>? _seenOffer;          // what the screen recognizer saw on the reward screen (this room)
     private MapCoord? _voteCoord;
+    private ulong _voteBy;                               // who cast _voteCoord: 1 = single player (the vote IS the move)
+    private PartnerVote? _myVote;                        // co-op: my open map vote (only a vote; cleared like _partnerVotes)
     private string? _eventId;                            // event room: id from the co-op log (null = predict from the save)
     private IReadOnlyList<string>? _eventKeys;           // its first-page options from the co-op log
     private readonly List<string> _eventChosen = [];     // my choices in this event room
@@ -390,7 +392,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
                 return false;
 
             case ActEnteredEvent a:
-                if (a.ActId != _logActId) { _logAct++; _logActId = a.ActId; _moveSinceRoom = true; _partnerVotes.Clear(); }
+                if (a.ActId != _logActId) { _logAct++; _logActId = a.ActId; _moveSinceRoom = true; _partnerVotes.Clear(); _myVote = null; }
                 return true;
 
             case MapVoteEvent v:
@@ -400,7 +402,9 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
                 {
                     ClearEvent();
                     _voteCoord = v.Coord;
+                    _voteBy = v.PlayerId;
                     _voteSeq = _seq;
+                    _myVote = new PartnerVote(v.PlayerId, v.Generation, v.Coord); // a changed vote replaces the earlier one
                     _screen = ScreenHint.Map;
                 }
                 else
@@ -431,6 +435,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
                 _offers.Clear();
                 _seenOffer = null;
                 _partnerVotes.Clear(); // the vote is settled: everyone moved into this room
+                _myVote = null;
                 _screen = room.Room switch
                 {
                     RoomKind.Combat => ScreenHint.Combat,
@@ -782,6 +787,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         _voteCoord = null;
         _voteSeq = -1;
         _partnerVotes.Clear();
+        _myVote = null;
         ClearEvent();
         _eventCheck = null;
         _outcome = RunOutcome.InProgress;
@@ -1342,9 +1348,13 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
 
         state = state with { Deck = finalDeck, Relics = relics, Gold = gold, CardRemovalsBought = removals, VitalsKnown = fromSave };
 
-        // Our map vote moves "Current" before the room-entry save lands (useful for the path advisor).
-        if (map != null && _voteCoord is { } vote && _voteSeq > cutoff && map.Nodes.ContainsKey(vote))
+        // Single player: the vote IS the move, so it moves "Current" before the room-entry save lands (the path advice
+        // jumps ahead). Co-op: it is only my vote; the party may go where a partner voted (the game draws between
+        // differing votes), so "Current" waits for the room-entry save and the vote is reported as MyVote instead.
+        if (map != null && _voteCoord is { } vote && VoteIsMove(_voteBy) && _voteSeq > cutoff && map.Nodes.ContainsKey(vote))
             map = map with { Current = vote };
+        // A vote of mine cast before the run was known to be co-op (my id unknown then) was kept as a partner's.
+        PartnerVote? myVote = _myVote ?? _partnerVotes.GetValueOrDefault(me);
 
         return new TrackedRun
         {
@@ -1369,10 +1379,9 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
             LocalPlayerId = me,
             PlayerCount = IsMultiplayer() ? Math.Max(1, PlayerOrder().Count) : 1,
             Partners = IsMultiplayer() ? PartnersOf(save?.Save, me) : [],
-            // Votes for another act's map (stale lines after an act change) can't be drawn on this map. Without a map
-            // (co-op guest: no save) they are kept as they are.
+            MyVote = myVote is { } mine && !VoteIsMove(mine.PlayerId) && OnThisMap(mine, map) ? mine.Coord : null,
             PartnerVotes = _partnerVotes.Values
-                .Where(v => map == null || ((v.Generation <= 0 || v.Generation == map.Act) && map.Nodes.ContainsKey(v.Coord)))
+                .Where(v => v.PlayerId != me && OnThisMap(v, map))
                 .OrderBy(v => v.PlayerId)
                 .ToList(),
             Seed = save?.Save.Seed ?? _logRun?.Seed,
@@ -1381,6 +1390,16 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
             UpdatedAt = _clock(),
         };
     }
+
+    /// <summary>Single player (local net id 1, run not known to be co-op): a map vote is the move itself. In co-op it is only a vote.</summary>
+    private bool VoteIsMove(ulong voter) => voter == 1 && !IsMultiplayer();
+
+    /// <summary>
+    /// Votes for another act's map (stale lines after an act change) can't be drawn on this map. Without a map (co-op
+    /// guest: no save) they are kept as they are.
+    /// </summary>
+    private static bool OnThisMap(PartnerVote v, MapGraph? map) =>
+        map == null || ((v.Generation <= 0 || v.Generation == map.Act) && map.Nodes.ContainsKey(v.Coord));
 
     /// <summary>
     /// Co-op guest (no save file): character + ascension from the "Embarking" line, starting deck/relics/HP/gold
