@@ -202,6 +202,46 @@ public class HoverYieldTests
 
         Assert.True(s.Update(true, 20050, (961, 600))); // any movement: normal rules again, on a zone → aside
         Assert.True(s.Hidden);
+        Assert.False(s.Update(true, 40000, (961, 600))); // and that hide came from a movement: it never times out
+        Assert.True(s.Hidden);
+    }
+
+    [Fact]
+    public void Reading_a_long_tip_with_the_mouse_held_still_keeps_the_overlay_aside()
+    {
+        // The player moves onto a card and holds still to read its tip: the badges must not come back over it.
+        var s = new HoverYieldState(showDelayMs: 300, idleShowMs: 2500);
+        s.Update(false, 0, (200, 900));
+        s.Update(false, 50, (600, 700));
+        Assert.True(s.Update(true, 100, (900, 600))); // moved onto the card on this sample
+        for (long t = 150; t <= 10100; t += 50)
+        {
+            Assert.False(s.Update(true, t, (900, 600)), $"overlay came back at {t} ms");
+        }
+        Assert.True(s.Hidden);
+
+        // Stopping just short of the card and the card's zone growing under it a moment later is still deliberate.
+        var s2 = new HoverYieldState(showDelayMs: 300, idleShowMs: 2500);
+        s2.Update(false, 0, (10, 10));
+        s2.Update(false, 1000, (900, 600)); // last movement
+        Assert.True(s2.Update(true, 1000 + HoverYieldState.SettleMs - 50, (900, 600)));
+        Assert.False(s2.Update(true, 10000, (900, 600)));
+        Assert.True(s2.Hidden);
+    }
+
+    [Fact]
+    public void After_a_deliberate_hover_a_zone_appearing_under_a_resting_cursor_still_comes_back()
+    {
+        var s = new HoverYieldState(showDelayMs: 300, idleShowMs: 2500);
+        s.Update(false, 0, (100, 100));
+        Assert.True(s.Update(true, 50, (300, 300))); // moved onto a card: deliberate
+        Assert.False(s.Update(false, 100, (700, 300))); // moved off it ...
+        Assert.True(s.Update(false, 400, (700, 300))); // ... back after 300 ms
+        // Rests there; a second later the next screen puts a card under it.
+        Assert.True(s.Update(true, 1400, (700, 300)));
+        Assert.False(s.Update(true, 3850, (700, 300)));
+        Assert.True(s.Update(true, 3900, (700, 300))); // 2.5 s after the hide: back
+        Assert.False(s.Hidden);
     }
 
     [Fact]
@@ -225,11 +265,12 @@ public class HoverYieldTests
     public void Reset_ends_a_parked_show()
     {
         var s = new HoverYieldState(showDelayMs: 300, idleShowMs: 2500);
-        s.Update(true, 0, (5, 5));
-        s.Update(true, 2500, (5, 5));
+        s.Update(false, 0, (5, 5));
+        s.Update(true, 1000, (5, 5)); // a zone appeared under the resting cursor
+        s.Update(true, 3500, (5, 5));
         Assert.False(s.Hidden);
         s.Reset(); // overlay hidden / game left the front
-        Assert.True(s.Update(true, 2600, (5, 5))); // shown again later over a zone: steps aside again first
+        Assert.True(s.Update(true, 3600, (5, 5))); // shown again later over a zone: steps aside again first
     }
 
     [Fact]

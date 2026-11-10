@@ -13,7 +13,8 @@ namespace Sts2Overlay.App.Controllers;
 ///  GetCursorPos ─▶ on a hover-tip zone of a shown layer (or one that was shown a moment ago), or on the top bar /
 ///                 relic row?
 ///               ─▶ (never while the mouse is on our own panel)
-///               ─▶ HoverYieldState (hide at once, show again 300 ms after leaving, or after 2.5 s of a resting cursor)
+///               ─▶ HoverYieldState (hide at once, show again 300 ms after leaving; a zone that appeared under a
+///                  cursor already resting shows again after 2.5 s, a zone the mouse was moved onto never times out)
 ///               ─▶ every layer fades out / in together
 /// </code>
 ///

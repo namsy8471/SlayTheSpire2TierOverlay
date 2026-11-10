@@ -103,9 +103,13 @@ public static class HoverGeometry
 /// <item>Mouse enters a zone: hide at once. The game shows its tip right away, so waiting would leave it covered.</item>
 /// <item>Mouse leaves: come back only after <see cref="ShowDelayMs"/> outside every zone. Moving from one card to the
 /// next crosses a short gap, and the badges should not flash in between.</item>
-/// <item>Mouse parked: after <see cref="IdleShowMs"/> hidden without the cursor moving, come back and stay until it
-/// moves. A cursor resting where a card appeared (the reward was clicked there, or the player uses a gamepad) would
-/// otherwise keep every badge hidden; a tip under the mouse has been read by then. Any movement resumes the rules above.</item>
+/// <item>A zone appeared under a resting cursor: the cursor had not moved for <see cref="SettleMs"/> when the layers
+/// hid (the reward was clicked at that spot, the player uses a gamepad, the map opened with the mouse parked on the top
+/// strip). Then the layers come back after <see cref="IdleShowMs"/> and stay until the cursor moves; otherwise every
+/// badge would stay hidden for as long as the mouse rests there.</item>
+/// <item>The mouse was moved onto a zone (it moved on the sample that hid the layers, or shortly before): that is the
+/// player pointing at something to read its tip. That hide never times out while the cursor stays on a zone, however
+/// long it rests. Any movement ends a "came back" state, and a hide after a movement is a deliberate one.</item>
 /// </list>
 /// </summary>
 public sealed class HoverYieldState
@@ -113,9 +117,18 @@ public sealed class HoverYieldState
     public const int DefaultShowDelayMs = 300;
     public const int DefaultIdleShowMs = 2500;
 
+    /// <summary>
+    /// How long the cursor must have rested before the layers hid for that hide to count as "a zone appeared under a
+    /// resting cursor" (eligible for <see cref="IdleShowMs"/>). A mouse moved onto a card stops less than this before
+    /// the hide sample, so it counts as deliberate.
+    /// </summary>
+    public const int SettleMs = 400;
+
     private long? _leftAt;
-    private long _stillSince;   // last cursor movement, or when the layers hid (whichever is later)
     private (int X, int Y)? _cursor;
+    private long _lastMoveAt;   // last sample whose cursor position differed from the one before
+    private long _hiddenAt;
+    private bool _idleEligible; // this hide came from a zone appearing under a resting cursor
     private bool _parked;       // shown again for a resting cursor; hidden again only after it moves
 
     public HoverYieldState(int showDelayMs = DefaultShowDelayMs, int idleShowMs = DefaultIdleShowMs)
@@ -136,14 +149,16 @@ public sealed class HoverYieldState
     /// <summary>Feeds one mouse sample. Returns true when <see cref="Hidden"/> changed.</summary>
     /// <param name="overZone">The mouse is on a hover-tip zone of a visible layer.</param>
     /// <param name="nowMs">A monotonic clock in milliseconds (Environment.TickCount64).</param>
-    /// <param name="cursor">Where the cursor is (physical px); null = unknown, treated as moving.</param>
+    /// <param name="cursor">Where the cursor is (physical px); null = unknown, treated as moving. The first known
+    /// position also counts as a movement (nothing says how long it has rested).</param>
     public bool Update(bool overZone, long nowMs, (int X, int Y)? cursor)
     {
         if (cursor is null || cursor != _cursor)
         {
             _cursor = cursor;
-            _stillSince = nowMs;
+            _lastMoveAt = nowMs;
             _parked = false;
+            _idleEligible = false; // moving while aside makes the hide a deliberate one
         }
         if (_parked) return false;
         if (overZone)
@@ -151,13 +166,15 @@ public sealed class HoverYieldState
             _leftAt = null;
             if (Hidden)
             {
-                if (cursor is null || nowMs - _stillSince < IdleShowMs) return false;
+                if (!_idleEligible || nowMs - _hiddenAt < IdleShowMs) return false;
                 _parked = true;
                 Hidden = false;
                 return true;
             }
             Hidden = true;
-            _stillSince = nowMs; // the resting time counts from the moment the layers stepped aside
+            _hiddenAt = nowMs;
+            // Decided once, at the hide: did the zone come to a resting cursor, or the cursor to the zone?
+            _idleEligible = cursor is not null && nowMs - _lastMoveAt >= SettleMs;
             return true;
         }
         if (!Hidden) return false;
@@ -173,6 +190,7 @@ public sealed class HoverYieldState
     {
         _leftAt = null;
         _parked = false;
+        _idleEligible = false;
         if (!Hidden) return false;
         Hidden = false;
         return true;
