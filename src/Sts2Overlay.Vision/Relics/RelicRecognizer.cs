@@ -154,7 +154,7 @@ public sealed class RelicRecognizer
         float r = Options.SearchRadius + 2;
         // Band: every icon square any slot can take within the search (scale up to 0.82).
         var band = new RectF(SlotX0 - 56 * 0.82f - r, SlotY - 72 * 0.82f - r, SlotStepX * (SlotCount - 1) + 120 * 0.82f + 2 * r, 120 * 0.82f + 2 * r);
-        using IntegralImage img = IntegralImage.Build(frame, t.ToPixelRect(band), step);
+        using IntegralImage img = IntegralImage.Build(frame, t.ToPixelRect(band), step, VisionScratch.Tables);
         var result = new RecognizedRelic[SlotCount];
         ScreenFrame f = frame;
         Parallel.For(0, SlotCount, i => result[i] = MatchSlot(img, t, f, i));

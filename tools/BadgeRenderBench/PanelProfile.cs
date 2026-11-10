@@ -27,7 +27,7 @@ internal static class PanelProfile
 
     public static int Run(string artDir, int rounds)
     {
-        var app = new BenchApp(null) { Resources = Program.AppResources(), ShutdownMode = ShutdownMode.OnExplicitShutdown };
+        var app = new BenchApp(() => Task.FromResult(0)) { Resources = Program.AppResources(), ShutdownMode = ShutdownMode.OnExplicitShutdown };
         var vm = new PanelViewModel { SelectedTab = PanelTab.Offer, IsCollapsed = false };
         // Never shown: no HWND, so the panel never saves its position into the user's settings.
         var panel = new PanelWindow(vm, new AppSettings(), new OverlayCaptureVisibility(false));

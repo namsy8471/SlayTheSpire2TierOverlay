@@ -90,6 +90,7 @@ public sealed partial class AppController
     {
         var active = (_source as GameStateAdapter)?.Tracked?.CurrentEvent;
         _eventWatch = active is not null;
+        _eventMarkers?.SetLayerReady(_eventWatch); // an event room: its markers come soon, keep the layer full size
         _eventAncient = active is not null && _eventScorer?.Catalog.Find(active.EventId)?.IsAncient == true;
         _eventScreens?.SetEvent(active?.EventId);
         if (active is null || snap.Run is not { } run || _eventScorer is null)
@@ -256,7 +257,7 @@ public sealed partial class AppController
         if (_eventMarkers is not null) return _eventMarkers;
         if (_badges.Hwnd == IntPtr.Zero) return null;
         _eventMarkers = new EventMarkerWindow(_pipeline.CaptureVisibility) { ScaleMultiplier = _badges.ScaleMultiplier };
-        _eventMarkers.Show();
+        _eventMarkers.SetLayerOn(true);
         UpdateEventMarkerVisibility();
         return _eventMarkers;
     }
@@ -266,16 +267,17 @@ public sealed partial class AppController
     {
         if (_eventMarkers is null) return;
         var info = _tracker.Current;
+        // SetLayerOn, not Show/Hide: the window stays hidden while it is on but trimmed (empty for a while, LayerTrimmer).
         if (_badges.IsVisible && info is not null)
         {
-            if (!_eventMarkers.IsVisible) _eventMarkers.Show();
+            _eventMarkers.SetLayerOn(true);
             _eventMarkers.ScaleMultiplier = _badges.ScaleMultiplier;
             _eventMarkers.SetLayerRect(info.CaptureRect);
             OverlayWindowHelperTopmost(_eventMarkers.Hwnd);
         }
-        else if (_eventMarkers.IsVisible)
+        else
         {
-            _eventMarkers.Hide();
+            _eventMarkers.SetLayerOn(false);
         }
     }
 
@@ -287,7 +289,8 @@ public sealed partial class AppController
     /// <summary>Topmost hook (ReassertTopmost): markers sit with the badges, under the panel.</summary>
     private void ReassertEventMarkersTopmost()
     {
-        if (_eventMarkers is { IsVisible: true } m) OverlayWindowHelperTopmost(m.Hwnd);
+        // Also while trimmed (on but hidden): it comes back in its place among the layers, under the panel.
+        if (_eventMarkers is { IsLayerOn: true } m) OverlayWindowHelperTopmost(m.Hwnd);
     }
 
     /// <summary>Cadence hook: an event room is watched at the fast rate so a hover and a click are both seen.</summary>
