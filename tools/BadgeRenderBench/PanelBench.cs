@@ -18,7 +18,7 @@ internal static class PanelBench
 {
     public static int Run(string artDir, int rounds)
     {
-        var app = new BenchApp(null) { Resources = Program.AppResources(), ShutdownMode = ShutdownMode.OnExplicitShutdown };
+        var app = new BenchApp(() => Task.FromResult(0)) { Resources = Program.AppResources(), ShutdownMode = ShutdownMode.OnExplicitShutdown };
         GC.KeepAlive(app);
         var vm = new PanelViewModel { SelectedTab = PanelTab.Offer, IsCollapsed = false };
         // Never shown: no HWND, so the panel never saves its position into the user's settings.
