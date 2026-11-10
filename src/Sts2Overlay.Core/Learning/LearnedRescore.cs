@@ -11,6 +11,8 @@ namespace Sts2Overlay.Core.Learning;
 /// points), the fitted <c>baseAdjust</c> comes out of <c>base</c>, and the model's own parts (card value, deck fit,
 /// upgraded, copies, skip tendency) are added as components. The new total is the model's utility in base points, so
 /// ranking by total is ranking by the model, and <see cref="ScoreBreakdown.Total"/> still equals the sum of its parts.
+/// An engine component whose learned weight is negative would change sign under its engine label ("자원 과잉 +19"), so its
+/// value is shown inside the learned preference instead (<c>ranker_value</c>; Skip: <c>skip_act</c>); totals do not change.
 /// </summary>
 public static class LearnedRescore
 {
@@ -43,6 +45,7 @@ public static class LearnedRescore
         {
             var e = cards[i];
             var comps = new List<ScoreComponent>();
+            var flipped = new Flipped();
             var adjustLeft = adjust[i];
             foreach (var c in e.Score.Components)
             {
@@ -53,24 +56,80 @@ public static class LearnedRescore
                     adjustLeft = 0;
                 }
 
-                comps.Add(c with { Value = value * model.RelativeWeight(c.Key) });
+                Weigh(comps, flipped, c, value, model.RelativeWeight(c.Key));
             }
 
             AddLearned(comps, parts[i + 1], unit);
+            flipped.FoldInto(comps, PolicyKeys.CardValue);
             var score = new ScoreBreakdown(comps);
             var known = model.Knows(options[i].Card);
+            // The model having seen the card in the old game version does not make the pack's data reasons go away: a card
+            // without a tier entry, or one the pack marks as changed by a patch, stays an estimate at the pack's confidence.
+            var dataEstimate = !e.IsRated || pack.FindTier(state.Character, options[i].Card)?.ChangedIn is not null;
             rescored.Add(e with
             {
                 Score = score,
                 Chips = score.TopReasons(3).Select(c => new ReasonChip(c.Key, c.Label, c.Value)).ToArray(),
-                Confidence = known ? Math.Max(e.Confidence, 1.0) : e.Confidence,
-                IsEstimate = !known && e.IsEstimate,
+                Confidence = known && !dataEstimate ? Math.Max(e.Confidence, 1.0) : e.Confidence,
+                IsEstimate = dataEstimate || (!known && e.IsEstimate),
+                KnownToModel = known,
             });
         }
 
-        var skipComps = skip.Components.Select(c => c with { Value = c.Value * model.RelativeWeight(c.Key) }).ToList();
+        var skipComps = new List<ScoreComponent>();
+        var skipFlipped = new Flipped();
+        foreach (var c in skip.Components) Weigh(skipComps, skipFlipped, c, c.Value, model.RelativeWeight(c.Key));
         AddLearned(skipComps, parts[0], unit);
+        skipFlipped.FoldInto(skipComps, PolicyKeys.SkipAct);
         return (rescored, new ScoreBreakdown(skipComps));
+    }
+
+    /// <summary>
+    /// Adds an engine component at its learned weight. When the weight is negative the value changes sign (the model learned
+    /// that top players treat an engine penalty such as "자원 과잉" as a plus, or a bonus as a minus): showing it under the
+    /// engine's label would read "penalty +19", so it is set aside in <paramref name="flipped"/> and later shown as part of
+    /// the learned preference. The total stays the same: the value moves, it is not dropped.
+    /// </summary>
+    private static void Weigh(List<ScoreComponent> comps, Flipped flipped, ScoreComponent c, double value, double weight)
+    {
+        var weighted = value * weight;
+        if (weight < 0 && Math.Abs(weighted) >= 1e-9)
+        {
+            flipped.Add(c.Label, weighted);
+            return;
+        }
+
+        comps.Add(c with { Value = weighted });
+    }
+
+    /// <summary>Engine components whose sign the learned weight flipped: their summed value and their labels (for the detail line).</summary>
+    private sealed class Flipped
+    {
+        private readonly List<string> _labels = [];
+        private double _value;
+
+        public void Add(string label, double value)
+        {
+            _value += value;
+            if (!_labels.Contains(label, StringComparer.Ordinal)) _labels.Add(label);
+        }
+
+        /// <summary>Adds the set-aside value to the learned component <paramref name="key"/> (created if the model gave it nothing).</summary>
+        public void FoldInto(List<ScoreComponent> comps, string key)
+        {
+            if (_labels.Count == 0) return;
+            var detail = Loc.T($"랭커 기준으로 다시 잰 요소: {string.Join(", ", _labels)}", $"Re-weighed by top players' picks: {string.Join(", ", _labels)}");
+            var i = comps.FindIndex(c => c.Key == key);
+            if (i >= 0)
+            {
+                var c = comps[i];
+                comps[i] = c with { Value = c.Value + _value, Detail = c.Detail is null ? detail : c.Detail + " · " + detail };
+            }
+            else
+            {
+                comps.Add(new ScoreComponent(key, Label(key)!, _value, detail));
+            }
+        }
     }
 
     private static void AddLearned(List<ScoreComponent> comps, IReadOnlyList<(string Key, double Utility)> parts, double unit)

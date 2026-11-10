@@ -307,7 +307,8 @@ public sealed class CardScorer(DataPack pack)
                 if (factor < worstFactor)
                 {
                     worstFactor = factor;
-                    saturationDetail = Loc.T($"{axis} 생산 {produced} / 소비 {consumed}", $"{axis} made {produced} / used {consumed}");
+                    var axisName = ScoringLabels.Tag(axis);
+                    saturationDetail = Loc.T($"{axisName} 생산 {produced} / 소비 {consumed}", $"{axisName} made {produced} / used {consumed}");
                 }
             }
             if (worstFactor < 1.0)
@@ -348,7 +349,7 @@ public sealed class CardScorer(DataPack pack)
         if (engineMissing)
         {
             Add(parts, ComponentKeys.EngineMissing, ScoringLabels.EngineMissing, -w.RequiresPenalty,
-                Loc.T($"필요 축 없음: {string.Join("/", entry!.Requires)}", $"Needs axis: {string.Join("/", entry!.Requires)}"));
+                Loc.T($"필요 축 없음: {string.Join("/", entry!.Requires.Select(ScoringLabels.Tag))}", $"Needs axis: {string.Join("/", entry!.Requires.Select(ScoringLabels.Tag))}"));
         }
         if (needParts.Count > 0)
         {

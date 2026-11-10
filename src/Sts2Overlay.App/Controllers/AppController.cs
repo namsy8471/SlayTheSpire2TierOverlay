@@ -213,6 +213,7 @@ public sealed partial class AppController : IDisposable
             {
                 // The tracker says the reward/shop screen is gone (card picked, map node entered, next combat...).
                 ClearBadges(forgetScreen: true);
+                _removal.EndVisit(); // the next merchant visit starts with its removal service for sale
             }
             else if (_lastResult is not null)
             {
@@ -397,6 +398,7 @@ public sealed partial class AppController : IDisposable
             _loggedKind = r.ScreenKind;
         }
         UpdateRestMarks(r); // rest-site buttons / Smith grid (AppController.RestOverlay.cs)
+        _removal.Observe(r.ScreenKind, r.RemovalService is not null); // before a deck grid becomes "Other": Shop → Grid → Shop = removal used
         // In combat a choose-a-card row or a card grid is a temporary pick (Discovery, Attack Potion, the draw/discard
         // piles with generated cards), not a deck offer: no badges, no skip mark, no panel offer.
         if (r.ScreenKind is ScreenKind.Choice or ScreenKind.Grid && _snapshot.Hint == ScreenHint.Combat)
@@ -423,7 +425,7 @@ public sealed partial class AppController : IDisposable
             RunLater(ref _verdictTimer, due - DateTime.UtcNow, () => { if (_lastResult is { } last) ApplyRecognition(last); });
         var offerKey = r.ScreenKind + ":" + string.Join(",", r.Cards.Select(c => $"{c.Card}${c.Price}{(c.Unaffordable == true ? "r" : "")}{(c.OnSale ? "s" : "")}"))
                        + (r.Relics.Count > 0 ? "|" + string.Join(",", r.Relics.Select(x => $"{x.RelicId}${x.Price}{(x.Unaffordable == true ? "r" : "")}")) : "");
-        var evalKey = $"{offerKey}@{_snapshot.UpdatedAt.Ticks}#{_engineVersion}@{Loc.CurrentCode}/{verdict}";
+        var evalKey = $"{offerKey}{(_removal.Available ? "+rm" : "")}@{_snapshot.UpdatedAt.Ticks}#{_engineVersion}@{Loc.CurrentCode}/{verdict}";
         if (evalKey != _lastEvalKey)
         {
             try
@@ -512,7 +514,7 @@ public sealed partial class AppController : IDisposable
             rows.Add(new OfferRowVm
             {
                 Name = _cards.Name(e.Card),
-                TierText = e.DisplayTier.ToString(),
+                TierText = e.TierText,
                 ScoreText = Fmt(e.Total),
                 BarWidth = Bar(e.Total),
                 IsBest = e.IsBest,
@@ -545,17 +547,21 @@ public sealed partial class AppController : IDisposable
             },
             ConfidenceText = ConfidenceText(eval.Confidence),
             ConfidenceKind = eval.Confidence.ToString(),
-            FlipHint = eval.FlipHint,
+            FlipHint = CoopNote(run, eval.FlipHint),
             Rows = rows,
-            Footer = eval.Best is { } best ? Loc.T($"추천: {_cards.Name(best)}", $"Pick: {_cards.Name(best)}") : Loc.T("추천: 스킵", "Pick: Skip"),
+            Footer = eval.NoData ? Loc.T("평가 데이터가 없는 카드입니다", "No rating data for these cards")
+                : eval.Best is { } best ? Loc.T($"추천: {_cards.Name(best)}", $"Pick: {_cards.Name(best)}") : Loc.T("추천: 스킵", "Pick: Skip"),
         };
 
         var badges = eval.Cards
-            .Select((e, i) => new BadgeSpec(r.Cards[i].ScreenBounds, e.DisplayTier.ToString(), Fmt(e.Total), e.IsBest, e.IsEstimate, e.Card.IsUpgraded,
+            .Select((e, i) => new BadgeSpec(r.Cards[i].ScreenBounds, e.TierText, Fmt(e.Total), e.IsBest, e.IsEstimate, e.Card.IsUpgraded,
                 Chips: OfferMarkers.CardChips(e.Chips), Ribbon: e.IsBest ? OfferMarkers.RecommendRibbon : null))
             .ToArray();
         return (offer, badges, OfferMarkers.Skip(eval, Fmt), null);
     }
+
+    /// <summary>Whether this merchant visit's card-removal service is still for sale (fed every recognition result).</summary>
+    private readonly RemovalAvailability _removal = new();
 
     private (OfferSectionVm, IReadOnlyList<BadgeSpec>, SkipSpec?, string?) EvaluateShop(RecognitionResult r)
     {
@@ -564,6 +570,7 @@ public sealed partial class AppController : IDisposable
         var offer = new ShopOffer(r.Cards.Select(c => new ShopCardOffer(c.Card, c.Price ?? 0, c.Price is not null, c.Unaffordable is bool u ? !u : null, c.OnSale)).ToArray())
         {
             Relics = r.Relics.Select(x => new ShopRelicOffer(x.RelicId, x.Rarity, x.Price ?? 0, x.Price is not null, x.Unaffordable is bool u ? !u : null)).ToArray(),
+            RemovalAvailable = _removal.Available, // gone only after evidence it was used, not while the coin is merely covered
         };
         var eval = _engine.EvaluateShop(run, offer);
         var recommended = eval.RecommendedPurchase.ToHashSet(ReferenceEqualityComparer.Instance);
@@ -588,7 +595,7 @@ public sealed partial class AppController : IDisposable
                 Name = isCard ? _cards.Name(item.Card!.Value)
                     : isRelic ? RelicName(item.RelicId!) + Loc.T(" (유물)", " (Relic)")
                     : $"{RemovalName()} ({(item.RemovalTarget is { } t ? _cards.Name(t) : "?")})",
-                TierText = e?.DisplayTier.ToString() ?? "—",
+                TierText = e?.TierText ?? "—",
                 ScoreText = Fmt(score),
                 BarWidth = Bar(score),
                 IsBest = recommended.Contains(item),
@@ -629,7 +636,7 @@ public sealed partial class AppController : IDisposable
             var item = byCard.TryGetValue(rc.Card, out var q) && q.Count > 0 ? q.Dequeue() : null;
             var e = item?.CardEvaluation;
             var buy = item is not null && recommended.Contains(item);
-            return new BadgeSpec(rc.ScreenBounds, e?.DisplayTier.ToString() ?? "?", e is null ? "" : Fmt(e.Total),
+            return new BadgeSpec(rc.ScreenBounds, e?.TierText ?? "?", e is null ? "" : Fmt(e.Total),
                 buy, e?.IsEstimate ?? true, rc.Card.IsUpgraded, Ribbon: buy ? OfferMarkers.BuyRibbon : null);
         }).ToArray();
         return (section, badges, null, OfferMarkers.RemovalText(eval, _cards.Name));
@@ -889,7 +896,7 @@ public sealed partial class AppController : IDisposable
             var needs = st.UnmetNeeds.Count == 0
                 ? null
                 : Loc.T("조건 미충족: ", "Unmet: ") + string.Join(", ", st.UnmetNeeds.Select(n =>
-                    $"{(n.Role is { } r ? ScoringLabels.Role(r) : n.Tag ?? "?")} {Fmt1(n.Min)}+"));
+                    $"{(n.Role is { } r ? ScoringLabels.Role(r) : n.Tag is { } tag ? ScoringLabels.Tag(tag) : "?")} {Fmt1(n.Min)}+"));
             return new ArchetypeVm
             {
                 Id = a.Id,
@@ -1233,6 +1240,20 @@ public sealed partial class AppController : IDisposable
         RecommendationConfidence.Estimate => Loc.T("추정", "Estimate"),
         _ => Loc.T("보통", "Moderate"),
     };
+
+    /// <summary>The card panel's top line: the flip hint, plus the co-op caveat when a multiplayer run is ranked by the learned model.</summary>
+    private string? CoopNote(RunState run, string? flipHint) => WithCoopNote(flipHint, run.IsMultiplayer && _engine.LearnedModelActive);
+
+    /// <summary>
+    /// The learned model was trained on solo Ascension 10 top players' picks; in co-op it is used as is, so the panel says so
+    /// (one standing line; the confidence numbers are left alone).
+    /// </summary>
+    internal static string? WithCoopNote(string? flipHint, bool coop)
+    {
+        if (!coop) return flipHint;
+        var note = Loc.T("솔로 승천 10 랭커 기록 기준입니다 (협동 보정 없음)", "Based on solo Ascension 10 top-player picks (no co-op adjustment)");
+        return flipHint is null ? note : note + Environment.NewLine + flipHint;
+    }
 
     private static string CharacterName(string id) => ForecastReviewPresenter.CharacterName(id);
 
