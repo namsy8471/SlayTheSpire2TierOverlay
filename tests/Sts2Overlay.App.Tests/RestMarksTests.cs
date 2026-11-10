@@ -109,4 +109,40 @@ public class RestMarksTests
     {
         Assert.True(RestMarks.Grid([(Defend, new RectF(250, 120, 200, 280))], Advice(RestAction.Heal), Name).IsEmpty);
     }
+
+    [Fact]
+    public void Unknown_hp_puts_no_mark_on_either_button_but_the_grid_still_ranks()
+    {
+        var advice = Advice(RestAction.Smith, RestConfidence.Unknown, Up(Bash, 1), Up(Strike, 2));
+        Assert.True(RestMarks.Choice(Choice(), advice, Name).IsEmpty);
+
+        var grid = RestMarks.Grid([(Strike, new RectF(250, 120, 200, 280)), (Bash, new RectF(500, 120, 200, 280))], advice, Name);
+        Assert.Equal(["강화 추천!", "2순위", "강화 추천"], grid.Rects.Select(r => r.Ribbon));
+    }
+
+    [Fact]
+    public void Grid_with_the_upgrade_preview_on_still_marks_the_candidates_by_card_id()
+    {
+        // "Show upgrades" toggled: every title is green, so the recogniser reads each card one level up.
+        var advice = Advice(RestAction.Smith, RestConfidence.Sure, Up(Bash, 1), Up(Strike, 2));
+        var plan = RestMarks.Grid([(Strike with { Upgrade = 1 }, new RectF(250, 120, 200, 280)), (Bash with { Upgrade = 1 }, new RectF(500, 120, 200, 280))], advice, Name);
+
+        Assert.Equal((ScreenRectMarkKind.Best, "강화 추천!", 500f), (plan.Rects[0].Kind, plan.Rects[0].Ribbon, plan.Rects[0].X));
+        Assert.Equal(("2순위", 250f), (plan.Rects[1].Ribbon, plan.Rects[1].X));
+    }
+
+    [Fact]
+    public void Grid_without_the_preview_never_marks_an_already_upgraded_copy()
+    {
+        // Preview off (an un-upgraded card is visible): Bash+ is a real upgraded copy, and the Bash candidate scrolled away.
+        var advice = Advice(RestAction.Smith, RestConfidence.Sure, Up(Bash, 1));
+        var plan = RestMarks.Grid([(Defend, new RectF(250, 120, 200, 280)), (Bash with { Upgrade = 1 }, new RectF(500, 120, 200, 280))], advice, Name);
+
+        var only = Assert.Single(plan.Rects); // just the ranking panel
+        Assert.Equal(ScreenRectMarkKind.Note, only.Kind);
+
+        // Both copies visible: the mark goes on the un-upgraded one even though the upgraded copy comes first.
+        var both = RestMarks.Grid([(Bash with { Upgrade = 1 }, new RectF(250, 120, 200, 280)), (Bash, new RectF(500, 120, 200, 280))], advice, Name);
+        Assert.Equal(500f, both.Rects[0].X);
+    }
 }

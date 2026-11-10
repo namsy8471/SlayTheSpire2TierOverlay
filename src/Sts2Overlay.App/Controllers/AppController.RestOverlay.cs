@@ -67,7 +67,7 @@ public sealed partial class AppController
     private RestSiteAdvice RestAdvice(RunState run)
     {
         var map = _snapshot.Map;
-        var key = $"{run.Hp}/{run.MaxHp}|{run.Deck.Count}|{string.Join(",", run.Deck.Select(d => d.Card))}|{map?.ActId}|{map?.Current}#{_engineVersion}@{Loc.CurrentCode}";
+        var key = $"{run.Hp}/{run.MaxHp}{(run.VitalsKnown ? "" : "?")}|{run.Deck.Count}|{string.Join(",", run.Deck.Select(d => d.Card))}|{map?.ActId}|{map?.Current}#{_engineVersion}@{Loc.CurrentCode}";
         if (key != _restKey || _restAdvice is null)
         {
             _restAdvice = new RestSiteAdvisor(_engine.Pack).Advise(run, map);

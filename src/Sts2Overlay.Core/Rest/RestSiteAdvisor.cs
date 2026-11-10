@@ -67,6 +67,18 @@ public sealed class RestSiteAdvisor
         {
             return new RestSiteAdvice { Action = RestAction.Heal, Confidence = RestConfidence.Sure, Reason = Loc.T("강화할 카드가 없어 휴식", "No card to upgrade → Rest"), Upgrades = upgrades };
         }
+        // Log-only run (co-op guest): HP is the starting value, not the real one. Any heal/smith call would rest on it, so
+        // give no verdict; the upgrade ranking does not depend on HP and is still useful.
+        if (!run.VitalsKnown)
+        {
+            return new RestSiteAdvice
+            {
+                Action = RestAction.Smith,
+                Confidence = RestConfidence.Unknown,
+                Reason = Loc.T("HP를 알 수 없어 휴식/재련은 직접 판단하세요", "HP unknown: decide Rest vs Smith yourself"),
+                Upgrades = upgrades,
+            };
+        }
         if (run.MaxHp > 0 && run.Hp >= run.MaxHp)
         {
             return new RestSiteAdvice { Action = RestAction.Smith, Confidence = RestConfidence.Sure, Reason = Loc.T("HP가 가득 차 있어 강화", "HP is full → Smith"), Upgrades = upgrades };
