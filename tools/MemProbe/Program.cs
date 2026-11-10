@@ -22,6 +22,8 @@ namespace MemProbe;
 //       per-frame recognition times go to --times (they differ run to run, the output must not)
 //   MemProbe allocs [--frames 60] [--upscale 2]
 //       managed bytes allocated per frame by each per-frame vision stage, and by type (GC allocation ticks)
+//   MemProbe capture | devices | poolage
+//       the capture side alone on a test window: memory per capture step, D3D11 device costs, frame age (CaptureProbe.cs)
 //
 // --local: the generated data folder (card art, localization, catalog, test-captures). Default: the nearest data/local
 // above this checkout (a clone under .worktrees\ uses the main checkout's). It is only READ: the art cache is copied to
@@ -44,6 +46,15 @@ internal static class Program
                 return Dump(local, opts);
             case "allocs":
                 return Allocs(local, opts);
+            // The capture side alone (CaptureProbe.cs): no data/local needed.
+            case "capture":
+                return CaptureProbe.Capture(opts);
+            case "devices":
+                return CaptureProbe.Devices();
+            case "device":
+                return CaptureProbe.Device(opts);
+            case "poolage":
+                return CaptureProbe.PoolAge(opts);
             case "builddb":
             {
                 // The art database build alone (what a cache miss costs at start), with allocations by type.
