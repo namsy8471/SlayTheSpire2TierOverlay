@@ -99,6 +99,7 @@ public sealed partial class AppController : IDisposable
         InitMapOverlay(); // marks on the game's map (AppController.MapOverlay.cs)
         InitEvents(packDir); // event option advice (AppController.Events.cs)
         InitHoverYield(); // step aside for the game's hover tips (AppController.HoverYield.cs)
+        InitTiers(); // 티어표 tab (AppController.Tiers.cs)
 
         _tracker.Changed += (_, _) => OnTrackerChanged();
         // The panel moved to a monitor with another DPI: the DPI part of the scale changed, ours must follow.
@@ -201,6 +202,7 @@ public sealed partial class AppController : IDisposable
         RunStage("event", () => UpdateEvent(snap)); // AppController.Events.cs
         if (Demo is null) RunStage("path", () => RefreshPath(snap));
         RunStage("map target", () => UpdateMapTarget(snap)); // AppController.MapOverlay.cs
+        RunStage("tiers", () => UpdateTiers(snap)); // AppController.Tiers.cs (owned marks; builds only while the tab shows)
 
         var likely = IsOfferHint(snap.Hint);
         RunStage("badges", () =>

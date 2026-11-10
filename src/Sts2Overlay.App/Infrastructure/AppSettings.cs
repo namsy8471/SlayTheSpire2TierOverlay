@@ -101,6 +101,9 @@ public sealed class AppSettings
     /// </summary>
     public string? UpdateUrl { get; set; }
 
+    /// <summary>티어표 tab: the last card pool picked (<c>CHARACTER.X</c> or <c>COLORLESS</c>), shown when there is no run.</summary>
+    public string? TierCharacter { get; set; }
+
     /// <summary>
     /// settings.json exists but could not be read, so this run uses defaults. <see cref="SettingsStore.Save"/> then
     /// leaves the file alone until the user really changes a setting (the original is also copied to settings.json.bad).
@@ -127,7 +130,7 @@ public static class SettingsStore
     };
 
     /// <summary>Saved on every exit whether or not the user touched them (window position, last tab): not a user change.</summary>
-    private static readonly string[] SessionKeys = ["panelX", "panelY", "selectedTab"];
+    private static readonly string[] SessionKeys = ["panelX", "panelY", "selectedTab", "tierCharacter"];
 
     public static AppSettings Load(string path)
     {
