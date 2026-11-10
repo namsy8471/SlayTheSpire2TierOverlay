@@ -71,10 +71,21 @@ index 4133c91..320e483 100644
      }
  
 diff --git a/src/Sts2Sim.Core/Combat/CombatState.Clone.cs b/src/Sts2Sim.Core/Combat/CombatState.Clone.cs
-index 71a0386..e6bb07f 100644
+index 71a0386..e878c9c 100644
 --- a/src/Sts2Sim.Core/Combat/CombatState.Clone.cs
 +++ b/src/Sts2Sim.Core/Combat/CombatState.Clone.cs
-@@ -349,15 +349,40 @@ public sealed partial class CombatState
+@@ -295,6 +295,10 @@ public sealed partial class CombatState
+         {
+             var clonedMonster = (MonsterModel)sourceMonster.MutableClone();
+             clone = new Creature(clonedMonster, source.Side);
++            // Bind the combat first: GenerateMoveStateMachine bakes intent values that read
++            // Creature.CombatState (ascension damage such as Stabbot's 12 vs 11), as in the game,
++            // where the machine is built for a creature already in combat.
++            clone.CombatState = combatState;
+             clonedMonster.PrepareCombatCloneStateFrom(sourceMonster, clone, runState.Rng);
+         }
+         else
+@@ -349,15 +353,40 @@ public sealed partial class CombatState
          {
              foreach (Player player in _players)
              {
@@ -120,7 +131,7 @@ index 71a0386..e6bb07f 100644
                  }
  
                  if (childCombatState is null)
-@@ -371,9 +396,19 @@ public sealed partial class CombatState
+@@ -371,9 +400,19 @@ public sealed partial class CombatState
  
              if (childCombatState is not null)
              {

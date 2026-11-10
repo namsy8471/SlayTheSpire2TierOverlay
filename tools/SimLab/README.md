@@ -15,12 +15,18 @@ damage numbers order decks the way real fights do, so a card-pick value model ca
 ```sh
 git clone https://github.com/iRyougi/sts2-sim ext/sts2-sim   # MIT; stays local (ext/ is git-ignored)
 git -C ext/sts2-sim checkout 31f4dc0                         # the commit the speed patch was made on
-git -C ext/sts2-sim apply ../../patches/sts2-sim-perf.patch  # optional speed patch, same results
+git -C ext/sts2-sim apply ../../patches/sts2-sim-perf.patch  # speed patch + one clone fix (below)
 dotnet build -c Release                                      # needs the .NET 9 runtime; SDK 10 builds it
 ```
 
-`patches/sts2-sim-perf.patch` changes only how the simulator does its work, never what it computes:
-same-seed output files are byte-identical with and without it. It caches the combat hook-listener
+`patches/sts2-sim-perf.patch` holds one fidelity fix and otherwise changes only how the simulator
+does its work. The fix: a cloned monster built its move machine before the clone was bound to its
+combat, so intent values that read the ascension through `Creature.CombatState` got the low value
+(Stabbot's attack showed 11 instead of 12 at high ascension; 88 of 115 monster files read the
+ascension this way). Real hits were right, but every search clone under-predicted incoming damage.
+`CloneCreature` now binds the combat first. Because of this, results differ from the unpatched
+clone, and the beam's "keep the greedy probe's clone" shortcut now matches replaying the move on the
+original state exactly (checked on the 600-fight dev set). The rest caches the combat hook-listener
 list between dispatches (validated by a scan of exactly the sources it was built from, kept in
 reusable per-state buffers), gives 13 pure query hooks (damage, block, HP loss, should-play,
 should-allow-hitting, play count/location) only the listeners whose type overrides them, tests the
