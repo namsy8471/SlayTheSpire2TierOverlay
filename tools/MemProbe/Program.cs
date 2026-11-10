@@ -55,6 +55,8 @@ internal static class Program
                 return CaptureProbe.Device(opts);
             case "poolage":
                 return CaptureProbe.PoolAge(opts);
+            case "sessions":
+                return CaptureProbe.Sessions(opts);
             case "readback":
                 return ReadbackProbe.Run(opts);
             case "builddb":

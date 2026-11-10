@@ -194,12 +194,15 @@ internal static class FrameCapturerFactory
     /// <summary>The capturer the app uses: WGC with GDI fallback, or GDI only (setting or unsupported OS).</summary>
     /// <param name="beforeCapture">See <see cref="FallbackFrameCapturer.BeforeCapture"/>.</param>
     /// <param name="gameFrames">Counts the game frames WGC delivers (perf log); null = don't.</param>
-    public static IFrameCapturer Create(string? setting, Action<bool>? beforeCapture = null, Perf.FrameRateCounter? gameFrames = null)
+    /// <param name="firstFrameTimeout">WGC first-frame wait; null = <see cref="WgcCapturer.DefaultFirstFrameTimeout"/>.
+    /// Only <c>--verify-capture</c> sets it (a longer wait on a loaded CPU).</param>
+    public static IFrameCapturer Create(string? setting, Action<bool>? beforeCapture = null, Perf.FrameRateCounter? gameFrames = null,
+        TimeSpan? firstFrameTimeout = null)
     {
         var (backend, reason) = CaptureBackendSelector.Choose(setting, WgcCapturer.IsSupported());
         AppLog.Info($"capture backend: {backend.ToString().ToLowerInvariant()} ({reason})");
         var capturer = backend == CaptureBackend.Wgc
-            ? new FallbackFrameCapturer(new WgcCapturer(gameFrames), new ScreenCapturer())
+            ? new FallbackFrameCapturer(new WgcCapturer(gameFrames, firstFrameTimeout), new ScreenCapturer())
             : new FallbackFrameCapturer(null, new ScreenCapturer());
         capturer.BeforeCapture = beforeCapture;
         return capturer;

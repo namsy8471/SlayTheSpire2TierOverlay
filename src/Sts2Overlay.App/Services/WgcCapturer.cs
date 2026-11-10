@@ -39,7 +39,10 @@ internal sealed class WgcCapturer : IFrameCapturer
 {
     private const int PixelFormat = PixelFormatB8G8R8A8UIntNormalized;
     private const int PoolBuffers = 2;
-    private static readonly TimeSpan FirstFrameTimeout = TimeSpan.FromSeconds(1);
+    /// <summary>How long a new session (or a capture of a new size) waits for its first frame before failing.</summary>
+    public static readonly TimeSpan DefaultFirstFrameTimeout = TimeSpan.FromSeconds(1);
+
+    private readonly TimeSpan _firstFrameTimeout;
 
     /// <summary>After a resize, how long to wait for a frame that matches the new window size.</summary>
     private static readonly TimeSpan ResizeTimeout = TimeSpan.FromMilliseconds(100);
@@ -71,7 +74,15 @@ internal sealed class WgcCapturer : IFrameCapturer
     private readonly FrameRateCounter? _gameFrames;
 
     /// <param name="gameFrames">Told about every frame that arrives (the game's frame rate in the perf log); null = don't.</param>
-    public WgcCapturer(FrameRateCounter? gameFrames = null) => _gameFrames = gameFrames;
+    /// <param name="firstFrameTimeout">
+    /// Wait for a new session's first frame; null = <see cref="DefaultFirstFrameTimeout"/>. The app keeps 1 s (the GDI
+    /// fallback covers that frame); the verifier waits longer, it checks pixels, not latency.
+    /// </param>
+    public WgcCapturer(FrameRateCounter? gameFrames = null, TimeSpan? firstFrameTimeout = null)
+    {
+        _gameFrames = gameFrames;
+        _firstFrameTimeout = firstFrameTimeout ?? DefaultFirstFrameTimeout;
+    }
 
     public string Name => "wgc";
 
@@ -112,10 +123,10 @@ internal sealed class WgcCapturer : IFrameCapturer
         {
             EnsureSession(target);
             var canReuse = !_bufferRect.IsEmpty && _bufferRect == rect;
-            var frame = TakeLatestFrame(canReuse ? TimeSpan.Zero : FirstFrameTimeout);
+            var frame = TakeLatestFrame(canReuse ? TimeSpan.Zero : _firstFrameTimeout);
             if (frame == IntPtr.Zero)
             {
-                if (!canReuse) throw new TimeoutException($"no frame from Windows.Graphics.Capture within {FirstFrameTimeout.TotalMilliseconds:0} ms");
+                if (!canReuse) throw new TimeoutException($"no frame from Windows.Graphics.Capture within {_firstFrameTimeout.TotalMilliseconds:0} ms");
                 LastFrameReused = true;
                 LastTimings = new CaptureTimings(Stopwatch.GetElapsedTime(t0).TotalMilliseconds, 0);
                 return new CapturedFrame(_buffer, rect.Width, rect.Height, rect.Width * 4, rect, DateTime.Now);
@@ -138,15 +149,30 @@ internal sealed class WgcCapturer : IFrameCapturer
                 // handler has already recreated the pool, so the next frame fits - but WGC only sends one when the
                 // content changes. A game redraws constantly; a static window may never, so restart the session
                 // (a new session's first frame is always the current content).
+                var reason = ex.Message;
                 var next = TakeLatestFrame(ResizeTimeout);
-                if (next == IntPtr.Zero)
+                if (next != IntPtr.Zero)
                 {
-                    AppLog.Info($"wgc: {ex.Message}; restarting the session for the new size");
-                    StopSession();
-                    EnsureSession(target);
-                    next = TakeLatestFrame(FirstFrameTimeout);
-                    if (next == IntPtr.Zero) throw new FrameSizeMismatchException("no frame of the new window size");
+                    try
+                    {
+                        return CopyFrame(next, target, rect, t0);
+                    }
+                    catch (FrameSizeMismatchException again)
+                    {
+                        // The second frame can still come from an old-size pool buffer (one was queued before the
+                        // pool was recreated). Do not hand that to the GDI fallback: restart like above.
+                        reason = again.Message;
+                    }
+                    finally
+                    {
+                        CloseAndRelease(ref next);
+                    }
                 }
+                AppLog.Info($"wgc: {reason}; restarting the session for the new size");
+                StopSession();
+                EnsureSession(target);
+                next = TakeLatestFrame(_firstFrameTimeout);
+                if (next == IntPtr.Zero) throw new FrameSizeMismatchException("no frame of the new window size");
                 try
                 {
                     return CopyFrame(next, target, rect, t0);

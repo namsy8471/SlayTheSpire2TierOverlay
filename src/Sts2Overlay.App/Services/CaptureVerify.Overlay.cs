@@ -38,7 +38,7 @@ internal static partial class CaptureVerify
         var visibility = new OverlayCaptureVisibility(showInCapture: true);
         visibility.Register(overlay.Hwnd);
         var info = new GameWindowInfo(game.Hwnd, Environment.ProcessId, rect, rect, false, false, false, false);
-        using var app = FrameCapturerFactory.Create("auto", visibility.BeforeCapture);
+        using var app = FrameCapturerFactory.Create("auto", visibility.BeforeCapture, firstFrameTimeout: FirstFrameTimeout);
 
         // ---- 1. behind everything: window capture ignores the overlay ----
         ShowStack(game, src, x, y, overlay, block, ox, oy, topmost: false);

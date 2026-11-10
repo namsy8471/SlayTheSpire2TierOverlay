@@ -136,6 +136,58 @@ internal static class CaptureProbe
         Console.WriteLine("   " + GpuMemory.Line());
     }
 
+    // ------------------------------------------------------------------ sessions
+
+    /// <summary>
+    ///   MemProbe sessions [--cycles 20] [--width 1919] [--height 1079]
+    /// How long a NEW capture session takes to deliver its first frame (Suspend, then Capture), the way the verifier
+    /// captures every replay: the app's default 1 s timeout against a 10 s one, interleaved.
+    /// </summary>
+    public static int Sessions(Dictionary<string, string> opts)
+    {
+        PerMonitorDpi();
+        int cycles = Int(opts, "cycles", 20), width = Int(opts, "width", 1919), height = Int(opts, "height", 1079);        var image = Pattern(width, height, 0);
+        var origin = Dpi.PrimaryMonitorRect();
+        using var window = new ReplayWindow();
+        window.Show(image, origin.X, origin.Y);
+        var rect = new AppRect(origin.X, origin.Y, width, height);
+        var info = new GameWindowInfo(window.Hwnd, Environment.ProcessId, rect, rect, false, false, false, false);
+        var capturers = new[] { (Name: "1 s (app)", Wgc: new WgcCapturer()), (Name: "10 s", Wgc: new WgcCapturer(firstFrameTimeout: TimeSpan.FromSeconds(10))) };
+        var times = capturers.Select(_ => new List<double>()).ToArray();
+        var failures = new int[capturers.Length];
+        var progress = new Progress("sessions", cycles);
+        for (int c = 0; c < cycles; c++)
+        {
+            for (int k = 0; k < capturers.Length; k++)
+            {
+                int i = (k + c) % capturers.Length;
+                var wgc = capturers[i].Wgc;
+                wgc.Suspend();
+                ReplayWindow.Pump();
+                var t0 = Stopwatch.GetTimestamp();
+                try
+                {
+                    var (ms, diff) = CaptureOnce(wgc, info, image);
+                    times[i].Add(ms);
+                    if (diff != 0) Console.WriteLine($"   {capturers[i].Name}: {diff} pixels differ");
+                }
+                catch (Exception ex) when (ex is TimeoutException or InvalidOperationException)
+                {
+                    failures[i]++;
+                    Console.WriteLine(Inv($"   {capturers[i].Name}: {ex.GetType().Name} after {Stopwatch.GetElapsedTime(t0).TotalMilliseconds:F0} ms: {ex.Message}"));                }
+            }
+            progress.Step(c + 1);
+        }
+        Console.WriteLine($"new session -> first frame, {width}x{height}, {cycles} cycles [measured under CPU load]:");
+        for (int i = 0; i < capturers.Length; i++)
+        {
+            var t = times[i];
+            Console.WriteLine(Inv($"   timeout {capturers[i].Name,-9}: {failures[i]} failed; capture median {Median(t):F0} ms, p90 {P90(t):F0} ms, max {(t.Count > 0 ? t.Max() : 0):F0} ms, over 1000 ms {t.Count(v => v > 1000)}"));
+            capturers[i].Wgc.Dispose();
+        }
+        return 0;
+    }
+
     // ------------------------------------------------------------------ devices
 
     public static int Devices()
