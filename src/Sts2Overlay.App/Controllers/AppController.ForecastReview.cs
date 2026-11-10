@@ -26,7 +26,7 @@ public sealed partial class AppController
 
         var paths = GamePaths.Discover();
         var history = paths.SavesDirectory is { } saves ? System.IO.Path.Combine(saves, "history") : null;
-        _reviews = new RunReviewService(history, paths.SteamId is { } id ? (long)id : null, _engine.Pack, _ui, OnReview);
+        _reviews = new RunReviewService(history, paths.SteamId is { } id ? (long)id : null, _engine.Pack, _ui, OnReview) { UseLearnedModel = _engine.UseLearnedModel };
         _reviews.Start();
     }
 
