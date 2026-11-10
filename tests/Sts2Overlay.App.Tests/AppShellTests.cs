@@ -1,3 +1,4 @@
+using System.IO;
 using Sts2Overlay.App.Controllers;
 using Sts2Overlay.App.Integration;
 using Sts2Overlay.App.Interop;
@@ -160,16 +161,77 @@ public class AppShellTests
     // ---- standing notices ----
 
     [Theory]
-    [InlineData(1920, 1080, false)]
-    [InlineData(2560, 1440, false)]
-    [InlineData(3840, 2160, false)]
-    [InlineData(1366, 768, false)] // 0.05 % off: a rounding of 16:9
-    [InlineData(1920, 1017, true)] // a maximised window under the taskbar
-    [InlineData(1920, 1200, true)] // 16:10
-    [InlineData(2560, 1080, true)] // 21:9
-    [InlineData(0, 0, false)]
-    public void Aspect_ratio_notice_is_for_games_not_in_16_by_9(int width, int height, bool off)
-        => Assert.Equal(off, AppController.AspectIsOff(width, height));
+    [InlineData("sixteen_by_nine", false)] // the default: a fixed 1920x1080 view, letterboxed in any window
+    [InlineData("sixteen_by_ten", true)]
+    [InlineData("four_by_three", true)]
+    [InlineData("twenty_one_by_nine", true)]
+    [InlineData("auto", true)]
+    [InlineData(" Sixteen_By_Ten ", true)] // tolerant spelling
+    [InlineData("SixteenByNine", false)]
+    [InlineData(null, false)] // file or key missing: unknown, no notice
+    [InlineData("", false)]
+    [InlineData("none", false)] // a value we do not know: no notice
+    public void Aspect_ratio_notice_follows_the_games_aspect_option(string? option, bool off)
+        => Assert.Equal(off, AppController.AspectOptionIsOff(option));
+
+    [Theory]
+    [InlineData("{ \"aspect_ratio\": \"sixteen_by_ten\", \"language\": \"kor\" }", "sixteen_by_ten")]
+    [InlineData("{ \"language\": \"kor\" }", null)] // key missing
+    [InlineData("{ \"aspect_ratio\": 3 }", null)] // not a string
+    [InlineData("{ \"aspect_ratio\": ", null)] // half-written
+    [InlineData("", null)]
+    public void Aspect_ratio_option_is_read_from_settings_save(string json, string? expected)
+        => Assert.Equal(expected, GameLanguage.ReadAspectRatio(json));
+
+    [Fact]
+    public void Aspect_ratio_notice_ignores_the_window_shape_with_the_default_option()
+    {
+        // A maximised 1920x1017 window or an ultrawide with the game's default option: the game letterboxes a
+        // 1920x1080 view and recognition follows it. The notice depends on the option only, never on the window.
+        using var _ = Loc.Use(Lang.Eng);
+        Assert.Null(AppController.ShellNoticeText([], false, AppController.AspectOptionIsOff("sixteen_by_nine")));
+        Assert.Null(AppController.ShellNoticeText([], false, AppController.AspectOptionIsOff(null)));
+    }
+
+    [Fact]
+    public void Watcher_reads_the_aspect_option_and_reports_its_changes()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "sts2-aspect-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var watcher = new GameLanguageWatcher(root);
+            var changes = 0;
+            watcher.AspectRatioChanged += () => changes++;
+            var dir = Path.Combine(root, "steam", "11111111111111111");
+            Directory.CreateDirectory(dir);
+            var file = Path.Combine(dir, GameLanguage.SettingsFileName);
+
+            File.WriteAllText(file, "{ \"aspect_ratio\": \"twenty_one_by_nine\", \"language\": \"kor\" }");
+            File.SetLastWriteTimeUtc(file, DateTime.UtcNow.AddMinutes(-2));
+            watcher.Poll();
+            Assert.Equal("twenty_one_by_nine", watcher.AspectRatio);
+            Assert.Equal(1, changes);
+
+            // Language key missing: the aspect option is still read, the last known language kept.
+            File.WriteAllText(file, "{ \"aspect_ratio\": \"sixteen_by_nine\" }");
+            File.SetLastWriteTimeUtc(file, DateTime.UtcNow.AddMinutes(-1));
+            watcher.Poll();
+            Assert.Equal("sixteen_by_nine", watcher.AspectRatio);
+            Assert.Equal("kor", watcher.Code);
+            Assert.Equal(2, changes);
+
+            // Half-written file: both kept, no change reported.
+            File.WriteAllText(file, "{ \"aspect_ratio\": ");
+            File.SetLastWriteTimeUtc(file, DateTime.UtcNow);
+            watcher.Poll();
+            Assert.Equal("sixteen_by_nine", watcher.AspectRatio);
+            Assert.Equal(2, changes);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
 
     [Fact]
     public void Shell_notice_names_the_keys_and_the_aspect_problem_in_english()
@@ -181,7 +243,7 @@ public class AppShellTests
         Assert.Equal(2, lines.Length);
         Assert.Contains("Ctrl+F5, Ctrl+F7", lines[0]);
         Assert.Contains("OverlaySpike", lines[0]);
-        Assert.StartsWith("The game is not 16:9", lines[1]);
+        Assert.StartsWith("The game's aspect ratio option is not 16:9", lines[1]);
     }
 
     [Fact]
@@ -189,7 +251,7 @@ public class AppShellTests
     {
         using var _ = Loc.Use(Lang.Kor);
         Assert.StartsWith("단축키 등록 실패", AppController.ShellNoticeText(["Ctrl+F8"], false, false));
-        Assert.StartsWith("화면 비율이 16:9가 아니어서", AppController.ShellNoticeText([], false, true));
+        Assert.StartsWith("게임의 화면 비율 옵션이 16:9가 아니어서", AppController.ShellNoticeText([], false, true));
     }
 
     // ---- panel placement ----
