@@ -86,11 +86,32 @@ public sealed class VersionGuardTests
     }
 
     [Fact]
-    public void SameVersion_OrUnknownVersion_ShowsNothing()
+    public void SameVersion_OrUnknownVersion_ShowsNothing_WhenEveryOfferableCardHasATier()
     {
-        Assert.Empty(Run("v0.107.1", "v0.107.1.0").PanelLines("C"));
-        Assert.Empty(Run(null, "v0.107.1").PanelLines("C"));
+        string[] all = ["CARD.BASH", "CARD.NEW_ONE", "CARD.NEW_TWO", "CARD.GONE"];
+        Assert.Empty(Run("v0.107.1", "v0.107.1.0", all).PanelLines("C"));
+        Assert.Empty(Run(null, "v0.107.1", all).PanelLines("C")); // CARD.GONE: the "removed" line needs a version mismatch
         Assert.Null(Run("garbage", "v0.107.1").Comparison);
+    }
+
+    [Theory]
+    [InlineData("v0.107.1")] // same version (a hotfix that kept the number)
+    [InlineData(null)]       // release_info.json missing
+    [InlineData("garbage")]  // a version we cannot parse
+    public void UnratedCards_AreListedWhateverTheVersionComparisonSays(string? game)
+    {
+        var lines = Run(game, "v0.107.1", "CARD.BASH").PanelLines("C");
+
+        Assert.Equal(["티어 없는 카드 2장 (기본 티어 C로 계산): NEW_ONE, NEW_TWO"], lines);
+    }
+
+    [Fact]
+    public void UnratedCards_UseTheCardNameInTheOverlayLanguage_AndTheIdOnlyAsFallback()
+    {
+        var names = new Dictionary<string, string> { ["CARD.NEW_ONE"] = "새 카드" };
+        var lines = Run("v0.108", "v0.107.1", "CARD.BASH").PanelLines("C", cardName: id => names.GetValueOrDefault(id));
+
+        Assert.Equal("티어 없는 카드 2장 (기본 티어 C로 계산): 새 카드, NEW_TWO", lines[1]);
     }
 
     [Fact]
@@ -191,6 +212,43 @@ public sealed class GameInstallTests
             $"\"libraryfolders\"\n{{\n\t\"0\"\n\t{{\n\t\t\"path\"\t\t\"{lib2.Replace(@"\", @"\\", StringComparison.Ordinal)}\"\n\t}}\n}}\n");
 
         Assert.Equal(target, GameInstall.Locate(null, [steam])?.Directory);
+    }
+
+    [Fact]
+    public void SteamRoots_StartWithTheRegistryFolders_ThenProgramFiles_WithoutDuplicates()
+    {
+        var registry = new Dictionary<string, string>
+        {
+            [@"HKEY_CURRENT_USER\Software\Valve\Steam|SteamPath"] = "d:/games/steam", // the client writes '/' and lower case
+            [@"HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Valve\Steam|InstallPath"] = @"D:\Games\Steam\",
+        };
+        var roots = GameInstall.DefaultSteamRoots((key, value) => registry.GetValueOrDefault(key + "|" + value)).ToList();
+
+        Assert.Equal(@"D:\Games\Steam", roots[0], ignoreCase: true);
+        Assert.Single(roots, r => r.Equals(@"D:\Games\Steam", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(roots, r => r.EndsWith(@"\Steam", StringComparison.OrdinalIgnoreCase) && r.Contains("Program Files", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void SteamRoots_WithoutRegistryValues_AreTheProgramFilesFolders()
+    {
+        var roots = GameInstall.DefaultSteamRoots((_, _) => null).ToList();
+
+        Assert.NotEmpty(roots);
+        Assert.All(roots, r => Assert.Contains("Program Files", r, StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Locate_FindsTheGameUnderTheSteamFolderTheRegistryNames()
+    {
+        using var game = new FakeGame();
+        var steam = Path.Combine(game.Root, "MySteam");
+        var target = Path.Combine(steam, "steamapps", "common", GameInstall.SteamFolderName);
+        Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+        Directory.Move(game.Install.Directory, target);
+
+        var roots = GameInstall.DefaultSteamRoots((_, value) => value == "SteamPath" ? steam.Replace('\\', '/') : null);
+        Assert.Equal(target, GameInstall.Locate(null, roots)?.Directory, ignoreCase: true);
     }
 
     [Fact]
