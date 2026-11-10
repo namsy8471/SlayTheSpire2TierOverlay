@@ -134,7 +134,17 @@ fixes + Beam 8 / LeafHorizon 4 (default); `high` = `--quality high`. Real ranker
 | encounter-order Spearman | +0.936 | +0.945 | +0.948 | +0.941 |
 
 Speed on this run (4 processes × 6 threads, other programs running): default 11.5 combats/s, high
-6.1. Re-measure on an idle PC.
+6.1. With the speed patch, the clone fix and the GC settings (same set, idle PC, 4 × 6): default
+52.3 combats/s, high 14.7. The clone fix (search clones now see the ascension intent damage) left
+quality within noise on this set: default boss death 24.2% → 25.2%, elite 9.4% → 9.1%, damage
+ratio 1.20x both, encounter-demeaned Spearman +0.489 → +0.495; high unchanged (21.9% boss).
+
+Speed work, in order of gain (dev set, 600 fights × 3 seeds, 24 threads: 17.1 → 39.2 combats/s):
+the combat hook-listener list is cached instead of rebuilt per dispatch (it was ~30% of CPU), the
+greedy rollout keeps its best probe's clone instead of replaying the move, query hooks see only the
+listeners that override them, one server-GC heap per worker thread (4 processes each made 24) and a
+1 GB gen0 budget (search states die young instead of being promoted). Every run prints `progress
+d/t (pct) elapsed .. eta HH:mm:ss (.. left)` every 10 s and writes it to `<output>.progress`.
 
 What moved boss deaths (dev boss set, 150 fights × 3, real 10%): v1 27.3% → reading boss mechanics
 the eval got wrong 23.3% (The Insatiable's Sandpit countdown counted as an enemy buff; the Waterfall
