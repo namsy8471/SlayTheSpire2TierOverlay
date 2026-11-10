@@ -41,7 +41,8 @@ public class OfferTabRenderTests
         try
         {
             var vm = new PanelViewModel { SelectedTab = PanelTab.Offer };
-            var kept = (FrameworkElement)new PanelWindow(vm, new AppSettings(), new OverlayCaptureVisibility(true)).Content;
+            var keptWindow = new PanelWindow(vm, new AppSettings(), new OverlayCaptureVisibility(true));
+            var kept = (FrameworkElement)keptWindow.Content;
 
             vm.Offer = Reward();
             Layout(kept);
@@ -55,14 +56,18 @@ public class OfferTabRenderTests
                 Assert.Same(firstRow, RowBorders(kept)[0]); // the first row's elements were kept, not rebuilt
 
                 var freshVm = new PanelViewModel { SelectedTab = PanelTab.Offer, Offer = offer };
-                var fresh = (FrameworkElement)new PanelWindow(freshVm, new AppSettings(), new OverlayCaptureVisibility(true)).Content;
+                var freshWindow = new PanelWindow(freshVm, new AppSettings(), new OverlayCaptureVisibility(true));
+                var fresh = (FrameworkElement)freshWindow.Content;
                 Layout(fresh);
                 Assert.Equal(Texts(fresh), Texts(kept));
                 Assert.Equal(fresh.ActualWidth, kept.ActualWidth);
                 Assert.Equal(fresh.ActualHeight, kept.ActualHeight);
-                var (a, b) = (Pixels(fresh), Pixels(kept));
+                // The 추천 page only: the tab header's radio buttons share one GroupName, and with two never-shown panels on
+                // one thread WPF treats them as one group, so checking the fresh panel's tab unchecks the kept one's.
+                var (freshPage, keptPage) = ((FrameworkElement)freshWindow.FindName("Scroll"), (FrameworkElement)keptWindow.FindName("Scroll"));
+                var (a, b) = (Pixels(freshPage), Pixels(keptPage));
                 var diff = a.Zip(b).Count(p => p.First != p.Second);
-                Assert.True(diff == 0, $"{offer.Title}: {diff} bytes differ between kept and fresh rows");
+                Assert.True(diff == 0, $"{offer.Title}: {diff} bytes differ between kept and fresh rows, {Where(a, b, keptPage)}");
             }
         }
         finally
@@ -113,10 +118,33 @@ public class OfferTabRenderTests
     private static Border[] RowBorders(DependencyObject root)
         => Descendants(root).OfType<Border>().Where(b => b.DataContext is OfferRowVm && b.Margin == new Thickness(0, 0, 0, 6)).ToArray();
 
-    private static byte[] Pixels(FrameworkElement root)
+    /// <summary>The box of differing pixels and the elements under its centre (kept panel), for the failure message.</summary>
+    private static string Where(byte[] a, byte[] b, FrameworkElement root)
     {
-        var bitmap = new RenderTargetBitmap((int)Math.Ceiling(root.ActualWidth), (int)Math.Ceiling(root.ActualHeight), 96, 96, PixelFormats.Pbgra32);
-        bitmap.Render(root);
+        var width = (int)Math.Ceiling(root.ActualWidth);
+        int x0 = int.MaxValue, y0 = int.MaxValue, x1 = -1, y1 = -1;
+        for (var i = 0; i < a.Length; i++)
+        {
+            if (a[i] == b[i]) continue;
+            int x = i / 4 % width, y = i / 4 / width;
+            (x0, y0, x1, y1) = (Math.Min(x0, x), Math.Min(y0, y), Math.Max(x1, x), Math.Max(y1, y));
+        }
+        if (x1 < 0) return "none";
+        var hit = root.InputHitTest(new Point((x0 + x1) / 2.0, (y0 + y1) / 2.0)) as DependencyObject;
+        var chain = new List<string>();
+        for (var d = hit; d is not null && chain.Count < 8; d = VisualTreeHelper.GetParent(d))
+            chain.Add(d is TextBlock t ? $"TextBlock '{t.Text}'" : d.GetType().Name);
+        return $"box x {x0}-{x1}, y {y0}-{y1}; under it: {string.Join(" < ", chain)}";
+    }
+
+    /// <summary>The element drawn at its own origin (a VisualBrush, so its offset inside the window does not matter).</summary>
+    private static byte[] Pixels(FrameworkElement element)
+    {
+        var size = new Size(Math.Ceiling(element.ActualWidth), Math.Ceiling(element.ActualHeight));
+        var visual = new DrawingVisual();
+        using (var dc = visual.RenderOpen()) dc.DrawRectangle(new VisualBrush(element) { Stretch = Stretch.None, AlignmentX = AlignmentX.Left, AlignmentY = AlignmentY.Top }, null, new Rect(size));
+        var bitmap = new RenderTargetBitmap((int)size.Width, (int)size.Height, 96, 96, PixelFormats.Pbgra32);
+        bitmap.Render(visual);
         var pixels = new byte[bitmap.PixelWidth * bitmap.PixelHeight * 4];
         bitmap.CopyPixels(pixels, bitmap.PixelWidth * 4, 0);
         return pixels;
