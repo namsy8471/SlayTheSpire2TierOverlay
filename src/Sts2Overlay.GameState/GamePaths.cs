@@ -13,6 +13,13 @@ public sealed record GamePaths(string? SavesDirectory, string? LogFile, ulong? S
 {
     public const string LogFileName = "godot.log";
 
+    /// <summary>
+    /// The data root (<c>%APPDATA%\SlayTheSpire2</c>) the saves folder was discovered under, so the tracker can look
+    /// again later (folder created on the game's first run, another profile picked in the game). Null when the
+    /// saves folder was given explicitly: then it is never changed.
+    /// </summary>
+    public string? Root { get; init; }
+
     public static string DefaultRoot =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SlayTheSpire2");
 
@@ -25,8 +32,12 @@ public sealed record GamePaths(string? SavesDirectory, string? LogFile, ulong? S
         root ??= DefaultRoot;
         string? saves = savesOverride ?? FindSavesDirectory(root);
         string log = logOverride ?? Path.Combine(root, "logs", LogFileName);
-        return new GamePaths(saves, log, saves != null ? SteamIdFromPath(saves) : null);
+        return new GamePaths(saves, log, saves != null ? SteamIdFromPath(saves) : null) { Root = savesOverride is null ? root : null };
     }
+
+    /// <summary><c>root\steam\&lt;steamId&gt;\&lt;profile&gt;\saves</c>: the folder the log's profile line names.</summary>
+    public static string SavesDirectoryFor(string root, ulong steamId, string profile) =>
+        Path.Combine(root, "steam", steamId.ToString(CultureInfo.InvariantCulture), profile, "saves");
 
     /// <summary>Most recently written <c>steam/&lt;digits&gt;/profile*/saves</c> under <paramref name="root"/>.</summary>
     public static string? FindSavesDirectory(string root)

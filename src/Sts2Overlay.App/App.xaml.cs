@@ -48,14 +48,44 @@ public partial class App : Application
         VelopackApp.Build().Run();
         var app = new App();
         app.InitializeComponent();
-        return app.Run(); // the code passed to Shutdown(..), e.g. --prepare / --verify-capture results
+        try
+        {
+            return app.Run(); // the code passed to Shutdown(..), e.g. --prepare / --verify-capture results
+        }
+        catch (Exception ex)
+        {
+            // Thrown before OnStartup set up the dispatcher handler (settings, language ...): say so instead of a crash dialog.
+            AppLog.Error("startup failed", ex);
+            ShowStartupFailure();
+            return 2;
+        }
     }
+
+    /// <summary>
+    /// Set once OnStartup has finished. Until then an exception means the overlay could not start: swallowing it like a
+    /// running app's would leave a process with no window and no tray icon that still holds the single-instance mutex,
+    /// so every later launch would say "already running".
+    /// </summary>
+    private bool _started;
+
+    private void FailStartup(Exception ex)
+    {
+        _started = true; // report once; anything thrown while shutting down is only logged
+        AppLog.Error("startup failed; exiting", ex);
+        ShowStartupFailure();
+        Shutdown(2); // OnExit releases what was created, including the mutex
+    }
+
+    private static void ShowStartupFailure() =>
+        MessageBox.Show(Loc.T($"STS2 티어 오버레이를 시작하지 못했습니다.\n원인은 로그 파일에 기록되어 있습니다:\n{AppPaths.LogFile}",
+                $"STS2 Tier Overlay could not start.\nThe cause is written to the log file:\n{AppPaths.LogFile}"),
+            Loc.T("STS2 티어 오버레이", "STS2 Tier Overlay"), MessageBoxButton.OK, MessageBoxImage.Error);
 
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
         AppLog.Init(AppPaths.LogFile);
-        AppLog.Info($"---- start {string.Join(' ', e.Args)} (exe {AppContext.BaseDirectory})");
+        AppLog.Info($"---- start v{AppLog.Version} pid {Environment.ProcessId} {string.Join(' ', e.Args)} (exe {AppContext.BaseDirectory})");
         AppLog.Info($"data: {AppPaths.Layout.Kind}, content {AppPaths.ContentRoot}, local {AppPaths.LocalDataDir}");
         var options = AppOptions.Parse(e.Args);
 
@@ -117,8 +147,14 @@ public partial class App : Application
 
         DispatcherUnhandledException += (_, args) =>
         {
+            args.Handled = true;
+            if (!_started)
+            {
+                FailStartup(args.Exception); // no zombie: message box, then exit with code 2
+                return;
+            }
             AppLog.Error("unhandled UI exception", args.Exception);
-            args.Handled = true; // keep the overlay alive; the error is in the log
+            // keep the overlay alive; the error is in the log
         };
         AppDomain.CurrentDomain.UnhandledException += (_, args) => AppLog.Error("unhandled exception", args.ExceptionObject as Exception);
 
@@ -182,6 +218,7 @@ public partial class App : Application
         _controller.UpdateVisibility();
 
         AppLog.Info($"ready: pack {packDir}, catalog {catalog ?? "(none)"}, {_vm.UiScaleText} (layout x{_vm.UiScale:0.###}), overlay in screen capture {!captureVisibility.IsExcluded}");
+        _started = true;
         if (options.SelfTest)
         {
             RunSelfTest();

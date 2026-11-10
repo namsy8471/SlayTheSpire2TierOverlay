@@ -63,7 +63,8 @@ public sealed partial record GameInstall(string Directory)
 
     /// <summary>
     /// Finds the install: <paramref name="configured"/> (settings / command line) → <c>STS2_GAME_DIR</c> → every Steam library
-    /// listed in <c>steamapps/libraryfolders.vdf</c> of the usual Steam folders. Returns null when nothing valid is found.
+    /// listed in <c>steamapps/libraryfolders.vdf</c> of the Steam folder from the registry and the usual Program Files ones
+    /// (<see cref="DefaultSteamRoots"/>). Returns null when nothing valid is found.
     /// </summary>
     public static GameInstall? Locate(string? configured = null, IEnumerable<string>? steamRoots = null)
     {
@@ -99,12 +100,52 @@ public sealed partial record GameInstall(string Directory)
         }
     }
 
-    private static IEnumerable<string> DefaultSteamRoots()
+    /// <summary>Where Steam records its own folder (key, value): the Steam client's per-user key, then the installer's.</summary>
+    internal static readonly (string Key, string Value)[] SteamRegistryValues =
+    [
+        (@"HKEY_CURRENT_USER\Software\Valve\Steam", "SteamPath"),
+        (@"HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Valve\Steam", "InstallPath"),
+    ];
+
+    /// <summary>
+    /// Steam folders to search, without duplicates: the ones the registry names (Steam installed anywhere, e.g. D:\Steam),
+    /// then the usual Program Files folders. <paramref name="readRegistry"/> (key, value) → string is injectable for tests.
+    /// </summary>
+    internal static IEnumerable<string> DefaultSteamRoots(Func<string, string, string?>? readRegistry = null)
     {
-        foreach (var sf in new[] { Environment.SpecialFolder.ProgramFilesX86, Environment.SpecialFolder.ProgramFiles })
+        readRegistry ??= ReadRegistryString;
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var roots = SteamRegistryValues.Select(r => readRegistry(r.Key, r.Value))
+            .Concat(new[] { Environment.SpecialFolder.ProgramFilesX86, Environment.SpecialFolder.ProgramFiles }
+                .Select(Environment.GetFolderPath)
+                .Where(pf => !string.IsNullOrEmpty(pf))
+                .Select(pf => Path.Combine(pf, "Steam")));
+        foreach (var root in roots)
         {
-            var pf = Environment.GetFolderPath(sf);
-            if (!string.IsNullOrEmpty(pf)) yield return Path.Combine(pf, "Steam");
+            if (string.IsNullOrWhiteSpace(root)) continue;
+            string full;
+            try
+            {
+                full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root.Trim())); // SteamPath uses '/' ("c:/program files (x86)/steam")
+            }
+            catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+            {
+                continue;
+            }
+            if (seen.Add(full)) yield return full;
+        }
+    }
+
+    private static string? ReadRegistryString(string key, string value)
+    {
+        if (!OperatingSystem.IsWindows()) return null;
+        try
+        {
+            return Microsoft.Win32.Registry.GetValue(key, value, null) as string;
+        }
+        catch (Exception ex) when (ex is System.Security.SecurityException or IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return null;
         }
     }
 

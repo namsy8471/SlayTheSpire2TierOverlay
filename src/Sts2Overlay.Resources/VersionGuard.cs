@@ -22,27 +22,30 @@ public sealed record VersionGuardResult(
     /// <summary>
     /// Panel lines in the current overlay language; empty when everything matches.
     /// e.g. "게임 버전 v0.108이 데이터 팩 v0.107.1보다 새롭습니다: 티어가 맞지 않을 수 있음" /
-    /// "Game version v0.108 is newer than data pack v0.107.1: tiers may be off"
+    /// "Game version v0.108 is newer than data pack v0.107.1: tiers may be off".
+    /// Offerable cards without a tier are listed whatever the version comparison says (a game patch can add cards
+    /// under a version we cannot read or compare); the "removed" line only comes with a version mismatch.
     /// </summary>
-    public IReadOnlyList<string> PanelLines(string defaultTier, int maxNames = 6)
+    /// <param name="cardName">Card name in the overlay language (null = unknown); the id without "CARD." otherwise.</param>
+    public IReadOnlyList<string> PanelLines(string defaultTier, int maxNames = 6, Func<string, string?>? cardName = null)
     {
-        if (!VersionMismatch) return [];
-        var lines = new List<string>
+        var lines = new List<string>();
+        if (VersionMismatch)
         {
-            Loc.T(
+            lines.Add(Loc.T(
                 $"게임 버전 {Subject(Game!.Text)} 데이터 팩 {Pack!.Text}보다 {(Comparison > 0 ? "새롭습니다" : "오래되었습니다")}: 티어가 맞지 않을 수 있음",
-                $"Game version {Game!.Text} is {(Comparison > 0 ? "newer" : "older")} than data pack {Pack!.Text}: tiers may be off"),
-        };
+                $"Game version {Game!.Text} is {(Comparison > 0 ? "newer" : "older")} than data pack {Pack!.Text}: tiers may be off"));
+        }
         if (UnratedCards.Count > 0)
         {
-            var names = string.Join(", ", UnratedCards.Take(maxNames).Select(Short));
+            var names = string.Join(", ", UnratedCards.Take(maxNames).Select(id => cardName?.Invoke(id) is { Length: > 0 } n ? n : Short(id)));
             var rest = UnratedCards.Count - maxNames;
             var more = rest > 0 ? Loc.T($" 외 {rest}장", $" and {rest} more") : "";
             lines.Add(Loc.T(
                 $"티어 없는 카드 {UnratedCards.Count}장 (기본 티어 {defaultTier}로 계산): {names}{more}",
                 $"{Cards(UnratedCards.Count)} without a tier (scored as {defaultTier}): {names}{more}"));
         }
-        if (RemovedCards.Count > 0)
+        if (VersionMismatch && RemovedCards.Count > 0)
         {
             lines.Add(Loc.T(
                 $"게임에서 빠진 카드 {RemovedCards.Count}장의 티어는 무시합니다",

@@ -71,7 +71,8 @@ public static class MapPointHistory
         if (!entry.TryGetProperty("player_stats", out JsonElement stats) || stats.ValueKind != JsonValueKind.Array)
             return null;
         foreach (JsonElement s in stats.EnumerateArray())
-            if (s.TryGetProperty("player_id", out JsonElement id) && id.TryGetUInt64(out ulong v) && v == playerId)
+            if (s.ValueKind == JsonValueKind.Object && s.TryGetProperty("player_id", out JsonElement id)
+                && id.ValueKind == JsonValueKind.Number && id.TryGetUInt64(out ulong v) && v == playerId)
                 return s;
         return null;
     }
