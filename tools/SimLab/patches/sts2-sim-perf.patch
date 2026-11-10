@@ -70,11 +70,104 @@ index 4133c91..320e483 100644
          return clone;
      }
  
+diff --git a/src/Sts2Sim.Core/Combat/CombatState.Clone.cs b/src/Sts2Sim.Core/Combat/CombatState.Clone.cs
+index 71a0386..e6bb07f 100644
+--- a/src/Sts2Sim.Core/Combat/CombatState.Clone.cs
++++ b/src/Sts2Sim.Core/Combat/CombatState.Clone.cs
+@@ -349,15 +349,40 @@ public sealed partial class CombatState
+         {
+             foreach (Player player in _players)
+             {
+-                foreach (RelicModel relic in player.Relics)
++                // SimLab perf patch: enumerate the concrete lists (struct enumerators kept in this
++                // iterator, same lazy order and same modified-during-enumeration checks as before)
++                // instead of boxed interface enumerators and an OfType iterator per dispatch.
++                if (player.Relics is List<RelicModel> relicList)
+                 {
+-                    if (!relic.IsMelted)
+-                        yield return relic;
++                    foreach (RelicModel relic in relicList)
++                    {
++                        if (!relic.IsMelted)
++                            yield return relic;
++                    }
++                }
++                else
++                {
++                    foreach (RelicModel relic in player.Relics)
++                    {
++                        if (!relic.IsMelted)
++                            yield return relic;
++                    }
+                 }
+ 
+-                foreach (PotionModel potion in player.PotionSlots.OfType<PotionModel>())
++                if (player.PotionSlots is List<PotionModel?> potionList)
+                 {
+-                    yield return potion;
++                    foreach (PotionModel? slot in potionList)
++                    {
++                        if (slot is PotionModel potion)
++                            yield return potion;
++                    }
++                }
++                else
++                {
++                    foreach (PotionModel potion in player.PotionSlots.OfType<PotionModel>())
++                    {
++                        yield return potion;
++                    }
+                 }
+ 
+                 if (childCombatState is null)
+@@ -371,9 +396,19 @@ public sealed partial class CombatState
+ 
+             if (childCombatState is not null)
+             {
+-                foreach (AbstractModel listener in childCombatState.IterateHookListeners())
++                // The combat list is a fresh or cached snapshot array: index it (no boxed enumerator).
++                IEnumerable<AbstractModel> combat = childCombatState.IterateHookListeners();
++                if (combat is AbstractModel[] array)
+                 {
+-                    yield return listener;
++                    for (int i = 0; i < array.Length; i++)
++                        yield return array[i];
++                }
++                else
++                {
++                    foreach (AbstractModel listener in combat)
++                    {
++                        yield return listener;
++                    }
+                 }
+             }
+         }
 diff --git a/src/Sts2Sim.Core/Combat/CombatState.HookListeners.cs b/src/Sts2Sim.Core/Combat/CombatState.HookListeners.cs
-index 08113f3..5669685 100644
+index 08113f3..93e9dc9 100644
 --- a/src/Sts2Sim.Core/Combat/CombatState.HookListeners.cs
 +++ b/src/Sts2Sim.Core/Combat/CombatState.HookListeners.cs
-@@ -134,12 +134,17 @@ public sealed partial class CombatState
+@@ -19,6 +19,7 @@ public sealed partial class CombatState
+     // Derived data only. Every constructor/clone starts cold; no cache is copied.
+     // All cache-owned references, versions and arrays live behind this single field.
+     private HookListenerSnapshot? _hookListenerSnapshotCache;
++    private List<object?>? _snapshotCapture;
+ 
+     internal enum HookListenerPhase : byte { Energy, EnergyLate, Star, AfterPiles, AfterPilesLate }
+ 
+@@ -47,7 +48,11 @@ public sealed partial class CombatState
+ #endif
+         if (!hit)
+         {
+-            var scan = new ListenerWitnessScan(new List<object?>(256));
++            // SimLab perf patch: one capture buffer per state, cleared and reused on every miss
++            // (Captured() copies it into the snapshot's own exact-size witness array).
++            List<object?> capture = _snapshotCapture ??= new List<object?>(256);
++            capture.Clear();
++            var scan = new ListenerWitnessScan(capture);
+             if (!ScanListenerSources(runState, ref scan))
+                 return null; // Preserve malformed/null-listener exception timing in the old phase.
+             AbstractModel[] full = runState.IterateHookListeners(this).ToArray();
+@@ -134,12 +139,17 @@ public sealed partial class CombatState
              if (_capture is not null) { _capture.Add(value); return true; }
              return _position < _expected!.Length && ReferenceEquals(_expected[_position++], value);
          }
@@ -93,7 +186,7 @@ index 08113f3..5669685 100644
              return _position < _expected!.Length && _expected[_position++] is int previous && previous == value;
          }
          internal bool Flag(bool value)
-@@ -147,7 +152,7 @@ public sealed partial class CombatState
+@@ -147,7 +157,7 @@ public sealed partial class CombatState
  #if HOOK_LISTENER_CACHE_DIAGNOSTICS
              if (_capture is null && _expected is null) return true; // Shape-only oracle preflight.
  #endif
@@ -609,7 +702,7 @@ index 5e45efe..8ae81a1 100644
      }
  
 diff --git a/src/Sts2Sim.Core/Runs/RunState.cs b/src/Sts2Sim.Core/Runs/RunState.cs
-index 1633545..fb929f8 100644
+index 1633545..8177fc6 100644
 --- a/src/Sts2Sim.Core/Runs/RunState.cs
 +++ b/src/Sts2Sim.Core/Runs/RunState.cs
 @@ -108,7 +108,25 @@ public sealed partial class RunState : IRunState
@@ -676,3 +769,38 @@ index 1633545..fb929f8 100644
          Map = Hooks.Hook.ModifyGeneratedMap(this, Map, CurrentActIndex);
          // Run setup is synchronous; map-generated listeners contain no player-choice suspension.
          Hooks.Hook.AfterMapGenerated(this, Map, CurrentActIndex).GetAwaiter().GetResult();
+@@ -598,9 +622,11 @@ public sealed partial class RunState : IRunState
+                     yield return relic;
+             }
+ 
+-            foreach (PotionModel potion in player.PotionSlots.OfType<PotionModel>())
++            // SimLab perf patch: no OfType iterator / boxed enumerators (same lazy order).
++            foreach (PotionModel? slot in player.PotionSlots)
+             {
+-                yield return potion;
++                if (slot is PotionModel potion)
++                    yield return potion;
+             }
+ 
+             if (childCombatState is null)
+@@ -614,9 +640,18 @@ public sealed partial class RunState : IRunState
+ 
+         if (childCombatState != null)
+         {
+-            foreach (AbstractModel listener in childCombatState.IterateHookListeners())
++            IEnumerable<AbstractModel> combat = childCombatState.IterateHookListeners();
++            if (combat is AbstractModel[] array)
+             {
+-                yield return listener;
++                for (int i = 0; i < array.Length; i++)
++                    yield return array[i];
++            }
++            else
++            {
++                foreach (AbstractModel listener in combat)
++                {
++                    yield return listener;
++                }
+             }
+         }
+     }
