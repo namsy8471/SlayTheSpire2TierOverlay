@@ -247,10 +247,10 @@ index 08113f3..7e4bcfd 100644
          }
      }
 diff --git a/src/Sts2Sim.Core/Combat/CombatState.cs b/src/Sts2Sim.Core/Combat/CombatState.cs
-index c699f82..1a0b7d0 100644
+index c699f82..8d13cd6 100644
 --- a/src/Sts2Sim.Core/Combat/CombatState.cs
 +++ b/src/Sts2Sim.Core/Combat/CombatState.cs
-@@ -409,55 +409,185 @@ public sealed partial class CombatState : ICombatState
+@@ -409,55 +409,281 @@ public sealed partial class CombatState : ICombatState
      // the inventory-free iterator composed with RunState's existing wrapper.
      internal IEnumerable<AbstractModel> IterateHookListeners(bool includePlayerInventory)
      {
@@ -266,7 +266,9 @@ index c699f82..1a0b7d0 100644
 +    // dispatch. Reuse the last array while a witness scan of exactly the sources it was built
 +    // from (creature lists, creatures, power lists and powers, monster/player refs, active
 +    // flags, combat states, orb queues and orbs, piles, card lists, cards, enchantment lists and
-+    // enchantments, afflictions; with every list count) still matches. The listener array is
++    // enchantments, afflictions; with every list count) still matches. Concrete List<T> sources
++    // are witnessed by (ref, List version) instead of their items, and card attachments through
++    // CardModel.AttachmentEpoch, so a hit costs O(creatures + lists), not O(cards). The listener array is
 +    // never mutated after it is published, so a caller holding an older array keeps its
 +    // snapshot semantics. The witness itself lives in two buffers owned by this state and
 +    // overwritten in place on a miss (scans are synchronous: no hook runs during one), so
@@ -277,6 +279,19 @@ index c699f82..1a0b7d0 100644
 +    private bool _witnessCapture;
 +    private AbstractModel[]? _combatListeners;
 +    private List<AbstractModel>? _listenerBuild;
++
++    // Card attachments (enchantment list ref, count and items; affliction) in pile walk order, and
++    // the card lists walked. A pile list's version does not cover them, so they are kept out of the
++    // positional witness and re-read only when CardModel.AttachmentEpoch moved since the capture.
++    private object?[]? _attachRefs;
++    private int[]? _attachCounts;
++    private IReadOnlyList<CardModel>?[]? _attachLists;
++    private int _attachRefCount, _attachCountCount, _attachListCount, _attachEpoch;
++
++    // SIMLAB_LISTENER_CHECK=1: on every cache hit also rebuild the list the original way and throw
++    // if it differs (debug oracle; off by default).
++    private static readonly bool ListenerCheck =
++        Environment.GetEnvironmentVariable("SIMLAB_LISTENER_CHECK") == "1";
 +
 +    // Per query-hook slot: the cached listeners whose type overrides that hook (see
 +    // HookQueryFilter). Derived from _combatListeners and dropped whenever it is rebuilt.
@@ -296,16 +311,29 @@ index c699f82..1a0b7d0 100644
 +            _witnessRefPos = _witnessIntPos = 0;
 +            if (WitnessCreatures(_allies) && WitnessCreatures(_enemies)
 +                && _witnessRefPos == _witnessRefCount && _witnessIntPos == _witnessIntCount)
-+                return _combatListeners;
-         }
++            {
++                // Same cards in the same order; their attachments only need a look if some
++                // card anywhere changed them since the capture.
++                int epoch = Volatile.Read(ref CardModel.AttachmentEpoch);
++                if (epoch == _attachEpoch || AttachmentsMatch())
++                {
++                    _attachEpoch = epoch;
++                    if (ListenerCheck) CheckCachedListeners(_combatListeners);
++                    return _combatListeners;
++                }
++            }
++        }
 +        _filteredListeners = null;
 +        _witnessCapture = true;
 +        _witnessRefPos = _witnessIntPos = 0;
++        _attachRefCount = _attachCountCount = _attachListCount = 0;
++        // Read before the walk: a change during or after it then shows up as a moved epoch.
++        _attachEpoch = Volatile.Read(ref CardModel.AttachmentEpoch);
 +        if (!WitnessCreatures(_allies) || !WitnessCreatures(_enemies))
 +        {
 +            _combatListeners = null;
 +            return null;
-+        }
+         }
 +        _witnessRefCount = _witnessRefPos;
 +        _witnessIntCount = _witnessIntPos;
 +        List<AbstractModel> build = _listenerBuild ??= new List<AbstractModel>(64);
@@ -358,10 +386,7 @@ index c699f82..1a0b7d0 100644
 -            count += EstimateCreatureHookListenerCount(creature);
 +            Creature creature = creatures[i];
 +            if (creature is null || !WitnessRef(creature)) return false;
-+            IReadOnlyList<PowerModel> powers = creature.Powers;
-+            if (powers is null || !WitnessRef(powers) || !WitnessInt(powers.Count)) return false;
-+            for (int p = 0; p < powers.Count; p++)
-+                if (powers[p] is null || !WitnessRef(powers[p])) return false;
++            if (!WitnessList(creature.Powers)) return false;
 +            if (!WitnessRef(creature.Monster) || !WitnessRef(creature.Player)) return false;
 +            if (creature.IsMonster || creature.Player is not { } player) continue;
 +            if (!WitnessInt(player.IsActiveForHooks ? 1 : 0)) return false;
@@ -370,10 +395,7 @@ index c699f82..1a0b7d0 100644
 +            if (!WitnessRef(state)) return false;
 +            if (state is null) continue;
 +            if (state.OrbQueue is not { } queue || !WitnessRef(queue)) return false;
-+            IReadOnlyList<OrbModel> orbs = queue.Orbs;
-+            if (orbs is null || !WitnessRef(orbs) || !WitnessInt(orbs.Count)) return false;
-+            for (int o = 0; o < orbs.Count; o++)
-+                if (orbs[o] is null || !WitnessRef(orbs[o])) return false;
++            if (!WitnessList(queue.Orbs)) return false;
 +            if (!WitnessPile(state.Hand) || !WitnessPile(state.DrawPile) || !WitnessPile(state.DiscardPile)
 +                || !WitnessPile(state.ExhaustPile) || !WitnessPile(state.PlayPile)) return false;
          }
@@ -385,22 +407,96 @@ index c699f82..1a0b7d0 100644
 +    {
 +        if (pile is null || !WitnessRef(pile)) return false;
 +        IReadOnlyList<CardModel> cards = pile.Cards;
-+        if (cards is null || !WitnessRef(cards) || !WitnessInt(cards.Count)) return false;
-+        for (int c = 0; c < cards.Count; c++)
++        if (!WitnessList(cards)) return false;
++        return !_witnessCapture || CaptureAttachments(cards);
++    }
++
++    // List contents witness. A concrete List<T> is witnessed by (ref, version): the version moves on
++    // every content change, so the compare pass skips the items. Capture still walks them to keep
++    // the null item = malformed rule. Any other list: ref, count and every item, as before.
++    private bool WitnessList<T>(IReadOnlyList<T>? list) where T : class
++    {
++        if (list is null || !WitnessRef(list)) return false;
++        if (list is List<T> concrete && ListVersion<T>.Supported)
          {
 -            count += EstimateCreatureHookListenerCount(creature);
-+            CardModel card = cards[c];
-+            if (card is null || !WitnessRef(card)) return false;
-+            IReadOnlyList<EnchantmentModel> enchantments = card.Enchantments;
-+            if (enchantments is null || !WitnessRef(enchantments) || !WitnessInt(enchantments.Count)) return false;
-+            for (int e = 0; e < enchantments.Count; e++)
-+                if (enchantments[e] is null || !WitnessRef(enchantments[e])) return false;
-+            if (!WitnessRef(card.Affliction)) return false;
++            if (!WitnessInt(ListVersion<T>.Get(concrete))) return false;
++            if (_witnessCapture)
++                for (int i = 0; i < concrete.Count; i++)
++                    if (concrete[i] is null) return false;
++            return true;
          }
++        if (!WitnessInt(list.Count)) return false;
++        for (int i = 0; i < list.Count; i++)
++            if (list[i] is null || !WitnessRef(list[i])) return false;
 +        return true;
 +    }
  
 -        return count;
++    private bool CaptureAttachments(IReadOnlyList<CardModel> cards)
++    {
++        _attachLists ??= new IReadOnlyList<CardModel>?[8];
++        if (_attachListCount == _attachLists.Length) Array.Resize(ref _attachLists, _attachLists.Length * 2);
++        _attachLists[_attachListCount++] = cards;
++        for (int c = 0; c < cards.Count; c++)
++        {
++            CardModel card = cards[c];
++            IReadOnlyList<EnchantmentModel> enchantments = card.Enchantments;
++            if (enchantments is null) return false;
++            _attachCounts ??= new int[64];
++            if (_attachCountCount == _attachCounts.Length) Array.Resize(ref _attachCounts, _attachCounts.Length * 2);
++            _attachCounts[_attachCountCount++] = enchantments.Count;
++            _attachRefs ??= new object?[128];
++            int need = _attachRefCount + enchantments.Count + 2;
++            if (need > _attachRefs.Length) Array.Resize(ref _attachRefs, Math.Max(need, _attachRefs.Length * 2));
++            _attachRefs[_attachRefCount++] = enchantments;
++            for (int e = 0; e < enchantments.Count; e++)
++            {
++                if (enchantments[e] is null) return false;
++                _attachRefs[_attachRefCount++] = enchantments[e];
++            }
++            _attachRefs[_attachRefCount++] = card.Affliction;
++        }
++        return true;
++    }
++
++    // Positional compare of the recorded attachments. Only called after the structure compare
++    // matched, which proves the same card lists hold the same cards in the same order.
++    private bool AttachmentsMatch()
++    {
++        object?[]? refs = _attachRefs;
++        int[]? counts = _attachCounts;
++        int r = 0, n = 0;
++        for (int l = 0; l < _attachListCount; l++)
++        {
++            IReadOnlyList<CardModel> cards = _attachLists![l]!;
++            for (int c = 0; c < cards.Count; c++)
++            {
++                CardModel card = cards[c];
++                IReadOnlyList<EnchantmentModel> enchantments = card.Enchantments;
++                if (n >= _attachCountCount || r >= _attachRefCount
++                    || !ReferenceEquals(refs![r++], enchantments) || counts![n++] != enchantments.Count)
++                    return false;
++                for (int e = 0; e < enchantments.Count; e++)
++                    if (r >= _attachRefCount || !ReferenceEquals(refs![r++], enchantments[e])) return false;
++                if (r >= _attachRefCount || !ReferenceEquals(refs![r++], card.Affliction)) return false;
++            }
++        }
++        return r == _attachRefCount && n == _attachCountCount;
++    }
++
++    private void CheckCachedListeners(AbstractModel[] cached)
++    {
++        var fresh = (AbstractModel[])BuildHookListeners(false);
++        int n = Math.Min(fresh.Length, cached.Length);
++        int i = 0;
++        while (i < n && ReferenceEquals(fresh[i], cached[i])) i++;
++        if (i < n || fresh.Length != cached.Length)
++            throw new InvalidOperationException(
++                $"listener cache mismatch at {i}: cached {cached.Length} ({(i < cached.Length ? cached[i].GetType().Name : "-")}), " +
++                $"fresh {fresh.Length} ({(i < fresh.Length ? fresh[i].GetType().Name : "-")})");
++    }
++
 +    /// <summary>
 +    /// The combat listeners (same order) whose runtime type overrides the query hook in
 +    /// <paramref name="slot"/>; the others would run the neutral base method. Null if the source
@@ -464,7 +560,7 @@ index c699f82..1a0b7d0 100644
      }
  
      private static void AppendCreatureHookListeners(
-@@ -511,12 +641,16 @@ public sealed partial class CombatState : ICombatState
+@@ -511,12 +737,16 @@ public sealed partial class CombatState : ICombatState
  
      private static void AppendPileHookListeners(List<AbstractModel> listeners, CardPile pile)
      {
@@ -484,6 +580,69 @@ index c699f82..1a0b7d0 100644
              }
  
              if (card.Affliction is not null)
+diff --git a/src/Sts2Sim.Core/Combat/ListVersion.cs b/src/Sts2Sim.Core/Combat/ListVersion.cs
+new file mode 100644
+index 0000000..c62acd9
+--- /dev/null
++++ b/src/Sts2Sim.Core/Combat/ListVersion.cs
+@@ -0,0 +1,57 @@
++using System.Runtime.CompilerServices;
++
++namespace Sts2Sim.Core.Combat;
++
++/// <summary>
++/// SimLab perf patch: reads <see cref="List{T}"/>'s private <c>_version</c>, which the BCL bumps on
++/// every content change (Add, Insert, Remove*, Clear, indexer set, Sort, Reverse, AddRange). The
++/// listener cache uses (list ref, version) as a witness of a list's whole contents, so validation
++/// does not have to touch every item. <see cref="Supported"/> is false if the field is missing or
++/// does not behave like that on this runtime; callers then compare items as before.
++/// </summary>
++internal static class ListVersion<T>
++{
++    [UnsafeAccessor(UnsafeAccessorKind.Field, Name = "_version")]
++    private static extern ref int VersionRef(List<T> list);
++
++    internal static readonly bool Supported = Probe();
++
++    internal static int Get(List<T> list) => VersionRef(list);
++
++    private static bool Probe()
++    {
++        try
++        {
++            var list = new List<T>();
++            int last = VersionRef(list);
++            bool Bumped(List<T> l)
++            {
++                int now = VersionRef(l);
++                bool changed = now != last;
++                last = now;
++                return changed;
++            }
++
++            list.Add(default!);
++            if (!Bumped(list)) return false;
++            list.Add(default!);
++            if (!Bumped(list)) return false;
++            list[0] = default!;
++            if (!Bumped(list)) return false;
++            list.Insert(1, default!);
++            if (!Bumped(list)) return false;
++            list.RemoveAt(0);
++            if (!Bumped(list)) return false;
++            list.Sort(static (_, _) => 0);
++            if (!Bumped(list)) return false;
++            list.Reverse();
++            if (!Bumped(list)) return false;
++            list.Clear();
++            return Bumped(list);
++        }
++        catch
++        {
++            return false;
++        }
++    }
++}
 diff --git a/src/Sts2Sim.Core/Hooks/Hook.cs b/src/Sts2Sim.Core/Hooks/Hook.cs
 index 915f5c2..6a4fb7e 100644
 --- a/src/Sts2Sim.Core/Hooks/Hook.cs
@@ -792,10 +951,47 @@ index 0000000..ceaa73b
 +    }
 +}
 diff --git a/src/Sts2Sim.Core/Models/CardModel.cs b/src/Sts2Sim.Core/Models/CardModel.cs
-index 5e45efe..8ae81a1 100644
+index 5e45efe..e789cee 100644
 --- a/src/Sts2Sim.Core/Models/CardModel.cs
 +++ b/src/Sts2Sim.Core/Models/CardModel.cs
-@@ -1099,11 +1099,14 @@ public abstract class CardModel : AbstractModel, ICombatStateDescriptionContribu
+@@ -410,6 +410,12 @@ public abstract class CardModel : AbstractModel, ICombatStateDescriptionContribu
+ 
+     private AfflictionModel? _affliction;
+ 
++    // SimLab perf patch: bumped whenever any card's enchantment list or affliction changes, so the
++    // combat listener cache can skip re-reading every card's attachments while nothing changed.
++    // Global (not per state, not thread-static) on purpose: a missed bump would be a wrong cache
++    // hit, while a bump from another fight only costs that cache one full attachment compare.
++    internal static int AttachmentEpoch;
++
+     [ThreadStatic]
+     private static HashSet<CardKeyword>? _globalKeywordScratch;
+ 
+@@ -707,6 +713,7 @@ public abstract class CardModel : AbstractModel, ICombatStateDescriptionContribu
+ 
+         enchantment.AssignOwnerCard(this);
+         _enchantments.Add(enchantment);
++        Interlocked.Increment(ref AttachmentEpoch);
+     }
+ 
+     internal void AttachAffliction(AfflictionModel affliction, decimal amount)
+@@ -720,6 +727,7 @@ public abstract class CardModel : AbstractModel, ICombatStateDescriptionContribu
+ 
+         affliction.Attach(this, amount);
+         _affliction = affliction;
++        Interlocked.Increment(ref AttachmentEpoch);
+     }
+ 
+     internal void ClearAfflictionInternal()
+@@ -727,6 +735,7 @@ public abstract class CardModel : AbstractModel, ICombatStateDescriptionContribu
+         AssertMutable();
+         _affliction?.Clear();
+         _affliction = null;
++        Interlocked.Increment(ref AttachmentEpoch);
+     }
+ 
+     /// <summary>Manual play applies both global prevention and the card's own playability rule.</summary>
+@@ -1099,11 +1108,14 @@ public abstract class CardModel : AbstractModel, ICombatStateDescriptionContribu
      protected override void DeepCloneFields()
      {
          base.DeepCloneFields();
@@ -814,7 +1010,7 @@ index 5e45efe..8ae81a1 100644
          foreach (EnchantmentModel enchantment in _enchantments)
          {
              enchantment.AssignOwnerCard(this);
-@@ -1154,9 +1157,10 @@ public abstract class CardModel : AbstractModel, ICombatStateDescriptionContribu
+@@ -1154,9 +1166,10 @@ public abstract class CardModel : AbstractModel, ICombatStateDescriptionContribu
          clone.AssignOwnerInternal(owner);
          clone._deckVersion = _deckVersion;
          clone._cloneOf = _cloneOf;
@@ -827,7 +1023,7 @@ index 5e45efe..8ae81a1 100644
          }
  
          clone.TemporaryFreeThisTurn = TemporaryFreeThisTurn;
-@@ -1170,7 +1174,10 @@ public abstract class CardModel : AbstractModel, ICombatStateDescriptionContribu
+@@ -1170,7 +1183,10 @@ public abstract class CardModel : AbstractModel, ICombatStateDescriptionContribu
          clone.TemporaryStarCostOverrideThisTurn = TemporaryStarCostOverrideThisTurn;
          clone.ExhaustOnNextPlay = ExhaustOnNextPlay;
          clone._energyCostThisTurnDelta = _energyCostThisTurnDelta;
