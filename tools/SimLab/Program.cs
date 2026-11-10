@@ -124,6 +124,9 @@ string summary = $"fights={sample.Count} seeds={seeds} threads={threads} sim_wal
                  $"rollout_failures={policy.RolloutFailures + BeamPolicy.Failures}";
 summary += $" first_chance_exceptions={firstChance}";
 Console.WriteLine(summary);
+// Allocation / GC cost of the whole process (speed work: how much time the collector takes).
+Console.WriteLine($"gc: allocated={GC.GetTotalAllocatedBytes() / 1e9:F2}GB pause={GC.GetTotalPauseDuration().TotalSeconds:F2}s " +
+                  $"gen0={GC.CollectionCount(0)} gen1={GC.CollectionCount(1)} gen2={GC.CollectionCount(2)} server={System.Runtime.GCSettings.IsServerGC}");
 foreach (var kv in fcTypes.OrderByDescending(k => k.Value).Take(8)) Console.WriteLine($"  exc {kv.Value}: {kv.Key}");
 File.AppendAllText(reportPath, "== run ==\n" + summary + "\n");
 if (BeamPolicy.Profile)

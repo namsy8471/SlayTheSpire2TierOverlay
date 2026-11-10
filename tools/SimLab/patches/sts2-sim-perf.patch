@@ -70,11 +70,43 @@ index 4133c91..320e483 100644
          return clone;
      }
  
+diff --git a/src/Sts2Sim.Core/Combat/CombatState.HookListeners.cs b/src/Sts2Sim.Core/Combat/CombatState.HookListeners.cs
+index 08113f3..5669685 100644
+--- a/src/Sts2Sim.Core/Combat/CombatState.HookListeners.cs
++++ b/src/Sts2Sim.Core/Combat/CombatState.HookListeners.cs
+@@ -134,12 +134,17 @@ public sealed partial class CombatState
+             if (_capture is not null) { _capture.Add(value); return true; }
+             return _position < _expected!.Length && ReferenceEquals(_expected[_position++], value);
+         }
++        // SimLab perf patch: captured counts and flags are compared by value (`is int`, `is bool`),
++        // so shared pre-boxed objects behave exactly like fresh boxes and save one allocation each.
++        private static readonly object[] BoxedCounts = Enumerable.Range(0, 256).Select(i => (object)i).ToArray();
++        private static readonly object BoxedTrue = true, BoxedFalse = false;
++
+         internal bool Count(int value)
+         {
+ #if HOOK_LISTENER_CACHE_DIAGNOSTICS
+             if (_capture is null && _expected is null) return true; // Shape-only oracle preflight.
+ #endif
+-            if (_capture is not null) { _capture.Add(value); return true; }
++            if (_capture is not null) { _capture.Add((uint)value < 256u ? BoxedCounts[value] : value); return true; }
+             return _position < _expected!.Length && _expected[_position++] is int previous && previous == value;
+         }
+         internal bool Flag(bool value)
+@@ -147,7 +152,7 @@ public sealed partial class CombatState
+ #if HOOK_LISTENER_CACHE_DIAGNOSTICS
+             if (_capture is null && _expected is null) return true; // Shape-only oracle preflight.
+ #endif
+-            if (_capture is not null) { _capture.Add(value); return true; }
++            if (_capture is not null) { _capture.Add(value ? BoxedTrue : BoxedFalse); return true; }
+             return _position < _expected!.Length && _expected[_position++] is bool previous && previous == value;
+         }
+     }
 diff --git a/src/Sts2Sim.Core/Combat/CombatState.cs b/src/Sts2Sim.Core/Combat/CombatState.cs
-index c699f82..59e2756 100644
+index c699f82..fda7a49 100644
 --- a/src/Sts2Sim.Core/Combat/CombatState.cs
 +++ b/src/Sts2Sim.Core/Combat/CombatState.cs
-@@ -408,6 +408,40 @@ public sealed partial class CombatState : ICombatState
+@@ -408,6 +408,165 @@ public sealed partial class CombatState : ICombatState
      // Block retention needs powers-before-relics ordering. Other dispatchers retain
      // the inventory-free iterator composed with RunState's existing wrapper.
      internal IEnumerable<AbstractModel> IterateHookListeners(bool includePlayerInventory)
@@ -84,31 +116,156 @@ index c699f82..59e2756 100644
 +    }
 +
 +    // SimLab perf patch: the inventory-free combat listener list is rebuilt for every hook
-+    // dispatch. Reuse the last array while a zero-allocation witness scan of exactly the
-+    // sources it was built from (creatures, powers, monster/player refs, active flags, orbs,
-+    // piles, cards, enchantments, afflictions) still matches. The array is never mutated after
-+    // it is published, so a caller holding an older array keeps its snapshot semantics.
-+    private object?[]? _combatListenerWitness;
++    // dispatch. Reuse the last array while a witness scan of exactly the sources it was built
++    // from (creature lists, creatures, power lists and powers, monster/player refs, active
++    // flags, combat states, orb queues and orbs, piles, card lists, cards, enchantment lists and
++    // enchantments, afflictions; with every list count) still matches. The listener array is
++    // never mutated after it is published, so a caller holding an older array keeps its
++    // snapshot semantics. The witness itself lives in two buffers owned by this state and
++    // overwritten in place on a miss (scans are synchronous: no hook runs during one), so
++    // neither a hit nor a miss allocates for it; ints are kept apart, so nothing is boxed.
++    private object?[]? _witnessRefs; // allocated on first capture: a clone that never dispatches pays nothing
++    private int[]? _witnessInts;
++    private int _witnessRefCount, _witnessIntCount, _witnessRefPos, _witnessIntPos;
++    private bool _witnessCapture;
 +    private AbstractModel[]? _combatListeners;
++    private List<AbstractModel>? _listenerBuild;
 +
-+    private IEnumerable<AbstractModel> CombatListenersCached()
++    // Per query-hook slot: the cached listeners whose type overrides that hook (see
++    // HookQueryFilter). Derived from _combatListeners and dropped whenever it is rebuilt.
++    private AbstractModel[]?[]? _filteredListeners;
++
++    private IEnumerable<AbstractModel> CombatListenersCached() =>
++        (IEnumerable<AbstractModel>?)ValidCombatListeners() ?? BuildHookListeners(false);
++
++    /// <summary>The cached inventory-free combat listener array, rebuilt if its sources changed;
++    /// null when the sources are malformed (callers then keep the original path).</summary>
++    private AbstractModel[]? ValidCombatListeners()
 +    {
 +        if (_combatListeners is not null)
 +        {
-+            var check = new ListenerWitnessScan(_combatListenerWitness!);
-+            if (ScanCreatureSources(_allies, ref check) && ScanCreatureSources(_enemies, ref check) && check.Complete)
++            _witnessCapture = false;
++            _witnessRefPos = _witnessIntPos = 0;
++            if (WitnessCreatures(_allies) && WitnessCreatures(_enemies)
++                && _witnessRefPos == _witnessRefCount && _witnessIntPos == _witnessIntCount)
 +                return _combatListeners;
 +        }
-+        var scan = new ListenerWitnessScan(new List<object?>(128));
-+        if (!ScanCreatureSources(_allies, ref scan) || !ScanCreatureSources(_enemies, ref scan))
++        _filteredListeners = null;
++        _witnessCapture = true;
++        _witnessRefPos = _witnessIntPos = 0;
++        if (!WitnessCreatures(_allies) || !WitnessCreatures(_enemies))
 +        {
 +            _combatListeners = null;
-+            return BuildHookListeners(false); // malformed sources: keep the original path
++            return null;
 +        }
-+        var built = (List<AbstractModel>)BuildHookListeners(false);
-+        _combatListenerWitness = scan.Captured();
-+        _combatListeners = built.ToArray();
++        _witnessRefCount = _witnessRefPos;
++        _witnessIntCount = _witnessIntPos;
++        List<AbstractModel> build = _listenerBuild ??= new List<AbstractModel>(64);
++        build.Clear();
++        foreach (Creature creature in _allies) AppendCreatureHookListeners(build, creature, false);
++        foreach (Creature creature in _enemies) AppendCreatureHookListeners(build, creature, false);
++        _combatListeners = build.ToArray();
++        build.Clear(); // drop references to models this state may no longer hold
 +        return _combatListeners;
++    }
++
++    private bool WitnessRef(object? value)
++    {
++        if (_witnessCapture)
++        {
++            _witnessRefs ??= new object?[128];
++            if (_witnessRefPos == _witnessRefs.Length) Array.Resize(ref _witnessRefs, _witnessRefs.Length * 2);
++            _witnessRefs[_witnessRefPos++] = value;
++            return true;
++        }
++        return _witnessRefPos < _witnessRefCount && ReferenceEquals(_witnessRefs![_witnessRefPos++], value);
++    }
++
++    private bool WitnessInt(int value)
++    {
++        if (_witnessCapture)
++        {
++            _witnessInts ??= new int[64];
++            if (_witnessIntPos == _witnessInts.Length) Array.Resize(ref _witnessInts, _witnessInts.Length * 2);
++            _witnessInts[_witnessIntPos++] = value;
++            return true;
++        }
++        return _witnessIntPos < _witnessIntCount && _witnessInts![_witnessIntPos++] == value;
++    }
++
++    // Mirrors ScanCreatureSources/ScanPileSources (same sources, same null = malformed rule).
++    private bool WitnessCreatures(IReadOnlyList<Creature> creatures)
++    {
++        if (creatures is null || !WitnessRef(creatures) || !WitnessInt(creatures.Count)) return false;
++        for (int i = 0; i < creatures.Count; i++)
++        {
++            Creature creature = creatures[i];
++            if (creature is null || !WitnessRef(creature)) return false;
++            IReadOnlyList<PowerModel> powers = creature.Powers;
++            if (powers is null || !WitnessRef(powers) || !WitnessInt(powers.Count)) return false;
++            for (int p = 0; p < powers.Count; p++)
++                if (powers[p] is null || !WitnessRef(powers[p])) return false;
++            if (!WitnessRef(creature.Monster) || !WitnessRef(creature.Player)) return false;
++            if (creature.IsMonster || creature.Player is not { } player) continue;
++            if (!WitnessInt(player.IsActiveForHooks ? 1 : 0)) return false;
++            if (!player.IsActiveForHooks) continue;
++            PlayerCombatState? state = player.PlayerCombatState;
++            if (!WitnessRef(state)) return false;
++            if (state is null) continue;
++            if (state.OrbQueue is not { } queue || !WitnessRef(queue)) return false;
++            IReadOnlyList<OrbModel> orbs = queue.Orbs;
++            if (orbs is null || !WitnessRef(orbs) || !WitnessInt(orbs.Count)) return false;
++            for (int o = 0; o < orbs.Count; o++)
++                if (orbs[o] is null || !WitnessRef(orbs[o])) return false;
++            if (!WitnessPile(state.Hand) || !WitnessPile(state.DrawPile) || !WitnessPile(state.DiscardPile)
++                || !WitnessPile(state.ExhaustPile) || !WitnessPile(state.PlayPile)) return false;
++        }
++        return true;
++    }
++
++    private bool WitnessPile(CardPile pile)
++    {
++        if (pile is null || !WitnessRef(pile)) return false;
++        IReadOnlyList<CardModel> cards = pile.Cards;
++        if (cards is null || !WitnessRef(cards) || !WitnessInt(cards.Count)) return false;
++        for (int c = 0; c < cards.Count; c++)
++        {
++            CardModel card = cards[c];
++            if (card is null || !WitnessRef(card)) return false;
++            IReadOnlyList<EnchantmentModel> enchantments = card.Enchantments;
++            if (enchantments is null || !WitnessRef(enchantments) || !WitnessInt(enchantments.Count)) return false;
++            for (int e = 0; e < enchantments.Count; e++)
++                if (enchantments[e] is null || !WitnessRef(enchantments[e])) return false;
++            if (!WitnessRef(card.Affliction)) return false;
++        }
++        return true;
++    }
++
++    /// <summary>
++    /// The combat listeners (same order) whose runtime type overrides the query hook in
++    /// <paramref name="slot"/>; the others would run the neutral base method. Null if the source
++    /// scan fails. Eligibility is still checked by the caller at dispatch, as before.
++    /// </summary>
++    /// <summary>Run states whose listener iterator is "relics, potions, then the combat's".</summary>
++    internal static bool HasStandardRunListeners(Runs.IRunState runState) =>
++        runState is Runs.RunState or CombatRunStateSnapshot;
++
++    internal AbstractModel[]? FilteredCombatListeners(int slot, int slotCount, Func<AbstractModel, bool> overrides)
++    {
++        AbstractModel[]? all = ValidCombatListeners();
++        if (all is null) return null;
++        _filteredListeners ??= new AbstractModel[]?[slotCount];
++        AbstractModel[]? filtered = _filteredListeners[slot];
++        if (filtered is null)
++        {
++            int n = 0;
++            foreach (AbstractModel m in all) if (overrides(m)) n++;
++            filtered = n == 0 ? Array.Empty<AbstractModel>() : new AbstractModel[n];
++            n = 0;
++            foreach (AbstractModel m in all) if (overrides(m)) filtered[n++] = m;
++            _filteredListeners[slot] = filtered;
++        }
++        return filtered;
 +    }
 +
 +    private IEnumerable<AbstractModel> BuildHookListeners(bool includePlayerInventory)
@@ -116,7 +273,7 @@ index c699f82..59e2756 100644
          // Build the whole dispatch snapshot before any hook runs. Intermediate copies of
          // creature, orb, and pile collections are unnecessary during this synchronous pass.
 diff --git a/src/Sts2Sim.Core/Hooks/Hook.cs b/src/Sts2Sim.Core/Hooks/Hook.cs
-index 915f5c2..9db59ca 100644
+index 915f5c2..6a4fb7e 100644
 --- a/src/Sts2Sim.Core/Hooks/Hook.cs
 +++ b/src/Sts2Sim.Core/Hooks/Hook.cs
 @@ -539,13 +539,16 @@ public static class Hook
@@ -137,6 +294,320 @@ index 915f5c2..9db59ca 100644
          _ => throw new ArgumentOutOfRangeException(nameof(model), model?.GetType(),
              "Unsupported hook listener model type."),
      };
+@@ -1265,7 +1268,7 @@ public static class Hook
+ 
+     public static bool ShouldPlay(ICombatState combatState, CardModel card, bool isAutoPlay)
+     {
+-        foreach (AbstractModel model in IterateCombatHookListeners(combatState))
++        foreach (AbstractModel model in (IEnumerable<AbstractModel>?)HookQueryFilter.CombatListeners(combatState, HookQueryFilter.Slot.ShouldPlay) ?? IterateCombatHookListeners(combatState))
+         {
+             if (!IsEligibleHookListener(model)) continue;
+             if (!model.ShouldPlay(card, isAutoPlay))
+@@ -1286,7 +1289,7 @@ public static class Hook
+     {
+         int result = playCount;
+         modifyingModels = new List<AbstractModel>();
+-        foreach (AbstractModel model in IterateCombatHookListeners(combatState))
++        foreach (AbstractModel model in (IEnumerable<AbstractModel>?)HookQueryFilter.CombatListeners(combatState, HookQueryFilter.Slot.CardPlayCount) ?? IterateCombatHookListeners(combatState))
+         {
+             if (!IsEligibleHookListener(model)) continue;
+             int before = result;
+@@ -1325,7 +1328,7 @@ public static class Hook
+     {
+         var changed = new List<AbstractModel>();
+         CardLocation result = location;
+-        foreach (AbstractModel model in IterateCombatHookListeners(combatState))
++        foreach (AbstractModel model in (IEnumerable<AbstractModel>?)HookQueryFilter.CombatListeners(combatState, HookQueryFilter.Slot.CardPlayResultLocation) ?? IterateCombatHookListeners(combatState))
+         {
+             if (!IsEligibleHookListener(model)) continue;
+             CardLocation before = result;
+@@ -1715,7 +1718,7 @@ public static class Hook
+         decimal result = damage;
+         List<AbstractModel> changed = new();
+ 
+-        foreach (AbstractModel item in runState.IterateHookListeners(combatState))
++        foreach (AbstractModel item in (IEnumerable<AbstractModel>?)HookQueryFilter.Listeners(runState, combatState, HookQueryFilter.Slot.DamageAdditive) ?? runState.IterateHookListeners(combatState))
+         {
+             if (!IsEligibleHookListener(item)) continue;
+             decimal delta = item.ModifyDamageAdditive(target, result, props, dealer, cardSource, cardPlay);
+@@ -1726,7 +1729,7 @@ public static class Hook
+             }
+         }
+ 
+-        foreach (AbstractModel item in runState.IterateHookListeners(combatState))
++        foreach (AbstractModel item in (IEnumerable<AbstractModel>?)HookQueryFilter.Listeners(runState, combatState, HookQueryFilter.Slot.DamageMultiplicative) ?? runState.IterateHookListeners(combatState))
+         {
+             if (!IsEligibleHookListener(item)) continue;
+             decimal factor = item.ModifyDamageMultiplicative(target, result, props, dealer, cardSource, cardPlay);
+@@ -1738,7 +1741,7 @@ public static class Hook
+         }
+ 
+         decimal cap = decimal.MaxValue;
+-        foreach (AbstractModel item in runState.IterateHookListeners(combatState))
++        foreach (AbstractModel item in (IEnumerable<AbstractModel>?)HookQueryFilter.Listeners(runState, combatState, HookQueryFilter.Slot.DamageCap) ?? runState.IterateHookListeners(combatState))
+         {
+             if (!IsEligibleHookListener(item)) continue;
+             decimal itemCap = item.ModifyDamageCap(target, props, dealer, cardSource, cardPlay);
+@@ -1773,9 +1776,9 @@ public static class Hook
+         decimal result = amount;
+         List<AbstractModel> changed = new();
+ 
+-        void Round(Func<AbstractModel, decimal, decimal> modify)
++        void Round(HookQueryFilter.Slot slot, Func<AbstractModel, decimal, decimal> modify)
+         {
+-            foreach (AbstractModel item in runState.IterateHookListeners(combatState))
++            foreach (AbstractModel item in (IEnumerable<AbstractModel>?)HookQueryFilter.Listeners(runState, combatState, slot) ?? runState.IterateHookListeners(combatState))
+             {
+                 if (!IsEligibleHookListener(item)) continue;
+                 decimal before = result;
+@@ -1789,14 +1792,14 @@ public static class Hook
+ 
+         if (phases.HasFlag(HpLossHookPhase.BeforeOsty))
+         {
+-            Round((item, value) => item.ModifyHpLostBeforeOsty(target, value, props, dealer, cardSource));
+-            Round((item, value) => item.ModifyHpLostBeforeOstyLate(target, value, props, dealer, cardSource));
++            Round(HookQueryFilter.Slot.HpLostBeforeOsty, (item, value) => item.ModifyHpLostBeforeOsty(target, value, props, dealer, cardSource));
++            Round(HookQueryFilter.Slot.HpLostBeforeOstyLate, (item, value) => item.ModifyHpLostBeforeOstyLate(target, value, props, dealer, cardSource));
+         }
+ 
+         if (phases.HasFlag(HpLossHookPhase.AfterOsty))
+         {
+-            Round((item, value) => item.ModifyHpLostAfterOsty(target, value, props, dealer, cardSource));
+-            Round((item, value) => item.ModifyHpLostAfterOstyLate(target, value, props, dealer, cardSource));
++            Round(HookQueryFilter.Slot.HpLostAfterOsty, (item, value) => item.ModifyHpLostAfterOsty(target, value, props, dealer, cardSource));
++            Round(HookQueryFilter.Slot.HpLostAfterOstyLate, (item, value) => item.ModifyHpLostAfterOstyLate(target, value, props, dealer, cardSource));
+         }
+ 
+         modifiers = changed;
+@@ -1916,7 +1919,7 @@ public static class Hook
+         decimal result = block;
+         List<AbstractModel> changed = new();
+ 
+-        foreach (AbstractModel item in IterateCombatHookListeners(combatState))
++        foreach (AbstractModel item in (IEnumerable<AbstractModel>?)HookQueryFilter.CombatListeners(combatState, HookQueryFilter.Slot.BlockAdditive) ?? IterateCombatHookListeners(combatState))
+         {
+             if (!IsEligibleHookListener(item)) continue;
+             decimal delta = item.ModifyBlockAdditive(target, result, props, cardSource, cardPlay);
+@@ -1927,7 +1930,7 @@ public static class Hook
+             }
+         }
+ 
+-        foreach (AbstractModel item in IterateCombatHookListeners(combatState))
++        foreach (AbstractModel item in (IEnumerable<AbstractModel>?)HookQueryFilter.CombatListeners(combatState, HookQueryFilter.Slot.BlockMultiplicative) ?? IterateCombatHookListeners(combatState))
+         {
+             if (!IsEligibleHookListener(item)) continue;
+             decimal factor = item.ModifyBlockMultiplicative(target, result, props, cardSource, cardPlay);
+@@ -2109,7 +2112,7 @@ public static class Hook
+ 
+     public static bool ShouldAllowHitting(ICombatState combatState, Creature creature)
+     {
+-        foreach (AbstractModel item in IterateCombatHookListeners(combatState))
++        foreach (AbstractModel item in (IEnumerable<AbstractModel>?)HookQueryFilter.CombatListeners(combatState, HookQueryFilter.Slot.ShouldAllowHitting) ?? IterateCombatHookListeners(combatState))
+         {
+             if (!IsEligibleHookListener(item)) continue;
+             if (!item.ShouldAllowHitting(creature))
+diff --git a/src/Sts2Sim.Core/Hooks/HookQueryFilter.cs b/src/Sts2Sim.Core/Hooks/HookQueryFilter.cs
+new file mode 100644
+index 0000000..646e58d
+--- /dev/null
++++ b/src/Sts2Sim.Core/Hooks/HookQueryFilter.cs
+@@ -0,0 +1,148 @@
++using System.Collections.Concurrent;
++using System.Reflection;
++using Sts2Sim.Core.Combat;
++using Sts2Sim.Core.Entities.Players;
++using Sts2Sim.Core.Models;
++using Sts2Sim.Core.Runs;
++
++namespace Sts2Sim.Core.Hooks;
++
++/// <summary>
++/// SimLab perf patch. Pure query hooks (no await, no InvokeExecutionFinished, neutral base
++/// method) only need the listeners whose runtime type overrides that hook: for any other
++/// listener the base method returns the neutral value (true, 0, 1, the input, MaxValue) and
++/// has no side effect, so skipping it cannot change a result. The listener order and the
++/// per-dispatch eligibility check stay as in the original loops.
++/// </summary>
++internal static class HookQueryFilter
++{
++    internal enum Slot
++    {
++        ShouldPlay,
++        ShouldAllowHitting,
++        DamageAdditive,
++        DamageMultiplicative,
++        DamageCap,
++        BlockAdditive,
++        BlockMultiplicative,
++        HpLostBeforeOsty,
++        HpLostBeforeOstyLate,
++        HpLostAfterOsty,
++        HpLostAfterOstyLate,
++        CardPlayCount,
++        CardPlayResultLocation,
++        Count,
++    }
++
++    private static readonly MethodInfo[] BaseSlots = new MethodInfo[(int)Slot.Count];
++    private static readonly ConcurrentDictionary<Type, int> Coverage = new();
++    private static readonly Func<AbstractModel, bool>[] Predicates = new Func<AbstractModel, bool>[(int)Slot.Count];
++
++    static HookQueryFilter()
++    {
++        Set(Slot.ShouldPlay, nameof(AbstractModel.ShouldPlay));
++        Set(Slot.ShouldAllowHitting, nameof(AbstractModel.ShouldAllowHitting));
++        Set(Slot.DamageAdditive, nameof(AbstractModel.ModifyDamageAdditive));
++        Set(Slot.DamageMultiplicative, nameof(AbstractModel.ModifyDamageMultiplicative));
++        Set(Slot.DamageCap, nameof(AbstractModel.ModifyDamageCap));
++        Set(Slot.BlockAdditive, nameof(AbstractModel.ModifyBlockAdditive));
++        Set(Slot.BlockMultiplicative, nameof(AbstractModel.ModifyBlockMultiplicative));
++        Set(Slot.HpLostBeforeOsty, nameof(AbstractModel.ModifyHpLostBeforeOsty));
++        Set(Slot.HpLostBeforeOstyLate, nameof(AbstractModel.ModifyHpLostBeforeOstyLate));
++        Set(Slot.HpLostAfterOsty, nameof(AbstractModel.ModifyHpLostAfterOsty));
++        Set(Slot.HpLostAfterOstyLate, nameof(AbstractModel.ModifyHpLostAfterOstyLate));
++        Set(Slot.CardPlayCount, nameof(AbstractModel.ModifyCardPlayCount));
++        Set(Slot.CardPlayResultLocation, nameof(AbstractModel.ModifyCardPlayResultLocation));
++        for (int i = 0; i < (int)Slot.Count; i++)
++        {
++            int bit = 1 << i;
++            Predicates[i] = model => (CoverageOf(model.GetType()) & bit) != 0;
++        }
++    }
++
++    private static void Set(Slot slot, string name)
++    {
++        MethodInfo[] candidates = typeof(AbstractModel)
++            .GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
++            .Where(m => m.Name == name && m.IsVirtual).ToArray();
++        if (candidates.Length != 1)
++            throw new InvalidOperationException($"HookQueryFilter: expected one virtual {name}, found {candidates.Length}.");
++        BaseSlots[(int)slot] = candidates[0];
++    }
++
++    internal static bool Overrides(AbstractModel model, Slot slot) => Predicates[(int)slot](model);
++
++    private static int CoverageOf(Type type) => Coverage.GetOrAdd(type, static t => Resolve(t));
++
++    // Same resolution as HookOverrideIndex: walk the type chain to the most derived declaration
++    // of each slot; a slot counts as overridden unless that declaration is the base method.
++    // Any reflection failure keeps every listener (fail-open).
++    private static int Resolve(Type runtimeType)
++    {
++        int all = (1 << (int)Slot.Count) - 1;
++        try
++        {
++            int coverage = 0;
++            for (int index = 0; index < BaseSlots.Length; index++)
++            {
++                MethodInfo baseSlot = BaseSlots[index];
++                bool resolved = false;
++                for (Type? current = runtimeType; current is not null && !resolved; current = current.BaseType)
++                {
++                    foreach (MethodInfo method in current.GetMethods(BindingFlags.Instance |
++                        BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
++                    {
++                        if (!method.IsVirtual || method.GetBaseDefinition() != baseSlot) continue;
++                        if (method != baseSlot) coverage |= 1 << index;
++                        resolved = true;
++                        break;
++                    }
++                }
++                if (!resolved) coverage |= 1 << index;
++            }
++            return coverage;
++        }
++        catch (Exception error) when (error is not OutOfMemoryException and not AccessViolationException)
++        {
++            return all;
++        }
++    }
++
++    /// <summary>
++    /// The listeners <c>runState.IterateHookListeners(combatState)</c> would yield, in the same
++    /// order, minus those that do not override <paramref name="slot"/>. Null when this shortcut
++    /// does not apply (unknown run/combat state types, no combat, malformed sources): the caller
++    /// then runs its original loop.
++    /// </summary>
++    internal static AbstractModel[]? Listeners(IRunState runState, ICombatState? combatState, Slot slot)
++    {
++        if (combatState is not CombatState concrete) return null;
++        if (!CombatState.HasStandardRunListeners(runState)) return null;
++        AbstractModel[]? combat = concrete.FilteredCombatListeners((int)slot, (int)Slot.Count, Predicates[(int)slot]);
++        if (combat is null) return null;
++
++        // Relics (not melted) then potions per player, as both run-state iterators yield them.
++        List<AbstractModel>? inventory = null;
++        IReadOnlyList<Player> players = runState.Players;
++        for (int i = 0; i < players.Count; i++)
++        {
++            Player player = players[i];
++            foreach (RelicModel relic in player.Relics)
++                if (!relic.IsMelted && Overrides(relic, slot)) (inventory ??= new List<AbstractModel>()).Add(relic);
++            foreach (PotionModel? potion in player.PotionSlots)
++                if (potion is not null && Overrides(potion, slot)) (inventory ??= new List<AbstractModel>()).Add(potion);
++        }
++        if (inventory is null) return combat;
++        inventory.AddRange(combat);
++        return inventory.ToArray();
++    }
++
++    /// <summary>Same as <see cref="Listeners"/> for loops over <c>IterateCombatHookListeners</c>,
++    /// which yield nothing once the combat is over or ending (and not starting).</summary>
++    internal static AbstractModel[]? CombatListeners(ICombatState combatState, Slot slot)
++    {
++        if (combatState is not CombatState) return null;
++        if (combatState.IsOverOrEnding() && !combatState.IsStarting()) return Array.Empty<AbstractModel>();
++        return Listeners(combatState.RunState, combatState, slot);
++    }
++}
+diff --git a/src/Sts2Sim.Core/Models/CardModel.cs b/src/Sts2Sim.Core/Models/CardModel.cs
+index 5e45efe..8ae81a1 100644
+--- a/src/Sts2Sim.Core/Models/CardModel.cs
++++ b/src/Sts2Sim.Core/Models/CardModel.cs
+@@ -1099,11 +1099,14 @@ public abstract class CardModel : AbstractModel, ICombatStateDescriptionContribu
+     protected override void DeepCloneFields()
+     {
+         base.DeepCloneFields();
+-        _localEnergyModifiers = _localEnergyModifiers.ToList();
++        // SimLab perf patch: same lists, built without LINQ iterators (most cards have no
++        // enchantment and no local energy modifier, so these were pure allocation overhead).
++        _localEnergyModifiers = new List<LocalEnergyModifier>(_localEnergyModifiers);
+         _keywordOverride = _keywordOverride is null ? null : new HashSet<CardKeyword>(_keywordOverride);
+-        _enchantments = _enchantments
+-            .Select(enchantment => (EnchantmentModel)enchantment.MutableClone())
+-            .ToList();
++        var enchantments = new List<EnchantmentModel>(_enchantments.Count);
++        foreach (EnchantmentModel enchantment in _enchantments)
++            enchantments.Add((EnchantmentModel)enchantment.MutableClone());
++        _enchantments = enchantments;
+         foreach (EnchantmentModel enchantment in _enchantments)
+         {
+             enchantment.AssignOwnerCard(this);
+@@ -1154,9 +1157,10 @@ public abstract class CardModel : AbstractModel, ICombatStateDescriptionContribu
+         clone.AssignOwnerInternal(owner);
+         clone._deckVersion = _deckVersion;
+         clone._cloneOf = _cloneOf;
+-        foreach ((EnchantmentModel source, EnchantmentModel target) in _enchantments.Zip(clone._enchantments))
++        // (Zip pairs up to the shorter list; DeepCloneFields made them the same length.)
++        for (int i = 0, n = Math.Min(_enchantments.Count, clone._enchantments.Count); i < n; i++)
+         {
+-            target.RestoreCombatCloneStateFrom(source);
++            clone._enchantments[i].RestoreCombatCloneStateFrom(_enchantments[i]);
+         }
+ 
+         clone.TemporaryFreeThisTurn = TemporaryFreeThisTurn;
+@@ -1170,7 +1174,10 @@ public abstract class CardModel : AbstractModel, ICombatStateDescriptionContribu
+         clone.TemporaryStarCostOverrideThisTurn = TemporaryStarCostOverrideThisTurn;
+         clone.ExhaustOnNextPlay = ExhaustOnNextPlay;
+         clone._energyCostThisTurnDelta = _energyCostThisTurnDelta;
+-        clone._localEnergyModifiers = _localEnergyModifiers.ToList();
++        // Refill the clone's own list (made in DeepCloneFields, filtered in AfterCloned) instead
++        // of allocating a second one; the result is the same independent copy.
++        clone._localEnergyModifiers.Clear();
++        clone._localEnergyModifiers.AddRange(_localEnergyModifiers);
+         return clone;
+     }
+ 
 diff --git a/src/Sts2Sim.Core/Runs/RunState.cs b/src/Sts2Sim.Core/Runs/RunState.cs
 index 1633545..fb929f8 100644
 --- a/src/Sts2Sim.Core/Runs/RunState.cs

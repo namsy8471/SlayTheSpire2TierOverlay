@@ -21,9 +21,12 @@ dotnet build -c Release                                      # needs the .NET 9 
 
 `patches/sts2-sim-perf.patch` changes only how the simulator does its work, never what it computes:
 same-seed output files are byte-identical with and without it. It caches the combat hook-listener
-list between dispatches (validated by the simulator's own zero-allocation source scan), tests the
+list between dispatches (validated by a scan of exactly the sources it was built from, kept in
+reusable per-state buffers), gives 13 pure query hooks (damage, block, HP loss, should-play,
+should-allow-hitting, play count/location) only the listeners whose type overrides them, tests the
 most common listener type first, builds the act-1 map only when something reads it (combat runs
-never do), and shares immutable history entries between combat clones.
+never do), shares immutable history entries between combat clones and drops LINQ/boxing
+allocations from card cloning and the engine's own cost-listener witness.
 
 `Directory.Build.props` here is intentionally empty: it stops the repo-wide props (net10,
 warnings-as-errors) from applying to this tool and to the clone. The assembly is named `SimFuzz`
