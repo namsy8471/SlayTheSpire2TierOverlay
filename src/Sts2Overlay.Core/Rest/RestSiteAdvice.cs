@@ -21,6 +21,13 @@ public enum RestConfidence
 
     /// <summary>박빙: the options are within <see cref="Data.Weights.ConfidenceCloseGap"/> points; either is fine.</summary>
     Close,
+
+    /// <summary>
+    /// No verdict: the current HP is unknown (<see cref="Model.RunState.VitalsKnown"/> is false), so heal vs smith can't be
+    /// judged. <see cref="RestSiteAdvice.Action"/> is then only a placeholder (<see cref="RestAction.Smith"/>) and must not
+    /// be shown as advice; <see cref="RestSiteAdvice.Upgrades"/> is still the full ranking.
+    /// </summary>
+    Unknown,
 }
 
 /// <summary>Result of <see cref="RestSiteAdvisor.Advise(Model.RunState, MapGraph?)"/>.</summary>

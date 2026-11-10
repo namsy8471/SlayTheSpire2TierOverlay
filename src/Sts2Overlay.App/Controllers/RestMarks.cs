@@ -14,9 +14,13 @@ namespace Sts2Overlay.App.Controllers;
 /// </summary>
 public static class RestMarks
 {
-    /// <summary>Marks for the campfire's option buttons. Empty when the advised button isn't on screen or is greyed out.</summary>
+    /// <summary>
+    /// Marks for the campfire's option buttons. Empty when the advised button isn't on screen or is greyed out, or when the
+    /// advisor gave no verdict (<see cref="RestConfidence.Unknown"/>: HP unknown).
+    /// </summary>
     public static MapMarkPlan Choice(RestSiteResult rest, RestSiteAdvice advice, Func<CardRef, string> name)
     {
+        if (advice.Confidence == RestConfidence.Unknown) return MapMarkPlan.Empty;
         var want = advice.Action == RestAction.Heal ? RestOption.Heal : RestOption.Smith;
         if (rest.Find(want) is not { Enabled: true } button) return MapMarkPlan.Empty;
 
@@ -38,10 +42,15 @@ public static class RestMarks
         var rects = new List<ScreenRectMark>();
         var used = new HashSet<int>();
         var top = advice.TopUpgrades(3);
+        // The game's "show upgrades" toggle draws every grid card upgraded (green title), so the recogniser reads the
+        // candidate one level higher. Every visible card reading upgraded means the toggle is on: then match by card id.
+        // Otherwise the upgrade level must match too, so an already-upgraded copy never takes the candidate's mark.
+        var preview = cards.Count > 0 && cards.All(c => c.Card.Upgrade > 0);
         for (var rank = 0; rank < top.Count; rank++)
         {
             var want = top[rank].Card;
             var i = Enumerable.Range(0, cards.Count).FirstOrDefault(j => !used.Contains(j) && cards[j].Card == want, -1);
+            if (i < 0 && preview) i = Enumerable.Range(0, cards.Count).FirstOrDefault(j => !used.Contains(j) && cards[j].Card.Id == want.Id, -1);
             if (i < 0) continue; // scrolled out of view
             used.Add(i);
             var r = cards[i].Rect;

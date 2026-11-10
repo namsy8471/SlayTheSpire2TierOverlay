@@ -1,3 +1,4 @@
+using Sts2Overlay.Core.Localization;
 using Sts2Overlay.Core.Map;
 using Sts2Overlay.Core.Model;
 using Sts2Overlay.Core.Rest;
@@ -155,5 +156,34 @@ public class RestSiteAdvisorTests
         var withBoss = RestSiteAdvisor.ChainMap([RestSite], [Monster, Boss]);
         Assert.Equal(3, withBoss.Nodes.Count); // no second boss
         Assert.Throws<ArgumentException>(() => RestSiteAdvisor.ChainMap([], [Boss]));
+    }
+
+    [Theory]
+    [InlineData(1.0)] // the placeholder "full HP" of a log-only run used to give a sure Smith
+    [InlineData(0.1)]
+    public void Unknown_hp_gives_no_heal_or_smith_verdict_but_still_ranks_upgrades(double hp)
+    {
+        using var _ = Loc.Use(Lang.Kor);
+        var known = Advisor.Advise(State(hp), [Elite, Boss]);
+        var unknown = State(hp) with { VitalsKnown = false };
+
+        foreach (var advice in new[] { Advisor.Advise(unknown, [Elite, Boss]), Advisor.Advise(unknown, (MapGraph?)null) })
+        {
+            Assert.Equal(RestConfidence.Unknown, advice.Confidence);
+            Assert.Equal("HP를 알 수 없어 휴식/재련은 직접 판단하세요", advice.Reason);
+            Assert.Null(advice.HealScore);
+            Assert.Null(advice.Outlook);
+            Assert.NotEmpty(advice.Upgrades);
+            Assert.Equal(known.Upgrades.Select(u => u.Card), advice.Upgrades.Select(u => u.Card)); // same ranking as with HP known
+        }
+        using (Loc.Use(Lang.Eng)) Assert.Equal("HP unknown: decide Rest vs Smith yourself", Advisor.Advise(unknown, [Boss]).Reason);
+    }
+
+    [Fact]
+    public void Nothing_to_upgrade_still_heals_when_hp_is_unknown()
+    {
+        var state = State(0.5) with { VitalsKnown = false, Deck = [new DeckCard(new CardRef(TestPacks.Curse))] };
+        var advice = Advisor.Advise(state, [Boss]);
+        Assert.Equal((RestAction.Heal, RestConfidence.Sure), (advice.Action, advice.Confidence));
     }
 }

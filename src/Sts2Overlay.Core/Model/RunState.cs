@@ -21,6 +21,14 @@ public sealed record RunState
     public int MaxHp { get; init; }
     public int Gold { get; init; }
 
+    /// <summary>
+    /// False when <see cref="Hp"/>, <see cref="MaxHp"/> and <see cref="Gold"/> are placeholders, not the real values: a run
+    /// rebuilt from the game log alone (co-op guest, or no save matched the run) starts from the character's starting HP and
+    /// gold and never sees damage, healing or spending. Advisors must not give verdicts that rest on them (rest heal vs smith,
+    /// lethal HP loss, "not enough gold"), and the UI shows them as unknown.
+    /// </summary>
+    public bool VitalsKnown { get; init; } = true;
+
     public IReadOnlyList<DeckCard> Deck { get; init; } = [];
 
     /// <summary>Relic model ids, e.g. <c>RELIC.CRACKED_CORE</c>.</summary>

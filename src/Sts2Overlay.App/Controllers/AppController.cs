@@ -231,7 +231,8 @@ public sealed partial class AppController : IDisposable
         if (snap.Run is not { } run || snap.Map is not { } map)
         {
             _pathKey = null;
-            UpdatePath(null);
+            if (IsCoopGuestWithoutMap(snap)) _vm.Path = PathSectionVm.CoopGuestEmpty; // on the UI thread (OnSnapshot)
+            else UpdatePath(null);
             SetMapRecommendation(null);
             return;
         }
@@ -250,6 +251,10 @@ public sealed partial class AppController : IDisposable
             UpdatePath(null);
         }
     }
+
+    /// <summary>A co-op run rebuilt from the log alone (no save file): the map never comes, so the path tab says why.</summary>
+    internal static bool IsCoopGuestWithoutMap(GameStateSnapshot snap)
+        => snap is { LogOnly: true, Map: null, Run.IsMultiplayer: true };
 
     /// <summary>Label of the i-th path option: the best, then alternatives.</summary>
     private static string PathLabel(int i) => i switch
@@ -511,12 +516,14 @@ public sealed partial class AppController : IDisposable
             .ToArray();
         var section = new OfferSectionVm
         {
-            Title = eval.GoldCorrectedByScreen
+            Title = !eval.GoldKnown ? Loc.T("상점 · 보유 골드 모름", "Shop · Gold unknown")
+                : eval.GoldCorrectedByScreen
                 ? Loc.T($"상점 · 보유 ~{eval.Gold}골드 (가격 색으로 보정)", $"Shop · ~{eval.Gold} Gold (from price colors)")
                 : Loc.T($"상점 · 보유 {eval.Gold}골드", $"Shop · {eval.Gold} Gold"),
             ConfidenceText = "",
             Rows = rows,
-            Footer = names.Length > 0
+            Footer = !eval.GoldKnown ? ShopFooterGoldUnknown(names)
+                : names.Length > 0
                 ? Loc.T($"추천 구매: {string.Join(" + ", names)} · 남는 골드 {eval.GoldLeft}", $"Buy: {string.Join(" + ", names)} · {eval.GoldLeft} Gold left")
                 : Loc.T("추천 구매 없음 (골드 아끼기)", "Buy nothing (save Gold)"),
         };
@@ -546,6 +553,14 @@ public sealed partial class AppController : IDisposable
     private static string ShopPriceText(ShopItemEvaluation item)
         => (item.PriceEstimated ? Loc.T($"~{item.Price}골드 (추정)", $"~{item.Price} Gold (est.)") : Loc.T($"{item.Price}골드", $"{item.Price} Gold"))
            + (item.OnSale ? Loc.T(" 세일", " sale") : "");
+
+    /// <summary>
+    /// Shop footer when the gold is unknown (log-only run): the bundle assumes every item without a red price is affordable,
+    /// so it says so and shows no "gold left".
+    /// </summary>
+    internal static string ShopFooterGoldUnknown(IReadOnlyList<string> names) => names.Count > 0
+        ? Loc.T($"추천 구매 (골드 모름, 가격 색 기준): {string.Join(" + ", names)}", $"Buy (Gold unknown, by price colors): {string.Join(" + ", names)}")
+        : Loc.T("추천 구매 없음 (골드 모름)", "Buy nothing (Gold unknown)");
 
     /// <summary>The merchant's card-removal service (game term: Card Removal).</summary>
     private static string RemovalName() => Loc.T("카드 제거", "Card Removal");
@@ -581,10 +596,7 @@ public sealed partial class AppController : IDisposable
             return;
         }
 
-        var asc = run.Ascension > 0 ? Loc.T($" · 승천 {run.Ascension}", $" · Ascension {run.Ascension}") : "";
-        _vm.RunText = Loc.T(
-            $"{CharacterName(run.Character)} · {run.Act}막 {run.Floor}층 · HP {run.Hp}/{run.MaxHp} · {run.Gold}골드{asc}",
-            $"{CharacterName(run.Character)} · Act {run.Act} Floor {run.Floor} · HP {run.Hp}/{run.MaxHp} · {run.Gold} Gold{asc}");
+        _vm.RunText = RunHeader(run);
         try
         {
             var profile = _engine.Analyze(run);
@@ -596,6 +608,24 @@ public sealed partial class AppController : IDisposable
             AppLog.Error("deck/build analysis failed", ex);
             ShowMessage(Loc.T("덱 분석 실패: ", "Deck analysis failed: ") + ex.Message);
         }
+    }
+
+    /// <summary>
+    /// The panel's run line. HP and gold show as "?" with a "로그 추정" tag when they are only placeholders
+    /// (<see cref="RunState.VitalsKnown"/>: log-only run, e.g. a co-op guest).
+    /// </summary>
+    internal static string RunHeader(RunState run)
+    {
+        var asc = run.Ascension > 0 ? Loc.T($" · 승천 {run.Ascension}", $" · Ascension {run.Ascension}") : "";
+        if (!run.VitalsKnown)
+        {
+            return Loc.T(
+                $"{CharacterName(run.Character)} · {run.Act}막 {run.Floor}층 · HP ? · 골드 ?{asc} · 로그 추정",
+                $"{CharacterName(run.Character)} · Act {run.Act} Floor {run.Floor} · HP ? · Gold ?{asc} · from log");
+        }
+        return Loc.T(
+            $"{CharacterName(run.Character)} · {run.Act}막 {run.Floor}층 · HP {run.Hp}/{run.MaxHp} · {run.Gold}골드{asc}",
+            $"{CharacterName(run.Character)} · Act {run.Act} Floor {run.Floor} · HP {run.Hp}/{run.MaxHp} · {run.Gold} Gold{asc}");
     }
 
     private DeckSectionVm BuildDeck(RunState run, DeckProfile profile)
@@ -660,8 +690,12 @@ public sealed partial class AppController : IDisposable
             if (d.CardReasons.Count > 0) parts.Add(Loc.T($"? 표시 {d.CardReasons.Count}종", $"{d.CardReasons.Count} marked ?"));
             summary += Loc.T(" · 추정: ", " · Estimated: ") + string.Join(" · ", parts);
         }
+        if (_snapshot.LogOnly) summary += "\n" + LogDeckNote();
         return new DeckSectionVm { Summary = summary, Groups = groups, Roles = roles };
     }
+
+    /// <summary>Standing 덱-tab note for a deck rebuilt from the game log (no save file: co-op guest).</summary>
+    internal static string LogDeckNote() => Loc.T("로그로 추정한 덱입니다 (상점 구매 등은 빠질 수 있음)", "Deck rebuilt from the log (shop purchases etc. may be missing)");
 
     /// <summary>Deck tab groups, in display order.</summary>
     private enum DeckGroup

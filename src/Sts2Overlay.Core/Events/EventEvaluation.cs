@@ -21,6 +21,12 @@ public sealed record EventOptionEvaluation
     /// <summary>The player cannot pay for it (gold cost above current gold).</summary>
     public bool IsUnaffordable { get; init; }
 
+    /// <summary>
+    /// The option costs HP (or leads to a page whose best option does) while the current HP is unknown
+    /// (<see cref="Model.RunState.VitalsKnown"/> false): it can't be judged safe or lethal, so the UI shows a caution.
+    /// </summary>
+    public bool HpLossUnknown { get; init; }
+
     /// <summary>At least one effect could not be valued (an <c>other</c> effect or an unknown formula).</summary>
     public bool HasUnmodelled { get; init; }
 
