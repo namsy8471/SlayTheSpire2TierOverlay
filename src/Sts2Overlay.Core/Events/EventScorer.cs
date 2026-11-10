@@ -34,6 +34,12 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
     /// <summary>The given weights, else the pack's (<c>weights.json</c> "events").</summary>
     public EventWeights Weights { get; } = weights ?? pack.Weights.Events;
 
+    /// <summary>
+    /// The engine's switch (<see cref="RecommendationEngine.UseLearnedModel"/>): a "gain this card" effect is valued like the
+    /// reward screen and the shop (<see cref="CardValuer"/>). Default false: the hand-tuned engine alone.
+    /// </summary>
+    public bool UseLearnedModel { get; init; }
+
     private RelicScorer Relics => _relics ??= new RelicScorer(Pack, Weights);
     private RelicScorer? _relics;
 
@@ -501,8 +507,9 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
             {
                 return (-Weights.CursePenaltyFor(id) * n, Loc.T("저주 카드", "Curse card"), id);
             }
-            var eval = new CardScorer(Pack).Score(state, profile, new CardRef(id), OfferContext.Event);
-            var skip = new SkipScorer(Pack).Score(state, profile).Total;
+            var (evals, skipScore) = new CardValuer(Pack, UseLearnedModel).Evaluate(state, profile, [new CardRef(id)], OfferContext.Event);
+            var eval = evals[0];
+            var skip = skipScore.Total;
             var add = Loc.T("카드 추가", "Add card");
             return ((eval.Total - skip) * n, n > 1 ? $"{add} ×{n}" : add, id);
         }

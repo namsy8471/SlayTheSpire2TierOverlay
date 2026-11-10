@@ -45,6 +45,9 @@ public sealed class RunReviewService : IDisposable
 
     public void SetPack(DataPack pack) => _pack = pack;
 
+    /// <summary>The live engine's <c>cardModel</c> switch, so the review judges runs the way the overlay advised them.</summary>
+    public bool UseLearnedModel { get; init; } = true;
+
     /// <summary>Reviews the newest existing run (in the background) and starts watching for new ones.</summary>
     public void Start()
     {
@@ -99,7 +102,7 @@ public sealed class RunReviewService : IDisposable
 
             var run = ReadWithRetry(newest);
             if (run is null) return;
-            var review = RunReviewBuilder.Build(run, _pack, _steamId);
+            var review = RunReviewBuilder.Build(run, _pack, _steamId, UseLearnedModel);
             lock (_gate) _lastReviewed = newest;
             AppLog.Info($"run review: {Path.GetFileName(newest)} ({review.Decisions} decisions, {review.Agreements} agreed){(isNew ? " [new]" : "")}");
             _ui.BeginInvoke(() => _onReview(review, isNew));

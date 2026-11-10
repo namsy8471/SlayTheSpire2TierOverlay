@@ -63,7 +63,7 @@ public sealed partial class AppController
             AppLog.Error("events: load failed", ex);
             catalog = EventCatalog.Empty;
         }
-        _eventScorer = new EventScorer(_engine.Pack, catalog);
+        _eventScorer = new EventScorer(_engine.Pack, catalog) { UseLearnedModel = _engine.UseLearnedModel };
         try
         {
             _combatSim = CombatData.LoadPack(packDir) is { } combat ? new TurnSimulator(combat) : null;

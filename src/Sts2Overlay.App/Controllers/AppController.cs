@@ -516,6 +516,7 @@ public sealed partial class AppController : IDisposable
             if (r.Cards[i].Confidence < 0.8) sub += Loc.T($" · 인식 {r.Cards[i].Confidence:P0}", $" · recognized {r.Cards[i].Confidence:P0}");
             if (!e.IsRated) sub += Loc.T(" · 미평가 카드", " · unrated card");
             if (ScoringLabels.BuildRoleText(e.BuildRoles) is { } buildRole) sub = buildRole + "\n" + sub;
+            sub = WithCoopOnlyTag(sub, e);
             rows.Add(new OfferRowVm
             {
                 Name = _cards.Name(e.Card),
@@ -590,6 +591,7 @@ public sealed partial class AppController : IDisposable
             var sub = Loc.T($"구매 가치 {Fmt(item.Value.Total)} · 골드당 {perGold}", $"Buy value {Fmt(item.Value.Total)} · per Gold {perGold}");
             if (!item.Affordable) sub += Loc.T(" · 골드 부족", " · not enough Gold");
             if (e is not null && ScoringLabels.BuildRoleText(e.BuildRoles) is { } buildRole) sub = buildRole + "\n" + sub;
+            sub = WithCoopOnlyTag(sub, e);
             if (item.RelicEvaluation is { FitArchetype: { } fit } re && re.FitMultiplier != 1.0)
             {
                 var mult = re.FitMultiplier.ToString("0.00", CultureInfo.InvariantCulture);
@@ -627,6 +629,7 @@ public sealed partial class AppController : IDisposable
                 ? Loc.T($"상점 · 보유 ~{eval.Gold}골드 (가격 색으로 보정)", $"Shop · ~{eval.Gold} Gold (from price colors)")
                 : Loc.T($"상점 · 보유 {eval.Gold}골드", $"Shop · {eval.Gold} Gold"),
             ConfidenceText = "",
+            FlipHint = CoopNote(run, null), // shop cards are valued like the reward screen: the same co-op caveat applies
             Rows = rows,
             Footer = !eval.GoldKnown ? ShopFooterGoldUnknown(names)
                 : names.Length > 0
@@ -1178,6 +1181,7 @@ public sealed partial class AppController : IDisposable
     public void ReloadPack()
     {
         (_engine, _cards, _packLoaded) = LoadPack(_packDir, CatalogPath);
+        _engine.UseLearnedModel = !string.Equals(_settings.CardModel, "engine", StringComparison.OrdinalIgnoreCase); // keep cardModel after a reload
         _vm.PackText = PackText();
         _cardText = CardTextProvider.ForLocalData(_engine.Pack, _packDir);
         _relicInfo = RelicInfoProvider.ForLocalData(_packDir); // new icons / localization after a resource prepare
@@ -1291,6 +1295,13 @@ public sealed partial class AppController : IDisposable
         var note = Loc.T("솔로 승천 10 랭커 기록 기준입니다 (협동 보정 없음)", "Based on solo Ascension 10 top-player picks (no co-op adjustment)");
         return flipHint is null ? note : note + Environment.NewLine + flipHint;
     }
+
+    /// <summary>
+    /// A card row's sub line, with a first line "협동 전용 · 솔로 기록 없음" for a co-op-only card the learned model has no solo
+    /// record of (<see cref="CardEvaluation.CoopOnlyNoSoloData"/>): its score is the engine part alone, and the row says so.
+    /// </summary>
+    internal static string WithCoopOnlyTag(string sub, CardEvaluation? e)
+        => e is { CoopOnlyNoSoloData: true } ? Loc.T("협동 전용 · 솔로 기록 없음", "Co-op only · no solo data") + "\n" + sub : sub;
 
     private static string CharacterName(string id) => ForecastReviewPresenter.CharacterName(id);
 
