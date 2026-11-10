@@ -85,10 +85,16 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
         for (var k = 0; k < order.Length; k++) ranks[order[k]] = k + 1;
         var eligible = order.Where(i => !evals[i].IsUnaffordable && !evals[i].IsLethal).ToList();
         if (eligible.Count == 0) eligible = order.Where(i => !evals[i].IsUnaffordable).ToList();
-        int? best = eligible.Count > 0 ? eligible[0] : null;
+        // A pick needs information and a real lead: no "추천!" for an option nothing is known about, nor for a tie at the top
+        // (button order would decide it).
+        int? best = eligible.Count > 0 && !evals[eligible[0]].HasNoData
+                    && (eligible.Count < 2 || evals[eligible[0]].Total > evals[eligible[1]].Total + 1e-9)
+            ? eligible[0]
+            : null;
 
         RecommendationConfidence confidence;
-        if (best is int b && evals[b].HasUnmodelled) confidence = RecommendationConfidence.Estimate;
+        if ((best is int b && evals[b].HasUnmodelled) || (eligible.Count > 0 && (best is null || evals.Any(e => e.HasNoData))))
+            confidence = RecommendationConfidence.Estimate;
         else if (eligible.Count < 2) confidence = RecommendationConfidence.Sure;
         else
         {
@@ -431,7 +437,7 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
                 {
                     // "other", or a known type whose amount formula could not be evaluated.
                     unmodelled = true;
-                    texts.Add((e.Note ?? e.Type) + chanceText);
+                    texts.Add(UnmodelledText(e) + chanceText);
                     break;
                 }
             }
@@ -513,8 +519,50 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
             n > 1 ? Loc.T($"무작위 카드 {n}장", $"{n} random cards") : Loc.T("무작위 카드", "Random card"), null);
     }
 
-    /// <summary>The event's own filter note (English in events.json in either language), in parentheses.</summary>
-    private static string FilterText(string? filter) => string.IsNullOrWhiteSpace(filter) ? "" : $" ({filter})";
+    /// <summary>
+    /// The event's own filter note in parentheses. events.json writes it in English: English shows it as is, Korean a short
+    /// phrase for the common ones (<see cref="KoreanFilters"/>) and a generic "대상 제한" otherwise, never the English note.
+    /// </summary>
+    private static string FilterText(string? filter)
+    {
+        if (string.IsNullOrWhiteSpace(filter)) return "";
+        return Loc.T($" ({(KoreanFilters.TryGetValue(filter, out var kor) ? kor : "대상 제한")})", $" ({filter})");
+    }
+
+    /// <summary>Korean for the filter notes events.json uses more than once or that a player meets early (game terms: 타격, 수비).</summary>
+    private static readonly IReadOnlyDictionary<string, string> KoreanFilters = new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        ["displayed card"] = "표시된 카드",
+        ["Attacks"] = "공격 카드",
+        ["Skills"] = "스킬 카드",
+        ["Powers"] = "파워 카드",
+        ["basic Strike (Basic rarity, removable)"] = "기본 타격",
+        ["basic Defend (Basic rarity, removable)"] = "기본 수비",
+        ["basic Strike/Defend"] = "기본 타격·수비",
+        ["basic Strikes"] = "기본 타격",
+        ["first basic Strike + first basic Defend in deck"] = "기본 타격 1장 + 기본 수비 1장",
+        ["last basic Strike and last basic Defend"] = "마지막 기본 타격·수비",
+    };
+
+    /// <summary>
+    /// Text for an effect the scorer could not value. events.json's <c>note</c> is an English developer note, so only English
+    /// shows it (and only for an <c>other</c> effect); otherwise a generic phrase for the effect type. Never the raw type key.
+    /// </summary>
+    internal static string UnmodelledText(EventEffect e)
+    {
+        var (kor, eng) = e.Type switch
+        {
+            EventEffectTypes.HpLoss => ("체력 손실", "HP loss"),
+            EventEffectTypes.Heal => ("체력 회복", "Heal"),
+            EventEffectTypes.MaxHp => ("최대 체력 변화", "Max HP change"),
+            EventEffectTypes.Gold => ("골드 변화", "Gold change"),
+            EventEffectTypes.Other => ("특수 효과", "Special effect"),
+            _ => ("알 수 없는 효과", "Unknown effect"),
+        };
+        return e.Type == EventEffectTypes.Other
+            ? Loc.T($"{kor} (점수 미반영)", string.IsNullOrWhiteSpace(e.Note) ? $"{eng} (not scored)" : e.Note)
+            : Loc.T($"{kor} (수치 미확인)", $"{eng} (amount unknown)");
+    }
 
     /// <summary>English count of cards: "1 card", "2 random cards".</summary>
     private static string Cards(int n, string adjective = "") => n == 1 ? $"1 {adjective}card" : $"{n} {adjective}cards";

@@ -140,6 +140,14 @@ public sealed partial class AppController
         if (eval is null)
         {
             AppLog.Info($"event {active.EventId}: not in events.json");
+            var newEvent = _lastEvent is not null || !_vm.Offer.HasContent || _vm.Offer.IsStale;
+            _lastEvent = null;
+            _eventMarkers?.Clear();
+            var unknownId = active.EventId;
+            _vm.Offer = NoEventDataOffer(unknownId);
+            _offerSource = null;
+            _eventOfferRebuild = () => NoEventDataOffer(unknownId);
+            if (newEvent) _vm.SelectedTab = PanelTab.Offer;
             return;
         }
         var first = _lastEvent?.Event.Id != eval.Event.Id;
@@ -227,8 +235,10 @@ public sealed partial class AppController
                 : o.Option.Key.EndsWith(EventSlots.LockedSuffix, StringComparison.Ordinal) ? LockedText()
                 : o.IsUnaffordable ? NoGoldText()
                 : o.WinChance < HardKill ? HardKillText()
+                : o.HasUnmodelled ? UnmodelledText(o)
                 : null;
-            var score = o.WinChance is { } w ? Loc.T($"{Fmt(o.Total)} · 처치 {w * 100:0}%", $"{Fmt(o.Total)} · kill {w * 100:0}%") : Fmt(o.Total);
+            var score = o.WinChance is { } w ? Loc.T($"{Fmt(o.Total)} · 처치 {w * 100:0}%", $"{Fmt(o.Total)} · kill {w * 100:0}%")
+                : o.HasNoData ? "?" : Fmt(o.Total);
             specs.Add(new EventMarkerSpec(new PixelRect(b.X + _eventOrigin.X, b.Y + _eventOrigin.Y, b.Width, b.Height),
                 o.Rank, o.IsBest, score, warning));
         }
@@ -381,6 +391,17 @@ public sealed partial class AppController
     internal static string HpUnknownText() => Loc.T("HP 모름: 체력 손실 주의", "HP unknown: mind the HP loss");
 
     private static string HardKillText() => Loc.T("처치 어려움", "Hard to kill");
+
+    /// <summary>On-screen tag of an option whose effects are (partly) unknown: its score is a guess, not a verdict.</summary>
+    internal static string UnmodelledText(EventOptionEvaluation o) => o.HasNoData ? Loc.T("정보 없음", "No data") : Loc.T("일부 추정", "Partly estimated");
+
+    /// <summary>The 추천 tab for an event room events.json does not know yet: the previous event's rows must not stay.</summary>
+    private OfferSectionVm NoEventDataOffer(string eventId) => new()
+    {
+        Title = Loc.T($"이벤트 · {_eventText.EventTitle(eventId)}", $"Event · {_eventText.EventTitle(eventId)}"),
+        ConfidenceText = "",
+        Footer = Loc.T("이 이벤트는 아직 데이터가 없습니다", "No data for this event yet"),
+    };
 
     /// <summary>Re-scores and re-formats the last event offer shown (also after the room closed and it went stale); null when none.</summary>
     private Func<OfferSectionVm?>? _eventOfferRebuild;

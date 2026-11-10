@@ -52,7 +52,7 @@ public sealed class ShopScorer(DataPack pack)
         if (removal is not null) items.Add(removal);
 
         var sorted = items.OrderByDescending(i => i.ValuePerGold).ToArray();
-        var bundle = BestBundle(sorted, gold);
+        var bundle = BestBundle(sorted.Where(WorthBuying).ToArray(), gold);
         return new ShopEvaluation
         {
             Items = sorted,
@@ -142,8 +142,24 @@ public sealed class ShopScorer(DataPack pack)
         };
     }
 
+    /// <summary>
+    /// The reward screen's bar for a pick (<see cref="RecommendationEngine.EvaluateOffer(RunState, DeckProfile, IReadOnlyList{CardRef}, OfferContext)"/>),
+    /// with the same <see cref="SkipWeights"/>: an item must be worth at least <see cref="SkipWeights.Margin"/> (a card's value is
+    /// already card − skip); a low-confidence card needs <see cref="SkipWeights.LowConfidenceStep"/> more; a card without a tier
+    /// entry is never bought (the shop does not use the learned model, so nothing rates it). Items below the bar stay listed.
+    /// </summary>
+    private bool WorthBuying(ShopItemEvaluation item)
+    {
+        var s = Pack.Weights.Skip;
+        var value = item.Value.Total;
+        if (item.CardEvaluation is not { } e) return value >= s.Margin;
+        if (e.Unjudged) return false;
+        return e.Confidence >= s.LowConfidence ? value >= s.Margin : value >= s.Margin + Math.Max(0.0, s.LowConfidenceStep);
+    }
+
     private ShopItemEvaluation? RemovalItem(RunState state, ShopOffer offer, int gold)
     {
+        if (!offer.RemovalAvailable) return null; // already used this visit (or not on screen): nothing to buy or budget for
         var target = RemovalTarget(state, out var isCurse);
         if (target is null) return null;
         var w = Pack.Weights.Shop;
