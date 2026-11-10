@@ -16,11 +16,14 @@ public sealed class Progress : IDisposable
     private readonly Timer _timer;
     private readonly object _gate = new();
     private bool _closed;
+    private readonly Func<int>? _doneSource;
     private int _done;
 
-    public Progress(string outputPath, int total)
+    /// <param name="doneSource">Counts done work itself instead of <see cref="Tick"/>; SimFuzz
+    /// --claim uses it to report the fights finished by all processes sharing the sample.</param>
+    public Progress(string outputPath, int total, Func<int>? doneSource = null)
     {
-        (_path, _total) = (outputPath + ".progress", total);
+        (_path, _total, _doneSource) = (outputPath + ".progress", total, doneSource);
         _timer = new Timer(_ => Report(), null, TimeSpan.Zero, TimeSpan.FromSeconds(10));
     }
 
@@ -32,7 +35,7 @@ public sealed class Progress : IDisposable
         {
             if (_closed) return; // a timer tick that lands after the final line must not overwrite it
             _closed = final;
-            string line = Line(Volatile.Read(ref _done), _total, _sw.Elapsed);
+            string line = Line(_doneSource?.Invoke() ?? Volatile.Read(ref _done), _total, _sw.Elapsed);
             Console.Error.WriteLine(line);
             try { File.WriteAllText(_path, line + Environment.NewLine); } catch (IOException) { }
         }

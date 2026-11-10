@@ -124,14 +124,41 @@ Console.WriteLine($"potions={CombatRunner.GivePotions} policy={policyName} " + (
 long simRuns = 0;
 var simWatch = Stopwatch.StartNew();
 var po = new ParallelOptions { MaxDegreeOfParallelism = threads };
-using (var progress = new Progress(outCsv, sample.Count))
-Parallel.For(0, sample.Count, po, i =>
+// Heaviest fights first (boss, elite, then bigger decks), one at a time per free thread, so no
+// thread is left alone with a 10 s boss at the end. Results are kept by sample index, so the
+// order of work never changes the output.
+int[] order = Enumerable.Range(0, sample.Count)
+    .OrderBy(i => sample[i].Row.room_type switch { "boss" => 0, "elite" => 1, _ => 2 })
+    .ThenByDescending(i => sample[i].Row.deck.Count).ToArray();
+// --claim <dir>: several processes share one sample. Each takes a fight by creating <dir>/<i>.row
+// (CreateNew fails if another process already took it) and writes the CSV row into it when done,
+// so no process waits on a fixed shard that happened to get the slow fights. run.sh merges the rows.
+string claimDir = StrArg("--claim", "");
+Func<int>? claimedDone = null;
+if (claimDir != "")
 {
+    Directory.CreateDirectory(claimDir);
+    claimedDone = () => new DirectoryInfo(claimDir).EnumerateFiles("*.row").Count(fi => fi.Length > 0);
+}
+using (var progress = new Progress(outCsv, sample.Count, claimedDone))
+Parallel.ForEach(Partitioner.Create(order, EnumerablePartitionerOptions.NoBuffering), po, i =>
+{
+    FileStream? claim = null;
+    if (claimDir != "")
+    {
+        try { claim = new FileStream(Path.Combine(claimDir, i + ".row"), FileMode.CreateNew, FileAccess.Write); }
+        catch (IOException) { return; } // another process has it
+    }
     FightSpec f = sample[i];
     var fw = Stopwatch.StartNew();
-    results[i] = SimulateFight(f, seeds, makePolicy, TimeSpan.FromSeconds(wallCapSec), ref simRuns);
+    string row = SimulateFight(f, seeds, makePolicy, TimeSpan.FromSeconds(wallCapSec), ref simRuns);
+    results[i] = row;
+    if (claim is not null)
+    {
+        using (claim) claim.Write(Encoding.UTF8.GetBytes(row + "\n"));
+    }
     if (fw.Elapsed.TotalSeconds > 2)
-        Console.Error.WriteLine($"  slow fight {fw.Elapsed.TotalSeconds:F1}s {f.Row.character} {f.Row.encounter} deck={f.Row.deck.Count} -> {results[i].Split(',').Skip(12).FirstOrDefault()} runs");
+        Console.Error.WriteLine($"  slow fight {fw.Elapsed.TotalSeconds:F1}s {f.Row.character} {f.Row.encounter} deck={f.Row.deck.Count} -> {row.Split(',').Skip(12).FirstOrDefault()} runs");
     progress.Tick();
 });
 double simSec = simWatch.Elapsed.TotalSeconds;
@@ -139,10 +166,10 @@ double simSec = simWatch.Elapsed.TotalSeconds;
 using (var w = new StreamWriter(outCsv, false, new UTF8Encoding(false)))
 {
     w.WriteLine("run_id,node_index,build_id,act,room_type,encounter,character,real_damage,real_turns,real_died,mapped,unmapped_note,sim_runs,sim_win_rate,sim_damage_mean,sim_damage_sd,sim_turns_mean,error");
-    for (int i = 0; i < sample.Count; i++) w.WriteLine(results[i]);
+    for (int i = 0; i < sample.Count; i++) if (results.TryGetValue(i, out string? row)) w.WriteLine(row);
 }
-string summary = $"fights={sample.Count} seeds={seeds} threads={threads} sim_wall={simSec:F1}s " +
-                 $"fights/s={sample.Count / simSec:F3} combats/s={simRuns / simSec:F2} total_wall={total.Elapsed.TotalSeconds:F1}s " +
+string summary = $"fights={results.Count} seeds={seeds} threads={threads} sim_wall={simSec:F1}s " +
+                 $"fights/s={results.Count / simSec:F3} combats/s={simRuns / simSec:F2} total_wall={total.Elapsed.TotalSeconds:F1}s " +
                  $"rollout_failures={policy.RolloutFailures + BeamPolicy.Failures}";
 summary += $" first_chance_exceptions={firstChance}";
 Console.WriteLine(summary);
