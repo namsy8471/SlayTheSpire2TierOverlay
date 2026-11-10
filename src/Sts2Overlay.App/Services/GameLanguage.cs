@@ -26,7 +26,16 @@ public static class GameLanguage
     public const string English = "eng";
 
     /// <summary>The <c>language</c> value of a settings.save text, or null when it is missing, empty or not JSON.</summary>
-    public static string? ReadLanguageCode(string? settingsJson)
+    public static string? ReadLanguageCode(string? settingsJson) => ReadString(settingsJson, "language");
+
+    /// <summary>
+    /// The game's "Aspect Ratio" option (<c>aspect_ratio</c>: <c>sixteen_by_nine</c> = the default, <c>sixteen_by_ten</c>,
+    /// <c>four_by_three</c>, <c>twenty_one_by_nine</c>, <c>auto</c>), or null when it is missing, not a string, or not JSON.
+    /// </summary>
+    public static string? ReadAspectRatio(string? settingsJson) => ReadString(settingsJson, "aspect_ratio");
+
+    /// <summary>A top-level string value of a settings.save text (trimmed), or null.</summary>
+    private static string? ReadString(string? settingsJson, string key)
     {
         if (string.IsNullOrWhiteSpace(settingsJson)) return null;
         try
@@ -37,7 +46,7 @@ public static class GameLanguage
                 CommentHandling = JsonCommentHandling.Skip,
             });
             if (doc.RootElement.ValueKind != JsonValueKind.Object) return null;
-            if (!doc.RootElement.TryGetProperty("language", out var value) || value.ValueKind != JsonValueKind.String) return null;
+            if (!doc.RootElement.TryGetProperty(key, out var value) || value.ValueKind != JsonValueKind.String) return null;
             var code = value.GetString()?.Trim();
             return string.IsNullOrEmpty(code) ? null : code;
         }
@@ -94,6 +103,7 @@ public static class GameLanguage
 /// Watches the game's settings.save for the "auto" language choice: <see cref="Poll"/> is cheap (a directory listing and a
 /// write time) and only re-reads the file when it changed, so it can run every few seconds on the UI thread. The player
 /// can change the language from the game's options menu mid-session; the game rewrites settings.save then.
+/// The same read also gives the game's "Aspect Ratio" option (<see cref="AspectRatio"/>), for the panel's notice.
 /// </summary>
 public sealed class GameLanguageWatcher(string gameDataRoot)
 {
@@ -103,6 +113,12 @@ public sealed class GameLanguageWatcher(string gameDataRoot)
 
     /// <summary>The game's language code from the last read (null = unknown).</summary>
     public string? Code => _code;
+
+    /// <summary>The game's <c>aspect_ratio</c> option from the last good read (null = unknown or not in the file).</summary>
+    public string? AspectRatio { get; private set; }
+
+    /// <summary>Raised (on the polling thread) when <see cref="AspectRatio"/> changed.</summary>
+    public event Action? AspectRatioChanged;
 
     /// <summary>Re-reads settings.save if a different file is now the newest or it was rewritten. True when the code changed.</summary>
     public bool Poll()
@@ -134,10 +150,16 @@ public sealed class GameLanguageWatcher(string gameDataRoot)
         }
 
         var code = GameLanguage.ReadLanguageCode(text);
-        if (code is null) return false; // half-written or garbage: read it again on the next poll
+        var aspect = GameLanguage.ReadAspectRatio(text);
+        if (code is null && aspect is null) return false; // half-written or garbage: read it again on the next poll
         _path = path;
         _written = written;
-        if (string.Equals(code, _code, StringComparison.OrdinalIgnoreCase)) return false;
+        if (aspect != AspectRatio)
+        {
+            AspectRatio = aspect;
+            AspectRatioChanged?.Invoke();
+        }
+        if (code is null || string.Equals(code, _code, StringComparison.OrdinalIgnoreCase)) return false; // keep the last known code
         _code = code;
         return true;
     }
