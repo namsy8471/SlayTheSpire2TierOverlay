@@ -567,11 +567,11 @@ public sealed class BeamPolicy : ICombatPolicy
         return ranked[0].Node.Steps;
     }
 
-    private static IEnumerable<(int HandIndex, int TargetIndex)> Moves(CombatState state, Player p)
+    private static List<(int HandIndex, int TargetIndex)> Moves(CombatState state, Player p)
     {
         var seen = new HashSet<string>();
         IReadOnlyList<CardModel> hand = p.PlayerCombatState!.Hand.Cards;
-        var result = new List<(int, int)>();
+        var result = new List<(int HandIndex, int TargetIndex)>();
         for (int i = 0; i < hand.Count; i++)
         {
             CardModel card = hand[i];
@@ -606,12 +606,14 @@ public sealed class BeamPolicy : ICombatPolicy
     private static string CardKey(CardModel card) =>
         card.Id + "+" + card.CurrentUpgradeLevel + "#" + string.Join(",", card.Enchantments.Select(en => en.Id.ToString())) + ":" + card.EnergyCost;
 
-    private static Node? Apply(Node parent, int handIndex, int targetIndex, int turn)
+    /// <param name="inPlace">Play on <paramref name="parent"/>'s own state instead of a clone; only for a
+    /// parent that is never read again (see <see cref="GreedyTurn"/>).</param>
+    private static Node? Apply(Node parent, int handIndex, int targetIndex, int turn, bool inPlace = false)
     {
         try
         {
             long t0 = Profile ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
-            CombatState clone = parent.State.Clone(out _);
+            CombatState clone = inPlace ? parent.State : parent.State.Clone(out _);
             clone.CardSelectionSource = SimpleSelector.Instance;
             CombatEngine engine = clone.Engine!;
             Player p = clone.Players[0];
@@ -716,7 +718,9 @@ public sealed class BeamPolicy : ICombatPolicy
     /// One-step greedy turn: try every legal move on a clone, keep the one with the best
     /// <see cref="Eval.Static"/>, repeat while that beats stopping. Returns the state the turn ended
     /// in: the winning probe's clone is kept and continued, instead of replaying its move on
-    /// <paramref name="state"/> (the move was already played once on that clone).
+    /// <paramref name="state"/> (the move was already played once on that clone). The step's last probe
+    /// plays on the parent itself once an earlier probe beat stopping (relies on a clone playing out
+    /// exactly like its original).
     /// </summary>
     private static CombatState GreedyTurn(CombatState state, Player p, int turn)
     {
@@ -728,10 +732,16 @@ public sealed class BeamPolicy : ICombatPolicy
             Node? best = null;
             double bestV = stop - 1e-6;
             var probe = new Node { State = state, Steps = empty };
-            foreach ((int hi, int ti) in Moves(state, p))
+            var moves = Moves(state, p);
+            int last = moves.FindLastIndex(m => m.HandIndex >= 0);
+            for (int i = 0; i < moves.Count; i++)
             {
+                (int hi, int ti) = moves[i];
                 if (hi < 0) continue; // potions are only planned at the top level
-                Node? child = Apply(probe, hi, ti, turn);
+                // Once a probe beat stopping, the turn goes on from a child whatever the last probe
+                // does, so the parent is dead and the last probe can play on it instead of a clone.
+                bool inPlace = i == last && best is not null;
+                Node? child = Apply(probe, hi, ti, turn, inPlace);
                 if (child is null) continue;
                 if (child.Static > bestV)
                 {

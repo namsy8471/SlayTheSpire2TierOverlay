@@ -71,10 +71,104 @@ index 4133c91..320e483 100644
      }
  
 diff --git a/src/Sts2Sim.Core/Combat/CombatState.Clone.cs b/src/Sts2Sim.Core/Combat/CombatState.Clone.cs
-index 71a0386..e878c9c 100644
+index 71a0386..ae6306c 100644
 --- a/src/Sts2Sim.Core/Combat/CombatState.Clone.cs
 +++ b/src/Sts2Sim.Core/Combat/CombatState.Clone.cs
-@@ -295,6 +295,10 @@ public sealed partial class CombatState
+@@ -43,7 +43,18 @@ public sealed partial class CombatState
+     public CombatState Clone(out CombatCloneMap map)
+     {
+         var runState = new CombatRunStateSnapshot(RunState);
+-        var cardMap = new Dictionary<CardModel, CardModel>(ReferenceEqualityComparer.Instance);
++        // Final size up front (deck + the five combat piles): the map otherwise regrows its entry
++        // array several times on every search clone. Capacity only; insertion order is unchanged.
++        int cardCount = 0;
++        for (int i = 0; i < Players.Count; i++)
++        {
++            Player player = Players[i];
++            cardCount += player.Deck.Cards.Count;
++            if (player.PlayerCombatState is { } pcs)
++                cardCount += pcs.Hand.Cards.Count + pcs.DrawPile.Cards.Count + pcs.DiscardPile.Cards.Count
++                             + pcs.ExhaustPile.Cards.Count + pcs.PlayPile.Cards.Count;
++        }
++        var cardMap = new Dictionary<CardModel, CardModel>(cardCount, ReferenceEqualityComparer.Instance);
+         var playerMap = new Dictionary<Player, Player>(ReferenceEqualityComparer.Instance);
+         foreach (Player player in Players)
+         {
+@@ -54,7 +65,9 @@ public sealed partial class CombatState
+ 
+         CombatState clone = NewCloneState(runState, projection: true);
+         var states = new CloneStates(this, clone);
+-        var creatures = new Dictionary<Creature, Creature>(ReferenceEqualityComparer.Instance);
++        var creatures = new Dictionary<Creature, Creature>(
++            _allies.Count + _enemies.Count + _escapedCreatures.Count + _removedCreatures.Count,
++            ReferenceEqualityComparer.Instance);
+         CloneGraph(runState, playerMap, cardMap, states, creatures, powerMap: null, projection: true);
+         map = new CombatCloneMap(cardMap, playerMap, creatures);
+         return clone;
+@@ -137,14 +150,14 @@ public sealed partial class CombatState
+         Dictionary<Creature, Creature> creatureMap,
+         Dictionary<PowerModel, PowerModel>? powerMap, bool projection)
+     {
++        // Plain loops in EnumerateCloneCreatures order: the Concat/SelectMany iterators here were
++        // per-clone allocations only.
+         foreach ((CombatState sourceState, _) in states)
+         {
+-            foreach (Creature creature in sourceState.EnumerateCloneCreatures())
+-            {
+-                foreach (CardModel card in creature.Powers.SelectMany(power => power.EnumerateCombatCloneCards()))
+-                    if (!cardMap.ContainsKey(card))
+-                        cardMap.Add(card, card.CloneForCombat(playerMap[card.Owner]));
+-            }
++            AddPowerCards(sourceState._allies);
++            AddPowerCards(sourceState._enemies);
++            AddPowerCards(sourceState._escapedCreatures);
++            AddPowerCards(sourceState._removedCreatures);
+         }
+         var origins = new Queue<CardModel>(cardMap.Keys);
+         while (origins.TryDequeue(out CardModel? card))
+@@ -156,8 +169,12 @@ public sealed partial class CombatState
+         foreach ((CardModel source, CardModel target) in cardMap)
+             target.RestoreCombatCloneReferencesFrom(source, cardMap);
+         foreach ((Player source, Player target) in playerMap)
+-            foreach ((RelicModel sourceRelic, RelicModel targetRelic) in source.Relics.Zip(target.Relics))
+-                targetRelic.RestoreCombatCloneReferencesFrom(sourceRelic, cardMap);
++        {
++            // Index pairs as Zip did (up to the shorter list), without the Zip iterator and tuples.
++            int relicCount = Math.Min(source.Relics.Count, target.Relics.Count);
++            for (int i = 0; i < relicCount; i++)
++                target.Relics[i].RestoreCombatCloneReferencesFrom(source.Relics[i], cardMap);
++        }
+ 
+         foreach ((CombatState source, CombatState target) in states)
+         {
+@@ -165,7 +182,9 @@ public sealed partial class CombatState
+             CopyCreatures(source._enemies, target._enemies, target, false, false);
+             CopyCreatures(source._escapedCreatures, target._escapedCreatures, target, true, false);
+             CopyCreatures(source._removedCreatures, target._removedCreatures, target, false, true);
+-            target._spawnedEnemies.AddRange(source._spawnedEnemies.Select(creature => creatureMap[creature]));
++            // A loop instead of Select: that lambda put creatureMap in a heap closure on every clone.
++            foreach (Creature creature in source._spawnedEnemies)
++                target._spawnedEnemies.Add(creatureMap[creature]);
+         }
+         foreach ((Creature source, Creature target) in creatureMap)
+         {
+@@ -206,6 +225,15 @@ public sealed partial class CombatState
+         foreach ((Player source, Player target) in playerMap)
+             creatureMap.TryAdd(source.Creature, target.Creature);
+ 
++        void AddPowerCards(List<Creature> creatures)
++        {
++            foreach (Creature creature in creatures)
++                foreach (PowerModel power in creature.Powers)
++                    foreach (CardModel card in power.EnumerateCombatCloneCards())
++                        if (!cardMap.ContainsKey(card))
++                            cardMap.Add(card, card.CloneForCombat(playerMap[card.Owner]));
++        }
++
+         void CopyCreatures(List<Creature> sources, List<Creature> targets,
+             CombatState targetState, bool detachedInProjection, bool preserveDetachedInProjection)
+         {
+@@ -295,6 +323,10 @@ public sealed partial class CombatState
          {
              var clonedMonster = (MonsterModel)sourceMonster.MutableClone();
              clone = new Creature(clonedMonster, source.Side);
@@ -85,7 +179,7 @@ index 71a0386..e878c9c 100644
              clonedMonster.PrepareCombatCloneStateFrom(sourceMonster, clone, runState.Rng);
          }
          else
-@@ -349,15 +353,40 @@ public sealed partial class CombatState
+@@ -349,15 +381,40 @@ public sealed partial class CombatState
          {
              foreach (Player player in _players)
              {
@@ -94,9 +188,7 @@ index 71a0386..e878c9c 100644
 +                // iterator, same lazy order and same modified-during-enumeration checks as before)
 +                // instead of boxed interface enumerators and an OfType iterator per dispatch.
 +                if (player.Relics is List<RelicModel> relicList)
-                 {
--                    if (!relic.IsMelted)
--                        yield return relic;
++                {
 +                    foreach (RelicModel relic in relicList)
 +                    {
 +                        if (!relic.IsMelted)
@@ -104,7 +196,9 @@ index 71a0386..e878c9c 100644
 +                    }
 +                }
 +                else
-+                {
+                 {
+-                    if (!relic.IsMelted)
+-                        yield return relic;
 +                    foreach (RelicModel relic in player.Relics)
 +                    {
 +                        if (!relic.IsMelted)
@@ -114,8 +208,7 @@ index 71a0386..e878c9c 100644
  
 -                foreach (PotionModel potion in player.PotionSlots.OfType<PotionModel>())
 +                if (player.PotionSlots is List<PotionModel?> potionList)
-                 {
--                    yield return potion;
++                {
 +                    foreach (PotionModel? slot in potionList)
 +                    {
 +                        if (slot is PotionModel potion)
@@ -123,7 +216,8 @@ index 71a0386..e878c9c 100644
 +                    }
 +                }
 +                else
-+                {
+                 {
+-                    yield return potion;
 +                    foreach (PotionModel potion in player.PotionSlots.OfType<PotionModel>())
 +                    {
 +                        yield return potion;
@@ -131,7 +225,7 @@ index 71a0386..e878c9c 100644
                  }
  
                  if (childCombatState is null)
-@@ -371,9 +400,19 @@ public sealed partial class CombatState
+@@ -371,9 +428,19 @@ public sealed partial class CombatState
  
              if (childCombatState is not null)
              {
@@ -643,6 +737,50 @@ index 0000000..c62acd9
 +        }
 +    }
 +}
+diff --git a/src/Sts2Sim.Core/Entities/Players/Player.cs b/src/Sts2Sim.Core/Entities/Players/Player.cs
+index f18955f..01b7ad7 100644
+--- a/src/Sts2Sim.Core/Entities/Players/Player.cs
++++ b/src/Sts2Sim.Core/Entities/Players/Player.cs
+@@ -450,6 +450,9 @@ public sealed class Player
+         clone.RelicGrabBag = clonedRelicBag;
+ 
+         clone._potionSlots.Clear();
++        // Final sizes up front (capacity only): these lists are filled once per search clone.
++        clone._potionSlots.EnsureCapacity(_potionSlots.Count);
++        clone._relics.EnsureCapacity(_relics.Count);
+         foreach (PotionModel? potion in _potionSlots)
+         {
+             if (potion is null)
+diff --git a/src/Sts2Sim.Core/Entities/Players/PlayerCombatState.cs b/src/Sts2Sim.Core/Entities/Players/PlayerCombatState.cs
+index a5e6168..1b94bf1 100644
+--- a/src/Sts2Sim.Core/Entities/Players/PlayerCombatState.cs
++++ b/src/Sts2Sim.Core/Entities/Players/PlayerCombatState.cs
+@@ -270,7 +270,16 @@ public sealed class PlayerCombatState(Player player)
+             OrbQueue = OrbQueue.CloneForCombat(clonedPlayer),
+         };
+ 
+-        foreach ((CardPile source, CardPile target) in AllPiles.Zip(clone.AllPiles))
++        // Pile by pile in AllPiles order, without the two AllPiles arrays and the Zip iterator per clone.
++        CopyPile(Hand, clone.Hand);
++        CopyPile(DrawPile, clone.DrawPile);
++        CopyPile(DiscardPile, clone.DiscardPile);
++        CopyPile(ExhaustPile, clone.ExhaustPile);
++        CopyPile(PlayPile, clone.PlayPile);
++
++        return clone;
++
++        void CopyPile(CardPile source, CardPile target)
+         {
+             foreach (CardModel card in source.Cards)
+             {
+@@ -279,7 +288,5 @@ public sealed class PlayerCombatState(Player player)
+                 cardMap.Add(card, clonedCard);
+             }
+         }
+-
+-        return clone;
+     }
+ }
 diff --git a/src/Sts2Sim.Core/Hooks/Hook.cs b/src/Sts2Sim.Core/Hooks/Hook.cs
 index 915f5c2..6a4fb7e 100644
 --- a/src/Sts2Sim.Core/Hooks/Hook.cs
