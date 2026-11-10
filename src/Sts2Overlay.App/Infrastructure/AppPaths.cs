@@ -95,6 +95,9 @@ public static class AppPaths
     public static string SettingsFile => Path.Combine(DataRoot, "settings.json");
     public static string CapturesDir => Path.Combine(DataRoot, "captures");
 
+    /// <summary>Play-time decision log, one <c>&lt;runkey&gt;.jsonl</c> per run (<see cref="Services.DecisionLogStore"/>).</summary>
+    public static string DecisionsDir => Path.Combine(DataRoot, "decisions");
+
     /// <summary>Resolved once per process from the exe location (see <see cref="AppLayout.Resolve"/>).</summary>
     public static AppLayout Layout { get; } = AppLayout.Resolve(
         AppContext.BaseDirectory,

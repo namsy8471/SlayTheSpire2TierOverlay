@@ -93,8 +93,7 @@ internal static class ForecastReviewPresenter
         var rate = review.AgreementRate;
         var agreement = review.Decisions == 0
             ? Loc.T("비교할 카드 선택이 없습니다", "No card picks to compare")
-            : Loc.T($"카드 선택 {review.Decisions}번 · 추천 1순위와 같은 선택 {review.Agreements}번 ({Pct(rate ?? 0)})",
-                    $"{review.Decisions} card picks · {review.Agreements} matched the top pick ({Pct(rate ?? 0)})");
+            : AgreementLine(review);
         if (review.ShopVisits > 0) agreement += Loc.T($" · 상점 {review.ShopVisits}번은 제외", $" · {review.ShopVisits} Shop visits left out");
 
         var build = review.Build;
@@ -115,11 +114,17 @@ internal static class ForecastReviewPresenter
 
         var disagreements = review.BiggestDisagreements.Select(d => new ReviewDisagreementVm
         {
-            Header = Loc.T($"{d.Floor}층 · {ContextLabel(d.Context)}", $"Floor {d.Floor} · {ContextLabel(d.Context)}"),
+            Header = Loc.T($"{d.Floor}층 · {ContextLabel(d.Context)}", $"Floor {d.Floor} · {ContextLabel(d.Context)}")
+                     + (d.Recomputed ? Loc.T(" · 재계산", " · recomputed") : ""),
             OfferedText = Loc.T("제시: ", "Offered: ") + string.Join(", ", d.Offered.Select(cards.Name)),
-            ChoiceText = Loc.T(
-                $"추천 {Choice(d.EnginePick, cards)} ({Fmt(d.EngineScore)}) · 내 선택 {Choice(d.UserPick, cards)} ({Fmt(d.UserScore)})",
-                $"Pick {Choice(d.EnginePick, cards)} ({Fmt(d.EngineScore)}) · You {Choice(d.UserPick, cards)} ({Fmt(d.UserScore)})"),
+            ChoiceText = (d.Recomputed
+                    ? Loc.T($"추천 {Choice(d.EnginePick, cards)} ({Fmt(d.EngineScore)}) · 내 선택 {Choice(d.UserPick, cards)} ({Fmt(d.UserScore)})",
+                            $"Pick {Choice(d.EnginePick, cards)} ({Fmt(d.EngineScore)}) · You {Choice(d.UserPick, cards)} ({Fmt(d.UserScore)})")
+                    : Loc.T($"당시 추천 {Choice(d.EnginePick, cards)} ({Fmt(d.EngineScore)}) · 내 선택 {Choice(d.UserPick, cards)} ({Fmt(d.UserScore)})",
+                            $"Advice then {Choice(d.EnginePick, cards)} ({Fmt(d.EngineScore)}) · You {Choice(d.UserPick, cards)} ({Fmt(d.UserScore)})"))
+                 + (!d.Recomputed && d.CurrentDiffers
+                    ? Loc.T($" · 지금 버전은 {Choice(d.CurrentPick, cards)} 추천", $" · current version picks {Choice(d.CurrentPick, cards)}")
+                    : ""),
             GapText = Loc.T($"−{Fmt(d.Gap)}점", $"−{Fmt(d.Gap)} pts"),
         }).ToArray();
 
@@ -138,11 +143,30 @@ internal static class ForecastReviewPresenter
             Disagreements = disagreements,
             Note = disagreements.Length == 0 && review.Decisions > 0
                 ? Loc.T("모든 카드 선택이 추천 1순위와 같았습니다.", "Every card pick matched the top pick.")
+                : review.StoredJudged > 0
+                ? Loc.T("점수 차 = 추천 점수 − 내 선택 점수 (기록된 결정은 플레이 당시 점수, '재계산'은 지금 데이터 팩 기준) [추정]",
+                        "Gap = advice score − your pick score (play-time scores for logged picks, the current data pack for 'recomputed') [est.]")
                 : Loc.T("점수 차 = 추천 1순위 점수 − 내 선택 점수 (지금 데이터 팩 기준으로 다시 계산) [추정]",
                         "Gap = top pick score − your pick score (recomputed with the current data pack) [est.]"),
             ShowBanner = showBanner,
             BannerText = banner,
         };
+    }
+
+    /// <summary>
+    /// "22개 결정 중 15개 일치 (68%) · 당시 추천 기준 18개, 현재 버전 재계산 4개": says what the count is based on. Without
+    /// a play-time decision log every decision was recomputed with the current version, and the line says so.
+    /// </summary>
+    internal static string AgreementLine(RunReview review)
+    {
+        var pct = Pct(review.AgreementRate ?? 0);
+        var basis = review.HasDecisionLog
+            ? Loc.T($"당시 추천 기준 {review.StoredJudged}개, 현재 버전 재계산 {review.Recomputed}개",
+                    $"{review.StoredJudged} judged by the advice shown then, {review.Recomputed} recomputed with the current version")
+            : Loc.T("현재 버전으로 다시 계산한 결과입니다 (플레이 당시 추천 기록 없음)",
+                    "recomputed with the current version (no record of the advice shown during play)");
+        return Loc.T($"{review.Decisions}개 결정 중 {review.Agreements}개 일치 ({pct}) · {basis}",
+                     $"{review.Agreements} of {review.Decisions} agreed ({pct}) · {basis}");
     }
 
     private static string Choice(CardRef? card, CardInfoProvider cards) => card is { } c ? cards.Name(c) : Loc.T("스킵", "Skip");
