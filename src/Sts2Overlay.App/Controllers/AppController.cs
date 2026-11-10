@@ -210,6 +210,7 @@ public sealed partial class AppController : IDisposable
         {
             // The tracker says the reward/shop screen is gone (map node entered, next combat...).
             ClearBadges();
+            _removal.EndVisit(); // the next merchant visit starts with its removal service for sale
         }
         else if (_lastResult is not null)
         {
@@ -335,6 +336,7 @@ public sealed partial class AppController : IDisposable
             _loggedKind = r.ScreenKind;
         }
         UpdateRestMarks(r); // rest-site buttons / Smith grid (AppController.RestOverlay.cs)
+        _removal.Observe(r.ScreenKind, r.RemovalService is not null); // before a deck grid becomes "Other": Shop → Grid → Shop = removal used
         // A card grid is an offer only when it shows cards the deck does not hold; otherwise it is the deck itself
         // (remove / upgrade / transform screens, deck view), which needs no badges.
         if (r.ScreenKind == ScreenKind.Grid && !CardGridFilter.IsOffer(r.Cards.Select(c => c.Card).ToList(), _snapshot.Run?.Deck.Select(d => d.Card)))
@@ -352,7 +354,7 @@ public sealed partial class AppController : IDisposable
 
         var offerKey = r.ScreenKind + ":" + string.Join(",", r.Cards.Select(c => $"{c.Card}${c.Price}{(c.Unaffordable == true ? "r" : "")}{(c.OnSale ? "s" : "")}"))
                        + (r.Relics.Count > 0 ? "|" + string.Join(",", r.Relics.Select(x => $"{x.RelicId}${x.Price}{(x.Unaffordable == true ? "r" : "")}")) : "");
-        var evalKey = $"{offerKey}{(r.RemovalService is null ? "" : "+rm")}@{_snapshot.UpdatedAt.Ticks}#{_engineVersion}@{Loc.CurrentCode}";
+        var evalKey = $"{offerKey}{(_removal.Available ? "+rm" : "")}@{_snapshot.UpdatedAt.Ticks}#{_engineVersion}@{Loc.CurrentCode}";
         if (evalKey != _lastEvalKey)
         {
             try
@@ -459,6 +461,9 @@ public sealed partial class AppController : IDisposable
         return (offer, badges, OfferMarkers.Skip(eval, Fmt), null);
     }
 
+    /// <summary>Whether this merchant visit's card-removal service is still for sale (fed every recognition result).</summary>
+    private readonly RemovalAvailability _removal = new();
+
     private (OfferSectionVm, IReadOnlyList<BadgeSpec>, SkipSpec?, string?) EvaluateShop(RecognitionResult r)
     {
         var run = _snapshot.Run ?? UnknownRun;
@@ -466,7 +471,7 @@ public sealed partial class AppController : IDisposable
         var offer = new ShopOffer(r.Cards.Select(c => new ShopCardOffer(c.Card, c.Price ?? 0, c.Price is not null, c.Unaffordable is bool u ? !u : null, c.OnSale)).ToArray())
         {
             Relics = r.Relics.Select(x => new ShopRelicOffer(x.RelicId, x.Rarity, x.Price ?? 0, x.Price is not null, x.Unaffordable is bool u ? !u : null)).ToArray(),
-            RemovalAvailable = r.RemovalService is not null, // the probe sees the coin still for sale (no "used" cross, price shown)
+            RemovalAvailable = _removal.Available, // gone only after evidence it was used, not while the coin is merely covered
         };
         var eval = _engine.EvaluateShop(run, offer);
         var recommended = eval.RecommendedPurchase.ToHashSet(ReferenceEqualityComparer.Instance);
