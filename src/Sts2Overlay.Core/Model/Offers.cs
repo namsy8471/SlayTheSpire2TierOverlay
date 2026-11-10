@@ -31,4 +31,10 @@ public sealed record ShopOffer(IReadOnlyList<ShopCardOffer> Cards, int? RemovalP
 {
     /// <summary>The relics on the rug still for sale (bought ones are gone from the screen).</summary>
     public IReadOnlyList<ShopRelicOffer> Relics { get; init; } = [];
+
+    /// <summary>
+    /// The card-removal service can still be bought. False once it was used this visit (the screen shows it crossed out or
+    /// without a price): then removal is left out of the items, the recommended purchase and the gold plan.
+    /// </summary>
+    public bool RemovalAvailable { get; init; } = true;
 }
