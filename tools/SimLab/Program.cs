@@ -8,6 +8,22 @@ using Sts2Sim.Core.Models;
 
 // Usage: SimFuzz <fights.jsonl> <out.csv> [--act1cap 3000] [--totalcap 8000] [--seeds 5]
 //                [--threads N] [--wallcap-sec 20] [--coverage-only] [--report coverage.txt]
+// Bigger gen0 budget (1 GB): beam-search states then die young instead of being promoted, so
+// gen2 GCs drop 19 -> 2 on the dev boss sample. The GC reads this only at process start and
+// ignores the runtimeconfig keys, so relaunch once with the env var set. The runtime caps the
+// value, so going above 1 GB changes nothing. Set DOTNET_GCgen0size=0 to keep the default.
+if (Environment.GetEnvironmentVariable("DOTNET_GCgen0size") is null && Environment.ProcessPath is { } exe)
+{
+    var psi = new ProcessStartInfo(exe) { UseShellExecute = false };
+    if (Path.GetFileNameWithoutExtension(exe).Equals("dotnet", StringComparison.OrdinalIgnoreCase))
+        psi.ArgumentList.Add(Environment.GetCommandLineArgs()[0]);
+    foreach (var a in args) psi.ArgumentList.Add(a);
+    psi.Environment["DOTNET_GCgen0size"] = "40000000"; // hex: 0x40000000 = 1 GB
+    using var child = Process.Start(psi)!;
+    child.WaitForExit();
+    Environment.Exit(child.ExitCode);
+}
+
 string fightsPath = args.Length > 0 ? args[0] : "fights.jsonl";
 string outCsv = args.Length > 1 ? args[1] : "sim_fights.csv";
 int act1Cap = IntArg("--act1cap", 3000);
