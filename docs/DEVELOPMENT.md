@@ -13,7 +13,7 @@
 | `src/Sts2Overlay.GameState` | net10.0 | `current_run.save` 감시 + `godot.log` 꼬리 읽기 → 덱·HP·골드·맵·화면 힌트. 협동 손님(세이브 없음)은 로그로 재구성 |
 | `src/Sts2Overlay.Vision` | net10.0 | 캡처 화면에서 보상·상점·맵·휴식처·이벤트 판별, 카드 상자 탐색, 카드 그림 NCC 매칭, 강화 판별 |
 | `src/Sts2Overlay.Resources` | net10.0 | 설치된 게임에서 로컬 리소스 자동 생성 (pck 추출, `sts2.dll` 카탈로그), 게임 버전·지문, 버전 경고 |
-| `src/Sts2Overlay.App` | net10.0-windows10.0.22621.0 | WPF 오버레이: 게임 창 추적, 화면 캡처(Windows.Graphics.Capture, 안 되면 GDI), 카드 위 배지, 맵·휴식처·이벤트 표시, 패널(추천/덱/빌드/경로/리뷰), 트레이, 단축키, 자동 업데이트(Velopack) |
+| `src/Sts2Overlay.App` | net10.0-windows | WPF 오버레이: 게임 창 추적, 화면 캡처(Windows.Graphics.Capture, 안 되면 GDI), 카드 위 배지, 맵·휴식처·이벤트 표시, 패널(추천/덱/빌드/경로/리뷰), 트레이, 단축키, 자동 업데이트(Velopack) |
 | `tests/*` | | xUnit 테스트 (게임 파일이 필요한 테스트는 없으면 건너뜀) |
 | `tools/CatalogBuilder` | | `sts2.dll` 정적 분석 → 카드 카탈로그, 시작 덱 (수동 실행용) |
 | `tools/PckTool` | | `SlayTheSpire2.pck` 읽기 전용 추출 (카드 그림, 현지화, 수동 실행용) |

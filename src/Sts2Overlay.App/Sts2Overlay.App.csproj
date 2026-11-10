@@ -7,13 +7,18 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <!--
-      The Windows 10 SDK version in the TFM brings the C#/WinRT projection of Windows.Graphics.Capture (no NuGet package:
-      it is a targeting pack of the .NET SDK). 22621 is needed to see GraphicsCaptureSession.IsBorderRequired; the app
-      still runs on Windows 10 2004 (19041), and the platform analyzer makes us guard anything newer.
+      No Windows SDK version in the TFM: a versioned TFM (net10.0-windows10.0.x) would bring the C#/WinRT projection
+      (Microsoft.Windows.SDK.NET.dll + WinRT.Runtime.dll, ~25 MB) into every publish. Windows.Graphics.Capture is called
+      through its WinRT ABI instead (Interop/WgcInterop.cs, Interop/ComEventHandler.cs).
     -->
-    <TargetFramework>net10.0-windows10.0.22621.0</TargetFramework>
-    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
-    <!-- Direct3D 11 calls through COM vtable function pointers (Interop/D3D11Interop.cs). -->
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <!--
+      The app needs Windows 10 2004 (19041). An unversioned TFM caps SupportedOSPlatformVersion at 7.0 (NETSDK1135), so the
+      SDK's generated [assembly: SupportedOSPlatform] is replaced by our own below: the platform analyzer (CA1416) then
+      still treats 19041 as the minimum and makes us guard anything newer.
+    -->
+    <GenerateSupportedOSPlatformAttribute>false</GenerateSupportedOSPlatformAttribute>
+    <!-- Direct3D 11 and WinRT calls through COM vtable function pointers (Interop/D3D11Interop.cs, Interop/WgcInterop.cs). -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <UseWPF>true</UseWPF>
     <!-- Only for the tray icon (System.Windows.Forms.NotifyIcon) and drawing its icon (System.Drawing). -->
@@ -92,6 +97,10 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Sts2Overlay.App.Tests" />
+    <!-- Minimum Windows version (see GenerateSupportedOSPlatformAttribute above). -->
+    <AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatformAttribute">
+      <_Parameter1>windows10.0.19041.0</_Parameter1>
+    </AssemblyAttribute>
   </ItemGroup>
 
 </Project>
