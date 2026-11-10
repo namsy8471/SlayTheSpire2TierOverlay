@@ -196,7 +196,12 @@ public sealed partial class AppController
             return;
         }
         var origin = (frame.ScreenRect.X, frame.ScreenRect.Y);
-        _ui.BeginInvoke(() => ApplyEventScreen(screen, origin));
+        _ui.BeginInvoke(() =>
+        {
+            var start = System.Diagnostics.Stopwatch.GetTimestamp();
+            ApplyEventScreen(screen, origin);
+            Perf.RecordSince(Services.Perf.PerfStage.EventUi, start);
+        });
     }
 
     private (int X, int Y) _eventOrigin;

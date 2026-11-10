@@ -35,7 +35,12 @@ public sealed partial class AppController
     private void InitHoverYield()
     {
         _hoverTimer = new DispatcherTimer(DispatcherPriority.Input, _ui) { Interval = TimeSpan.FromMilliseconds(HoverPollMs) };
-        _hoverTimer.Tick += (_, _) => CheckHover();
+        _hoverTimer.Tick += (_, _) =>
+        {
+            var start = System.Diagnostics.Stopwatch.GetTimestamp();
+            CheckHover();
+            Perf.RecordSince(Services.Perf.PerfStage.HoverPoll, start);
+        };
     }
 
     private IEnumerable<IHoverYield> HoverLayers()

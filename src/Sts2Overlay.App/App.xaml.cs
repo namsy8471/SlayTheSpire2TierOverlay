@@ -9,6 +9,7 @@ using Sts2Overlay.App.Infrastructure;
 using Sts2Overlay.App.Integration;
 using Sts2Overlay.App.Interop;
 using Sts2Overlay.App.Services;
+using Sts2Overlay.App.Services.Perf;
 using Sts2Overlay.App.ViewModels;
 using Sts2Overlay.App.Views;
 using Sts2Overlay.Core.Localization;
@@ -26,6 +27,7 @@ public partial class App : Application
     private bool _settingsLoaded; // OnExit saves only settings that were read in this run
     private GameWindowTracker? _tracker;
     private CapturePipeline? _pipeline;
+    private PerfRecorder? _perf;
     private HotkeyManager? _hotkeys;
     private TrayIcon? _tray;
     private AppController? _controller;
@@ -175,7 +177,9 @@ public partial class App : Application
         };
 
         _tracker = new GameWindowTracker();
-        _pipeline = new CapturePipeline(() => _tracker.Current, _settings.CaptureBackend, captureVisibility);
+        // perf: lines in app.log (stage times, offer latency, CPU/memory, game fps); always on, it costs next to nothing.
+        _perf = new PerfRecorder(() => _tracker?.Current?.ProcessId);
+        _pipeline = new CapturePipeline(() => _tracker.Current, _settings.CaptureBackend, captureVisibility, _perf);
 
         var badges = new BadgeWindow(captureVisibility);
         _panel = new PanelWindow(_vm, _settings, captureVisibility);
@@ -441,6 +445,7 @@ public partial class App : Application
             _resources?.Dispose();
             _controller?.Dispose();
             _pipeline?.Dispose();
+            _perf?.Dispose(); // after the pipeline: its last frames are in the final summary
             _tracker?.Dispose();
             _updates?.Dispose();
             _updates?.ApplyOnExit(); // only does something when an update was downloaded

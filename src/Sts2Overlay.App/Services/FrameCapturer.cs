@@ -22,6 +22,12 @@ internal interface IFrameCapturer : IDisposable
 
     CaptureTimings LastTimings { get; }
 
+    /// <summary>
+    /// The last capture returned the previous pixels again because the game had not produced a new frame (WGC only;
+    /// GDI always reads the screen). Counted by the perf log.
+    /// </summary>
+    bool LastFrameReused => false;
+
     /// <summary>Captures <see cref="GameWindowInfo.CaptureRect"/> of the target. Throws on failure.</summary>
     CapturedFrame Capture(GameWindowInfo target);
 
@@ -91,6 +97,8 @@ internal sealed class FallbackFrameCapturer : IFrameCapturer
 
     public CaptureTimings LastTimings => _lastUsed?.LastTimings ?? default;
 
+    public bool LastFrameReused => _lastUsed?.LastFrameReused ?? false;
+
     /// <summary>True once the primary backend has been given up on (or there never was one).</summary>
     public bool UsingFallbackOnly => _primary is null;
 
@@ -156,12 +164,13 @@ internal static class FrameCapturerFactory
 {
     /// <summary>The capturer the app uses: WGC with GDI fallback, or GDI only (setting or unsupported OS).</summary>
     /// <param name="beforeCapture">See <see cref="FallbackFrameCapturer.BeforeCapture"/>.</param>
-    public static IFrameCapturer Create(string? setting, Action<bool>? beforeCapture = null)
+    /// <param name="gameFrames">Counts the game frames WGC delivers (perf log); null = don't.</param>
+    public static IFrameCapturer Create(string? setting, Action<bool>? beforeCapture = null, Perf.FrameRateCounter? gameFrames = null)
     {
         var (backend, reason) = CaptureBackendSelector.Choose(setting, WgcCapturer.IsSupported());
         AppLog.Info($"capture backend: {backend.ToString().ToLowerInvariant()} ({reason})");
         var capturer = backend == CaptureBackend.Wgc
-            ? new FallbackFrameCapturer(new WgcCapturer(), new ScreenCapturer())
+            ? new FallbackFrameCapturer(new WgcCapturer(gameFrames), new ScreenCapturer())
             : new FallbackFrameCapturer(null, new ScreenCapturer());
         capturer.BeforeCapture = beforeCapture;
         return capturer;

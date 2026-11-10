@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using Sts2Overlay.App.Infrastructure;
 using Sts2Overlay.App.Integration;
+using Sts2Overlay.App.Services.Perf;
 using Sts2Overlay.Core.Localization;
 
 namespace Sts2Overlay.App.Services;
@@ -33,18 +34,25 @@ public sealed class CapturePipeline : IDisposable
     private byte[]? _lastSignature;
     private bool _lastHadResult;
     private long _lastRun;
+    private long _lastLook; // start of the last step that captured a frame (FrameTiming.PreviousLook)
 
     /// <param name="target">Current game window (read on the worker thread).</param>
     /// <param name="captureBackend">The <c>captureBackend</c> setting: "auto" (null), "wgc" or "gdi".</param>
     /// <param name="captureVisibility">Hides our windows before a frame that reads the desktop; null = a new one that shows them.</param>
-    public CapturePipeline(Func<GameWindowInfo?> target, string? captureBackend = null, OverlayCaptureVisibility? captureVisibility = null)
+    /// <param name="perf">Where stage times go; null = a recorder that is never written to the log.</param>
+    public CapturePipeline(Func<GameWindowInfo?> target, string? captureBackend = null, OverlayCaptureVisibility? captureVisibility = null,
+        PerfRecorder? perf = null)
     {
         _target = target;
         CaptureVisibility = captureVisibility ?? new OverlayCaptureVisibility(showInCapture: true);
-        _capturer = FrameCapturerFactory.Create(captureBackend, CaptureVisibility.BeforeCapture);
+        Perf = perf ?? new PerfRecorder(sampleResources: false);
+        _capturer = FrameCapturerFactory.Create(captureBackend, CaptureVisibility.BeforeCapture, Perf.GameFrames);
         _thread = new Thread(Run) { IsBackground = true, Name = "CapturePipeline", Priority = ThreadPriority.BelowNormal };
         _thread.Start();
     }
+
+    /// <summary>Stage times and counters of the capture worker; the UI side records into it too (AppController).</summary>
+    public PerfRecorder Perf { get; }
 
     /// <summary>Whether our overlay windows show up in screen capture (OBS, screenshots); every overlay window registers here.</summary>
     public OverlayCaptureVisibility CaptureVisibility { get; }
@@ -164,7 +172,8 @@ public sealed class CapturePipeline : IDisposable
 
     private void Step(bool manual, bool save, bool periodic)
     {
-        _lastRun = Stopwatch.GetTimestamp();
+        var stepStart = Stopwatch.GetTimestamp();
+        _lastRun = stepStart;
         var info = _target();
         if (info is null || !info.CanCapture)
         {
@@ -174,40 +183,75 @@ public sealed class CapturePipeline : IDisposable
 
         var t0 = Stopwatch.GetTimestamp();
         var frame = _capturer.Capture(info);
-        var captureMs = Stopwatch.GetElapsedTime(t0).TotalMilliseconds;
+        var captureDone = Stopwatch.GetTimestamp();
+        var captureMs = Stopwatch.GetElapsedTime(t0, captureDone).TotalMilliseconds;
         var timings = _capturer.LastTimings;
+        var previousLook = _lastLook;
+        _lastLook = stepStart;
 
         if (save) SavePng(frame);
         if (!manual && !periodic) return;
-        FrameProbe?.Invoke(frame); // before the "unchanged screen" skip: a hover change is small but matters to the probe
-
-        // The map is checked on every frame, before the "unchanged screen" shortcut below: a scrolled map can look
-        // almost the same to the coarse signature while every node moved.
-        if (MapWatcher?.Analyze(frame) is { } sighting) MapSighted?.Invoke(sighting);
-
-        // Skip recognition while the screen is visually unchanged and we already have an answer for it. An unsettled
-        // answer (the last frame did NOT show the screen and the recogniser holds it for a frame or two; a shop slot
-        // looked empty once) is not one: it only settles by looking at more frames, so a closed screen's marks never
-        // stay over a still picture.
-        var sig = Signature(frame);
-        var same = _lastSignature is not null && MeanDiff(sig, _lastSignature) < 2.0;
-        _lastSignature = sig;
-        if (CanSkip(manual, same, _lastHadResult)) return;
-
-        var recognizer = _recognizer;
-        if (Interlocked.Exchange(ref _resetRequested, 0) == 1) recognizer.Reset();
-        var epoch = Volatile.Read(ref _epoch);
-        var t1 = Stopwatch.GetTimestamp();
-        var result = recognizer.Recognize(frame, _characterHint);
-        var recognizeMs = Stopwatch.GetElapsedTime(t1).TotalMilliseconds;
-        _lastHadResult = IsSteady(result);
-        if (result is not null) result = result with { Epoch = epoch };
-
-        if (manual || captureMs + recognizeMs > 250)
+        // Perf (always on): a save-only step is left out, its PNG write is not part of the watch's cost.
+        var perf = Perf;
+        perf.CountStep(_capturer.LastFrameReused);
+        perf.Record(PerfStage.Capture, captureMs);
+        perf.Record(PerfStage.CaptureAcquire, timings.AcquireMs);
+        perf.Record(PerfStage.CaptureCopy, timings.CopyMs);
+        try
         {
-            AppLog.Info($"capture[{_capturer.Name}] {frame.Width}x{frame.Height} {captureMs:0}ms (acquire {timings.AcquireMs:0.0}, copy {timings.CopyMs:0.0}), recognise {recognizeMs:0}ms → {result?.ScreenKind.ToString() ?? "null"} ({result?.Cards.Count ?? 0} cards){(manual ? " [manual]" : "")}");
+            if (FrameProbe is { } probe)
+            {
+                var tp = Stopwatch.GetTimestamp();
+                probe(frame); // before the "unchanged screen" skip: a hover change is small but matters to the probe
+                perf.RecordSince(PerfStage.EventProbe, tp);
+            }
+
+            // The map is checked on every frame, before the "unchanged screen" shortcut below: a scrolled map can look
+            // almost the same to the coarse signature while every node moved.
+            if (MapWatcher is { } watcher)
+            {
+                var tm = Stopwatch.GetTimestamp();
+                var sighting = watcher.Analyze(frame);
+                perf.RecordSince(PerfStage.MapAnalyze, tm);
+                if (sighting is not null) MapSighted?.Invoke(sighting);
+            }
+
+            // Skip recognition while the screen is visually unchanged and we already have an answer for it. An unsettled
+            // answer (the last frame did NOT show the screen and the recogniser holds it for a frame or two; a shop slot
+            // looked empty once) is not one: it only settles by looking at more frames, so a closed screen's marks never
+            // stay over a still picture.
+            var sig = Signature(frame);
+            var same = _lastSignature is not null && MeanDiff(sig, _lastSignature) < 2.0;
+            _lastSignature = sig;
+            if (CanSkip(manual, same, _lastHadResult))
+            {
+                perf.CountUnchanged();
+                return;
+            }
+
+            var recognizer = _recognizer;
+            if (Interlocked.Exchange(ref _resetRequested, 0) == 1) recognizer.Reset();
+            var epoch = Volatile.Read(ref _epoch);
+            var t1 = Stopwatch.GetTimestamp();
+            var result = recognizer.Recognize(frame, _characterHint);
+            var recognizeDone = Stopwatch.GetTimestamp();
+            var recognizeMs = Stopwatch.GetElapsedTime(t1, recognizeDone).TotalMilliseconds;
+            perf.CountRecognised();
+            perf.Record(PerfStage.Recognize, recognizeMs);
+            _lastHadResult = IsSteady(result);
+            if (result is not null) result = result with { Epoch = epoch, Timing = new FrameTiming(previousLook, t0, captureDone, t1, recognizeDone) };
+
+            if (manual || captureMs + recognizeMs > 250)
+            {
+                AppLog.Info($"capture[{_capturer.Name}] {frame.Width}x{frame.Height} {captureMs:0}ms (acquire {timings.AcquireMs:0.0}, copy {timings.CopyMs:0.0}), recognise {recognizeMs:0}ms → {result?.ScreenKind.ToString() ?? "null"} ({result?.Cards.Count ?? 0} cards){(manual ? " [manual]" : "")}");
+            }
+            if (result is not null) Recognized?.Invoke(result);
         }
-        if (result is not null) Recognized?.Invoke(result);
+        finally
+        {
+            // Includes the synchronous Recognized / MapSighted handlers (they only queue work for the UI thread).
+            perf.RecordSince(PerfStage.StepTotal, stepStart);
+        }
     }
 
     /// <summary>Recognition may be skipped: a periodic frame, the picture unchanged, and the last answer a steady one.</summary>
