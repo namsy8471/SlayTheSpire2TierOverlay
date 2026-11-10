@@ -16,6 +16,8 @@ public enum ScreenHint
     ShopLikely,
     RestSite,
     Map,
+    /// <summary>The game's main menu (a saved run may still be in progress): its card library is a grid of every card.</summary>
+    MainMenu,
 }
 
 /// <summary>One immutable view of the run. A new instance is published on every change.</summary>
