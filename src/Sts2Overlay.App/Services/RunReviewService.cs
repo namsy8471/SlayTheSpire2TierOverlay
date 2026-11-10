@@ -45,6 +45,15 @@ public sealed class RunReviewService : IDisposable
 
     public void SetPack(DataPack pack) => _pack = pack;
 
+    /// <summary>
+    /// The play-time decision log: decisions it recorded are judged against the advice shown then, the rest are
+    /// recomputed. Null = recompute everything (as before the log existed).
+    /// </summary>
+    public DecisionLogStore? Decisions { get; init; }
+
+    /// <summary>The user's <c>cardModel</c> setting for the recomputed decisions (false = <c>"engine"</c>).</summary>
+    public bool UseLearnedModel { get; init; } = true;
+
     /// <summary>Reviews the newest existing run (in the background) and starts watching for new ones.</summary>
     public void Start()
     {
@@ -99,9 +108,11 @@ public sealed class RunReviewService : IDisposable
 
             var run = ReadWithRetry(newest);
             if (run is null) return;
-            var review = RunReviewBuilder.Build(run, _pack, _steamId);
+            var log = Decisions?.Read(DecisionLog.RunKey(run, LocalPlayer.Resolve(run, _steamId))) ?? [];
+            var review = RunReviewBuilder.Build(run, _pack, _steamId, log, UseLearnedModel);
             lock (_gate) _lastReviewed = newest;
-            AppLog.Info($"run review: {Path.GetFileName(newest)} ({review.Decisions} decisions, {review.Agreements} agreed){(isNew ? " [new]" : "")}");
+            AppLog.Info($"run review: {Path.GetFileName(newest)} ({review.Decisions} decisions, {review.Agreements} agreed; "
+                        + $"{review.StoredJudged} by play-time advice, {review.Recomputed} recomputed, log {(review.HasDecisionLog ? "yes" : "no")}){(isNew ? " [new]" : "")}");
             _ui.BeginInvoke(() => _onReview(review, isNew));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException or JsonException or InvalidDataException)

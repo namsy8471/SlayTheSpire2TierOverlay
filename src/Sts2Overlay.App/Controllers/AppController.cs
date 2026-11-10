@@ -508,6 +508,7 @@ public sealed partial class AppController : IDisposable
         // Event grids and "pick 1 of N" rows are not combat rewards: score them as event offers.
         var context = r.ScreenKind == ScreenKind.Reward ? _snapshot.RewardContext : OfferContext.Event;
         var eval = _engine.EvaluateOffer(run, cards, context);
+        NoteOffer(r, context, eval); // play-time decision log (AppController.DecisionLog.cs)
 
         var rows = new List<OfferRowVm>();
         foreach (var (e, i) in eval.Cards.Select((e, i) => (e, i)).OrderBy(x => x.e.Rank))
@@ -578,6 +579,7 @@ public sealed partial class AppController : IDisposable
             RemovalAvailable = _removal.Available, // gone only after evidence it was used, not while the coin is merely covered
         };
         var eval = _engine.EvaluateShop(run, offer);
+        NoteShop(r, eval); // play-time decision log (AppController.DecisionLog.cs)
         var recommended = eval.RecommendedPurchase.ToHashSet(ReferenceEqualityComparer.Instance);
 
         var rows = eval.Items.Select(item =>

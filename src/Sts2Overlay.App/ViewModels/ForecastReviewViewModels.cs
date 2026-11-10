@@ -46,7 +46,7 @@ public sealed record ForecastSectionVm
 /// <summary>One of the biggest disagreements between the player and the engine.</summary>
 public sealed record ReviewDisagreementVm
 {
-    /// <summary>"12층 · 엘리트".</summary>
+    /// <summary>"12층 · 엘리트", plus " · 재계산" when judged by the current version (no play-time record).</summary>
     public required string Header { get; init; }
 
     /// <summary>"제시: A, B, C".</summary>
@@ -68,7 +68,7 @@ public sealed record ReviewSectionVm
     /// <summary>"디펙트 · 패배 (23층) · 11-08 21:40".</summary>
     public string Title { get; init; } = "";
 
-    /// <summary>"카드 선택 18번 · 추천 1순위와 같음 11번 (61%)".</summary>
+    /// <summary>"22개 결정 중 15개 일치 (68%) · 당시 추천 기준 18개, 현재 버전 재계산 4개".</summary>
     public string AgreementText { get; init; } = "";
 
     /// <summary>Agreement bar width in DIPs (0..356).</summary>

@@ -26,13 +26,19 @@ public sealed partial class AppController
 
         var paths = GamePaths.Discover();
         var history = paths.SavesDirectory is { } saves ? System.IO.Path.Combine(saves, "history") : null;
-        _reviews = new RunReviewService(history, paths.SteamId is { } id ? (long)id : null, _engine.Pack, _ui, OnReview);
+        InitDecisionLog(); // play-time advice the review judges against (AppController.DecisionLog.cs)
+        _reviews = new RunReviewService(history, paths.SteamId is { } id ? (long)id : null, _engine.Pack, _ui, OnReview)
+        {
+            Decisions = _decisionStore,
+            UseLearnedModel = !string.Equals(_settings.CardModel, "engine", StringComparison.OrdinalIgnoreCase),
+        };
         _reviews.Start();
     }
 
     /// <summary>Every snapshot: re-forecast when the run changed (the service ignores unchanged keys); spot a run ending.</summary>
     private void UpdateForecastReview(GameStateSnapshot snap)
     {
+        TickDecisionLog(snap); // finish a card screen's record when the floor / run moved on (AppController.DecisionLog.cs)
         var offset = (_source as GameStateAdapter)?.Tracked?.RarityPityOffset;
         // RefreshRunViews just rebuilt the archetype list: put the last forecast line back until the new one arrives.
         _vm.Build = ForecastReviewPresenter.WithForecast(_vm.Build, snap.Run is null ? null : _lastForecast);
@@ -54,6 +60,7 @@ public sealed partial class AppController
     private void DisposeForecastReview()
     {
         _forecast?.Dispose();
+        DisposeDecisionLog();
         _reviews?.Dispose();
     }
 
