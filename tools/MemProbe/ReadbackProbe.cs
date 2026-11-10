@@ -28,10 +28,19 @@ internal static unsafe class ReadbackProbe
             int bad = Odd(device, context);
             var src = CaptureProbe.Pattern(width, height, 0).Bgra.ToArray();
             var texture = SourceTexture(device, width, height, src);
+            // --priority below: the capture worker's thread priority (CapturePipeline: BelowNormal).
+            if (opts.GetValueOrDefault("priority") == "below") Thread.CurrentThread.Priority = ThreadPriority.BelowNormal;
+            Console.WriteLine($"thread priority {Thread.CurrentThread.Priority}");
             var configs = new (string Name, int Rows, int Textures)[]
             {
                 ("whole", int.MaxValue, 1), ("540x2", 540, 2), ("270x2", 270, 2), ("135x2", 135, 2), ("270x1", 270, 1), ("270x3", 270, 3),
             };
+            // --only whole,270x2: fewer layouts, more rounds each (the tail under CPU load needs many samples).
+            if (opts.TryGetValue("only", out var only))
+            {
+                var keep = only.Split(',');
+                configs = configs.Where(c => keep.Contains(c.Name)).ToArray();
+            }
             var readers = configs.Select(c => new StagingReadback(device, context, c.Rows, c.Textures)).ToArray();
             var total = configs.Select(_ => new List<double>()).ToArray();
             var wait = configs.Select(_ => new List<double>()).ToArray();
@@ -62,7 +71,9 @@ internal static unsafe class ReadbackProbe
             Console.WriteLine($"readback of {width}x{height} into a managed buffer, {rounds} interleaved rounds [measured under full CPU load]:");
             for (int i = 0; i < configs.Length; i++)
             {
-                Console.WriteLine(CaptureProbe.Inv($"   {configs[i].Name,-6} staging {readers[i].StagingBytes / 1048576.0,5:F1} MB: median {CaptureProbe.Median(total[i]),6:F2} ms (GPU wait {CaptureProbe.Median(wait[i]):F2}, CPU copy {CaptureProbe.Median(copy[i]):F2}), p90 {CaptureProbe.P90(total[i]),6:F2} ms"));
+                var s = total[i].Order().ToList();
+                double P(double q) => s[Math.Min(s.Count - 1, (int)(s.Count * q))];
+                Console.WriteLine(CaptureProbe.Inv($"   {configs[i].Name,-7} staging {readers[i].StagingBytes / 1048576.0,5:F1} MB: median {CaptureProbe.Median(total[i]),6:F2} ms (GPU wait {CaptureProbe.Median(wait[i]):F2}, CPU copy {CaptureProbe.Median(copy[i]):F2}), mean {s.Average(),6:F2}, p75 {P(0.75),6:F2}, p90 {P(0.9),6:F2}, p95 {P(0.95),6:F2}, over 15 ms {s.Count(v => v > 15)}/{s.Count}"));
             }
             foreach (var reader in readers) reader.Dispose();
             Release(ref texture);
