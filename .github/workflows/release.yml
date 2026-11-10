@@ -96,11 +96,13 @@ jobs:
             if ($LASTEXITCODE -ne 0) { Write-Error "Tests failed: $p"; exit 1 }
           }
 
-      # 폴더 publish (single-file 아님: Velopack이 폴더를 패키지로 묶음)
+      # 폴더 publish (single-file 아님: Velopack이 폴더를 패키지로 묶음).
+      # --self-contained false: .NET을 앱에 넣지 않고 PC에 설치된 .NET 10 데스크톱 런타임을 씁니다(설치 크기 214 MB → 약 43 MB).
+      # 런타임이 없는 PC는 아래 pack 단계의 --framework 덕분에 설치·업데이트 때 자동으로 설치됩니다.
       - name: Publish
         if: steps.version.outputs.skip != 'true'
         run: |
-          dotnet publish src/Sts2Overlay.App -c Release -r win-x64 --self-contained -o publish "-p:Version=${{ steps.version.outputs.version }}"
+          dotnet publish src/Sts2Overlay.App -c Release -r win-x64 --self-contained false -o publish "-p:Version=${{ steps.version.outputs.version }}"
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
       - name: Upload publish folder
@@ -207,6 +209,8 @@ jobs:
           $pack = @('vpk', '[win]', 'pack', '--packId', 'namsy8471.Sts2Overlay', '--packVersion', $ver, '--packDir', 'publish',
             '--mainExe', 'Sts2Overlay.exe', '--packTitle', 'STS2 티어 오버레이', '--packAuthors', 'namsy8471',
             '--icon', 'src/Sts2Overlay.App/Assets/Sts2Overlay.ico', '--runtime', 'win-x64', '--channel', 'win',
+            # 앱이 self-contained가 아니므로 꼭 필요합니다: 없으면 .NET이 없는 PC에서 설치는 되지만 실행이 안 됩니다.
+            '--framework', 'net10.0-x64-desktop',
             '--releaseNotes', 'release-notes.md', '--outputDir', 'releases')
           dotnet @pack
           if ($LASTEXITCODE -ne 0) {

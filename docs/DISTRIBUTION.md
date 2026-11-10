@@ -16,7 +16,8 @@
 | 앱 파일 | 설치 위치의 `current\` (업데이트마다 통째로 바뀜). 버전은 `current\sq.version` |
 | 설정·기록 | `%LOCALAPPDATA%\Sts2Overlay` (`settings.json`, `app.log`, `captures\`, `local\`). 업데이트·제거 후에도 남음 |
 | 버전 | `Directory.Build.props`의 `<Version>0.1.0</Version>`이 기본값, 릴리스 때 태그(`v0.2.0` → `0.2.0`)가 `-p:Version`으로 덮어씀 |
-| 지원 OS | Windows 10 2004 이상, x64 (`win-x64` self-contained) |
+| 지원 OS | Windows 10 2004 이상, x64 (`win-x64`) |
+| 필요한 런타임 | .NET 10 데스크톱 런타임 x64. 없으면 설치 파일과 업데이트가 자동으로 설치함 (아래 "설치 크기") |
 
 ## 릴리스 흐름
 
@@ -27,14 +28,14 @@ release.cmd 0.2.0
               build 잡 (windows-latest)
               1. 버전 확인 (SemVer 2, 같은 Release가 이미 있으면 나머지 건너뜀)
               2. dotnet test (Core, GameState, Resources, Vision, App 테스트, Release 구성)
-              3. dotnet publish src/Sts2Overlay.App -c Release -r win-x64 --self-contained -o publish -p:Version=0.2.0
+              3. dotnet publish src/Sts2Overlay.App -c Release -r win-x64 --self-contained false -o publish -p:Version=0.2.0
               4. publish 폴더를 워크플로 아티팩트로 올림
               pack 잡 (ubuntu-latest, Windows용으로 cross-pack)
               5. dotnet tool restore  (vpk는 .config/dotnet-tools.json의 로컬 도구)
               6. 릴리스 노트 → release-notes.md: 주석 태그의 메시지, 없으면(가벼운 태그, 수동 실행) GitHub 자동 생성 노트,
                  그것도 없으면 커밋 목록 링크. 빈 본문은 만들지 않음
               7. dotnet vpk [win] download github --channel win  (이전 릴리스를 받아 둠 → 델타 패키지용, 첫 릴리스면 건너뜀)
-              8. dotnet vpk [win] pack --packId namsy8471.Sts2Overlay --packVersion 0.2.0 --packDir publish --mainExe Sts2Overlay.exe --channel win
+              8. dotnet vpk [win] pack --packId namsy8471.Sts2Overlay --packVersion 0.2.0 --packDir publish --mainExe Sts2Overlay.exe --channel win --framework net10.0-x64-desktop
                  --releaseNotes release-notes.md ...  (델타를 못 만들면 --delta none으로 다시 묶음: 안전망)
               9. dotnet vpk [win] upload github --channel win --publish --tag v0.2.0  (Release 공개)
              10. gh release edit v0.2.0 --notes-file release-notes.md  (vpk upload에는 본문 옵션이 없음. 본문이 비면 실패)
@@ -86,6 +87,25 @@ release.cmd 0.2.0
 
 GitHub의 익명 API는 **IP당 시간당 60회**까지입니다. 같은 공유기 뒤의 PC들은 이 한도를 나눠 씁니다. 오버레이를 자주 껐다 켜거나 여러 대가 켜 두어도 한도를 넘지 않도록, 시작할 때 한 번과 그 뒤 6시간 간격으로만 묻습니다. 앱이 외부와 하는 통신은 이 확인과 내려받기뿐입니다.
 
+## 설치 크기
+
+앱은 **프레임워크 의존(framework-dependent)** 방식으로 배포합니다. .NET을 앱 폴더에 통째로 넣지 않고 PC에 설치된 .NET 10 데스크톱 런타임을 씁니다.
+
+| | v0.1.11 (self-contained) | 지금 |
+|---|---|---|
+| 설치 파일 `…-win-Setup.exe` | 95.5 MB | 23.0 MB |
+| 전체 패키지 `…-full.nupkg` | 88.2 MB | 15.8 MB |
+| 설치된 폴더 `current\` | 214 MB (529개 파일) | 43.6 MB (66개 파일) |
+
+(`v0.1.11`은 공개된 릴리스의 값, "지금"은 같은 코드에 이 설정만 바꿔 개발 PC에서 `vpk pack`한 값입니다.)
+
+- **왜 이렇게 줄어드나.** 예전 214 MB 중 약 150 MB가 .NET 런타임과 WPF·WinForms 자체였습니다. 빈 WPF 창 하나짜리 앱도 self-contained로 만들면 132 MB입니다. 이 부분은 PC에 한 번 설치되면 다른 .NET 앱과 같이 쓰는 공용 구성 요소입니다.
+- **런타임이 없는 PC.** `vpk pack --framework net10.0-x64-desktop`이 패키지에 "이 런타임이 필요함"을 적어 둡니다(`.nuspec`의 `runtimeDependencies`). 설치 파일은 런타임이 없으면 Microsoft에서 받아 설치한 뒤 앱을 설치합니다. 업데이트도 적용 전에 같은 검사를 하므로, self-contained였던 0.1.11 이하에서 올라오는 사용자도 런타임이 없으면 설치 안내를 받습니다. 사용자가 취소하면 업데이트가 적용되지 않고 이전 버전이 그대로 남습니다.
+- **이 옵션을 빼면 안 됩니다.** `--self-contained false`인데 `--framework`가 없으면, 런타임이 없는 PC에서 설치는 되지만 실행이 안 됩니다. `release.yml`과 `tools/release.ps1` 두 곳에 같이 들어 있습니다.
+- **언어 리소스.** UI가 한국어와 영어뿐이라 `SatelliteResourceLanguages=ko;en`으로 다른 언어의 리소스 폴더를 뺍니다.
+- **압축한 단일 실행 파일은 쓰지 않습니다.** 78 MB로 줄지만 켤 때마다 압축을 풀어야 하고, 파일 전체가 매번 달라져 델타 업데이트가 커집니다.
+- **포터블 zip**(`…-win-Portable.zip`)은 런타임을 설치해 주지 않습니다. 런타임이 없으면 Windows가 ".NET 데스크톱 런타임을 설치하라"는 창과 다운로드 링크를 보여 줍니다.
+
 ## 데이터 위치
 
 exe 위치를 보고 데이터를 어디서 읽고 쓸지 정합니다(`AppLayout.Resolve`, `src/Sts2Overlay.App/Infrastructure/AppPaths.cs`, 테스트 `AppLayoutTests.cs`). 처음 맞는 규칙을 씁니다.
@@ -108,14 +128,14 @@ $feed = "$env:TEMP\sts2-update-feed"
 dotnet tool restore
 
 # 1) 0.0.1을 만들어 설치
-dotnet publish src/Sts2Overlay.App -c Release -r win-x64 --self-contained -o publish -p:Version=0.0.1
-dotnet vpk pack --packId namsy8471.Sts2Overlay --packVersion 0.0.1 --packDir publish --mainExe Sts2Overlay.exe --outputDir $feed
+dotnet publish src/Sts2Overlay.App -c Release -r win-x64 --self-contained false -o publish -p:Version=0.0.1
+dotnet vpk pack --packId namsy8471.Sts2Overlay --packVersion 0.0.1 --packDir publish --mainExe Sts2Overlay.exe --framework net10.0-x64-desktop --outputDir $feed
 & "$feed\namsy8471.Sts2Overlay-win-Setup.exe" --silent
 
 # 2) 같은 폴더에 0.0.2를 만듦 (0.0.1과의 델타 패키지도 생김)
 Remove-Item publish -Recurse -Force
-dotnet publish src/Sts2Overlay.App -c Release -r win-x64 --self-contained -o publish -p:Version=0.0.2
-dotnet vpk pack --packId namsy8471.Sts2Overlay --packVersion 0.0.2 --packDir publish --mainExe Sts2Overlay.exe --outputDir $feed
+dotnet publish src/Sts2Overlay.App -c Release -r win-x64 --self-contained false -o publish -p:Version=0.0.2
+dotnet vpk pack --packId namsy8471.Sts2Overlay --packVersion 0.0.2 --packDir publish --mainExe Sts2Overlay.exe --framework net10.0-x64-desktop --outputDir $feed
 ```
 
 3. 오버레이를 모두 끈 뒤 `%LOCALAPPDATA%\Sts2Overlay\settings.json`에 `"updateUrl": "C:\\Users\\<나>\\AppData\\Local\\Temp\\sts2-update-feed"`를 넣습니다(JSON이라 `\`를 두 번).

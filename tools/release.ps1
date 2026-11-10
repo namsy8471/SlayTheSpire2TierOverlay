@@ -365,7 +365,8 @@ foreach ($p in @('tests/Sts2Overlay.Core.Tests', 'tests/Sts2Overlay.GameState.Te
         'tests/Sts2Overlay.Vision.Tests', 'tests/Sts2Overlay.App.Tests')) {
     Invoke-Native dotnet @('test', $p, '-c', 'Release', '--nologo') | Out-Null
 }
-Invoke-Native dotnet @('publish', 'src/Sts2Overlay.App', '-c', 'Release', '-r', 'win-x64', '--self-contained',
+# .NET을 앱에 넣지 않습니다(--self-contained false). 런타임은 vpk pack의 --framework가 설치·업데이트 때 챙깁니다.
+Invoke-Native dotnet @('publish', 'src/Sts2Overlay.App', '-c', 'Release', '-r', 'win-x64', '--self-contained', 'false',
     '-o', 'publish', "-p:Version=$Version", '--nologo') | Out-Null
 Invoke-Native dotnet @('tool', 'restore') | Out-Null
 
@@ -376,8 +377,8 @@ if (-not $got) { Write-Host '이전 릴리스를 받지 못했습니다 (첫 릴
 
 Invoke-Native dotnet @('vpk', 'pack', '--packId', 'namsy8471.Sts2Overlay', '--packVersion', $Version, '--packDir', 'publish',
     '--mainExe', 'Sts2Overlay.exe', '--packTitle', 'STS2 티어 오버레이', '--packAuthors', 'namsy8471',
-    '--icon', 'src/Sts2Overlay.App/Assets/Sts2Overlay.ico', '--runtime', 'win-x64', '--releaseNotes', $cleanNotes,
-    '--outputDir', 'releases') | Out-Null
+    '--icon', 'src/Sts2Overlay.App/Assets/Sts2Overlay.ico', '--runtime', 'win-x64', '--framework', 'net10.0-x64-desktop',
+    '--releaseNotes', $cleanNotes, '--outputDir', 'releases') | Out-Null
 
 # --targetCommitish: 태그가 아직 없으므로 GitHub가 기본 브랜치 끝이 아니라 이 커밋(push됨을 위에서 확인)에 태그를 만들게 합니다.
 Invoke-Native dotnet (@('vpk', 'upload', 'github', '--repoUrl', $RepoUrl, '--outputDir', 'releases', '--publish',

@@ -118,7 +118,7 @@ When you hover a card, relic or event option in the game to read its tooltip, th
 **Requirements**: Windows 10 2004 or later (64-bit) and Slay the Spire 2 installed through Steam.
 
 1. Download `namsy8471.Sts2Overlay-win-Setup.exe` from the [**latest release page**](https://github.com/namsy8471/SlayTheSpire2TierOverlay/releases/latest).
-2. Run it. It installs right away and adds Start menu and desktop shortcuts. No administrator rights needed (it installs to `%LocalAppData%\namsy8471.Sts2Overlay` for your account).
+2. Run it. It installs right away and adds Start menu and desktop shortcuts (it installs to `%LocalAppData%\namsy8471.Sts2Overlay` for your account, about 45 MB). If the PC has no **.NET 10 Desktop Runtime**, the installer first asks to install it. It is a shared component published by Microsoft, and Windows asks for administrator approval once for it. If it is already there, nothing is asked.
 3. If a blue **"Windows protected your PC"** window appears, click **More info → Run anyway**. The warning appears because this personal project has no code-signing certificate.
 4. On first run it finds the game folder and builds card images and names in `%LOCALAPPDATA%\Sts2Overlay\local` (a few seconds). Progress shows on an orange line at the bottom of the panel. Steam installed outside the default location is found through the Steam path in the registry.
 

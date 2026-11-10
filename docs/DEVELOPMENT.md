@@ -73,7 +73,7 @@ dotnet run --project src/Sts2Overlay.App
 켜져 있는 exe도 이름은 바꿀 수 있어서, 이전 exe를 `Sts2Overlay.prev.exe`로 옮기고 새 exe를 넣습니다. 안에서 하는 일은 아래 명령과 같습니다(임시 폴더로 publish한 뒤 교체):
 
 ```powershell
-dotnet publish src/Sts2Overlay.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -o dist
+dotnet publish src/Sts2Overlay.App -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -o dist
 ```
 
 `dist\Sts2Overlay.exe`는 위 폴더로 올라가며 `data/packs`를 찾으므로 `dist`는 레포 안에 둡니다. 이 exe는 설치판이 아니라서 자동 업데이트를 하지 않습니다(트레이 버전 옆에 "(개발용)").
