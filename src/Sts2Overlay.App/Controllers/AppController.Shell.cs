@@ -5,17 +5,14 @@ using Sts2Overlay.Core.Localization;
 namespace Sts2Overlay.App.Controllers;
 
 /// <summary>
-/// The app shell's standing notices and state the tray needs: hotkeys another program holds, a game that is not 16:9,
-/// click-through, the open tray menu, and the panel's first placement on the game's monitor.
+/// The app shell's standing notices and state the tray needs: hotkeys another program holds, the game's aspect ratio
+/// option set away from 16:9, click-through, the open tray menu, and the panel's first placement on the game's monitor.
 ///
 /// <para>The notices go to <see cref="ViewModels.PanelViewModel.ShellNotice"/>, which (unlike
 /// <see cref="ShowMessage"/>) does not time out: it stays until the cause is gone.</para>
 /// </summary>
 public sealed partial class AppController
 {
-    /// <summary>How far the game's width/height may be from 16:9 before recognition is likely to miss things.</summary>
-    internal const double AspectTolerance = 0.015;
-
     private IReadOnlyList<string> _failedHotkeys = [];
     private bool _overlaySpikeRunning;
     private bool _aspectOff;
@@ -45,20 +42,34 @@ public sealed partial class AppController
     }
 
     /// <summary>
-    /// True when <paramref name="width"/> x <paramref name="height"/> is not 16:9 within <see cref="AspectTolerance"/>.
-    /// Every recognition coordinate assumes 16:9 (Vision.RefTransform), so 16:10, 21:9 or a maximised window
-    /// (1920x1017) can miss some screens.
+    /// True when the game's "Aspect Ratio" option (settings.save <c>aspect_ratio</c>) is known and is not the default
+    /// <c>sixteen_by_nine</c>. With the default the game draws a fixed 1920x1080 view letterboxed into any window, which
+    /// Vision.RefTransform already follows (16:10 monitors, ultrawides, a maximised 1920x1017 window all work); the other
+    /// options change the game's layout, so some recognition positions are off. Unknown or unrecognised values: false.
     /// </summary>
-    internal static bool AspectIsOff(int width, int height)
+    internal static bool AspectOptionIsOff(string? option)
     {
-        if (width <= 0 || height <= 0) return false;
-        var ratio = (double)width / height / (16.0 / 9.0);
-        return Math.Abs(ratio - 1) > AspectTolerance;
+        var o = option?.Trim().Replace("_", "", StringComparison.Ordinal).ToLowerInvariant();
+        return o is "sixteenbyten" or "fourbythree" or "twentyonebynine" or "auto";
+    }
+
+    /// <summary>The game's settings.save was read again (App's language watch): the notice follows its aspect option.</summary>
+    public void SetGameAspectRatio(string? option)
+    {
+        if (!_ui.CheckAccess())
+        {
+            _ui.BeginInvoke(() => SetGameAspectRatio(option));
+            return;
+        }
+        var off = AspectOptionIsOff(option);
+        if (off != _aspectOff) AppLog.Info($"game aspect ratio option {option ?? "(unknown)"}: {(off ? "not 16:9, notice shown" : "16:9 or unknown")}");
+        _aspectOff = off;
+        RefreshShellNotice();
     }
 
     internal static string AspectNotice() => Loc.T(
-        "화면 비율이 16:9가 아니어서 일부 화면의 카드·표시 인식이 안 될 수 있습니다 (게임 해상도를 16:9로 설정)",
-        "The game is not 16:9, so cards and marks may not be recognized on some screens (set a 16:9 resolution in the game)");
+        "게임의 화면 비율 옵션이 16:9가 아니어서 일부 화면의 카드·표시 인식이 어긋날 수 있습니다 (게임 설정 > 화면 비율을 16:9로 바꾸면 정확합니다)",
+        "The game's aspect ratio option is not 16:9, so some cards and marks may be misplaced (set Settings > Aspect Ratio to 16:9 in the game for exact results)");
 
     /// <summary>The standing notice lines (null when there is nothing to say), in the current language.</summary>
     internal static string? ShellNoticeText(IReadOnlyList<string> failedHotkeys, bool overlaySpikeRunning, bool aspectOff)
@@ -73,22 +84,12 @@ public sealed partial class AppController
     private void RefreshShellNotice() => _vm.ShellNotice = ShellNoticeText(_failedHotkeys, _overlaySpikeRunning, _aspectOff);
 
     /// <summary>
-    /// Called with every game-window change: the aspect-ratio notice (kept while minimised, gone with the game), and the
-    /// panel's first placement on the game's monitor.
+    /// Called with every game-window change: the panel's first placement on the game's monitor, and the notice text
+    /// (rebuilt in the current language; a language change runs this too).
     /// </summary>
     private void UpdateShellForGame(GameWindowInfo? info)
     {
-        if (info is null)
-        {
-            _aspectOff = false;
-        }
-        else if (!info.IsSimulated && !info.IsMinimized && !info.CaptureRect.IsEmpty)
-        {
-            var off = AspectIsOff(info.CaptureRect.Width, info.CaptureRect.Height);
-            if (off != _aspectOff) AppLog.Info($"game aspect {info.CaptureRect.Width}x{info.CaptureRect.Height}: {(off ? "not 16:9, notice shown" : "16:9")}");
-            _aspectOff = off;
-            _panel.FollowGame(info.CaptureRect);
-        }
+        if (info is { IsSimulated: false, IsMinimized: false, CaptureRect.IsEmpty: false }) _panel.FollowGame(info.CaptureRect);
         RefreshShellNotice();
     }
 }

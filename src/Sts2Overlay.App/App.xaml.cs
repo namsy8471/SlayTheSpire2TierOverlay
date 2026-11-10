@@ -360,9 +360,13 @@ public partial class App : Application
     /// <summary>On "auto", re-reads the game's language every few seconds (the player can change it mid-session).</summary>
     private void StartLanguageWatch()
     {
+        // The game's "Aspect Ratio" option comes from the same settings.save read: polled whatever the language setting.
+        _gameLanguage!.AspectRatioChanged += () => _controller?.SetGameAspectRatio(_gameLanguage.AspectRatio);
+        _controller?.SetGameAspectRatio(_gameLanguage.AspectRatio);
         _languageTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
         _languageTimer.Tick += (_, _) =>
         {
+            _gameLanguage.Poll(); // cheap when the file is unchanged; ApplyLanguage's own poll then does nothing
             if (GameLanguage.NormalizeSetting(_settings.Language) == GameLanguage.Auto) ApplyLanguage();
         };
         _languageTimer.Start();
