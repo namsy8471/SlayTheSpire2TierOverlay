@@ -1,4 +1,3 @@
-using System.Buffers;
 using System.Diagnostics;
 using System.Globalization;
 
@@ -806,24 +805,26 @@ public static class UpgradeDetector
         // About one sample per table cell: thin glyph strokes must not be averaged away.
         int gw = Math.Clamp((int)(title.Width / img.Step), 8, 400);
         int gh = Math.Clamp((int)(title.Height / img.Step), 4, 120);
-        // Pooled: at 4K the grid is ~220x40 cells (100+ KB of floats, i.e. a large-object-heap array) and this runs several
-        // times per slot. SampleGrid writes every value of the span, so leftovers in the rented array never show.
-        float[] rented = ArrayPool<float>.Shared.Rent(gw * gh * 3);
-        try
+        // At 4K the grid is ~220x40 cells and this runs several times per slot. Each cell is only counted, so the grid is
+        // sampled one row at a time into a stack buffer (gw <= 400: at most 4.8 KB) instead of a whole-grid array (100+ KB,
+        // a large-object-heap array that every Parallel.For worker kept a pooled copy of).
+        Span<float> row = stackalloc float[gw * 3];
+        var counts = new TitleCounts();
+        img.SampleGridRows(title, gw, gh, row, ref counts);
+        return (counts.Green / (float)(gw * gh), counts.Slate / (float)(gw * gh));
+    }
+
+    private struct TitleCounts : IntegralImage.IRowSink
+    {
+        public int Green, Slate;
+
+        public void Row(ReadOnlySpan<float> rgb)
         {
-            Span<float> rgb = rented.AsSpan(0, gw * gh * 3);
-            img.SampleGrid(title, gw, gh, rgb);
-            int green = 0, slate = 0;
             for (int i = 0; i < rgb.Length; i += 3)
             {
-                if (IsUpgradeGreen(rgb[i], rgb[i + 1], rgb[i + 2])) green++;
-                else if (IsTooltipSlate(rgb[i], rgb[i + 1], rgb[i + 2])) slate++;
+                if (IsUpgradeGreen(rgb[i], rgb[i + 1], rgb[i + 2])) Green++;
+                else if (IsTooltipSlate(rgb[i], rgb[i + 1], rgb[i + 2])) Slate++;
             }
-            return (green / (float)(gw * gh), slate / (float)(gw * gh));
-        }
-        finally
-        {
-            ArrayPool<float>.Shared.Return(rented);
         }
     }
 }

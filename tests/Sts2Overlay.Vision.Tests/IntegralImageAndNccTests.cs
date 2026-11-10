@@ -77,6 +77,29 @@ public class IntegralImageAndNccTests
         Assert.Equal([200f, 0f, 0f, 0f, 0f, 100f], dst.Select(v => MathF.Round(v, 3)));
     }
 
+    private struct CollectRows(List<float> into) : IntegralImage.IRowSink
+    {
+        public readonly void Row(ReadOnlySpan<float> rgb) => into.AddRange(rgb.ToArray());
+    }
+
+    [Theory]
+    [InlineData(16, 12)]
+    [InlineData(48, 36)]
+    [InlineData(1, 1)]
+    [InlineData(600, 3)] // wider than the two stack rows: the heap path
+    public void SampleGridRows_is_bit_identical_to_SampleGrid(int gw, int gh)
+    {
+        Canvas c = RandomCanvas(700, 90, 11);
+        using IntegralImage img = IntegralImage.Build(c.Frame, new PixelRect(3, 2, 690, 86), 2);
+        var box = new RectF(10.3f, 7.7f, 601.9f, 61.4f);
+        float[] whole = new float[gw * gh * 3];
+        img.SampleGrid(box, gw, gh, whole);
+        var rows = new List<float>();
+        var sink = new CollectRows(rows);
+        img.SampleGridRows(box, gw, gh, new float[gw * 3], ref sink);
+        Assert.Equal(whole.Select(BitConverter.SingleToInt32Bits), rows.Select(BitConverter.SingleToInt32Bits));
+    }
+
     [Fact]
     public void Normalise_makes_zero_mean_unit_length()
     {
