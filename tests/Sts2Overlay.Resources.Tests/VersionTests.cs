@@ -132,6 +132,16 @@ public sealed class VersionGuardTests
     }
 
     [Theory]
+    [InlineData("Common", true)]
+    [InlineData("rare", true)]
+    [InlineData(null, true)] // unknown counts as offered
+    [InlineData("Basic", false)]
+    [InlineData("ancient", false)]
+    [InlineData("Event", false)]
+    public void OfferedRarity_IsTheRuleTheTierListUsesToo(string? rarity, bool offered)
+        => Assert.Equal(offered, VersionGuard.IsOfferedRarity(rarity));
+
+    [Theory]
     [InlineData("v0.108", "v0.108이")]
     [InlineData("v0.109", "v0.109가")]
     [InlineData("v0.110", "v0.110이")]

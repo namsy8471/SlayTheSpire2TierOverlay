@@ -103,7 +103,7 @@ public static class VersionGuard
         var cards = catalog.ToList();
         var unrated = cards
             .Where(c => c.Pool is not null && offerablePools.Contains(c.Pool))
-            .Where(c => c.Rarity is null || !UnofferedRarities.Contains(c.Rarity))
+            .Where(c => IsOfferedRarity(c.Rarity))
             .Where(c => !isRated(c.Id))
             .Select(c => c.Id)
             .Distinct(StringComparer.Ordinal)
@@ -118,6 +118,12 @@ public static class VersionGuard
 
         return new VersionGuardResult(game, pack, cmp, unrated, removed);
     }
+
+    /// <summary>
+    /// True when a card of this rarity can be offered (reward / shop), so a missing tier entry matters: everything but basic,
+    /// curse, status, token, quest, event, ancient and "None". An unknown (null) rarity counts as offered.
+    /// </summary>
+    public static bool IsOfferedRarity(string? rarity) => rarity is null || !UnofferedRarities.Contains(rarity);
 
     /// <summary>Reads id/pool/rarity from a catalog JSON (local or committed). Missing/broken file → empty list.</summary>
     public static IReadOnlyList<GuardCard> LoadCatalog(string? path)
