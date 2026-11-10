@@ -61,12 +61,15 @@ public partial class EventMarkerWindow : Window, IHoverYield
     private IntPtr _hwnd;
     private PixelRect _layer;
     private readonly LayerPlacement _placement = new("event");
+    private readonly LayerTrimmer _trimmer;
     private IReadOnlyList<EventMarkerSpec> _specs = [];
 
     public EventMarkerWindow(OverlayCaptureVisibility captureVisibility)
     {
         InitializeComponent();
         DataContext = Model;
+        // Empty except on an event's option screen: give the full-screen surface back meanwhile.
+        _trimmer = new LayerTrimmer(this, _placement, () => _hwnd);
         SourceInitialized += (_, _) =>
         {
             _hwnd = OverlayWindowHelper.Handle(this);
@@ -88,6 +91,17 @@ public partial class EventMarkerWindow : Window, IHoverYield
 
     public bool HasMarkers => _specs.Count > 0;
 
+    /// <summary>
+    /// Over the game or not (the controller's Show/Hide). The window itself is shown only while it is on and has had
+    /// markers lately (<see cref="LayerTrimmer"/>).
+    /// </summary>
+    public bool IsLayerOn => _trimmer.IsOn;
+
+    public void SetLayerOn(bool on) => _trimmer.SetOn(on);
+
+    /// <summary>An event room is open: kept full size meanwhile (<see cref="LayerTrimmer.SetReady"/>).</summary>
+    public void SetLayerReady(bool ready) => _trimmer.SetReady(ready);
+
     /// <summary>User UI scale relative to auto, as for the card badges.</summary>
     public double ScaleMultiplier { get; set; } = 1.0;
 
@@ -95,7 +109,10 @@ public partial class EventMarkerWindow : Window, IHoverYield
     {
         if (_hwnd == IntPtr.Zero || gameRect.IsEmpty) return;
         // Placed (and checked) even when the rect is unchanged: the window itself may have been moved or resized.
-        if (!_placement.Place(_hwnd, gameRect)) return;
+        // While trimmed it is placed on the game's corner (LayerPlacement.Target).
+        var changed = _placement.Place(_hwnd, gameRect);
+        _trimmer.BeforeContent(HasMarkers);
+        if (!changed) return;
         _layer = gameRect;
         Relayout();
     }
@@ -103,7 +120,9 @@ public partial class EventMarkerWindow : Window, IHoverYield
     public void Show(IReadOnlyList<EventMarkerSpec> specs)
     {
         _specs = specs;
+        _trimmer.BeforeContent(HasMarkers); // full size again (still hidden) before the markers are laid out
         Relayout();
+        _trimmer.AfterContent(); // and shown once they are
     }
 
     public void Clear() => Show([]);

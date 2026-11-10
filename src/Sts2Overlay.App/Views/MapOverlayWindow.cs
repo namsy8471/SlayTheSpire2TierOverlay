@@ -42,6 +42,7 @@ public sealed class MapOverlayWindow : Window, IHoverYield
     private IntPtr _hwnd;
     private PixelRect _layer;
     private readonly LayerPlacement _placement = new("map");
+    private readonly LayerTrimmer _trimmer;
     private MapMarkPlan _plan = MapMarkPlan.Empty;
     private double _scaleMultiplier = 1.0;
 
@@ -64,6 +65,8 @@ public sealed class MapOverlayWindow : Window, IHoverYield
         Height = 100;
         if (Application.Current?.TryFindResource("UiFont") is FontFamily font) FontFamily = font;
         Content = _canvas;
+        // Empty most of the time (marks only on the map and at rest sites): give the full-screen surface back meanwhile.
+        _trimmer = new LayerTrimmer(this, _placement, () => _hwnd);
         SourceInitialized += (_, _) =>
         {
             _hwnd = OverlayWindowHelper.Handle(this);
@@ -83,6 +86,17 @@ public sealed class MapOverlayWindow : Window, IHoverYield
 
     public bool HasMarks => !_plan.IsEmpty;
 
+    /// <summary>
+    /// Over the game or not (the controller's Show/Hide). The window itself is shown only while it is on and has had
+    /// marks lately (<see cref="LayerTrimmer"/>).
+    /// </summary>
+    public bool IsLayerOn => _trimmer.IsOn;
+
+    public void SetLayerOn(bool on) => _trimmer.SetOn(on);
+
+    /// <summary>Marks are expected soon (map about to open, rest site): kept full size meanwhile (<see cref="LayerTrimmer.SetReady"/>).</summary>
+    public void SetLayerReady(bool ready) => _trimmer.SetReady(ready);
+
     /// <summary>User "UI 배율" relative to auto: scales the marks' size (not their positions).</summary>
     public double ScaleMultiplier
     {
@@ -100,7 +114,10 @@ public sealed class MapOverlayWindow : Window, IHoverYield
     {
         if (_hwnd == IntPtr.Zero || gameRect.IsEmpty) return;
         // Placed (and checked) even when the rect is unchanged: the window itself may have been moved or resized.
-        if (!_placement.Place(_hwnd, gameRect)) return;
+        // While trimmed it is placed on the game's corner (LayerPlacement.Target).
+        var changed = _placement.Place(_hwnd, gameRect);
+        _trimmer.BeforeContent(HasMarks);
+        if (!changed) return;
         _layer = gameRect;
         Redraw();
     }
@@ -109,7 +126,9 @@ public sealed class MapOverlayWindow : Window, IHoverYield
     {
         if (ReferenceEquals(plan, _plan) || (plan.IsEmpty && _plan.IsEmpty)) return;
         _plan = plan;
+        _trimmer.BeforeContent(HasMarks); // full size again (still hidden) before the marks are drawn
         Redraw();
+        _trimmer.AfterContent(); // and shown once they are
     }
 
     public void Clear() => ShowPlan(MapMarkPlan.Empty);
