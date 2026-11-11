@@ -35,4 +35,28 @@ public class DataVersionSelectorTests
     [Fact]
     public void No_pack_folders_gives_no_version() =>
         Assert.Null(DataVersionSelector.Select(["sample"], "v0.111.0").Version);
+
+    [Fact]
+    public void Tools_follow_the_game_the_local_resources_came_from()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "sts2-res-tests", Guid.NewGuid().ToString("N"));
+        try
+        {
+            foreach (string v in Shipped) Directory.CreateDirectory(Path.Combine(root, "data", "packs", v));
+            string local = Path.Combine(root, "data", "local");
+            Directory.CreateDirectory(local);
+
+            // No manifest yet: unknown game, the newest data.
+            Assert.Equal("v0.111.0", DataVersionSelector.ForLocalResources(root, local).Version);
+
+            new ResourceManifest { GameVersion = "v0.108.0" }.Save(new LocalLayout(local).ManifestPath);
+            var choice = DataVersionSelector.ForLocalResources(root, local);
+            Assert.Equal("v0.107.1", choice.Version);
+            Assert.Equal(DataVersionReason.NewestNotNewerThanGame, choice.Reason);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
 }

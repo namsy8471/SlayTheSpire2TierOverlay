@@ -7,7 +7,7 @@
 //                                               [--out <file>] [--game-version v0.107.1] [--all]
 //
 //   --dll   default: sts2.dll of the install found by GameInstall.Locate (Steam libraries)
-//   --game-version  default: "version" from the install's release_info.json, else v0.107.1
+//   --game-version  default: "version" from the install's release_info.json (required when there is none)
 //   --loc   folder containing <lang>/cards.json (default: data/local/pck/localization)
 //   --all   also include card classes that are in no in-game pool (mocks, tests)
 //   --starting-decks <file>  also write names-free starting loadouts (deck, relics, HP, gold) per
@@ -62,7 +62,13 @@ for (int i = 0; i < args.Length; i++)
     }
 }
 // release_info.json sits two folders above sts2.dll (<install>/data_sts2_windows_x86_64/sts2.dll).
-gameVersion ??= ReleaseInfo.TryLoad(Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(dllPath)!)!, "release_info.json"))?.Version ?? "v0.107.1";
+// Without one, ask: a silent fallback would label a newer game's data with an old version.
+gameVersion ??= ReleaseInfo.TryLoad(Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(dllPath)!)!, "release_info.json"))?.Version;
+if (gameVersion is null)
+{
+    Console.Error.WriteLine("No release_info.json next to the dll: pass --game-version (e.g. v0.111.0).");
+    return 1;
+}
 outPath ??= Path.Combine(repoRoot, "data", "local", $"catalog.{gameVersion}.json");
 
 Console.WriteLine($"Reading {dllPath} ({gameVersion})");

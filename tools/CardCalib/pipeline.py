@@ -14,7 +14,13 @@ import argparse, csv, json, os, re, shutil, subprocess, sys, collections, math, 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, '..', '..'))          # tools/CardCalib -> repo root
 PY = sys.executable                                               # needs numpy + scipy
-CATALOG = os.path.join(REPO, 'data', 'catalog', 'cards.v0.107.1.json')
+def catalog_for(pack):
+    """The committed catalog of the pack's data version, like DataPackLoader.SiblingCatalogPath: the base pack's folder
+    name (data/packs/v0.111.0 -> data/catalog/cards.v0.111.0.json); a work copy of a pack keeps the base's version."""
+    return os.path.join(REPO, 'data', 'catalog', f'cards.{DATA_VERSION or os.path.basename(os.path.normpath(pack))}.json')
+
+
+DATA_VERSION = None  # set in main() from --base
 FILES = {'CHARACTER.IRONCLAD': 'ironclad', 'CHARACTER.SILENT': 'silent', 'CHARACTER.DEFECT': 'defect',
          'CHARACTER.NECROBINDER': 'necrobinder', 'CHARACTER.REGENT': 'regent'}
 ORD = 'DCBAS'
@@ -48,7 +54,7 @@ def subset_dir(runs, ids, dest):
 
 def dump(pack, runsdir, out):
     run(['dotnet', 'run', '--project', os.path.join(REPO, 'tools', 'DeckSim'), '-c', 'Release', '--no-build', '--', '--pack', pack,
-         '--catalog', CATALOG, '--rankers', runsdir, '--cards', out, '--losses', '--policies', 'none'])
+         '--catalog', catalog_for(pack), '--rankers', runsdir, '--cards', out, '--losses', '--policies', 'none'])
     return out
 
 
@@ -396,8 +402,13 @@ def main():
     ap.add_argument('--dupfactor', type=int, default=1, help='1: also fit per-card dupFactor (fit_dupfactors), 0: leave dupFactor as in --base')
     ap.add_argument('--dup-floor', type=float, default=0.2, help='lowest per-card dupFactor fit_dupfactors may pick')
     ap.add_argument('--v2status', default='', help='json from v2status.py; built from docs/research/v2-stats/tiers.md when left out')
+    ap.add_argument('--data-version', default='', help='catalog version for DeckSim; default: the --base pack folder name (e.g. v0.111.0)')
     a = ap.parse_args()
-    global V2STATUS, GUIDES_CSV
+    global V2STATUS, GUIDES_CSV, DATA_VERSION
+    DATA_VERSION = a.data_version or os.path.basename(os.path.normpath(a.base or ''))
+    if not os.path.exists(catalog_for(a.base or '')):
+        raise SystemExit(f'no data/catalog/cards.{DATA_VERSION}.json: pass --data-version')
+    print(f'data version {DATA_VERSION}')
     GUIDES_CSV = a.guides_csv or None
     V2STATUS = a.v2status
     if not V2STATUS:

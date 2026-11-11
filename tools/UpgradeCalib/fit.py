@@ -27,9 +27,16 @@ from scipy import sparse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, '..', '..'))
-PACK = os.path.join(REPO, 'data', 'packs', 'v0.107.1')
-CATALOG = os.path.join(REPO, 'data', 'catalog', 'cards.v0.107.1.json')
-VARS = os.path.join(REPO, 'data', 'catalog', 'card-vars.v0.107.1.json')
+PACK = CATALOG = VARS = None  # set by use_data_version() from --data-version
+
+
+def use_data_version(v):
+    """Pack, catalog and card vars of one data version (the fit treats v0.107.x runs as the base, see KNOWN)."""
+    global PACK, CATALOG, VARS
+    PACK = os.path.join(REPO, 'data', 'packs', v)
+    CATALOG = os.path.join(REPO, 'data', 'catalog', f'cards.{v}.json')
+    VARS = os.path.join(REPO, 'data', 'catalog', f'card-vars.{v}.json')
+    print(f'data version {v}')
 TIER_FILES = ['ironclad', 'silent', 'defect', 'necrobinder', 'regent', 'colorless']
 TIER_VALUE = {'S': 80, 'A': 65, 'B': 50, 'C': 35, 'D': 20}
 ROLES = ['core', 'payoff', 'enabler', 'support']
@@ -172,7 +179,9 @@ def main():
     ap.add_argument('--reps', type=int, default=5)
     ap.add_argument('--write', action='store_true', help='write upgradeValue into the tier packs and the weights block')
     ap.add_argument('--json', help='summary json (numbers for the doc)')
+    ap.add_argument('--data-version', default='v0.107.1', help='pack + catalogs to read and --write into (the fit was made on v0.107.1)')
     a = ap.parse_args()
+    use_data_version(a.data_version)
 
     D = Data(a.up_csv, a.index_csv)
     cols = PRIOR + ['r_' + r for r in ROLES] + ['need']

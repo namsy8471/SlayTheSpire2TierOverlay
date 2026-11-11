@@ -9,7 +9,7 @@ using VisionBench;
 
 // VisionBench: art database build, diagnostics and the regression bench for Sts2Overlay.Vision.
 //
-//   VisionBench build-db  [--art dir] [--catalog file] [--db file]
+//   VisionBench build-db  [--art dir] [--catalog file] [--db file]   (every command: [--data-version v0.111.0])
 //   VisionBench selftest  [--db file]                       each portrait shrunk/darkened → still found?
 //   VisionBench recognize <png> [--db file] [--character CHARACTER.X] [--upscale 2]
 //   VisionBench annotate  <png> [out.png]                   draws the found boxes (debugging)
@@ -31,7 +31,11 @@ CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
 string repo = FindRepoRoot();
 var opts = ParseOptions(args.Skip(1).ToArray(), out List<string> positional);
 string artDir = opts.GetValueOrDefault("art") ?? Path.Combine(repo, "data", "local", "pck", "card_art");
-string catalogPath = opts.GetValueOrDefault("catalog") ?? Path.Combine(repo, "data", "catalog", "cards.v0.107.1.json");
+// --data-version: which committed catalogs and tiers to read (default: the app's pick for the game data/local came from).
+string dataVersion = opts.GetValueOrDefault("data-version")
+    ?? Sts2Overlay.Resources.DataVersionSelector.ForLocalResources(repo, Path.Combine(repo, "data", "local")).Version
+    ?? throw new InvalidOperationException("no data pack under data/packs: pass --data-version");
+string catalogPath = opts.GetValueOrDefault("catalog") ?? Path.Combine(repo, "data", "catalog", $"cards.{dataVersion}.json");
 string dbPath = opts.GetValueOrDefault("db") ?? Path.Combine(repo, "data", "local", "vision", "card-art.bin");
 
 switch (args.FirstOrDefault())
@@ -334,7 +338,7 @@ void PreviewCommand()
     string outDir = opts.GetValueOrDefault("out") ?? Path.Combine(repo, "data", "local", "vision-robust", "preview");
     List<string> files = positional.Count > 0 ? positional : PickPreviewCaptures(rec,
         opts.GetValueOrDefault("captures") ?? Path.Combine(repo, "data", "local", "vision-robust", "frozen2", "captures"));
-    var tiers = Preview.LoadTiers(Path.Combine(repo, "data", "packs", "v0.107.1", "tiers"));
+    var tiers = Preview.LoadTiers(Path.Combine(repo, "data", "packs", dataVersion, "tiers"));
     Console.WriteLine(Preview.Run(files, rec, Upscale, tiers, outDir, Console.WriteLine, skip: opts.GetValueOrDefault("skip") == "on"));
 }
 
@@ -359,7 +363,7 @@ static List<string> PickPreviewCaptures(CardRecognizer rec, string dir)
 RelicRecognizer NewRelicRecognizer()
 {
     string iconDir = opts.GetValueOrDefault("relic-icons") ?? Path.Combine(repo, "data", "local", "pck", "relic_icons");
-    string relicCatalog = Path.Combine(repo, "data", "catalog", "relics.v0.107.1.json");
+    string relicCatalog = Path.Combine(repo, "data", "catalog", $"relics.{dataVersion}.json");
     var sw = Stopwatch.StartNew();
     var db = RelicIconDatabase.Build(iconDir, RelicCatalog.Load(relicCatalog), Console.WriteLine);
     Console.WriteLine($"relic icons: {db.Count} shop-sellable relics loaded in {sw.ElapsedMilliseconds} ms");

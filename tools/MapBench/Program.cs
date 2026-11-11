@@ -80,7 +80,14 @@ var iconAspect = new Dictionary<MapNodeType, float>
 const float MaxAspectDeviation = 0.05f;
 
 var est = new MapScrollEstimator();
-DataPack? pack = previewDir is null ? null : DataPackLoader.LoadDirectory(packDir ?? Path.Combine("data", "packs", "v0.107.1"));
+// --pack, else the data version of the saves' seed arithmetic (GameDataVersion.For), so the preview's tiers match the run.
+if (previewDir != null && packDir is null)
+{
+    RngScheme scheme = saves.Select(x => x.Save.RngScheme).FirstOrDefault(x => x != null) ?? RngSeeds.Default;
+    packDir = DataPackLoader.PackRelativePath(GameDataVersion.For(scheme));
+    Console.WriteLine($"pack {packDir} (from the saves)");
+}
+DataPack? pack = previewDir is null ? null : DataPackLoader.LoadDirectory(packDir!);
 int previews = 0;
 int maps = 0, checkedN = 0, pass = 0;
 var times = new List<double>();

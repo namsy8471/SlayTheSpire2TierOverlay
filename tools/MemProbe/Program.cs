@@ -28,6 +28,7 @@ namespace MemProbe;
 //       what stays alive between frames: every big array and its holder (ClrMD snapshot of this process), ArrayPool.Shared
 //       contents, after recognising and after idle waits (HeapCensus.cs)
 //
+// --data-version: the pack + committed catalog to load (default: the one the app picks for the game data/local came from).
 // --local: the generated data folder (card art, localization, catalog, test-captures). Default: the nearest data/local
 // above this checkout (a clone under .worktrees\ uses the main checkout's). It is only READ: the art cache is copied to
 // a temp folder first, so a stale cache is rebuilt there, never in data/local.
@@ -68,7 +69,7 @@ internal static class Program
             {
                 // The art database build alone (what a cache miss costs at start), with allocations by type.
                 var layout = new Sts2Overlay.Resources.LocalLayout(local);
-                string catalogPath = layout.ManifestCatalog() ?? Path.Combine(repo, DataPackLoader.DefaultCatalogRelativePath);
+                string catalogPath = layout.ManifestCatalog() ?? Path.Combine(repo, DataPackLoader.CatalogRelativePath(DataVersion(repo, local, opts)));
                 var catalog = VisionCatalog.Load(catalogPath);
                 var report = new MemReport(Console.Out);
                 report.Header();
@@ -91,6 +92,19 @@ internal static class Program
         }
     }
 
+    /// <summary>
+    /// <c>--data-version</c>, else the app's rule for the game the local resources were prepared from
+    /// (<see cref="Sts2Overlay.Resources.DataVersionSelector.ForLocalResources"/>), so the pack matches the card art.
+    /// </summary>
+    private static string DataVersion(string repo, string local, Dictionary<string, string> opts)
+    {
+        string v = opts.GetValueOrDefault("data-version")
+                   ?? Sts2Overlay.Resources.DataVersionSelector.ForLocalResources(repo, local).Version
+                   ?? throw new InvalidOperationException("no data pack under data/packs: pass --data-version");
+        Console.WriteLine($"data version {v}");
+        return v;
+    }
+
     // ------------------------------------------------------------------ steps
 
     private static int Steps(string repo, string local, Dictionary<string, string> opts)
@@ -109,9 +123,10 @@ internal static class Program
         report.Row("a. baseline");
 
         // b. what AppController's constructor and LocalResourceService load before any frame
-        string packDir = Path.Combine(repo, "data", "packs", "v0.107.1");
+        string dataVersion = DataVersion(repo, local, opts);
+        string packDir = Path.Combine(repo, DataPackLoader.PackRelativePath(dataVersion));
         var layout = new Sts2Overlay.Resources.LocalLayout(local);
-        string committed = Path.Combine(repo, DataPackLoader.DefaultCatalogRelativePath);
+        string committed = Path.Combine(repo, DataPackLoader.CatalogRelativePath(dataVersion));
         string catalog = layout.ManifestCatalog() ?? committed;
         var pack = DataPackLoader.LoadDirectory(packDir);
         var engine = new RecommendationEngine(pack);
