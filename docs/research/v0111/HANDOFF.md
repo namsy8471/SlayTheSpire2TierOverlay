@@ -6,7 +6,7 @@ Only what is still open. Finished work is described in `CHANGES.md`, `LAYOUT_CHE
 
 1. Vision layout check: **done**. `LAYOUT_CHECK.md`: 46 constants, 42 same, 0 changed, 4 could not be checked without real v0.111 frames (event button texture inset/colours, ancient text colours, map visible band / top strip, price glyph shapes and rug colours). No Vision or map code changed.
 2. Both-pack tests: **done**. PackTextTests, EventCatalogTests (new: shared flags per version), the real-pack part of TurnSimulatorTests (now `CombatPackTests`) and DummyHistoryTests run per version; all pass on v0.111.0, no pack data fix was needed. Per pack: Core pack tests v0.107.1 37, v0.111.0 37, sample 3 (+24 version-free TurnSimulatorTests on v0.107.1 data).
-3. Co-op shared events in `GameStateTracker.EventRngSeed`: **not started**.
+3. Co-op shared events: **done for Xx64**. `GameDataVersion.IsSharedEvent` lists the 8 v0.111.0 `IsShared` events; `GameStateTracker.EventRngSeed` adds no slot for them (only Morphic Grove GROUP, a one-card transform, currently reaches a replay). Legacy32 is unchanged (slot always added): v0.107.1 had 6 shared events, but its `BeginEvent` seed rule is unknown without a v0.107.1 decompile. Open: confirm on a v0.107.1 co-op log with a shared-event transform, if one turns up.
 4. RewardCorpusTests mismatches (10 + 12 card offers, 10 potion rolls) and the stop rooms BRAIN_LEECH / THIS_OR_THAT / ARCANE_SCROLL: **not started**.
 5. tools/ defaults that mix versions, `DataPackLoader.DefaultCatalogRelativePath`: **not started**.
 
@@ -22,4 +22,4 @@ Only what is still open. Finished work is described in `CHANGES.md`, `LAYOUT_CHE
 
 ## Build / test state
 - Last full runs (previous session, at `2559692`): GameState 312 passed / 3 skipped; Core 1412, App 530, Resources 88 (earlier commit).
-- This session: commit "Both-pack tests" built; the converted classes + RealPackTests + TurnSimulatorTests pass (101/101).
+- This session: commit "Both-pack tests" built; the converted classes + RealPackTests + TurnSimulatorTests pass (101/101); commit "Shared events" built, GameDataVersionTests + CoopGuestDeckTests + RngSeedsTests pass (64/64).
