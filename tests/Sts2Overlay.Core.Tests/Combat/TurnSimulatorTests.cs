@@ -7,12 +7,16 @@ using Xunit.Abstractions;
 
 namespace Sts2Overlay.Core.Tests.Combat;
 
-public class TurnSimulatorTests(ITestOutputHelper output)
+/// <summary>
+/// The simulator's rules on small decks (checked by hand) with the v0.107.1 combat data, and on synthetic data.
+/// The checks of the shipped combat data themselves run per version in <see cref="CombatPackTests"/>.
+/// </summary>
+public class TurnSimulatorTests
 {
     private static string PackDir => Path.Combine(TestPaths.RepoRoot, "data", "packs", "v0.107.1");
     private static readonly Lazy<CombatData> Real = new(() => CombatData.LoadPack(PackDir)!);
 
-    private static SimPlayer Deck(string character, params string[] cards) => new()
+    internal static SimPlayer Deck(string character, params string[] cards) => new()
     {
         Character = character,
         Deck = cards.Select(c => new DeckCard(c.EndsWith('+') ? new CardRef(c[..^1], 1) : new CardRef(c))).ToArray(),
@@ -22,70 +26,6 @@ public class TurnSimulatorTests(ITestOutputHelper output)
 
     private static DamageForecast Run(SimPlayer p, CombatData? data = null, int iterations = 200)
         => new TurnSimulator(data ?? Real.Value).Forecast(p, new SimOptions { Iterations = iterations });
-
-    // ---- the real data pack ---------------------------------------------------------------------------------------
-
-    [Fact]
-    public void RealPack_HasEveryCardAndTheFiveCharacters()
-    {
-        var data = Real.Value;
-        var catalog = JsonDocument.Parse(File.ReadAllText(Path.Combine(TestPaths.RepoRoot, "data", "catalog", "cards.v0.107.1.json")));
-        var ids = catalog.RootElement.GetProperty("cards").EnumerateArray().Select(c => c.GetProperty("id").GetString()!).ToArray();
-        Assert.Equal(ids.Length, data.CardCount);
-        Assert.All(ids, id => Assert.NotNull(data.Card(id)));
-        Assert.Equal(5, data.Characters.Count());
-        Assert.Equal(3, data.Character("CHARACTER.DEFECT").OrbSlots);
-        Assert.Equal(0, data.Character("CHARACTER.IRONCLAD").OrbSlots);
-        Assert.NotEmpty(data.RandomPool("CARD_POOL.IRONCLAD_CARD_POOL"));
-        Assert.Null(data.Relic("RELIC.BURNING_BLOOD")); // heals only: listed as irrelevant
-        Assert.NotNull(data.Relic("RELIC.DIVINE_RIGHT"));
-    }
-
-    [Fact]
-    public void RealPack_EveryFormulaOnlyUsesKnownVariables()
-    {
-        var data = Real.Value;
-        var names = SimFight.VariableNames(new TurnSimulator.Setup(data, Deck("CHARACTER.IRONCLAD", "CARD.STRIKE_IRONCLAD")));
-        var vars = names.ToDictionary(n => n, _ => 2.0, StringComparer.OrdinalIgnoreCase);
-        var bad = new List<string>();
-        foreach (var (owner, amount) in AllAmounts(data))
-        {
-            if (amount.Formula is { } f && !EventFormula.TryEvaluate(f, vars, out _)) bad.Add($"{owner}: {f}");
-        }
-        Assert.Empty(bad);
-    }
-
-    [Fact]
-    public void RealPack_EveryOpIsOneTheSimulatorKnows()
-    {
-        var known = typeof(CombatOps).GetFields(BindingFlags.Public | BindingFlags.Static)
-            .Where(f => f.IsLiteral).Select(f => (string)f.GetRawConstantValue()!).ToHashSet(StringComparer.Ordinal);
-        var unknown = AllOps(Real.Value).Where(x => !known.Contains(x.Op.Op)).Select(x => $"{x.Owner}: {x.Op.Op}").Distinct().ToList();
-        Assert.Empty(unknown);
-    }
-
-    [Theory]
-    [InlineData("CHARACTER.IRONCLAD")]
-    [InlineData("CHARACTER.SILENT")]
-    [InlineData("CHARACTER.DEFECT")]
-    [InlineData("CHARACTER.NECROBINDER")]
-    [InlineData("CHARACTER.REGENT")]
-    public void StarterDecks_DealPlausibleDamage(string character)
-    {
-        var decks = JsonDocument.Parse(File.ReadAllText(Path.Combine(TestPaths.RepoRoot, "data", "catalog", "starting-decks.v0.107.1.json")));
-        var entry = decks.RootElement.GetProperty("characters").EnumerateArray().First(c => c.GetProperty("character").GetString() == character);
-        var player = new SimPlayer
-        {
-            Character = character,
-            Deck = entry.GetProperty("deck").EnumerateArray().Select(c => new DeckCard(new CardRef(c.GetString()!))).ToArray(),
-            Relics = entry.GetProperty("relics").EnumerateArray().Select(r => r.GetString()!).ToArray(),
-        };
-        var f = Run(player, iterations: 2000);
-        output.WriteLine($"{character}: mean {f.Mean:0.0} per turn {string.Join(" / ", f.MeanPerTurn.Select(t => t.ToString("0.0")))} P(75)={f.ProbAtLeast(75):P0}");
-        Assert.Empty(f.Coverage.UnknownCards);
-        Assert.InRange(f.Mean, 20, 75);
-        Assert.All(f.MeanPerTurn, t => Assert.InRange(t, 3, 40));
-    }
 
     // ---- exact small decks (the rules, checked by hand) ------------------------------------------------------------
 
@@ -168,32 +108,6 @@ public class TurnSimulatorTests(ITestOutputHelper output)
         var p = Deck("CHARACTER.IRONCLAD", ["CARD.INFLAME", .. Many("CARD.STRIKE_IRONCLAD", 9)]) with { Relics = ["RELIC.JEWELED_MASK"] };
         var f = Run(p);
         Assert.Equal([24.0, 24.0, 24.0], f.MeanPerTurn);
-    }
-
-    [Fact]
-    public void RealPack_CountFieldsAreNumbers()
-    {
-        // These fields are read as plain integers: a formula there would be dropped without a word (it once hid
-        // Multi-Cast's "times": "X"). Formulas belong in dmg / hits / n / times.
-        var doc = JsonDocument.Parse(File.ReadAllText(Path.Combine(PackDir, "combat", "cards.json")));
-        var intFields = new[] { "choose", "setCost", "count", "every", "limitPerTurn" };
-        var bad = new List<string>();
-        void Walk(string owner, JsonElement e)
-        {
-            if (e.ValueKind == JsonValueKind.Array)
-            {
-                foreach (var item in e.EnumerateArray()) Walk(owner, item);
-                return;
-            }
-            if (e.ValueKind != JsonValueKind.Object) return;
-            foreach (var p in e.EnumerateObject())
-            {
-                if (intFields.Contains(p.Name) && p.Value.ValueKind != JsonValueKind.Number) bad.Add($"{owner}.{p.Name} = {p.Value}");
-                Walk(owner, p.Value);
-            }
-        }
-        foreach (var card in doc.RootElement.GetProperty("cards").EnumerateObject()) Walk(card.Name, card.Value);
-        Assert.Empty(bad);
     }
 
     private const string Synthetic = """
@@ -293,7 +207,7 @@ public class TurnSimulatorTests(ITestOutputHelper output)
 
     // ---- helpers ----------------------------------------------------------------------------------------------------
 
-    private static IEnumerable<(string Owner, CombatOp Op)> AllOps(CombatData data)
+    internal static IEnumerable<(string Owner, CombatOp Op)> AllOps(CombatData data)
     {
         foreach (var id in data.CardIds)
         {
@@ -327,7 +241,7 @@ public class TurnSimulatorTests(ITestOutputHelper output)
         }
     }
 
-    private static IEnumerable<(string Owner, CombatAmount Amount)> AllAmounts(CombatData data)
+    internal static IEnumerable<(string Owner, CombatAmount Amount)> AllAmounts(CombatData data)
     {
         foreach (var (owner, op) in AllOps(data))
         {
@@ -345,4 +259,119 @@ public class TurnSimulatorTests(ITestOutputHelper output)
             }
         }
     }
+}
+
+/// <summary>
+/// Checks the shipped combat data (<c>data/packs/&lt;version&gt;/combat</c>) against the catalogs of the same version and
+/// the simulator's vocabulary. One subclass per shipped data version.
+/// </summary>
+public abstract class CombatPackTests(ITestOutputHelper output)
+{
+    /// <summary>The pack and catalog version under test.</summary>
+    protected abstract string Version { get; }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<CombatData>> s_data = new(StringComparer.Ordinal);
+
+    private string PackDir => Path.Combine(TestPaths.RepoRoot, "data", "packs", Version);
+
+    /// <summary>Loaded once per version (xUnit makes a new instance per test).</summary>
+    private CombatData Data => s_data.GetOrAdd(Version, _ => new Lazy<CombatData>(() => CombatData.LoadPack(PackDir)!)).Value;
+
+    [Fact]
+    public void HasEveryCardAndTheFiveCharacters()
+    {
+        var data = Data;
+        var catalog = JsonDocument.Parse(File.ReadAllText(Path.Combine(TestPaths.RepoRoot, "data", "catalog", $"cards.{Version}.json")));
+        var ids = catalog.RootElement.GetProperty("cards").EnumerateArray().Select(c => c.GetProperty("id").GetString()!).ToArray();
+        Assert.Equal(ids.Length, data.CardCount);
+        Assert.All(ids, id => Assert.NotNull(data.Card(id)));
+        Assert.Equal(5, data.Characters.Count());
+        Assert.Equal(3, data.Character("CHARACTER.DEFECT").OrbSlots);
+        Assert.Equal(0, data.Character("CHARACTER.IRONCLAD").OrbSlots);
+        Assert.NotEmpty(data.RandomPool("CARD_POOL.IRONCLAD_CARD_POOL"));
+        Assert.Null(data.Relic("RELIC.BURNING_BLOOD")); // heals only: listed as irrelevant
+        Assert.NotNull(data.Relic("RELIC.DIVINE_RIGHT"));
+    }
+
+    [Fact]
+    public void EveryFormulaOnlyUsesKnownVariables()
+    {
+        var data = Data;
+        var names = SimFight.VariableNames(new TurnSimulator.Setup(data, TurnSimulatorTests.Deck("CHARACTER.IRONCLAD", "CARD.STRIKE_IRONCLAD")));
+        var vars = names.ToDictionary(n => n, _ => 2.0, StringComparer.OrdinalIgnoreCase);
+        var bad = new List<string>();
+        foreach (var (owner, amount) in TurnSimulatorTests.AllAmounts(data))
+        {
+            if (amount.Formula is { } f && !EventFormula.TryEvaluate(f, vars, out _)) bad.Add($"{owner}: {f}");
+        }
+        Assert.Empty(bad);
+    }
+
+    [Fact]
+    public void EveryOpIsOneTheSimulatorKnows()
+    {
+        var known = typeof(CombatOps).GetFields(BindingFlags.Public | BindingFlags.Static)
+            .Where(f => f.IsLiteral).Select(f => (string)f.GetRawConstantValue()!).ToHashSet(StringComparer.Ordinal);
+        var unknown = TurnSimulatorTests.AllOps(Data).Where(x => !known.Contains(x.Op.Op)).Select(x => $"{x.Owner}: {x.Op.Op}").Distinct().ToList();
+        Assert.Empty(unknown);
+    }
+
+    [Theory]
+    [InlineData("CHARACTER.IRONCLAD")]
+    [InlineData("CHARACTER.SILENT")]
+    [InlineData("CHARACTER.DEFECT")]
+    [InlineData("CHARACTER.NECROBINDER")]
+    [InlineData("CHARACTER.REGENT")]
+    public void StarterDecks_DealPlausibleDamage(string character)
+    {
+        var decks = JsonDocument.Parse(File.ReadAllText(Path.Combine(TestPaths.RepoRoot, "data", "catalog", $"starting-decks.{Version}.json")));
+        var entry = decks.RootElement.GetProperty("characters").EnumerateArray().First(c => c.GetProperty("character").GetString() == character);
+        var player = new SimPlayer
+        {
+            Character = character,
+            Deck = entry.GetProperty("deck").EnumerateArray().Select(c => new DeckCard(new CardRef(c.GetString()!))).ToArray(),
+            Relics = entry.GetProperty("relics").EnumerateArray().Select(r => r.GetString()!).ToArray(),
+        };
+        var f = new TurnSimulator(Data).Forecast(player, new SimOptions { Iterations = 2000 });
+        output.WriteLine($"{character}: mean {f.Mean:0.0} per turn {string.Join(" / ", f.MeanPerTurn.Select(t => t.ToString("0.0")))} P(75)={f.ProbAtLeast(75):P0}");
+        Assert.Empty(f.Coverage.UnknownCards);
+        Assert.InRange(f.Mean, 20, 75);
+        Assert.All(f.MeanPerTurn, t => Assert.InRange(t, 3, 40));
+    }
+
+    [Fact]
+    public void CountFieldsAreNumbers()
+    {
+        // These fields are read as plain integers: a formula there would be dropped without a word (it once hid
+        // Multi-Cast's "times": "X"). Formulas belong in dmg / hits / n / times.
+        var doc = JsonDocument.Parse(File.ReadAllText(Path.Combine(PackDir, "combat", "cards.json")));
+        var intFields = new[] { "choose", "setCost", "count", "every", "limitPerTurn" };
+        var bad = new List<string>();
+        void Walk(string owner, JsonElement e)
+        {
+            if (e.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in e.EnumerateArray()) Walk(owner, item);
+                return;
+            }
+            if (e.ValueKind != JsonValueKind.Object) return;
+            foreach (var p in e.EnumerateObject())
+            {
+                if (intFields.Contains(p.Name) && p.Value.ValueKind != JsonValueKind.Number) bad.Add($"{owner}.{p.Name} = {p.Value}");
+                Walk(owner, p.Value);
+            }
+        }
+        foreach (var card in doc.RootElement.GetProperty("cards").EnumerateObject()) Walk(card.Name, card.Value);
+        Assert.Empty(bad);
+    }
+}
+
+public sealed class CombatPackTestsV0107(ITestOutputHelper output) : CombatPackTests(output)
+{
+    protected override string Version => "v0.107.1";
+}
+
+public sealed class CombatPackTestsV0111(ITestOutputHelper output) : CombatPackTests(output)
+{
+    protected override string Version => "v0.111.0";
 }
