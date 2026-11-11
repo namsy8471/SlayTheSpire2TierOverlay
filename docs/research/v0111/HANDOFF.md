@@ -122,4 +122,4 @@ Full runs (`dotnet test -m:1`, after the code commits). Every listed project pas
 | App.Tests | 530 | 1 | 0 |
 | Resources.Tests | 88 | 0 | 0 |
 
-Vision tests were not run; only a Vision comment-free property line changed (`VisionRecognizer` is in the App project).
+Vision tests were not run: no file of the Vision project changed (the relic-catalog line is in the App project's `VisionRecognizer`).
