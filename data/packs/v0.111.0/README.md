@@ -1,20 +1,55 @@
-# v0.107.1 데이터 팩 (M2 초안, `claude-draft-v1`)
+# v0.111.0 데이터 팩 (`claude-draft-v1`, v0.107.1 팩에서 갱신)
 
-Slay the Spire 2 **v0.107.1** 기준 첫 실제 데이터 팩입니다. **초안**이므로 모든 평가는 검수 전 값입니다.
+Slay the Spire 2 **v0.111.0** 기준 데이터 팩입니다. v0.107.1 팩을 복사한 뒤 v0.111 변경만 반영했습니다(§0).
+**새 카드 티어는 임시**이고, 나머지 평가는 v0.107.1 팩과 같은 초안·보정 값입니다.
 형식은 [`docs/DATA_SCHEMA.md`](../../../docs/DATA_SCHEMA.md), 설계 근거는 PLAN §6·§7·§9를 따릅니다.
 
 | 파일 | 내용 |
 |---|---|
-| `tiers/ironclad.json` | 87장 (기본 3 + 일반 20 + 고급 36 + 희귀 26 + 고대 2) |
-| `tiers/silent.json`, `defect.json`, `necrobinder.json`, `regent.json` | 각 88장 (기본 4 + 82 + 고대 2) |
-| `tiers/colorless.json` | 64장 (고급 39 + 희귀 25) |
+| `tiers/ironclad.json` | 90장 (기본 3 + 일반 20 + 고급 38 + 희귀 27 + 고대 2) |
+| `tiers/silent.json`, `defect.json`, `necrobinder.json`, `regent.json` | 각 91장 (기본 4 + 일반 20 + 고급 38 + 희귀 27 + 고대 2) |
+| `tiers/colorless.json` | 65장 (고급 40 + 희귀 25) |
 | `archetypes/*.json` | 아이언클래드 8, 사일런트 3, 디펙트 6, 네크로바인더 3, 리젠트 4 (랭커 실제 빌드 근거, [`docs/research/build-sources/`](../../../docs/research/build-sources/README.md)) |
 | `combos/*.json` | 2장 콤보 58개 (캐릭터당 9~13개) |
 | `weights.json` | 랭커 통계 v2로 바꾼 `idealDeckSize` 21/27/31, `path.targetElites` 2/2/2와, 카드 점수 보정(2026-11)으로 바꾼 `urgency` 다섯 칸. 나머지는 코드 기본값 (이유는 파일 주석) |
+| `events.json` | 이벤트 66개의 선택지 효과(ID·수치만). v0.111.0 클래스로 다시 확인 |
 | `events.stats.json` | (선택) 랭커가 이벤트 선택지 115개·고대 선택지 79개를 고른 비율. 이벤트 점수에 섞습니다 ([`docs/research/v2-stats/events.md`](../../../docs/research/v2-stats/events.md)) |
 | `relics.json` | (선택) 유물 231개의 상점 구매율·고대 선택률. 안정한 82개(`use: true`)만 유물 값에 곱합니다 |
+| `combat/` | 전투 시뮬레이터 데이터: 카드 596, 유물 130 + 무관 169, 포션 65 ([`combat/README.md`](combat/README.md)) |
 
-- 캐릭터 풀과 무색 풀의 **모든 카드**(기본 타격·수비 포함)에 항목이 있습니다. 저주·상태이상·토큰·이벤트 카드는 보상에 나오지 않으므로 넣지 않았습니다.
+- 캐릭터 풀과 무색 풀의 **모든 카드**(기본 타격·수비 포함)에 항목이 있습니다. 저주·상태이상·토큰·이벤트·퀘스트 카드는 보상에 나오지 않으므로 넣지 않았습니다.
+
+## 0. v0.111.0 갱신 (2026-11-12)
+
+바뀐 것 전체와 수량, 정하지 못한 것: [`docs/research/v0111/CHANGES.md`](../../../docs/research/v0111/CHANGES.md).
+새 카드 티어와 바뀐 카드의 선택률 근거: [`docs/research/v0111/new-card-tiers.md`](../../../docs/research/v0111/new-card-tiers.md).
+
+- **티어**: 사라진 `CARD.SCARE`(사일런트)를 지우고, 캐릭터·무색 풀에 새로 들어온 17장을 넣었습니다(16장이 협동 전용). 선택률 근거가 있는 카드는 `SIDESTEP`뿐이라 나머지는 판단 값이며 신뢰도 0.4~0.45("추정")입니다. v0.111에서 바뀐 카드 25장에 `changedIn: "v0.111.0"`을 달았습니다(규칙은 근거 문서 §3).
+- **카드 사실**: 이 버전의 커밋 카탈로그는 `data/catalog/cards.v0.111.0.json`(596장)입니다. 아래 §1의 `cards.v0.107.1.json`은 처음 팩을 만들 때의 설명입니다.
+- **전투·이벤트**: `combat/`와 `events.json`을 v0.111.0 디컴파일 클래스로 다시 확인했습니다(변경 목록은 CHANGES.md).
+
+### 0.1 카탈로그 다시 만들기
+
+v0.111.0 게임이 설치되어 있고, 게임 pck의 현지화 파일이 로컬 폴더(아래 `--loc`, 오버레이의 로컬 리소스 폴더)에 풀려 있는 상태에서 저장소 루트에서 실행합니다(PowerShell). 커밋하는 결과는 모두 ID·수치만 담습니다.
+
+```powershell
+dotnet build tools/CatalogBuilder -c Release -m:2
+dotnet run --project tools/CatalogBuilder -c Release --no-build -- `
+  --loc "$env:LOCALAPPDATA\Sts2Overlay\local\pck\localization" `
+  --out data\local\catalog.v0.111.0.json `
+  --starting-decks data\catalog\starting-decks.v0.111.0.json `
+  --relics data\catalog\relics.v0.111.0.json `
+  --card-vars data\catalog\card-vars.v0.111.0.json `
+  --relic-vars data\catalog\relic-vars.v0.111.0.json
+# data/local 의 카탈로그에는 게임 텍스트가 있으므로 이름을 뺀 사본만 커밋합니다
+python -I tools/CatalogBuilder/strip_cards.py data/local/catalog.v0.111.0.json data/catalog/cards.v0.111.0.json
+# 카드 풀 순서와 에포크: v0.111.0 sts2.dll 디컴파일 폴더(커밋하지 않음)에서 읽습니다
+python -I tools/PoolDataGen/gen_card_pools.py <v0.111.0 디컴파일 폴더> data/catalog/cards.v0.111.0.json data/catalog/card-pools.v0.111.0.json
+```
+
+- CatalogBuilder 종료 코드 0, 템플릿 변수 커버리지 카드 1585/1585·유물 544/544(종료 코드 2면 처리하지 못한 변수가 있다는 뜻).
+- 결과 수: 카드 596, 카드 변수 596, 유물 299, 유물 변수 299, 시작 덱 5, 카드 풀 5(디펙트 91, 아이언클래드 90, 네크로바인더 91, 리젠트 91, 사일런트 91; 에포크는 캐릭터당 3개 × 3장 그대로).
+- 미해결: `CARD.MAD_SCIENCE`·`CARD.SOVEREIGN_BLADE`의 `gainsBlock`(v0.107.1과 같음). 로컬 카탈로그에만 있는 `starCostX`는 커밋본에 넣지 않습니다(v0.107.1 형식 유지).
 - `aliases.json`은 아직 없습니다. 사용자 런 기록 중 `CARD.FOLLOW_THROUGH`(v0.98.3 시절 사일런트 카드)는 v0.107.1 카탈로그에 없지만, 어느 카드로 바뀌었는지 확인하지 못해 별칭을 만들지 않았습니다(틀린 별칭이 더 해롭기 때문).
 
 > **카드 점수 보정 (2026-11)**: 상위 랭커 2,155판의 보상 화면 선택으로 티어 14장을 한 단계씩 옮기고, 카드 382장에 `baseAdjust`(−15~+15점, 배지 티어는 그대로)를 붙였습니다. 방법·근거·카드별 표는 [`docs/research/CARD_CALIBRATION.md`](../../../docs/research/CARD_CALIBRATION.md)에 있습니다.

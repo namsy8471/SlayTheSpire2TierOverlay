@@ -1,4 +1,4 @@
-# Combat data (v0.107.1): spec
+# Combat data (v0.111.0): spec
 
 The four JSON files here describe each card, relic and potion's combat effect as a list of **ops**. They feed the
 3-turn damage simulator (`src/Sts2Overlay.Core/Combat/`). The simulator fights a target that never acts, has no Block
