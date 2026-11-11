@@ -6,7 +6,7 @@ using Sts2Overlay.GameState.IO;
 namespace Sts2Overlay.GameState.Save;
 
 /// <summary>
-/// Parses <c>current_run.save</c> / <c>current_run_mp.save</c> (schema 16, v0.107.1) into Core types.
+/// Parses <c>current_run.save</c> / <c>current_run_mp.save</c> (schema 16 = v0.107.1, schema 20 = v0.111.0) into Core types.
 /// Uses <see cref="JsonDocument"/> (a read-only DOM) instead of typed classes because we only need
 /// a handful of fields from a ~80 KB file, and missing/extra fields must never throw.
 /// </summary>
@@ -195,7 +195,11 @@ public static class RunSaveParser
             HistoryInAct = MapPointHistory.FloorsInAct(history, actIndex),
             TotalHistory = MapPointHistory.TotalFloors(history),
             PreFinishedRoom = Prop(root, "pre_finished_room").ValueKind is not (JsonValueKind.Null or JsonValueKind.Undefined),
-            UnknownMapPointCounter = Int(Prop(Prop(root, "rng"), "counters"), "unknown_map_point") ?? 0,
+            // Schema ≤ 18: rng.counters.<name> (int). Schema 19+ saves the whole stream state instead
+            // (SerializableRunV18ToV19): rng.rngs.<name> = { counter, s0, s1, s2, s3 }.
+            UnknownMapPointCounter = Int(Prop(Prop(root, "rng"), "counters"), "unknown_map_point")
+                                     ?? Int(Prop(Prop(Prop(root, "rng"), "rngs"), "unknown_map_point"), "counter")
+                                     ?? 0,
             PreviousWasShop = prevShop,
             NumberOfRuns = Int(Prop(me, "unlock_state"), "number_of_runs") ?? -1,
         };

@@ -112,12 +112,16 @@ public static class GuestDeckEvaluation
     public static IEnumerable<GuestDeckResult> EvaluateLog(string logName, IReadOnlyList<string> lines, string historyDir)
     {
         ulong? owner = null;
+        string? versionLine = null; // the startup line naming the game version (seed arithmetic), above the run
         int start = -1;
         for (int i = 0; i < lines.Count; i++)
         {
             LogEvent? e = LogLineParser.Parse(lines[i]);
             switch (e)
             {
+                case GameVersionEvent:
+                    versionLine = lines[i];
+                    break;
                 case LocalPlayerIdEvent { FromProfilePath: false, NetId: > 1 } id:
                     owner = id.NetId;
                     break;
@@ -132,7 +136,10 @@ public static class GuestDeckEvaluation
                     if (File.Exists(runPath))
                     {
                         RunHistory history = RunHistoryReader.ReadFile(runPath);
-                        var segment = lines.Skip(start).Take(i - start + 1).ToList();
+                        // The live tracker reads the log from its start, so it has seen the version line; a trimmed log
+                        // (the test fixtures) stands in the history file's build_id for it.
+                        var segment = lines.Skip(start).Take(i - start + 1)
+                            .Prepend(versionLine ?? $"Release Version: {history.BuildId}").ToList();
                         foreach (RunPlayer p in history.Players)
                             yield return EvaluatePlayer(logName, h.FileName, segment, history, p, owner, historyDir);
                     }

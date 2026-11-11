@@ -181,6 +181,48 @@ public class RunSaveParserTests
         Assert.Equal(new Dictionary<string, double> { ["a_odds"] = 0.25 }, s.UnknownMapPointOdds);
     }
 
+    /// <summary>
+    /// A v0.111 (schema 20) single-player save, cut down to the parts that moved: the run rng keeps full stream states
+    /// under <c>rng.rngs</c> (no <c>rng.counters</c>), and the player rng has a 64-bit seed (above long.MaxValue).
+    /// </summary>
+    internal const string Schema20Json = """
+        {"schema_version":20,"ascension":0,"current_act_index":0,"save_time":0,
+         "rng":{"seed":"PZ4J3CV19SSW","rngs":{
+           "up_front":{"counter":415,"s0":10937219914285286424,"s1":16657310091350244448,"s2":9433750441328952950,"s3":6797511358196330367},
+           "unknown_map_point":{"counter":3,"s0":6746503582295282133,"s1":9323781307094158130,"s2":6673645659154050700,"s3":7335803470100973397}}},
+         "odds":{"unknown_map_point_elite_odds_value":-1,"unknown_map_point_monster_odds_value":0.1},
+         "acts":[{"id":"ACT.OVERGROWTH","rooms":{"event_ids":["EVENT.SUNKEN_STATUE"],"events_visited":1,"ancient_id":"EVENT.NEOW"}}],
+         "visited_map_coords":[],
+         "map_point_history":[],
+         "players":[{"net_id":1,"character_id":"CHARACTER.SILENT","current_hp":70,"max_hp":70,"gold":99,
+           "deck":[{"id":"CARD.SIDESTEP","floor_added_to_deck":1}],
+           "relics":[{"id":"RELIC.RING_OF_THE_SNAKE"}],
+           "rng":{"seed":17314056245423790712,"rngs":{
+             "rewards":{"counter":100,"s0":7470437811487826925,"s1":7191976075827331288,"s2":15918572014779316160,"s3":11113648970953882149}}},
+           "odds":{"card_rarity_odds_value":-0.05}}]}
+        """;
+
+    [Fact]
+    public void Schema_20_reads_the_unknown_room_counter_from_the_stream_state()
+    {
+        ParsedSave s = RunSaveParser.Parse(Schema20Json, null);
+        Assert.Equal(20, s.SchemaVersion);
+        Assert.Equal(GameState.Tracking.RngScheme.Xx64, s.RngScheme);
+        Assert.Equal("PZ4J3CV19SSW", s.Seed);
+        Assert.Equal(3, s.Events!.UnknownMapPointCounter);
+        Assert.Equal(0.1, s.UnknownMapPointOdds["unknown_map_point_monster_odds_value"]);
+        Assert.Equal(-0.05, s.CardRarityOffset);
+        Assert.Equal("CHARACTER.SILENT", s.State.Character);
+        Assert.Equal(["CARD.SIDESTEP"], s.State.Deck.Select(c => c.Id));
+
+        // Schema 16 keeps the counter in rng.counters, and its arithmetic is the old one.
+        ParsedSave old = RunSaveParser.Parse(SingleJson.Replace("\"rng\":{\"seed\":\"SOLO1\"}",
+            "\"rng\":{\"seed\":\"SOLO1\",\"counters\":{\"unknown_map_point\":5}}")
+            .Replace("{\"id\":\"ACT.UNDERDOCKS\"}", "{\"id\":\"ACT.UNDERDOCKS\",\"rooms\":{\"event_ids\":[]}}"), null);
+        Assert.Equal(5, old.Events!.UnknownMapPointCounter);
+        Assert.Equal(GameState.Tracking.RngScheme.Legacy32, old.RngScheme);
+    }
+
     [Fact]
     public void Truncated_json_throws_so_the_watcher_can_retry() =>
         Assert.ThrowsAny<JsonException>(() => RunSaveParser.Parse(CoopJson[..200], TestPaths.Me));

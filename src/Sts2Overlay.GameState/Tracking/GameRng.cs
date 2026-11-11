@@ -6,12 +6,16 @@ namespace Sts2Overlay.GameState.Tracking;
 /// The game's seeded random number generator, ported bit for bit (MegaCrit.Sts2.Core.Random.MegaRandom + Rng):
 /// xoshiro256** seeded by SplitMix64. Every call draws exactly one 64-bit output and bumps <see cref="Counter"/>,
 /// which is why the game can save a stream as (seed, counter) and why we can replay one from the run seed.
+/// <para>
+/// The seed is a <c>ulong</c> since v0.109 (<c>MegaRandom(ulong seed)</c>); older builds passed a <c>uint</c>, which
+/// widens to the same SplitMix64 input. How a seed is made from the run's seed string is <see cref="RngSeeds"/>' job.
+/// </para>
 /// </summary>
 internal sealed class GameRng
 {
     private ulong _s0, _s1, _s2, _s3;
 
-    public GameRng(uint seed)
+    public GameRng(ulong seed)
     {
         ulong x = seed;
         _s0 = SplitMix64(ref x);
@@ -20,11 +24,14 @@ internal sealed class GameRng
         _s3 = SplitMix64(ref x);
     }
 
-    /// <summary>A named stream (<c>new Rng(seed, "rewards")</c>): the name's hash is added to the seed.</summary>
-    public GameRng(uint seed, string name) : this(unchecked(seed + (uint)DeterministicHash(name))) { }
+    /// <summary>A named stream (<c>new Rng(seed, "rewards")</c>): the name's hash is added to the seed (<see cref="RngSeeds.Named"/>).</summary>
+    public GameRng(RngScheme scheme, ulong seed, string name) : this(RngSeeds.Named(scheme, seed, name)) { }
 
     /// <summary>Number of values drawn so far (Rng.Counter).</summary>
     public int Counter { get; private set; }
+
+    /// <summary>The four xoshiro256** state words, as v0.109+ saves keep them (<c>rng.rngs.&lt;name&gt;.s0</c> ... <c>s3</c>).</summary>
+    public (ulong S0, ulong S1, ulong S2, ulong S3) State => (_s0, _s1, _s2, _s3);
 
     private static ulong SplitMix64(ref ulong x)
     {
@@ -71,21 +78,12 @@ internal sealed class GameRng
         }
     }
 
-    /// <summary>StringHelper.GetDeterministicHashCode: two interleaved djb2-style hashes (stable across runs, unlike string.GetHashCode).</summary>
-    public static int DeterministicHash(string s)
-    {
-        int a = 352654597, b = a;
-        unchecked
-        {
-            for (int i = 0; i < s.Length; i += 2)
-            {
-                a = ((a << 5) + a) ^ s[i];
-                if (i == s.Length - 1) break;
-                b = ((b << 5) + b) ^ s[i + 1];
-            }
-            return a + b * 1566083941;
-        }
-    }
+    /// <summary>
+    /// The pre-v0.109 string hash (StringHelper.GetDeterministicHashCodeOld; v0.107.1 called it GetDeterministicHashCode):
+    /// two interleaved djb2-style hashes, stable across runs unlike string.GetHashCode. v0.109+ uses
+    /// <see cref="XxHash64"/>; <see cref="RngSeeds.Hash"/> picks by scheme.
+    /// </summary>
+    public static int DeterministicHash(string s) => RngSeeds.LegacyHash(s);
 }
 
 /// <summary>A stream whose values are kept, so a value can be looked up by counter and searched for.</summary>

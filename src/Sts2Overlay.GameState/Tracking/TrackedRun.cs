@@ -190,6 +190,10 @@ public sealed record TrackedRun
     public MapCoord? MyVote { get; init; }
 
     public string? Seed { get; init; }
+
+    /// <summary>How the game turns <see cref="Seed"/> into stream seeds (save schema, else the logged game version).</summary>
+    public RngScheme RngScheme { get; init; } = RngSeeds.Default;
+
     public RunOutcome Outcome { get; init; }
 
     /// <summary>Extras from the save when available (odds, slots ...). Null for log-only runs.</summary>

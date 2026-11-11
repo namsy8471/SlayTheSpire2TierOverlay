@@ -3,7 +3,8 @@ using Sts2Overlay.Core.Map;
 namespace Sts2Overlay.GameState.Tracking;
 
 /// <summary>
-/// Reproduces how the game lays out the act map on screen (decompiled <c>NMapScreen.SetMap</c>, v0.107.1), so the
+/// Reproduces how the game lays out the act map on screen (decompiled <c>NMapScreen.SetMap</c>, v0.107.1; unchanged in
+/// v0.111.0 apart from the seed arithmetic, <see cref="RngScheme"/>), so the
 /// overlay can draw on top of a node without searching the whole screen for it.
 ///
 /// <para>Every normal node sits on a grid plus a small random offset ("jitter") that makes the map look hand-drawn:</para>
@@ -27,7 +28,8 @@ public static class MapScreenGeometry
 
     /// <summary>Layout for <paramref name="map"/>, or null when the seed is unknown (jitter can't be reproduced).</summary>
     /// <param name="seed">Run seed string (<c>rng.seed</c>, the log's <c>Seed:</c>).</param>
-    public static MapScreenLayout? Compute(MapGraph map, string? seed)
+    /// <param name="scheme">The run's seed arithmetic (<see cref="RngSeeds"/>; save schema / game version).</param>
+    public static MapScreenLayout? Compute(MapGraph map, string? seed, RngScheme scheme = RngSeeds.Default)
     {
         if (string.IsNullOrEmpty(seed) || map.Width <= 0 || map.Height <= 1) return null;
         int actIndex = map.Act - 1;
@@ -36,8 +38,8 @@ public static class MapScreenGeometry
         float distY = 2325f / (map.Height - 1) * k;
         float distX = 1050f / map.Width;
 
-        uint runSeed = unchecked((uint)GameRng.DeterministicHash(seed));
-        var rng = new GameRng(runSeed, $"map_jitter_{actIndex}");
+        // NMapScreen.SetMap(map, runState.Rng.Seed): new Rng(seed, $"map_jitter_{CurrentActIndex}").
+        var rng = new GameRng(RngSeeds.RunStream(scheme, seed, $"map_jitter_{actIndex}"));
 
         var centers = new Dictionary<MapCoord, DesignPoint>(map.Nodes.Count);
         // ActMap.GetAllMapPoints: the grid nodes (not start/boss), column by column, each column bottom to top.

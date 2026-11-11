@@ -24,7 +24,7 @@ internal sealed record OfferSlot(int Counter, string Rarity, double Pick, float 
 /// card rolled its free upgrade — the log only says "obtained CARD.X".
 ///
 /// The stream: player seed = hash(run seed) + player slot, stream seed = player seed + hash("rewards")
-/// (Player.InitializeSeed, PlayerRngSet.CreateRng). Each reward card draws three values in a row
+/// (Player.InitializeSeed, PlayerRngSet.CreateRng; <see cref="RngSeeds.PlayerStream"/>). Each reward card draws three values in a row
 /// (CardFactory.CreateForReward): the rarity roll (logged as <c>Card rarity: Rolled X</c>), the card pick (NextItem),
 /// then the upgrade roll (RollForUpgrade, NextFloat). So finding X in the stream gives the other two. Everything else
 /// that uses the stream (potion drops, shop rolls ...) only moves the position forward; the next logged roll is
@@ -41,14 +41,17 @@ internal sealed class RewardRollReplay
     private readonly RngTape _tape;
     private int _last = -1;
 
-    public RewardRollReplay(string runSeed, int slot)
+    public RewardRollReplay(string runSeed, int slot, RngScheme scheme)
     {
         Slot = slot;
-        uint playerSeed = unchecked((uint)(GameRng.DeterministicHash(runSeed) + slot));
-        _tape = new RngTape(new GameRng(playerSeed, "rewards"));
+        Scheme = scheme;
+        _tape = new RngTape(new GameRng(RngSeeds.PlayerStream(scheme, runSeed, slot, "rewards")));
     }
 
     public int Slot { get; }
+
+    /// <summary>The seed arithmetic the stream was built with (a change rebuilds the replay).</summary>
+    public RngScheme Scheme { get; }
 
     /// <summary>
     /// Finds a burst of my rarity rolls (one reward screen) in the stream. A roll is accepted within

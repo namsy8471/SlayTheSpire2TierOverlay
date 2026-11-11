@@ -95,6 +95,9 @@ public static partial class LogLineParser
     [GeneratedRegex(@"^Saved run history: (?<file>\S+)")]
     private static partial Regex HistorySaved();
 
+    [GeneratedRegex(@"^(?:\[Sentry\.NET\] Initialized: .*\brelease=|Release Version: )(?<v>v?\d+(?:\.\d+)+\S*)")]
+    private static partial Regex ReleaseVersion();
+
     public static LogEvent? Parse(string rawLine)
     {
         if (rawLine.Length < 10) return null;
@@ -196,7 +199,12 @@ public static partial class LogLineParser
             case 'A':
                 return line.StartsWith("Abandoning an in-progress run", StringComparison.Ordinal) ? new RunAbandonedEvent() : null;
 
+            case 'R':
+                return (m = ReleaseVersion().Match(line)).Success ? new GameVersionEvent(m.Groups["v"].Value) : null;
+
             case '[':
+                if (line.StartsWith("[Sentry.NET]", StringComparison.Ordinal))
+                    return (m = ReleaseVersion().Match(line)).Success ? new GameVersionEvent(m.Groups["v"].Value) : null;
                 if ((m = PlayCard().Match(line)).Success)
                     return new CardPlayedEvent(ULong(m, "p"), m.Groups["card"].Value, Int(m, "idx"));
                 if ((m = EventOption().Match(line)).Success)

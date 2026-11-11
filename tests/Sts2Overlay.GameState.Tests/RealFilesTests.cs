@@ -52,11 +52,17 @@ public class RealFilesTests(ITestOutputHelper output)
         Assert.All(results, r => Assert.True(r.SilentErrors == 0 && r.ReconciledExact, r.ToString()));
     }
 
+    /// <summary>
+    /// Game versions the Neow and ancient replays were checked on (run-history corpus, 2026-11-12): v0.107.1/v0.108.0 with the old
+    /// 32-bit arithmetic and pools, v0.109.0 onward with XxHash64 and the v0.109 pools. v0.107.0 and older differ.
+    /// </summary>
+    private static readonly HashSet<string> ReplayVersions = ["v0.107.1", "v0.108.0", "v0.109.0", "v0.109.1", "v0.110.1", "v0.111.0"];
+
     [Fact]
     public void Neow_replay_matches_every_history_run_of_this_game_version()
     {
         // Run-history files list the options Neow generated (ancient_choice, in button order). Check the seed replay against
-        // the shared fixtures and every real run made on the version the replay was ported from.
+        // the shared fixtures and every real run made on a version the replay covers (build_id picks the arithmetic).
         var dirs = new List<string> { TestPaths.RunsDir };
         bool? unlocked = null;
         if (RealPaths()?.SavesDirectory is { } saves)
@@ -64,13 +70,15 @@ public class RealFilesTests(ITestOutputHelper output)
             dirs.Add(Path.Combine(saves, "history"));
             unlocked = ProgressSave.AllCharactersUnlockedIn(saves);
         }
-        int ok = 0, skipped = 0;
+        int ok = 0, skipped = 0, modded = 0;
         var misses = new List<string>();
         foreach (string file in dirs.Where(Directory.Exists).SelectMany(d => Directory.GetFiles(d, "*.run")))
         {
             using var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(file));
             var root = doc.RootElement;
-            if (root.GetProperty("build_id").GetString() != "v0.107.1" || root.GetProperty("modifiers").GetArrayLength() > 0) { skipped++; continue; }
+            string build = root.GetProperty("build_id").GetString() ?? "";
+            if (!ReplayVersions.Contains(build) || root.GetProperty("modifiers").GetArrayLength() > 0) { skipped++; continue; }
+            RngScheme scheme = RngSeeds.ForGameVersion(build);
             var first = root.GetProperty("map_point_history")[0][0];
             if (first.GetProperty("rooms")[0].GetProperty("model_id").GetString() != NeowOptions.EventId) { skipped++; continue; }
             var players = root.GetProperty("players").EnumerateArray().Select(p => p.GetProperty("id").GetRawText()).ToList();
@@ -80,12 +88,15 @@ public class RealFilesTests(ITestOutputHelper output)
                 if (!stats.TryGetProperty("ancient_choice", out var choices)) continue;
                 int slot = players.IndexOf(stats.GetProperty("player_id").GetRawText());
                 var truth = choices.EnumerateArray().Select(c => c.GetProperty("TextKey").GetString()!).ToArray();
-                var replay = NeowOptions.Relics(seed, slot, players.Count, unlocked ?? true);
+                var replay = NeowOptions.Relics(seed, slot, players.Count, unlocked ?? true, scheme);
+                // A mod that adds or replaces options (an option count or relic this release can't offer) is not a replay target.
+                var possible = NeowOptions.PossibleRelics(players.Count, allCharactersUnlocked: true, NeowOptions.EffectiveScheme(seed, scheme));
+                if (truth.Length != 3 || !truth.All(possible.Contains)) { modded++; continue; }
                 if (truth.SequenceEqual(replay)) ok++;
                 else misses.Add($"{Path.GetFileName(file)} slot {slot}: game [{string.Join(", ", truth)}] replay [{string.Join(", ", replay)}]");
             }
         }
-        output.WriteLine($"neow replay: {ok} ok, {misses.Count} wrong, {skipped} runs of other versions/modes skipped");
+        output.WriteLine($"neow replay: {ok} ok, {misses.Count} wrong, {modded} modded options skipped, {skipped} runs of other versions/modes skipped");
         foreach (var m in misses) output.WriteLine(m);
         Assert.Empty(misses);
     }
@@ -97,7 +108,7 @@ public class RealFilesTests(ITestOutputHelper output)
         // options replayed from the seed, compared with ancient_choice (button order).
         if (RealPaths()?.SavesDirectory is not { } saves) { output.WriteLine("no saves folder"); return; }
         var files = Directory.GetFiles(Path.Combine(saves, "history"), "*.run");
-        var visits = Diagnostics.AncientReplayEvaluation.Run(files);
+        var visits = ReplayVersions.SelectMany(version => Diagnostics.AncientReplayEvaluation.Run(files, version: version)).Where(v => !v.Modded).ToList();
         foreach (var g in visits.GroupBy(v => v.EventId).OrderBy(g => g.Key))
             output.WriteLine($"{g.Key,-16} {g.Count(v => v.Exact)}/{g.Count()}");
         foreach (var v in visits.Where(v => !v.Exact)) output.WriteLine(v.ToString());
@@ -116,7 +127,7 @@ public class RealFilesTests(ITestOutputHelper output)
             output.WriteLine($"{name}: {s.State.Character} A{s.State.Ascension} act {s.State.Act} floor {s.State.Floor} " +
                              $"deck {s.State.Deck.Count} relics {s.State.Relics.Count} removals {s.State.CardRemovalsBought} pity {s.CardRarityOffset} " +
                              $"map nodes {s.Map?.Nodes.Count} current {s.Map?.Current}");
-            Assert.Equal(16, s.SchemaVersion);
+            Assert.Contains(s.SchemaVersion, new[] { 16, 20 }); // v0.107.1 or v0.111.0
             Assert.True(s.MyPlayerMatched);
             Assert.NotEmpty(s.State.Deck);
             Assert.True(s.State.MaxHp > 0);

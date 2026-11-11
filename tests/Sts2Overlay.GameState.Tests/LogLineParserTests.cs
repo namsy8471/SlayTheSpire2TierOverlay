@@ -187,6 +187,20 @@ public class LogLineParserTests
         Assert.Null(LogLineParser.Parse("[INFO] Wrote 87444 bytes to profile1/saves/current_run.save in steam remote store"));
     }
 
+    [Theory]
+    [InlineData("[INFO] [Sentry.NET] Initialized: env=unknown, release=v0.111.0", "v0.111.0")]
+    [InlineData("Release Version: v0.111.0", "v0.111.0")]
+    [InlineData("[INFO] [Sentry.NET] Initialized: env=development, release=v0.107.1", "v0.107.1")]
+    public void Game_version_from_the_startup_lines(string line, string version) =>
+        Assert.Equal(version, Parse<GameVersionEvent>(line).Version);
+
+    [Fact]
+    public void Version_lookalikes_are_ignored()
+    {
+        Assert.Null(LogLineParser.Parse("[INFO] [Sentry.NET] Capturing event"));
+        Assert.Null(LogLineParser.Parse("Release Version: unknown"));
+    }
+
     [Fact]
     public void Noise_is_ignored()
     {

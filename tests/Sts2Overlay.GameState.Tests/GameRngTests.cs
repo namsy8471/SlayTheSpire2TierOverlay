@@ -24,11 +24,11 @@ public class GameRngTests
     {
         // Run ZSN877JR14 logged these rolls; they sit at these counters of each player's Rewards stream.
         uint runSeed = (uint)GameRng.DeterministicHash("ZSN877JR14");
-        var p0 = new RngTape(new GameRng(runSeed, "rewards"));
+        var p0 = new RngTape(new GameRng(RngScheme.Legacy32, runSeed, "rewards"));
         Assert.Equal(0.6362035f, GameRng.ToFloat(p0.At(4)));
         Assert.Equal(0.70350623f, GameRng.ToFloat(p0.At(7)));
         Assert.Equal(0.4104836f, GameRng.ToFloat(p0.At(10)));
-        var p1 = new RngTape(new GameRng(runSeed + 1, "rewards"));
+        var p1 = new RngTape(new GameRng(RngScheme.Legacy32, runSeed + 1, "rewards"));
         Assert.Equal(0.7654361f, GameRng.ToFloat(p1.At(4)));
         Assert.Equal(4, p0.FindFloat(0.6362035f, 0, 100));
     }
@@ -36,11 +36,11 @@ public class GameRngTests
     [Fact]
     public void Located_rolls_give_the_upgrade_roll_two_values_later()
     {
-        var replay = new RewardRollReplay("ZSN877JR14", 0);
+        var replay = new RewardRollReplay("ZSN877JR14", 0, RngScheme.Legacy32);
         CardRarityRolledEvent Roll(float v) => new(v, 0.03, 0) { RollFloat = v };
         List<OfferSlot?> slots = replay.Locate([Roll(0.6362035f), Roll(0.70350623f), Roll(0.4104836f)]);
         Assert.Equal([4, 7, 10], slots.Select(s => s!.Counter));
-        var tape = new RngTape(new GameRng((uint)GameRng.DeterministicHash("ZSN877JR14"), "rewards"));
+        var tape = new RngTape(new GameRng(RngScheme.Legacy32, (uint)GameRng.DeterministicHash("ZSN877JR14"), "rewards"));
         Assert.Equal(GameRng.ToFloat(tape.At(6)), slots[0]!.UpgradeRoll);
         // A roll that isn't in my stream (another player's) is skipped, not forced.
         Assert.Null(Assert.Single(replay.Locate([Roll(0.123456f)])));

@@ -26,6 +26,7 @@ public class AncientOptionsTests(ITestOutputHelper output)
                 Deck = v.GetProperty("deck").EnumerateArray().Select(c => c.GetString()!.Split('|'))
                     .Select(p => new AncientDeckCard(p[0], p.Length > 1 ? p[1] : null)).ToArray(),
                 Relics = v.GetProperty("relics").EnumerateArray().Select(r => r.GetString()!).ToArray(),
+                Scheme = RngScheme.Legacy32, // recorded on v0.107.1
             },
             v.GetProperty("truth").EnumerateArray().Select(t => t.GetString()!).ToArray())).ToList();
     });
@@ -69,6 +70,7 @@ public class AncientOptionsTests(ITestOutputHelper output)
         Character = "CHARACTER.IRONCLAD",
         Deck = deck.Select(d => new AncientDeckCard(d)).ToArray(),
         Relics = ["RELIC.BURNING_BLOOD"],
+        Scheme = RngScheme.Legacy32,
     };
 
     private static IEnumerable<string> Seeds(int n)
@@ -126,6 +128,7 @@ public class AncientOptionsTests(ITestOutputHelper output)
             {
                 inputs.Add((ev, Inputs(seed, IroncladStart)));
                 inputs.Add((ev, Inputs(seed) with { Relics = [], ActIndex = 2 }));
+                foreach (int act in new[] { 1, 2 }) inputs.Add((ev, Inputs(seed, IroncladStart) with { ActIndex = act, Scheme = RngScheme.Xx64 }));
             }
         foreach (var (ev, p) in inputs)
         {
@@ -153,6 +156,30 @@ public class AncientOptionsTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void From_v0109_darv_and_orobas_use_the_new_pools()
+    {
+        // Darv (v0.111.0 source): Ectoplasm and Sozu each their own act-2 set; Philosopher's Stone and Velvet Choker from act 2 on.
+        // Orobas: Sand Castle moved from the first pool to the second.
+        bool stoneInAct2 = false, sandCastleSecond = false;
+        foreach (string seed in Seeds(1500))
+        {
+            var p = Inputs(seed, IroncladStart) with { Scheme = RngScheme.Xx64 };
+            var act2 = AncientOptions.Options("EVENT.DARV", p with { ActIndex = 1 })!;
+            var act3 = AncientOptions.Options("EVENT.DARV", p with { ActIndex = 2 })!;
+            stoneInAct2 |= act2.Contains("PHILOSOPHERS_STONE") || act2.Contains("VELVET_CHOKER");
+            Assert.DoesNotContain("ECTOPLASM", act3);
+            Assert.DoesNotContain("SOZU", act3);
+            var orobas = AncientOptions.Options("EVENT.OROBAS", p with { ActIndex = 1 })!;
+            Assert.NotEqual("SAND_CASTLE", orobas[0]);
+            sandCastleSecond |= orobas[1] == "SAND_CASTLE";
+        }
+        Assert.True(stoneInAct2);
+        Assert.True(sandCastleSecond);
+        Assert.Equal(AncientOptions.AllOptions("EVENT.DARV", RngScheme.Legacy32).Order(), AncientOptions.AllOptions("EVENT.DARV", RngScheme.Xx64).Order());
+        Assert.Equal(AncientOptions.AllOptions("EVENT.OROBAS", RngScheme.Legacy32).Order(), AncientOptions.AllOptions("EVENT.OROBAS", RngScheme.Xx64).Order());
+    }
+
+    [Fact]
     public void Sea_glass_shows_another_unlocked_character()
     {
         int seaGlass = 0;
@@ -176,8 +203,11 @@ public class AncientOptionsTests(ITestOutputHelper output)
         Assert.All(keys, k => Assert.StartsWith("VAKUU.pages.INITIAL.options.", k));
         Assert.Null(AncientOptions.Keys("EVENT.NEOW", Inputs("VRKW7CVYCB")));
         Assert.Null(AncientOptions.Keys("EVENT.BRAIN_LEECH", Inputs("VRKW7CVYCB")));
-        Assert.Equal(AncientOptions.StreamSeed("VRKW7CVYCB", 0, "EVENT.PAEL") + 1, AncientOptions.StreamSeed("VRKW7CVYCB", 1, "EVENT.PAEL"));
-        Assert.Equal(NeowOptions.StreamSeed("VRKW7CVYCB", 1), AncientOptions.StreamSeed("VRKW7CVYCB", 1, "EVENT.NEOW"));
+        foreach (RngScheme scheme in new[] { RngScheme.Legacy32, RngScheme.Xx64 })
+        {
+            Assert.Equal(AncientOptions.StreamSeed("VRKW7CVYCB", 0, "EVENT.PAEL", scheme) + 1, AncientOptions.StreamSeed("VRKW7CVYCB", 1, "EVENT.PAEL", scheme));
+            Assert.Equal(NeowOptions.StreamSeed("VRKW7CVYCB", 1, scheme), AncientOptions.StreamSeed("VRKW7CVYCB", 1, "EVENT.NEOW", scheme));
+        }
     }
 
     [Fact]
