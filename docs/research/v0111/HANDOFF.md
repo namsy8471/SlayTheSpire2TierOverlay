@@ -157,3 +157,17 @@ Next step for item 5: find the transform in the log (event id around the first m
   - The 8 left are one room each, fixed by the next save, and all unlogged in single player: Neow capsule cards, Aroma's transform result, a shop purchase, Wood Carvings' PECK, Pael's Claw Goopy, the stolen card mid-fight, Amalgamator, Symbiote's enchant.
   - Possible next step: with a save, `EventPrediction` names the event; with the transform-screen hint, Aroma's LET_GO is the only transform option, so its result could be replayed (`TransformRngCall` 0). Not done.
 
+
+### B. Wide reward measurement (`RewardCorpusTests`, opt-in with `STS2_RUN_CORPUS`): done as a measurement, rules unchanged
+- The test replays each solo vanilla run's Rewards stream from the seed, room by room. It checks every combat card reward's three offered cards against `card_choices`, keeping the epoch hypotheses that agree. The draw counts per room are listed in the class comment (combat: potion chance, gold, potion 2 if rolled, 3 × 3 card values, elite relic rarity; shop 14; treasure 1; DIG 1; Large Capsule 2). It stops at the first room it can't count: the relics / events / cards listed in the test, Gremlin Merc, stolen gold, or event fights.
+- History order rule found: `card_choices` lists the taken card first, then the others in screen order (before this, 539 of the first rewards matched only as a set).
+- v0.111.0 (Xx64), 1574 runs: **3891/3901** card rewards reproduced. By reward index 1–10: 845/847, 649/649, 509/510, 405/405, 310/310, 252/252, 202/202, 162/164, 130/131, 99/101; 11+ all but 2.
+- v0.107.1 (Legacy32), 1447 runs: **2882/2894**. By index 1–10: 685/688, 542/543, 403/403, 289/289, 213/213, 172/172, 130/130, 108/110, 76/80, 57/58.
+- So the card rules (pool, rarity odds, pity, `GetNextAllowedRarity`, NextItem) and the per-room draw counts hold in both versions. No production rule changed.
+- Where runs stop (v0.111.0, top): BRAIN_LEECH 101, ARCANE_SCROLL 97, THIS_OR_THAT 94, LEAD_PAPERWEIGHT 88, SILVER_CRUCIBLE 85, NEOWS_BONES 78, ROOM_FULL_OF_CHEESE 76, THE_LEGENDS_WERE_TRUE 70, KALEIDOSCOPE 66, end of run 63, fight without card reward 57. 10 runs stop on "potion roll disagrees after a matched reward". "ancient option none" (40) means no ancient choice was recorded.
+- Upgrade flags: right on all but about 1–5 % of the matched offers per index (e.g. index 5: 299/310). Not yet split by cause. The likely cause is late modifiers that upgrade without drawing (Molten / Toxic / Frozen Egg, Lava Lamp); unverified.
+- Not looked at yet: the 10 + 12 card mismatches and the 10 potion disagreements.
+- What is unknowable from a history: the values each stop-list room draws (event-internal `rewards` use, a relic's extra draws). A run whose stream such a room touches can't be followed past it without the log's `Card rarity: Rolled` lines.
+- Next step: print the details of the 22 mismatches and the 10 potion disagreements behind an env flag; split the upgrade misses by owned egg / Lava Lamp; then take the larger stop rooms one by one (BRAIN_LEECH, THIS_OR_THAT, Arcane Scroll's reward) and count their draws from the decompile.
+
+### C, D, E: not started this session (PC shutdown). The brief's text for them stands.
