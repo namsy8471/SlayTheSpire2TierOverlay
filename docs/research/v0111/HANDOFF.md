@@ -123,3 +123,13 @@ Full runs (`dotnet test -m:1`, after the code commits). Every listed project pas
 | Resources.Tests | 88 | 0 | 0 |
 
 Vision tests were not run: no file of the Vision project changed (the relic-catalog line is in the App project's `VisionRecognizer`).
+
+## 2026-11-12 03:35 KST: first check on a real v0.111.0 run (log-only replay vs run history)
+
+`tools/StateProbe --once` after the run ended (no save left, so the tracker rebuilt the deck from godot.log alone), compared with the final deck in the run's history file:
+
+- Reward upgrade rolls: all 4 upgraded picks agree (STAMPEDE+1, AGGRESSION+1, FEED+1, ARMAMENTS+1), no wrong upgrade on the other 10 picked cards. Deck size 23 = 23.
+- Difference: the history has DEFEND_IRONCLAD x5, PECK, ULTIMATE_STRIKE and no strikes; the log-only deck still has STRIKE_IRONCLAD x3 and DEFEND_IRONCLAD x4. Three strikes were turned into other cards and the log-only replay did not follow it. Cause NOT yet looked at (which event or relic did it, and whether this is a v0.111 change or the known log-only limit).
+- Relics are incomplete in log-only mode (4 of 10), as before.
+
+Next step for item 5: find the transform in the log (event id around the first missing strike), compare with `ReplayTransform` / `DeckEffects` for v0.111, then build the corpus measurement.
