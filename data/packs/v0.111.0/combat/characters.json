@@ -1,5 +1,5 @@
 {
- "_note": "Generated from the decompiled v0.107.1 classes for the 3-turn training-dummy simulator; spec in README.md. Energy: CharacterModel.MaxEnergy; draw: CombatManager hand draw; orb slots: Defect.BaseOrbSlotCount.",
+ "_note": "Generated from the decompiled v0.107.1 classes and updated for game v0.111.0 from the decompiled v0.111.0 classes for the 3-turn training-dummy simulator; spec in README.md. Energy: CharacterModel.MaxEnergy; draw: CombatManager hand draw; orb slots: Defect.BaseOrbSlotCount.",
  "characters": {
   "CHARACTER.IRONCLAD": {
    "energy": 3,

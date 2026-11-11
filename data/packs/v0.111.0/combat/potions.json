@@ -1,6 +1,11 @@
 {
- "_note": "Generated from the decompiled v0.107.1 classes for the 3-turn training-dummy simulator; spec in README.md.",
+ "_note": "Generated from the decompiled v0.107.1 classes and updated for game v0.111.0 from the decompiled v0.111.0 classes for the 3-turn training-dummy simulator; spec in README.md.",
  "potions": {
+  "POTION.AMBERGRIS": {
+   "model": "none",
+   "use": [],
+   "note": "heals 50% max HP; in combat it also gives you an extra turn right after this one (no extra-turn op)"
+  },
   "POTION.ASHWATER": {
    "model": "approx",
    "use": [],

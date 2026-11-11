@@ -1,5 +1,5 @@
 {
- "_note": "Generated from the decompiled v0.107.1 classes for the 3-turn training-dummy simulator; spec in README.md.",
+ "_note": "Generated from the decompiled v0.107.1 classes and updated for game v0.111.0 from the decompiled v0.111.0 classes for the 3-turn training-dummy simulator; spec in README.md.",
  "_irrelevant": [
   "RELIC.ALCHEMICAL_COFFER",
   "RELIC.AMETHYST_AUBERGINE",
@@ -37,6 +37,7 @@
   "RELIC.DINGY_RUG",
   "RELIC.DISTINGUISHED_CAPE",
   "RELIC.DOLLYS_MIRROR",
+  "RELIC.DOWSING_ROD",
   "RELIC.DRAGON_FRUIT",
   "RELIC.DREAM_CATCHER",
   "RELIC.DRIFTWOOD",
@@ -93,6 +94,7 @@
   "RELIC.MINIATURE_TENT",
   "RELIC.MOLTEN_EGG",
   "RELIC.NEOWS_BONES",
+  "RELIC.NEOWS_SACRIFICE",
   "RELIC.NEOWS_TALISMAN",
   "RELIC.NEOWS_TORMENT",
   "RELIC.NEW_LEAF",
@@ -528,7 +530,7 @@
    "turnStart": [
     {
      "op": "stars",
-     "n": 6
+     "n": 7
     }
    ],
    "turns": [
@@ -1443,7 +1445,7 @@
      "n": 1
     }
    ],
-   "note": "each turn start: if gold>=5, pay 5 gold for +1 energy; assumes enough gold"
+   "note": "each turn start: if gold>=3, pay 3 gold for +1 energy; assumes enough gold"
   },
   "RELIC.SHURIKEN": {
    "model": "full",

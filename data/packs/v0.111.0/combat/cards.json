@@ -1,5 +1,5 @@
 {
- "_note": "Generated from the decompiled v0.107.1 classes for the 3-turn training-dummy simulator; spec in README.md.",
+ "_note": "Generated from the decompiled v0.107.1 classes and updated for game v0.111.0 from the decompiled v0.111.0 classes for the 3-turn training-dummy simulator; spec in README.md.",
  "cards": {
   "CARD.ABRASIVE": {
    "model": "full",
@@ -12,6 +12,29 @@
    ],
    "pool": "CARD_POOL.SILENT_CARD_POOL",
    "rarity": "Rare"
+  },
+  "CARD.ABUNDANCE": {
+   "model": "full",
+   "cost": 1,
+   "costUp": 0,
+   "play": [
+    {
+     "op": "addCard",
+     "random": "class|power",
+     "n": 1,
+     "upgraded": true,
+     "to": "hand",
+     "choose": 3,
+     "free": true
+    }
+   ],
+   "note": "Pick 1 of 3 random upgraded class Powers into hand, free this turn.",
+   "type": "Skill",
+   "keywords": [
+    "Exhaust"
+   ],
+   "pool": "CARD_POOL.EVENT_CARD_POOL",
+   "rarity": "Ancient"
   },
   "CARD.ACCELERANT": {
    "model": "full",
@@ -30,7 +53,7 @@
    ],
    "type": "Power",
    "pool": "CARD_POOL.SILENT_CARD_POOL",
-   "rarity": "Rare"
+   "rarity": "Uncommon"
   },
   "CARD.ACCURACY": {
    "model": "full",
@@ -243,7 +266,7 @@
    "type": "Skill",
    "pool": "CARD_POOL.REGENT_CARD_POOL",
    "rarity": "Uncommon",
-   "starCost": 3
+   "starCost": 2
   },
   "CARD.ALL_FOR_ONE": {
    "model": "full",
@@ -711,7 +734,7 @@
   },
   "CARD.BEACON_OF_HOPE": {
    "model": "full",
-   "cost": 1,
+   "cost": 2,
    "keywordsUp": [
     "Innate"
    ],
@@ -860,7 +883,7 @@
    "play": [
     {
      "op": "focus",
-     "n": 4
+     "n": 5
     },
     {
      "op": "perTurn",
@@ -876,7 +899,7 @@
    "playUp": [
     {
      "op": "focus",
-     "n": 5
+     "n": 6
     },
     {
      "op": "perTurn",
@@ -1044,6 +1067,33 @@
    "pool": "CARD_POOL.SILENT_CARD_POOL",
    "rarity": "Rare"
   },
+  "CARD.BLADE_SYMPHONY": {
+   "model": "full",
+   "cost": 2,
+   "costUp": 1,
+   "play": [
+    {
+     "op": "addCard",
+     "card": "CARD.SHIV",
+     "n": 2,
+     "upgraded": false,
+     "to": "hand"
+    }
+   ],
+   "note": "Multiplayer only: every living player (incl. you) gets 2 Shivs in hand; the allies' Shivs are not simulated.",
+   "type": "Skill",
+   "pool": "CARD_POOL.SILENT_CARD_POOL",
+   "rarity": "Uncommon"
+  },
+  "CARD.BLAZE": {
+   "model": "full",
+   "cost": 2,
+   "play": [],
+   "note": "Multiplayer only: 5 (7) Strength to another player; cannot target self. No allies in sim.",
+   "type": "Skill",
+   "pool": "CARD_POOL.IRONCLAD_CARD_POOL",
+   "rarity": "Uncommon"
+  },
   "CARD.BLIGHT_STRIKE": {
    "model": "full",
    "cost": 1,
@@ -1116,7 +1166,7 @@
    ],
    "type": "Skill",
    "pool": "CARD_POOL.IRONCLAD_CARD_POOL",
-   "rarity": "Common"
+   "rarity": "Uncommon"
   },
   "CARD.BLOOD_WALL": {
    "model": "full",
@@ -1781,6 +1831,38 @@
    "pool": "CARD_POOL.EVENT_CARD_POOL",
    "rarity": "Event"
   },
+  "CARD.CACOPHONY": {
+   "model": "approx",
+   "cost": 2,
+   "play": [
+    {
+     "op": "onDraw",
+     "every": 33,
+     "effects": [
+      {
+       "op": "damage",
+       "n": 66
+      }
+     ]
+    }
+   ],
+   "playUp": [
+    {
+     "op": "onDraw",
+     "every": 33,
+     "effects": [
+      {
+       "op": "damage",
+       "n": 99
+      }
+     ]
+    }
+   ],
+   "note": "Multiplayer only: every 33 cards drawn after it is played (turn draws included): 66 (99) unpowered damage to a random enemy. In game the allies' draws count too; no allies in sim.",
+   "type": "Power",
+   "pool": "CARD_POOL.NECROBINDER_CARD_POOL",
+   "rarity": "Rare"
+  },
   "CARD.CALAMITY": {
    "model": "full",
    "cost": 3,
@@ -2301,7 +2383,7 @@
    "play": [
     {
      "op": "attack",
-     "dmg": 11
+     "dmg": 10
     },
     {
      "op": "addCard",
@@ -2314,7 +2396,7 @@
    "playUp": [
     {
      "op": "attack",
-     "dmg": 15
+     "dmg": 14
     },
     {
      "op": "addCard",
@@ -2334,13 +2416,13 @@
    "play": [
     {
      "op": "gainBlock",
-     "n": 5
+     "n": 4
     }
    ],
    "playUp": [
     {
      "op": "gainBlock",
-     "n": 8
+     "n": 7
     }
    ],
    "type": "Skill",
@@ -2425,6 +2507,15 @@
    "pool": "CARD_POOL.DEFECT_CARD_POOL",
    "rarity": "Common"
   },
+  "CARD.CONCOCT": {
+   "model": "full",
+   "cost": 0,
+   "play": [],
+   "note": "Multiplayer only: another player's attacks this turn also apply 3 (4) Poison; cannot target self. No allies in sim.",
+   "type": "Skill",
+   "pool": "CARD_POOL.SILENT_CARD_POOL",
+   "rarity": "Uncommon"
+  },
   "CARD.CONFLAGRATION": {
    "model": "full",
    "cost": 1,
@@ -2479,6 +2570,16 @@
    "type": "Skill",
    "pool": "CARD_POOL.REGENT_CARD_POOL",
    "rarity": "Uncommon"
+  },
+  "CARD.CONSTELLATION": {
+   "model": "full",
+   "cost": 0,
+   "play": [],
+   "note": "Multiplayer only: another player draws 1, gains 1 energy and 9 (12) Block; cannot target self. Nothing for you.",
+   "type": "Skill",
+   "pool": "CARD_POOL.REGENT_CARD_POOL",
+   "rarity": "Uncommon",
+   "starCost": 2
   },
   "CARD.CONSUMING_SHADOW": {
    "model": "full",
@@ -2797,7 +2898,7 @@
       },
       {
        "op": "gainBlock",
-       "n": 8
+       "n": 7
       }
      ]
     }
@@ -2840,7 +2941,7 @@
    ],
    "type": "Power",
    "pool": "CARD_POOL.IRONCLAD_CARD_POOL",
-   "rarity": "Rare"
+   "rarity": "Uncommon"
   },
   "CARD.CRUSH_UNDER": {
    "model": "full",
@@ -2848,14 +2949,14 @@
    "play": [
     {
      "op": "attack",
-     "dmg": 7,
+     "dmg": 8,
      "target": "all"
     }
    ],
    "playUp": [
     {
      "op": "attack",
-     "dmg": 8,
+     "dmg": 9,
      "target": "all"
     }
    ],
@@ -3457,7 +3558,7 @@
      "effects": [
       {
        "op": "strength",
-       "n": 2
+       "n": 3
       }
      ]
     }
@@ -3469,7 +3570,7 @@
      "effects": [
       {
        "op": "strength",
-       "n": 3
+       "n": 4
       }
      ]
     }
@@ -3500,13 +3601,13 @@
    "play": [
     {
      "op": "attack",
-     "dmg": 30
+     "dmg": 35
     }
    ],
    "playUp": [
     {
      "op": "attack",
-     "dmg": 40
+     "dmg": 45
     }
    ],
    "type": "Attack",
@@ -3694,7 +3795,7 @@
     "Exhaust"
    ],
    "pool": "CARD_POOL.IRONCLAD_CARD_POOL",
-   "rarity": "Uncommon"
+   "rarity": "Rare"
   },
   "CARD.DOUBLE_ENERGY": {
    "model": "full",
@@ -3731,6 +3832,17 @@
    ],
    "pool": "CARD_POOL.CURSE_CARD_POOL",
    "rarity": "Curse"
+  },
+  "CARD.DOWSING": {
+   "model": "full",
+   "cost": -1,
+   "play": [],
+   "type": "Quest",
+   "keywords": [
+    "Unplayable"
+   ],
+   "pool": "CARD_POOL.QUEST_CARD_POOL",
+   "rarity": "Quest"
   },
   "CARD.DRAIN_POWER": {
    "model": "full",
@@ -3919,7 +4031,7 @@
    "note": "repeats once per enemy killed; dummy assumed not to die",
    "type": "Attack",
    "pool": "CARD_POOL.SILENT_CARD_POOL",
-   "rarity": "Rare"
+   "rarity": "Uncommon"
   },
   "CARD.ECHO_FORM": {
    "model": "full",
@@ -3947,18 +4059,15 @@
    "rarity": "Rare"
   },
   "CARD.EIDOLON": {
-   "model": "full",
+   "model": "none",
    "cost": 2,
    "costUp": 1,
-   "play": [
-    {
-     "op": "exhaustCards",
-     "n": "all",
-     "from": "hand"
-    }
-   ],
-   "note": "Exhausts whole hand (Intangible at 9+, irrelevant). Matters for Soul Storm (exhausted Souls)",
+   "play": [],
+   "note": "Auto-plays every playable Ethereal card in your exhaust pile; no op plays cards from the exhaust pile.",
    "type": "Skill",
+   "keywords": [
+    "Exhaust"
+   ],
    "pool": "CARD_POOL.NECROBINDER_CARD_POOL",
    "rarity": "Rare"
   },
@@ -4212,36 +4321,29 @@
   },
   "CARD.EXPECT_A_FIGHT": {
    "model": "full",
-   "cost": 2,
-   "costUp": 1,
-   "play": [
-    {
-     "op": "energy",
-     "n": "0+1*attacksInHand"
-    },
-    {
-     "op": "noEnergyGain"
-    }
-   ],
+   "cost": 3,
+   "play": [],
+   "note": "Block only: 15 (16) plus 5 (8) per Strength you have.",
    "type": "Skill",
    "pool": "CARD_POOL.IRONCLAD_CARD_POOL",
    "rarity": "Uncommon"
   },
   "CARD.EXPERTISE": {
-   "model": "full",
+   "model": "approx",
    "cost": 1,
    "play": [
     {
      "op": "draw",
-     "n": "max(0,6-handSize)"
+     "n": 2
     }
    ],
    "playUp": [
     {
      "op": "draw",
-     "n": "max(0,7-handSize)"
+     "n": 3
     }
    ],
+   "note": "The drawn cards also get Retain for this turn; that Retain is not simulated.",
    "type": "Skill",
    "pool": "CARD_POOL.SILENT_CARD_POOL",
    "rarity": "Uncommon"
@@ -4291,6 +4393,18 @@
    "type": "Attack",
    "pool": "CARD_POOL.EVENT_CARD_POOL",
    "rarity": "Event"
+  },
+  "CARD.FADE": {
+   "model": "full",
+   "cost": 0,
+   "play": [],
+   "note": "Multiplayer only: 6 (9) temporary Dexterity to another player; cannot target self.",
+   "type": "Skill",
+   "keywords": [
+    "Retain"
+   ],
+   "pool": "CARD_POOL.SILENT_CARD_POOL",
+   "rarity": "Uncommon"
   },
   "CARD.FALLING_STAR": {
    "model": "full",
@@ -4689,7 +4803,7 @@
    "note": "multiplayer only; doubles OTHER players' attack damage vs target",
    "type": "Skill",
    "pool": "CARD_POOL.SILENT_CARD_POOL",
-   "rarity": "Uncommon"
+   "rarity": "Rare"
   },
   "CARD.FLASH_OF_STEEL": {
    "model": "full",
@@ -4769,14 +4883,14 @@
    "play": [
     {
      "op": "attack",
-     "dmg": 6,
+     "dmg": 7,
      "target": "all"
     }
    ],
    "playUp": [
     {
      "op": "attack",
-     "dmg": 8,
+     "dmg": 9,
      "target": "all"
     }
    ],
@@ -4991,19 +5105,11 @@
     {
      "op": "energy",
      "n": 1
-    },
-    {
-     "op": "draw",
-     "n": 1
     }
    ],
    "playUp": [
     {
      "op": "energy",
-     "n": 1
-    },
-    {
-     "op": "draw",
      "n": 2
     }
    ],
@@ -5166,13 +5272,13 @@
    "play": [
     {
      "op": "attack",
-     "dmg": 16
+     "dmg": 20
     }
    ],
    "playUp": [
     {
      "op": "attack",
-     "dmg": 20
+     "dmg": 24
     }
    ],
    "type": "Attack",
@@ -5465,8 +5571,13 @@
      "dmg": 12
     },
     {
-     "op": "draw",
-     "n": 2
+     "op": "nextTurn",
+     "effects": [
+      {
+       "op": "draw",
+       "n": 2
+      }
+     ]
     }
    ],
    "playUp": [
@@ -5475,14 +5586,20 @@
      "dmg": 13
     },
     {
-     "op": "draw",
-     "n": 3
+     "op": "nextTurn",
+     "effects": [
+      {
+       "op": "draw",
+       "n": 3
+      }
+     ]
     }
    ],
+   "note": "The draw is next turn (added to the hand draw).",
    "type": "Attack",
    "pool": "CARD_POOL.REGENT_CARD_POOL",
    "rarity": "Common",
-   "starCost": 2
+   "starCost": 1
   },
   "CARD.GUILTY": {
    "model": "full",
@@ -5644,7 +5761,7 @@
      "effects": [
       {
        "op": "damage",
-       "n": 6
+       "n": 7
       }
      ]
     }
@@ -5656,7 +5773,7 @@
      "effects": [
       {
        "op": "damage",
-       "n": 8
+       "n": 9
       }
      ]
     }
@@ -5683,24 +5800,29 @@
   },
   "CARD.HAZE": {
    "model": "full",
-   "cost": 3,
+   "cost": 2,
    "play": [
     {
      "op": "poison",
      "n": 4
+    },
+    {
+     "op": "weak",
+     "n": 1
     }
    ],
    "playUp": [
     {
      "op": "poison",
      "n": 6
+    },
+    {
+     "op": "weak",
+     "n": 2
     }
    ],
-   "note": "all enemies",
+   "note": "All enemies; Weak only fires debuff triggers.",
    "type": "Skill",
-   "keywords": [
-    "Sly"
-   ],
    "pool": "CARD_POOL.SILENT_CARD_POOL",
    "rarity": "Uncommon"
   },
@@ -5908,6 +6030,28 @@
    "pool": "CARD_POOL.IRONCLAD_CARD_POOL",
    "rarity": "Uncommon"
   },
+  "CARD.HIBERNATE": {
+   "model": "full",
+   "cost": 2,
+   "play": [
+    {
+     "op": "channel",
+     "orb": "frost",
+     "n": 2
+    }
+   ],
+   "playUp": [
+    {
+     "op": "channel",
+     "orb": "frost",
+     "n": 3
+    }
+   ],
+   "note": "Multiplayer only: until your next turn your Frost orbs also give Block to the other players (Block is not simulated).",
+   "type": "Skill",
+   "pool": "CARD_POOL.DEFECT_CARD_POOL",
+   "rarity": "Uncommon"
+  },
   "CARD.HIDDEN_CACHE": {
    "model": "full",
    "cost": 1,
@@ -6060,28 +6204,28 @@
    "play": [
     {
      "op": "attack",
-     "dmg": 16,
+     "dmg": 18,
      "target": "all"
     }
    ],
    "playUp": [
     {
      "op": "attack",
-     "dmg": 21,
+     "dmg": 24,
      "target": "all"
     }
    ],
    "onExhaust": [
     {
      "op": "attack",
-     "dmg": 16,
+     "dmg": 18,
      "target": "all"
     }
    ],
    "onExhaustUp": [
     {
      "op": "attack",
-     "dmg": 21,
+     "dmg": 24,
      "target": "all"
     }
    ],
@@ -6119,26 +6263,26 @@
    "play": [
     {
      "op": "attack",
-     "dmg": 28,
+     "dmg": 24,
      "target": "all"
     },
     {
-     "op": "focus",
+     "op": "tempFocus",
      "n": -3
     }
    ],
    "playUp": [
     {
      "op": "attack",
-     "dmg": 36,
+     "dmg": 30,
      "target": "all"
     },
     {
-     "op": "focus",
+     "op": "tempFocus",
      "n": -3
     }
    ],
-   "note": "Focus loss is permanent and can go negative.",
+   "note": "The 3 Focus loss lasts this turn only.",
    "type": "Attack",
    "pool": "CARD_POOL.DEFECT_CARD_POOL",
    "rarity": "Rare"
@@ -6185,6 +6329,18 @@
     }
    ],
    "note": "MultiplayerOnly: needs another living player, so never playable solo. In co-op it channels Plasma for the chosen ally.",
+   "type": "Skill",
+   "keywords": [
+    "Exhaust"
+   ],
+   "pool": "CARD_POOL.DEFECT_CARD_POOL",
+   "rarity": "Uncommon"
+  },
+  "CARD.IMITATION_LEARNING": {
+   "model": "approx",
+   "cost": 1,
+   "play": [],
+   "note": "Multiplayer only: the next 2 (3) Power cards the chosen player plays are also auto-played for you. No allies in sim, so it does nothing here.",
    "type": "Skill",
    "keywords": [
     "Exhaust"
@@ -6823,9 +6979,6 @@
    ],
    "note": "Multiplayer-only; every living player summons",
    "type": "Skill",
-   "keywords": [
-    "Exhaust"
-   ],
    "pool": "CARD_POOL.NECROBINDER_CARD_POOL",
    "rarity": "Uncommon"
   },
@@ -7102,13 +7255,13 @@
    "play": [
     {
      "op": "attack",
-     "dmg": 15
+     "dmg": 20
     }
    ],
    "playUp": [
     {
      "op": "attack",
-     "dmg": 20
+     "dmg": 26
     }
    ],
    "note": "Enemy temporary Strength loss is irrelevant vs dummy.",
@@ -7187,18 +7340,18 @@
    "play": [
     {
      "op": "attack",
-     "dmg": "5+timesPlayedThisCombat",
+     "dmg": "5+2*timesPlayedThisCombat",
      "hits": 2
     }
    ],
    "playUp": [
     {
      "op": "attack",
-     "dmg": "6+2*timesPlayedThisCombat",
+     "dmg": "6+3*timesPlayedThisCombat",
      "hits": 2
     }
    ],
-   "note": "Each Maul play gives all Mauls +1 (+2) dmg; mixing upgraded and base Mauls is slightly off.",
+   "note": "Each Maul play gives all Mauls +2 (+3) dmg; mixing upgraded and base Mauls is slightly off.",
    "type": "Attack",
    "pool": "CARD_POOL.EVENT_CARD_POOL",
    "rarity": "Ancient"
@@ -7345,6 +7498,27 @@
    "pool": "CARD_POOL.DEFECT_CARD_POOL",
    "rarity": "Rare"
   },
+  "CARD.MIDNIGHT": {
+   "model": "approx",
+   "cost": 12,
+   "costExpr": "max(0,12-exhaustPileSize)",
+   "play": [
+    {
+     "op": "attack",
+     "dmg": 60
+    }
+   ],
+   "playUp": [
+    {
+     "op": "attack",
+     "dmg": 72
+    }
+   ],
+   "note": "Multiplayer only: costs 1 less for each card exhausted this combat (any player's, from the combat history). Sim uses your exhaust pile size.",
+   "type": "Attack",
+   "pool": "CARD_POOL.IRONCLAD_CARD_POOL",
+   "rarity": "Rare"
+  },
   "CARD.MIMIC": {
    "model": "full",
    "cost": 1,
@@ -7460,7 +7634,7 @@
   "CARD.MIRAGE": {
    "model": "full",
    "cost": 1,
-   "costUp": 0,
+   "keywordsUp": [],
    "play": [],
    "note": "block = enemy poison only",
    "type": "Skill",
@@ -7569,7 +7743,7 @@
    "play": [
     {
      "op": "attack",
-     "dmg": 10
+     "dmg": 11
     },
     {
      "op": "costMod",
@@ -7581,7 +7755,7 @@
    "playUp": [
     {
      "op": "attack",
-     "dmg": 13
+     "dmg": 15
     },
     {
      "op": "costMod",
@@ -8057,6 +8231,30 @@
    "pool": "CARD_POOL.COLORLESS_CARD_POOL",
    "rarity": "Uncommon"
   },
+  "CARD.ONE_FOR_ALL": {
+   "model": "approx",
+   "cost": 1,
+   "play": [
+    {
+     "op": "attackBonus",
+     "n": 3,
+     "filter": "zeroCost",
+     "duration": "combat"
+    }
+   ],
+   "playUp": [
+    {
+     "op": "attackBonus",
+     "n": 4,
+     "filter": "zeroCost",
+     "duration": "combat"
+    }
+   ],
+   "note": "Multiplayer only: every player (incl. you) deals +3 (+4) with Attacks played for 0 energy (not X). Sim: printed 0-cost cards only; in game free plays and cost cuts count too.",
+   "type": "Power",
+   "pool": "CARD_POOL.DEFECT_CARD_POOL",
+   "rarity": "Rare"
+  },
   "CARD.ONE_TWO_PUNCH": {
    "model": "full",
    "cost": 1,
@@ -8097,38 +8295,32 @@
    "rarity": "Uncommon"
   },
   "CARD.OUTBREAK": {
-   "model": "full",
-   "cost": 1,
+   "model": "approx",
+   "cost": 3,
    "play": [
     {
-     "op": "onApply",
-     "power": "poison",
-     "every": 3,
-     "effects": [
-      {
-       "op": "damage",
-       "n": 11
-      }
-     ]
+     "op": "poison",
+     "n": 9
+    },
+    {
+     "op": "damage",
+     "n": "poisonOnTarget+9"
     }
    ],
    "playUp": [
     {
-     "op": "onApply",
-     "power": "poison",
-     "every": 3,
-     "effects": [
-      {
-       "op": "damage",
-       "n": 15
-      }
-     ]
+     "op": "poison",
+     "n": 12
+    },
+    {
+     "op": "damage",
+     "n": "poisonOnTarget+12"
     }
    ],
-   "note": "counter never resets between turns; unpowered dmg to all enemies",
-   "type": "Power",
+   "note": "All enemies: apply 9 (12) Poison, then Poison ticks once right away. Sim: one tick for the full amount, without the stack loss or extra Accelerant ticks.",
+   "type": "Skill",
    "pool": "CARD_POOL.SILENT_CARD_POOL",
-   "rarity": "Uncommon"
+   "rarity": "Rare"
   },
   "CARD.OUTMANEUVER": {
    "model": "full",
@@ -8159,6 +8351,40 @@
    "type": "Skill",
    "pool": "CARD_POOL.EVENT_CARD_POOL",
    "rarity": "Event"
+  },
+  "CARD.OUTRAGE": {
+   "model": "full",
+   "cost": 0,
+   "play": [
+    {
+     "op": "attack",
+     "dmg": 9
+    },
+    {
+     "op": "addCard",
+     "card": "CARD.OUTRAGE",
+     "n": 1,
+     "upgraded": false,
+     "to": "discard"
+    }
+   ],
+   "playUp": [
+    {
+     "op": "attack",
+     "dmg": 13
+    },
+    {
+     "op": "addCard",
+     "card": "CARD.OUTRAGE",
+     "n": 1,
+     "upgraded": true,
+     "to": "discard"
+    }
+   ],
+   "note": "Multiplayer only: after the hit every living player (incl. you) gets a copy in the discard pile; the allies' copies are not simulated.",
+   "type": "Attack",
+   "pool": "CARD_POOL.IRONCLAD_CARD_POOL",
+   "rarity": "Uncommon"
   },
   "CARD.OVERCLOCK": {
    "model": "full",
@@ -8199,7 +8425,7 @@
    "play": [
     {
      "op": "attack",
-     "dmg": 17,
+     "dmg": 18,
      "hits": "min(1,max(0,exhaustPileSize+1-3))",
      "target": "all"
     }
@@ -8207,7 +8433,7 @@
    "playUp": [
     {
      "op": "attack",
-     "dmg": 23,
+     "dmg": 24,
      "hits": "min(1,max(0,exhaustPileSize+1-3))",
      "target": "all"
     }
@@ -8575,6 +8801,36 @@
    ],
    "type": "Attack",
    "pool": "CARD_POOL.SILENT_CARD_POOL",
+   "rarity": "Uncommon"
+  },
+  "CARD.PLOT": {
+   "model": "full",
+   "cost": 1,
+   "play": [
+    {
+     "op": "nextTurn",
+     "effects": [
+      {
+       "op": "draw",
+       "n": 2
+      }
+     ]
+    }
+   ],
+   "playUp": [
+    {
+     "op": "nextTurn",
+     "effects": [
+      {
+       "op": "draw",
+       "n": 3
+      }
+     ]
+    }
+   ],
+   "note": "Multiplayer only: every living player (incl. you) draws 2 (3) more cards next turn.",
+   "type": "Skill",
+   "pool": "CARD_POOL.REGENT_CARD_POOL",
    "rarity": "Uncommon"
   },
   "CARD.POISONED_STAB": {
@@ -9200,13 +9456,13 @@
    "play": [
     {
      "op": "attack",
-     "dmg": "9+5*timesPlayedThisCombat"
+     "dmg": "10+5*timesPlayedThisCombat"
     }
    ],
    "playUp": [
     {
      "op": "attack",
-     "dmg": "9+9*timesPlayedThisCombat"
+     "dmg": "10+10*timesPlayedThisCombat"
     }
    ],
    "note": "Growth is per card instance in game; the per-id counter matches unless the deck has 2+ Rampages.",
@@ -9311,7 +9567,7 @@
    "play": [
     {
      "op": "attack",
-     "dmg": 9
+     "dmg": 10
     },
     {
      "op": "addCard",
@@ -9324,7 +9580,7 @@
    "playUp": [
     {
      "op": "attack",
-     "dmg": 11
+     "dmg": 13
     },
     {
      "op": "addCard",
@@ -9396,7 +9652,7 @@
    "play": [
     {
      "op": "forge",
-     "n": 9
+     "n": 8
     },
     {
      "op": "nextTurn",
@@ -9411,7 +9667,7 @@
    "playUp": [
     {
      "op": "forge",
-     "n": 13
+     "n": 12
     },
     {
      "op": "nextTurn",
@@ -9465,7 +9721,7 @@
    "play": [
     {
      "op": "attack",
-     "dmg": 9,
+     "dmg": 10,
      "hits": 2
     },
     {
@@ -9477,7 +9733,7 @@
    "playUp": [
     {
      "op": "attack",
-     "dmg": 12,
+     "dmg": 13,
      "hits": 2
     },
     {
@@ -9544,17 +9800,17 @@
   },
   "CARD.REND": {
    "model": "approx",
-   "cost": 2,
+   "cost": 1,
    "play": [
     {
      "op": "attack",
-     "dmg": "15+5*(min(1,poisonOnTarget)+min(1,doomOnTarget)+min(1,vulnerableOnTarget))"
+     "dmg": "10+5*(min(1,poisonOnTarget)+min(1,doomOnTarget)+min(1,vulnerableOnTarget))"
     }
    ],
    "playUp": [
     {
      "op": "attack",
-     "dmg": "18+8*(min(1,poisonOnTarget)+min(1,doomOnTarget)+min(1,vulnerableOnTarget))"
+     "dmg": "12+8*(min(1,poisonOnTarget)+min(1,doomOnTarget)+min(1,vulnerableOnTarget))"
     }
    ],
    "note": "+5 (+8) per non-temporary debuff type on target; Weak would also count but is not simulated.",
@@ -9580,7 +9836,7 @@
    "type": "Skill",
    "pool": "CARD_POOL.REGENT_CARD_POOL",
    "rarity": "Uncommon",
-   "starCost": 3
+   "starCost": 2
   },
   "CARD.RESTLESSNESS": {
    "model": "full",
@@ -9900,19 +10156,6 @@
    ],
    "type": "Attack",
    "pool": "CARD_POOL.COLORLESS_CARD_POOL",
-   "rarity": "Rare"
-  },
-  "CARD.SCARE": {
-   "model": "full",
-   "cost": 0,
-   "keywordsUp": [],
-   "play": [],
-   "note": "Weak only",
-   "type": "Skill",
-   "keywords": [
-    "Exhaust"
-   ],
-   "pool": "CARD_POOL.SILENT_CARD_POOL",
    "rarity": "Uncommon"
   },
   "CARD.SCAVENGE": {
@@ -10278,7 +10521,7 @@
     },
     {
      "op": "tempStrength",
-     "n": 2
+     "n": 3
     }
    ],
    "playUp": [
@@ -10288,7 +10531,7 @@
     },
     {
      "op": "tempStrength",
-     "n": 3
+     "n": 4
     }
    ],
    "type": "Attack",
@@ -10478,6 +10721,9 @@
    ],
    "note": "Each orb, front first, is evoked twice and removed.",
    "type": "Attack",
+   "keywords": [
+    "Exhaust"
+   ],
    "pool": "CARD_POOL.DEFECT_CARD_POOL",
    "rarity": "Rare"
   },
@@ -10649,6 +10895,35 @@
     "OstyAttack"
    ],
    "pool": "CARD_POOL.NECROBINDER_CARD_POOL",
+   "rarity": "Uncommon"
+  },
+  "CARD.SIDESTEP": {
+   "model": "full",
+   "cost": 0,
+   "play": [
+    {
+     "op": "nextTurn",
+     "effects": [
+      {
+       "op": "energy",
+       "n": 1
+      }
+     ]
+    }
+   ],
+   "playUp": [
+    {
+     "op": "nextTurn",
+     "effects": [
+      {
+       "op": "energy",
+       "n": 2
+      }
+     ]
+    }
+   ],
+   "type": "Skill",
+   "pool": "CARD_POOL.SILENT_CARD_POOL",
    "rarity": "Uncommon"
   },
   "CARD.SIGNAL_BOOST": {
@@ -10936,19 +11211,31 @@
    "pool": "CARD_POOL.TOKEN_CARD_POOL",
    "rarity": "Token"
   },
+  "CARD.SOULBOUND": {
+   "model": "full",
+   "cost": 1,
+   "keywordsUp": [
+    "Innate"
+   ],
+   "play": [],
+   "note": "Multiplayer only: each Soul you create also gives the chosen player a Soul in their draw pile; nothing for you.",
+   "type": "Power",
+   "pool": "CARD_POOL.NECROBINDER_CARD_POOL",
+   "rarity": "Uncommon"
+  },
   "CARD.SOUL_STORM": {
    "model": "full",
    "cost": 1,
    "play": [
     {
      "op": "attack",
-     "dmg": "9+2*soulsInExhaust"
+     "dmg": "9+4*soulsInExhaust"
     }
    ],
    "playUp": [
     {
      "op": "attack",
-     "dmg": "9+3*soulsInExhaust"
+     "dmg": "9+6*soulsInExhaust"
     }
    ],
    "type": "Attack",
@@ -11140,7 +11427,7 @@
    "note": "Real pool is OTHER characters' Attacks (best of 3, free this turn); no other-class random token.",
    "type": "Skill",
    "pool": "CARD_POOL.COLORLESS_CARD_POOL",
-   "rarity": "Uncommon"
+   "rarity": "Rare"
   },
   "CARD.SPOILS_MAP": {
    "model": "full",
@@ -11159,7 +11446,7 @@
    "play": [
     {
      "op": "forge",
-     "n": 5
+     "n": 6
     },
     {
      "op": "draw",
@@ -11169,7 +11456,7 @@
    "playUp": [
     {
      "op": "forge",
-     "n": 8
+     "n": 9
     },
     {
      "op": "draw",
@@ -11741,13 +12028,13 @@
    "play": [
     {
      "op": "attack",
-     "dmg": 24
+     "dmg": 26
     }
    ],
    "playUp": [
     {
      "op": "attack",
-     "dmg": 32
+     "dmg": 34
     }
    ],
    "note": "+3 energy only if it kills; omitted (dummy never dies).",
@@ -11933,17 +12220,19 @@
   "CARD.SYNCHRONIZE": {
    "model": "full",
    "cost": 1,
-   "keywordsUp": [],
    "play": [
+    {
+     "op": "tempFocus",
+     "n": "0+1*distinctOrbTypes"
+    }
+   ],
+   "playUp": [
     {
      "op": "tempFocus",
      "n": "0+2*distinctOrbTypes"
     }
    ],
    "type": "Skill",
-   "keywords": [
-    "Exhaust"
-   ],
    "pool": "CARD_POOL.DEFECT_CARD_POOL",
    "rarity": "Uncommon"
   },
@@ -12029,7 +12318,7 @@
    "cost": 1,
    "costUp": 0,
    "play": [],
-   "note": "Multiplayer-only; doubles damage you take, guards allies.",
+   "note": "Multiplayer-only; you take x1.5 attack damage and the other players are Guarded.",
    "type": "Power",
    "pool": "CARD_POOL.IRONCLAD_CARD_POOL",
    "rarity": "Rare"
@@ -12040,7 +12329,7 @@
    "play": [
     {
      "op": "gainBlock",
-     "n": 7
+     "n": 6
     },
     {
      "op": "vulnerable",
@@ -12050,7 +12339,7 @@
    "playUp": [
     {
      "op": "gainBlock",
-     "n": 8
+     "n": 7
     },
     {
      "op": "vulnerable",
@@ -12059,7 +12348,7 @@
    ],
    "type": "Skill",
    "pool": "CARD_POOL.IRONCLAD_CARD_POOL",
-   "rarity": "Uncommon"
+   "rarity": "Common"
   },
   "CARD.TEAR_ASUNDER": {
    "model": "full",
@@ -12109,13 +12398,13 @@
    "play": [
     {
      "op": "vigor",
-     "n": 6
+     "n": 7
     }
    ],
    "playUp": [
     {
      "op": "vigor",
-     "n": 8
+     "n": 10
     }
    ],
    "type": "Skill",
@@ -12150,6 +12439,26 @@
    "note": "Lightning passives (3+Focus each) hit the attacked enemy.",
    "type": "Attack",
    "pool": "CARD_POOL.DEFECT_CARD_POOL",
+   "rarity": "Uncommon"
+  },
+  "CARD.THE_BALL": {
+   "model": "approx",
+   "cost": 1,
+   "play": [
+    {
+     "op": "attack",
+     "dmg": "10+10*timesPlayedThisCombat"
+    }
+   ],
+   "playUp": [
+    {
+     "op": "attack",
+     "dmg": "10+15*timesPlayedThisCombat"
+    }
+   ],
+   "note": "Multiplayer only: +10 (+15) damage after each play, and after a play it moves to a random other player's draw pile, so in co-op you usually play it once. Sim keeps it in your deck.",
+   "type": "Attack",
+   "pool": "CARD_POOL.COLORLESS_CARD_POOL",
    "rarity": "Uncommon"
   },
   "CARD.THE_BOMB": {
@@ -12244,7 +12553,7 @@
      "dmg": 13
     }
    ],
-   "note": "Each play permanently adds +4 (up +5) dmg to the deck copy; 13 assumes a fresh copy",
+   "note": "Each play permanently adds +5 (up +7) dmg to the deck copy; 13 assumes a fresh copy",
    "type": "Attack",
    "keywords": [
     "Exhaust"
@@ -12384,7 +12693,7 @@
      "effects": [
       {
        "op": "damage",
-       "n": 6
+       "n": 8
       }
      ]
     }
@@ -12396,7 +12705,7 @@
      "effects": [
       {
        "op": "damage",
-       "n": 8
+       "n": 11
       }
      ]
     }
@@ -12439,7 +12748,6 @@
    "model": "full",
    "cost": 2,
    "keywordsUp": [
-    "Exhaust",
     "Retain"
    ],
    "play": [
@@ -12449,9 +12757,6 @@
     }
    ],
    "type": "Attack",
-   "keywords": [
-    "Exhaust"
-   ],
    "pool": "CARD_POOL.NECROBINDER_CARD_POOL",
    "rarity": "Rare"
   },
@@ -12545,9 +12850,7 @@
   "CARD.TRASH_TO_TREASURE": {
    "model": "full",
    "cost": 1,
-   "keywordsUp": [
-    "Innate"
-   ],
+   "costUp": 0,
    "play": [
     {
      "op": "onStatusCreated",
@@ -12649,6 +12952,16 @@
    "type": "Skill",
    "pool": "CARD_POOL.DEFECT_CARD_POOL",
    "rarity": "Common"
+  },
+  "CARD.TUTOR": {
+   "model": "full",
+   "cost": 1,
+   "costUp": 0,
+   "play": [],
+   "note": "Multiplayer only: the chosen player puts a card from their draw pile into their hand; cannot target self. Nothing for you.",
+   "type": "Skill",
+   "pool": "CARD_POOL.REGENT_CARD_POOL",
+   "rarity": "Rare"
   },
   "CARD.TWIN_STRIKE": {
    "model": "full",
@@ -12760,6 +13073,19 @@
    "type": "Skill",
    "pool": "CARD_POOL.NECROBINDER_CARD_POOL",
    "rarity": "Rare"
+  },
+  "CARD.UNDERWORLD": {
+   "model": "full",
+   "cost": 2,
+   "keywordsUp": [],
+   "play": [],
+   "note": "Multiplayer only: until the enemy turn ends, other players' attack damage also applies that much Doom (yours and Osty's do not). No allies in sim.",
+   "type": "Skill",
+   "keywords": [
+    "Exhaust"
+   ],
+   "pool": "CARD_POOL.NECROBINDER_CARD_POOL",
+   "rarity": "Uncommon"
   },
   "CARD.UNLEASH": {
    "model": "full",
@@ -13109,28 +13435,24 @@
    "rarity": "Status"
   },
   "CARD.WELL_LAID_PLANS": {
-   "model": "none",
-   "cost": 1,
+   "model": "full",
+   "cost": 2,
+   "costUp": 1,
    "play": [
     {
-     "op": "gainPower",
-     "power": "POWER.WELL_LAID_PLANS_POWER",
-     "n": 1,
-     "note": "at end of each turn retain up to N chosen cards in hand"
+     "op": "perTurn",
+     "when": "end",
+     "effects": [
+      {
+       "op": "retainHand"
+      }
+     ]
     }
    ],
-   "playUp": [
-    {
-     "op": "gainPower",
-     "power": "POWER.WELL_LAID_PLANS_POWER",
-     "n": 2,
-     "note": "at end of each turn retain up to N chosen cards in hand"
-    }
-   ],
-   "note": "retain up to N cards each turn; retainHand keeps the whole hand once",
+   "note": "From now on the whole hand is kept at the end of every turn (the hand is not discarded).",
    "type": "Power",
    "pool": "CARD_POOL.SILENT_CARD_POOL",
-   "rarity": "Uncommon"
+   "rarity": "Rare"
   },
   "CARD.WHIRLWIND": {
    "model": "full",
@@ -13157,7 +13479,7 @@
   },
   "CARD.WHISTLE": {
    "model": "full",
-   "cost": 3,
+   "cost": 2,
    "play": [
     {
      "op": "attack",
