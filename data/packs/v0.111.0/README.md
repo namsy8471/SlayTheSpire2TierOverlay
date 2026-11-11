@@ -50,7 +50,8 @@ python -I tools/PoolDataGen/gen_card_pools.py <v0.111.0 디컴파일 폴더> dat
 - CatalogBuilder 종료 코드 0, 템플릿 변수 커버리지 카드 1585/1585·유물 544/544(종료 코드 2면 처리하지 못한 변수가 있다는 뜻).
 - 결과 수: 카드 596, 카드 변수 596, 유물 299, 유물 변수 299, 시작 덱 5, 카드 풀 5(디펙트 91, 아이언클래드 90, 네크로바인더 91, 리젠트 91, 사일런트 91; 에포크는 캐릭터당 3개 × 3장 그대로).
 - 미해결: `CARD.MAD_SCIENCE`·`CARD.SOVEREIGN_BLADE`의 `gainsBlock`(v0.107.1과 같음). 로컬 카탈로그에만 있는 `starCostX`는 커밋본에 넣지 않습니다(v0.107.1 형식 유지).
-- `aliases.json`은 아직 없습니다. 사용자 런 기록 중 `CARD.FOLLOW_THROUGH`(v0.98.3 시절 사일런트 카드)는 v0.107.1 카탈로그에 없지만, 어느 카드로 바뀌었는지 확인하지 못해 별칭을 만들지 않았습니다(틀린 별칭이 더 해롭기 때문).
+- `aliases.json`: `CARD.SCARE` → `CARD.SIDESTEP` 하나뿐입니다. 게임이 v0.111에서 Scare를 Sidestep으로 고치고 이름을 바꾸며 옛 세이브·런 기록의 id도 옮깁니다(SerializableRunV19ToV20, RunHistoryV9ToV10). 효과가 완전히 달라(약화+소멸 → 다음 턴 에너지) SCARE의 학습 데이터는 쓰지 않고, 옛 id가 SIDESTEP 자신의 티어·학습 항목을 읽게만 합니다. `CARD.FOLLOW_THROUGH`는 여전히 별칭이 없습니다.
+  (English: the only alias is SCARE → SIDESTEP, matching the game's own save/history migration; SCARE's learned entry is not reused because the card was reworked.)
 
 > **카드 점수 보정 (2026-11)**: 상위 랭커 2,155판의 보상 화면 선택으로 티어 14장을 한 단계씩 옮기고, 카드 382장에 `baseAdjust`(−15~+15점, 배지 티어는 그대로)를 붙였습니다. 방법·근거·카드별 표는 [`docs/research/CARD_CALIBRATION.md`](../../../docs/research/CARD_CALIBRATION.md)에 있습니다.
 

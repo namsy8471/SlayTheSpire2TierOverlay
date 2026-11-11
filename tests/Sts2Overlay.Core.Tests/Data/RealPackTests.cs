@@ -8,13 +8,20 @@ namespace Sts2Overlay.Core.Tests.Data;
 /// Checks the real (draft) data pack <c>data/packs/v0.107.1</c> against the committed, names-free catalog
 /// <c>data/catalog/cards.v0.107.1.json</c>.
 /// </summary>
-public class RealPackTests
+public abstract class RealPackTests
 {
-    private const string Version = "v0.107.1";
+    /// <summary>The pack and catalog version under test; one subclass per shipped data version.</summary>
+    protected abstract string Version { get; }
 
-    private static string PackDir => Path.Combine(TestPaths.RepoRoot, "data", "packs", Version);
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, object> s_cache = new(StringComparer.Ordinal);
 
-    private static string CatalogPath => Path.Combine(TestPaths.RepoRoot, "data", "catalog", $"cards.{Version}.json");
+    /// <summary>Loads once per version and key (the pack is big; xUnit makes a new instance per test).</summary>
+    private T Cached<T>(string key, Func<T> load) where T : class =>
+        ((Lazy<T>)s_cache.GetOrAdd(Version + "|" + key, _ => new Lazy<T>(load))).Value;
+
+    private string PackDir => Path.Combine(TestPaths.RepoRoot, "data", "packs", Version);
+
+    private string CatalogPath => Path.Combine(TestPaths.RepoRoot, "data", "catalog", $"cards.{Version}.json");
 
     /// <summary>Card pool id in the committed catalog → tier-pack character.</summary>
     private static readonly IReadOnlyDictionary<string, string> PoolToCharacter = new Dictionary<string, string>(StringComparer.Ordinal)
@@ -27,9 +34,9 @@ public class RealPackTests
         ["CARD_POOL.COLORLESS_CARD_POOL"] = DataPack.Colorless,
     };
 
-    private static readonly Lazy<CardCatalog> Catalog = new(() => ReadCommittedCatalog(CatalogPath));
+    private Lazy<CardCatalog> Catalog => new(() => Cached("catalog", () => ReadCommittedCatalog(CatalogPath)));
 
-    private static readonly Lazy<DataPack> Pack = new(() => DataPackLoader.LoadDirectory(PackDir, Catalog.Value));
+    private Lazy<DataPack> Pack => new(() => Cached("pack", () => DataPackLoader.LoadDirectory(PackDir, Catalog.Value)));
 
     /// <summary>
     /// The committed catalog (tools/CatalogBuilder) differs from <see cref="CardCatalog"/>: <c>pool</c> is a
@@ -81,7 +88,10 @@ public class RealPackTests
     /// warns about each one. v2: defect.orb_focus (CAPACITOR), defect.zero_cost (FERAL), ironclad.block (BARRICADE) and
     /// regent.creation (PILLAR_OF_CREATION) got a core; defect.orb_variety lost SYNCHRONIZE as its core.
     /// </summary>
-    private static readonly string[] IntentionallyCoreless =
+    protected abstract string[] IntentionallyCoreless { get; }
+
+    /// <summary>v0.107.1 core-less builds.</summary>
+    protected static readonly string[] IntentionallyCorelessV0107 =
     [
         "defect.dark_orbs", "defect.orb_variety",
         "ironclad.attack_replay", "ironclad.strength", "ironclad.strike_tempo", "ironclad.vulnerable",
@@ -188,22 +198,29 @@ public class RealPackTests
 
     private const string StatsSourcePrefix = "opgg-top-a10-2026-11";
 
-    private static readonly Lazy<EventCatalog> EventsJson = new(() => EventCatalog.LoadFile(Path.Combine(PackDir, "events.json")));
+    private Lazy<EventCatalog> EventsJson => new(() => Cached("events", () => EventCatalog.LoadFile(Path.Combine(PackDir, "events.json"))));
 
-    private static readonly Lazy<HashSet<string>> KnownRelics = new(() =>
+    private Lazy<HashSet<string>> KnownRelics => new(() => Cached("relics", () =>
     {
         using var doc = JsonDocument.Parse(File.ReadAllText(Path.Combine(TestPaths.RepoRoot, "data", "catalog", $"relics.{Version}.json")));
         return doc.RootElement.GetProperty("relics").EnumerateArray().Select(r => r.GetProperty("id").GetString() ?? "").ToHashSet(StringComparer.Ordinal);
-    });
+    }));
 
     /// <summary>
     /// Ids in the v2 data that the v0.107.1 game does not have: the sample pools v0.107.x with the v0.108–v0.111 beta.
     /// NEOWS_SACRIFICE / DOWSING_ROD are not in the v0.107.1 relic catalog; the OROBAS ids are character ids, not v0.107.1 OROBAS buttons.
     /// They never match a key at runtime (no v0.107.1 option has these ids), so they are inert; listed so a new unknown id still fails.
     /// </summary>
-    private static readonly string[] NewerAncientOptions = ["NEOW.NEOWS_SACRIFICE", "OROBAS.IRONCLAD", "OROBAS.REGENT", "OROBAS.SILENT"];
+    protected abstract string[] NewerAncientOptions { get; }
 
-    private static readonly string[] NewerRelics = ["RELIC.DOWSING_ROD", "RELIC.NEOWS_SACRIFICE"];
+    protected abstract string[] NewerRelics { get; }
+
+    /// <summary>Options in events.stats.json (docs/research/v2-stats/events.md).</summary>
+    protected abstract int EventStatsOptionCount { get; }
+
+    protected static readonly string[] NewerAncientOptionsV0107 = ["NEOW.NEOWS_SACRIFICE", "OROBAS.IRONCLAD", "OROBAS.REGENT", "OROBAS.SILENT"];
+
+    protected static readonly string[] NewerRelicsV0107 = ["RELIC.DOWSING_ROD", "RELIC.NEOWS_SACRIFICE"];
 
     [Fact]
     public void StatsFiles_AreLoaded_WithTheV2Source()
@@ -237,7 +254,7 @@ public class RealPackTests
             }
         }
         Assert.True(missing.Count == 0, "Not in events.json:" + Environment.NewLine + string.Join(Environment.NewLine, missing));
-        Assert.Equal(115, count); // docs/research/v2-stats/events.md
+        Assert.Equal(EventStatsOptionCount, count);
     }
 
     [Fact]
@@ -281,4 +298,25 @@ public class RealPackTests
             }
         }
     }
+}
+
+/// <summary>The v0.107.1 pack against the v0.107.1 catalogs.</summary>
+public sealed class RealPackTestsV0107 : RealPackTests
+{
+    protected override string Version => "v0.107.1";
+    protected override string[] IntentionallyCoreless => IntentionallyCorelessV0107;
+    protected override string[] NewerAncientOptions => NewerAncientOptionsV0107;
+    protected override string[] NewerRelics => NewerRelicsV0107;
+    protected override int EventStatsOptionCount => 115;
+}
+
+/// <summary>The v0.111.0 pack against the v0.111.0 catalogs.</summary>
+public sealed class RealPackTestsV0111 : RealPackTests
+{
+    protected override string Version => "v0.111.0";
+    protected override string[] IntentionallyCoreless => IntentionallyCorelessV0107;
+    // v0.111 has Neow's Sacrifice; the OROBAS ids are still character ids, not OROBAS buttons.
+    protected override string[] NewerAncientOptions => ["OROBAS.IRONCLAD", "OROBAS.REGENT", "OROBAS.SILENT"];
+    protected override string[] NewerRelics => [];
+    protected override int EventStatsOptionCount => 115;
 }
