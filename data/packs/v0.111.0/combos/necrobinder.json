@@ -1,0 +1,17 @@
+// 네크로바인더 2장 콤보 초안 (claude-draft-v1)
+{
+  "character": "CHARACTER.NECROBINDER",
+  "combos": [
+    { "cards": ["CARD.NECRO_MASTERY", "CARD.PULL_AGGRO"], "name": "오스티 탱킹 → 광역", "why": "오스티가 맞은 만큼 적 전체가 체력을 잃음", "w": 6 },
+    { "cards": ["CARD.CALCIFY", "CARD.RATTLE"], "name": "오스티 다단 강화", "why": "타격 횟수마다 추가 피해가 붙음", "w": 6 },
+    { "cards": ["CARD.CALCIFY", "CARD.SQUEEZE"], "name": "오스티 공격 강화", "why": "오스티 공격 카드가 많을수록 둘 다 강해짐", "w": 5 },
+    { "cards": ["CARD.SACRIFICE", "CARD.REANIMATE"], "name": "희생 후 재소환", "why": "큰 방어도를 얻고 오스티를 다시 세움", "w": 5 },
+    { "cards": ["CARD.REAPER_FORM", "CARD.TIMES_UP"], "name": "공격 → 파멸 → 마무리", "why": "공격 피해만큼 쌓인 파멸을 한 번에 피해로", "w": 6 },
+    { "cards": ["CARD.COUNTDOWN", "CARD.SHROUD"], "name": "매 턴 파멸 → 방어", "why": "자동 파멸 부여가 방어도로 이어짐", "w": 5 },
+    { "cards": ["CARD.END_OF_DAYS", "CARD.NEGATIVE_PULSE"], "name": "광역 파멸 처형", "why": "광역 파멸을 쌓아 한꺼번에 처치", "w": 5 },
+    { "cards": ["CARD.DEVOUR_LIFE", "CARD.CAPTURE_SPIRIT"], "name": "영혼 → 소환", "why": "영혼을 쓸 때마다 오스티가 커짐", "w": 5 },
+    { "cards": ["CARD.HAUNT", "CARD.SEVERANCE"], "name": "영혼 다발 → 피해", "why": "영혼 3장을 한 번에 공급", "w": 5 },
+    { "cards": ["CARD.PULL_FROM_BELOW", "CARD.PARSE"], "name": "영체 누적", "why": "영체 카드를 쓴 횟수만큼 타격 증가", "w": 5 },
+    { "cards": ["CARD.BANSHEES_CRY", "CARD.DEFILE"], "name": "영체로 비용 감소", "why": "값싼 영체 공격으로 큰 광역기를 싸게", "w": 4 }
+  ]
+}

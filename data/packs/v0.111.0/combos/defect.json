@@ -1,0 +1,19 @@
+// 디펙트 2장 콤보 초안 (claude-draft-v1)
+{
+  "character": "CHARACTER.DEFECT",
+  "combos": [
+    { "cards": ["CARD.DEFRAGMENT", "CARD.GLACIER"], "name": "밀집 + 냉기 2개", "why": "냉기 구체 방어가 매 턴 크게 늘어남", "w": 6 },
+    { "cards": ["CARD.HAILSTORM", "CARD.GLACIER"], "name": "냉기 유지 + 광역", "why": "냉기가 있는 한 매 턴 광역 피해", "w": 5 },
+    { "cards": ["CARD.LOOP", "CARD.CONSUMING_SHADOW"], "name": "어둠 추가 발동", "why": "어둠 구체가 더 빨리 커짐", "w": 4 },
+    { "cards": ["CARD.THUNDER", "CARD.TEMPEST"], "name": "번개 대량 + 방출 강화", "why": "많은 번개가 방출될 때마다 추가 피해", "w": 6 },
+    { "cards": ["CARD.THUNDER", "CARD.VOLTAIC"], "name": "번개 폭증", "why": "채널한 번개 수만큼 다시 채널", "w": 6 },
+    { "cards": ["CARD.TESLA_COIL", "CARD.LIGHTNING_ROD"], "name": "번개 발동", "why": "꾸준히 들어오는 번개를 추가 발동", "w": 5 },
+    { "cards": ["CARD.STORM", "CARD.CREATIVE_AI"], "name": "매 턴 파워 → 번개", "why": "무작위 파워가 들어올 때마다 번개도 채널", "w": 7 },
+    { "cards": ["CARD.SUBROUTINE", "CARD.CREATIVE_AI"], "name": "파워 → 에너지", "why": "매 턴 생긴 파워가 에너지로 돌아옴", "w": 5 },
+    { "cards": ["CARD.CLAW", "CARD.ALL_FOR_ONE"], "name": "0코 회수", "why": "강해진 클로를 손으로 다시 모음", "w": 7 },
+    { "cards": ["CARD.CLAW", "CARD.FERAL"], "name": "0코 공격 반복", "why": "클로를 손으로 되돌려 연속 사용", "w": 6 },
+    { "cards": ["CARD.SMOKESTACK", "CARD.OVERCLOCK"], "name": "상태이상 → 광역", "why": "드로우하며 넣은 상태이상이 피해가 됨", "w": 5 },
+    { "cards": ["CARD.TRASH_TO_TREASURE", "CARD.BOOST_AWAY"], "name": "상태이상 → 구체", "why": "0코 방어와 함께 구체가 하나 더", "w": 5 },
+    { "cards": ["CARD.CAPACITOR", "CARD.MULTI_CAST"], "name": "슬롯 + 다중 방출", "why": "넓은 슬롯에 모은 구체를 크게 방출", "w": 4 }
+  ]
+}

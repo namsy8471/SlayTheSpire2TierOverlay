@@ -1,0 +1,373 @@
+// English for this pack's Korean tips, combo names/reasons and archetype descriptions (PackText).
+// Keys: card id / combo card ids joined with '+' in file order / archetype id. Tests check every Korean string has a twin here.
+{
+  "tips": {
+    "CARD.BEACON_OF_HOPE": "Multiplayer only",
+    "CARD.BELIEVE_IN_YOU": "Multiplayer only",
+    "CARD.COORDINATE": "Multiplayer only",
+    "CARD.GANG_UP": "Multiplayer only",
+    "CARD.HUDDLE_UP": "Multiplayer only",
+    "CARD.INTERCEPT": "Multiplayer only",
+    "CARD.KNOCKDOWN": "Multiplayer only",
+    "CARD.LIFT": "Multiplayer only",
+    "CARD.MIMIC": "Multiplayer only",
+    "CARD.RALLY": "Multiplayer only",
+    "CARD.TAG_TEAM": "Multiplayer only",
+    "CARD.THE_GAMBIT": "One unblocked attack and you die. Risky",
+    "CARD.CHARGE_BATTERY": "Block + Energy next turn. A great Common, esp. in Act 1",
+    "CARD.CLAW": "Gets stronger the more copies you have",
+    "CARD.DEFRAGMENT": "Focus boosts every Orb. Top pick for Orb decks",
+    "CARD.DOUBLE_ENERGY": "Energy burst for a big turn. Costs 0 when upgraded",
+    "CARD.ENERGY_SURGE": "Multiplayer only. Energy for ALL players, so stronger with more players",
+    "CARD.GENETIC_ALGORITHM": "Take it early so its Block can grow large",
+    "CARD.IGNITION": "Multiplayer only",
+    "CARD.STRIKE_DEFECT": "Basic card: remove it first",
+    "CARD.THUNDER": "Take it once you have 3+ Lightning cards",
+    "CARD.ARMAMENTS": "Upgraded, it upgrades your whole Hand",
+    "CARD.BARRICADE": "Only with lots of Block cards",
+    "CARD.BRAND": "0-cost repeatable Strength gain + Exhaust trigger",
+    "CARD.CONFLAGRATION": "Multi-hit AoE, so the best match for Strength",
+    "CARD.CORRUPTION": "Heart of Exhaust decks. S-tier with Exhaust payoff Powers (Block, draw)",
+    "CARD.DEMONIC_SHIELD": "Multiplayer only",
+    "CARD.DEMON_FORM": "Best scaling card for Boss fights",
+    "CARD.FEED": "The earlier you get it, the more Max HP it gives",
+    "CARD.PERFECTED_STRIKE": "Stronger with more Strike cards (conflicts with removal)",
+    "CARD.PYRE": "Permanent Energy. Always a good pick",
+    "CARD.STRIKE_IRONCLAD": "Basic card: remove it first",
+    "CARD.TANK": "Multiplayer only",
+    "CARD.CALCIFY": "Only with many Osty attack cards",
+    "CARD.DEMESNE": "Energy + draw every turn. Ethereal, so play it from your first hand",
+    "CARD.DIRGE": "X-cost Summon + Souls. Pairs well with Energy bonuses",
+    "CARD.FORBIDDEN_GRIMOIRE": "Thins your deck every combat. Worth more the earlier you get it",
+    "CARD.GLIMPSE_BEYOND": "Multiplayer only",
+    "CARD.HANG": "Gets stronger the more copies you collect",
+    "CARD.LEGION_OF_BONE": "Multiplayer only",
+    "CARD.NECRO_MASTERY": "The more Osty gets hit, the more ALL enemies take",
+    "CARD.STRIKE_NECROBINDER": "Basic card: remove it first",
+    "CARD.ASTRAL_PULSE": "Star-spending AoE. Basic damage for Stars decks",
+    "CARD.GENESIS": "Stars every turn. The engine of Stars decks",
+    "CARD.HAMMER_TIME": "Multiplayer only",
+    "CARD.LARGESSE": "Multiplayer only",
+    "CARD.ROYALTIES": "No combat value, just Gold",
+    "CARD.SEEKING_EDGE": "Sovereign Blade hits ALL enemies. Core of Forge decks",
+    "CARD.STRIKE_REGENT": "Basic card: remove it first",
+    "CARD.THE_SMITH": "In Stars decks, a Forge card that drains your Stars",
+    "CARD.FLANKING": "Multiplayer only",
+    "CARD.FOOTWORK": "Dexterity boosts all your Block cards",
+    "CARD.MALAISE": "Permanently cuts Elite and Boss Strength",
+    "CARD.NOXIOUS_FUMES": "Scaling AoE Poison. Where Poison decks start",
+    "CARD.SNEAKY": "Multiplayer only",
+    "CARD.SPEEDSTER": "Does little without draw cards",
+    "CARD.STRIKE_SILENT": "Basic card: remove it first",
+    "CARD.TOOLS_OF_THE_TRADE": "The engine of discard decks",
+    "CARD.WRAITH_FORM": "Intangible ignores big attacks. For Bosses and Elites"
+  },
+  "combos": {
+    "CARD.DEFRAGMENT+CARD.GLACIER": {
+      "name": "Focus + 2 Frost",
+      "why": "Frost Orb Block grows a lot every turn"
+    },
+    "CARD.HAILSTORM+CARD.GLACIER": {
+      "name": "Keep Frost + AoE",
+      "why": "AoE damage every turn while you have Frost"
+    },
+    "CARD.LOOP+CARD.CONSUMING_SHADOW": {
+      "name": "Extra Dark trigger",
+      "why": "Dark Orbs grow faster"
+    },
+    "CARD.THUNDER+CARD.TEMPEST": {
+      "name": "Mass Lightning + Evoke boost",
+      "why": "Bonus damage each time your many Lightning Evoke"
+    },
+    "CARD.THUNDER+CARD.VOLTAIC": {
+      "name": "Lightning surge",
+      "why": "Channels again as much Lightning as already Channeled"
+    },
+    "CARD.TESLA_COIL+CARD.LIGHTNING_ROD": {
+      "name": "Lightning trigger",
+      "why": "Extra triggers for a steady stream of Lightning"
+    },
+    "CARD.STORM+CARD.CREATIVE_AI": {
+      "name": "Power each turn → Lightning",
+      "why": "Every random Power also Channels Lightning"
+    },
+    "CARD.SUBROUTINE+CARD.CREATIVE_AI": {
+      "name": "Power → Energy",
+      "why": "Each turn's new Power pays back Energy"
+    },
+    "CARD.CLAW+CARD.ALL_FOR_ONE": {
+      "name": "0-cost recall",
+      "why": "Brings your powered-up Claws back to your Hand"
+    },
+    "CARD.CLAW+CARD.FERAL": {
+      "name": "0-cost attack loop",
+      "why": "Returns Claw to your Hand to play it again"
+    },
+    "CARD.SMOKESTACK+CARD.OVERCLOCK": {
+      "name": "Status → AoE",
+      "why": "The Status added while drawing becomes damage"
+    },
+    "CARD.TRASH_TO_TREASURE+CARD.BOOST_AWAY": {
+      "name": "Status → Orb",
+      "why": "0-cost Block plus an extra Orb"
+    },
+    "CARD.CAPACITOR+CARD.MULTI_CAST": {
+      "name": "Slots + multi-Evoke",
+      "why": "Evoke big from Orbs stored in extra slots"
+    },
+    "CARD.CORRUPTION+CARD.FEEL_NO_PAIN": {
+      "name": "Free Skills + Exhaust Block",
+      "why": "Every Skill played Exhausts and builds Block"
+    },
+    "CARD.CORRUPTION+CARD.DARK_EMBRACE": {
+      "name": "Free Skills + Exhaust draw",
+      "why": "More Skills, more draw: your Hand never runs dry"
+    },
+    "CARD.FEEL_NO_PAIN+CARD.BRAND": {
+      "name": "Repeat Exhaust",
+      "why": "0-cost Exhaust + Strength every turn: Block and scaling at once"
+    },
+    "CARD.BARRICADE+CARD.BODY_SLAM": {
+      "name": "Keep Block + Block attack",
+      "why": "Stored Block turns straight into damage"
+    },
+    "CARD.BARRICADE+CARD.JUGGERNAUT": {
+      "name": "Keep Block + Block retaliation",
+      "why": "Damage enemies whenever you gain Block"
+    },
+    "CARD.UNMOVABLE+CARD.BODY_SLAM": {
+      "name": "Double Block + Block attack",
+      "why": "One big hit from doubled Block"
+    },
+    "CARD.RUPTURE+CARD.OFFERING": {
+      "name": "Self-damage → Strength",
+      "why": "Cards that cost HP turn into Strength"
+    },
+    "CARD.RUPTURE+CARD.BLOODLETTING": {
+      "name": "Self-damage → Strength",
+      "why": "0-cost self-damage for Energy and Strength"
+    },
+    "CARD.INFERNO+CARD.RUPTURE": {
+      "name": "Self-damage engine",
+      "why": "HP loss each turn means both AoE damage and Strength"
+    },
+    "CARD.DEMON_FORM+CARD.WHIRLWIND": {
+      "name": "Strength + multi-hit AoE",
+      "why": "Strength is multiplied by the number of hits"
+    },
+    "CARD.INFLAME+CARD.CONFLAGRATION": {
+      "name": "Strength + multi-hit AoE",
+      "why": "Strength makes up for low base damage"
+    },
+    "CARD.VICIOUS+CARD.THUNDERCLAP": {
+      "name": "Vulnerable → draw",
+      "why": "AoE Vulnerable that also draws"
+    },
+    "CARD.PERFECTED_STRIKE+CARD.HELLRAISER": {
+      "name": "Strike deck",
+      "why": "Twice the reason to keep your Strike cards"
+    },
+    "CARD.NECRO_MASTERY+CARD.PULL_AGGRO": {
+      "name": "Osty tanks → AoE",
+      "why": "ALL enemies lose the HP Osty loses"
+    },
+    "CARD.CALCIFY+CARD.RATTLE": {
+      "name": "Osty multi-hit boost",
+      "why": "Bonus damage on every hit"
+    },
+    "CARD.CALCIFY+CARD.SQUEEZE": {
+      "name": "Osty attack boost",
+      "why": "Both grow stronger with more Osty attack cards"
+    },
+    "CARD.SACRIFICE+CARD.REANIMATE": {
+      "name": "Sacrifice, then re-Summon",
+      "why": "Gain big Block, then bring Osty back"
+    },
+    "CARD.REAPER_FORM+CARD.TIMES_UP": {
+      "name": "Attack → Doom → finisher",
+      "why": "Cash in the Doom built from attack damage at once"
+    },
+    "CARD.COUNTDOWN+CARD.SHROUD": {
+      "name": "Doom each turn → Block",
+      "why": "Automatic Doom turns into Block"
+    },
+    "CARD.END_OF_DAYS+CARD.NEGATIVE_PULSE": {
+      "name": "AoE Doom execute",
+      "why": "Stack AoE Doom, then kill them all at once"
+    },
+    "CARD.DEVOUR_LIFE+CARD.CAPTURE_SPIRIT": {
+      "name": "Souls → Summon",
+      "why": "Osty grows with every Soul played"
+    },
+    "CARD.HAUNT+CARD.SEVERANCE": {
+      "name": "Soul bundle → damage",
+      "why": "Supplies 3 Souls at once"
+    },
+    "CARD.PULL_FROM_BELOW+CARD.PARSE": {
+      "name": "Ethereal stacking",
+      "why": "One more hit per Ethereal card played"
+    },
+    "CARD.BANSHEES_CRY+CARD.DEFILE": {
+      "name": "Ethereal cost cut",
+      "why": "Cheap Ethereal attacks make the big AoE cheap"
+    },
+    "CARD.GENESIS+CARD.SEVEN_STARS": {
+      "name": "Star income + big spender",
+      "why": "Stars every turn let you repeat a big AoE"
+    },
+    "CARD.GENESIS+CARD.BLACK_HOLE": {
+      "name": "Star gain → AoE damage",
+      "why": "Damage every time you gain or spend Stars"
+    },
+    "CARD.CHILD_OF_THE_STARS+CARD.ASTRAL_PULSE": {
+      "name": "Star spend → Block",
+      "why": "Gain Block while you attack"
+    },
+    "CARD.SEEKING_EDGE+CARD.CONQUEROR": {
+      "name": "AoE Blade + double damage",
+      "why": "The Forge finisher community guides recommend"
+    },
+    "CARD.SWORD_SAGE+CARD.FURNACE": {
+      "name": "Blade Replay + auto Forge",
+      "why": "Replay a Blade that grows every turn"
+    },
+    "CARD.PARRY+CARD.SWORD_SAGE": {
+      "name": "Blade attack → Block",
+      "why": "Block every time the Blade repeats"
+    },
+    "CARD.ARSENAL+CARD.SPECTRUM_SHIFT": {
+      "name": "Create each turn → Strength",
+      "why": "Strength stacks with every Colorless card created"
+    },
+    "CARD.PILLAR_OF_CREATION+CARD.CRASH_LANDING": {
+      "name": "Mass Debris → Block",
+      "why": "Block for each Debris that fills your Hand"
+    },
+    "CARD.SUPERMASSIVE+CARD.COLLISION_COURSE": {
+      "name": "Created-card attack",
+      "why": "A 0-cost creator racks up your created count"
+    },
+    "CARD.ACCURACY+CARD.INFINITE_BLADES": {
+      "name": "Shiv boost + Shiv each turn",
+      "why": "Your free Shiv each turn hits harder"
+    },
+    "CARD.ACCURACY+CARD.BLADE_DANCE": {
+      "name": "Shiv boost + Shiv bundle",
+      "why": "One card, several boosted Shivs"
+    },
+    "CARD.FAN_OF_KNIVES+CARD.INFINITE_BLADES": {
+      "name": "AoE Shivs",
+      "why": "Every Shiv hits ALL enemies"
+    },
+    "CARD.PHANTOM_BLADES+CARD.INFINITE_BLADES": {
+      "name": "Retained Shivs",
+      "why": "Stockpile Shivs, then unload them at once"
+    },
+    "CARD.KNIFE_TRAP+CARD.STORM_OF_STEEL": {
+      "name": "Shiv replay",
+      "why": "Throws every Exhausted Shiv again at once"
+    },
+    "CARD.ENVENOM+CARD.BLADE_DANCE": {
+      "name": "Multi-hit Poison",
+      "why": "Every Shiv stacks Poison"
+    },
+    "CARD.NOXIOUS_FUMES+CARD.ACCELERANT": {
+      "name": "AoE Poison acceleration",
+      "why": "Poison stacked each turn triggers several times"
+    },
+    "CARD.BOUNCING_FLASK+CARD.ACCELERANT": {
+      "name": "Poison acceleration",
+      "why": "Pops a big Poison stack faster"
+    },
+    "CARD.NOXIOUS_FUMES+CARD.OUTBREAK": {
+      "name": "Poison → AoE damage",
+      "why": "Poison applied each turn also deals AoE damage"
+    },
+    "CARD.TOOLS_OF_THE_TRADE+CARD.TACTICIAN": {
+      "name": "Discard each turn + Sly Energy",
+      "why": "Free Energy the moment you discard"
+    },
+    "CARD.TOOLS_OF_THE_TRADE+CARD.REFLEX": {
+      "name": "Discard each turn + Sly draw",
+      "why": "Discarding sets off a burst of draw"
+    },
+    "CARD.SPEEDSTER+CARD.ACROBATICS": {
+      "name": "Draw → AoE damage",
+      "why": "The more you draw at once, the more damage"
+    }
+  },
+  "archetypes": {
+    "defect.orb_focus": {
+      "desc": "Defect's core plan: hold out with Frost Orbs and grow every Orb with Focus"
+    },
+    "defect.lightning": {
+      "desc": "Offensive Orb build: Channel lots of Lightning and boost its trigger and Evoke damage"
+    },
+    "defect.status": {
+      "desc": "Turns the Statuses your own cards add to your deck into a reward instead of a cost"
+    },
+    "defect.zero_cost": {
+      "desc": "Collect lots of 0-cost cards, play them several times a turn and bring them back"
+    },
+    "defect.dark_orbs": {
+      "desc": "Orb build that grows Dark Orbs, then Evokes them for big damage"
+    },
+    "defect.orb_variety": {
+      "desc": "Channel a mix of Orb types and gain more for each distinct type"
+    },
+    "ironclad.strength": {
+      "desc": "The classic build: stack permanent Strength, then cash it in with multi-hit attacks. Easy to neglect Block, so be careful"
+    },
+    "ironclad.exhaust": {
+      "desc": "Engine that gains Block and draw whenever a card Exhausts. Self-Exhausting Block and Vulnerable cards feed the count"
+    },
+    "ironclad.block": {
+      "desc": "Defensive deck that holds out with a thick layer of Block and Energy cards. Powers that keep or convert Block are rare in top decks"
+    },
+    "ironclad.self_damage": {
+      "desc": "Each time you lose HP, hit ALL enemies, then finish with attacks that grow with HP lost. Needs healing too"
+    },
+    "ironclad.vulnerable": {
+      "desc": "Apply Vulnerable often to get draw, extra hits and damage reduction"
+    },
+    "ironclad.attack_replay": {
+      "desc": "Attack-heavy build: auto-play and copy big attacks, then finish with an attack that absorbs the attacks in your Hand"
+    },
+    "ironclad.strike_tempo": {
+      "desc": "Tempo build that piles up cards with \"Strike\" in the name for fast pressure. Conflicts with removing basic cards"
+    },
+    "ironclad.hellraiser": {
+      "desc": "Built around the Power that auto-plays drawn Strikes; Energy and draw cards cycle a lean deck fast"
+    },
+    "necrobinder.osty": {
+      "desc": "Grow Osty into both your shield and main damage. Collect Osty attack cards around the Power that boosts them"
+    },
+    "necrobinder.doom": {
+      "desc": "Spread Doom across enemies with Powers that deal damage per debuff applied. Reap the stacked Doom with finishers"
+    },
+    "necrobinder.ethereal": {
+      "desc": "Play lots of Ethereal cards that vanish if unplayed, and finish with cards that grow per play. Samples mostly from the OP.GG #1 player's runs"
+    },
+    "regent.stars": {
+      "desc": "Set up Powers that hit ALL enemies whenever you gain or spend Stars, and keep Stars cycling with cheap Star-cost cards"
+    },
+    "regent.star_spend": {
+      "desc": "Bank next turn's resources, Retain your Hand, hold out with a Power that gives Block per Star spent, then finish with big Star-cost cards"
+    },
+    "regent.forge": {
+      "desc": "Keep growing a single Sovereign Blade with Forge. Strong late finish once you get the Blade-replay Power"
+    },
+    "regent.creation": {
+      "desc": "Gain Block whenever you create Colorless or Minion cards, then finish with an attack that grows with cards created"
+    },
+    "silent.poison": {
+      "desc": "Stack Poison and hold out. Block cards to survive while the Poison works are a must"
+    },
+    "silent.shiv": {
+      "desc": "Make lots of 0-cost Shivs and unload them with Shiv-boosting Powers"
+    },
+    "silent.sly_discard": {
+      "desc": "Trigger Sly cards with cheap discard cards. Top players mostly layer it on a Shiv or Poison deck"
+    }
+  }
+}
