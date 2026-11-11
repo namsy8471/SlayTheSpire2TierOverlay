@@ -1,6 +1,6 @@
 {
- "gameVersion": "v0.107.1",
- "source": "decompiled sts2.dll v0.107.1 (MegaCrit.Sts2.Core.Models.Events), read by hand; ids/keys/numbers only",
+ "gameVersion": "v0.111.0",
+ "source": "decompiled sts2.dll v0.107.1 (MegaCrit.Sts2.Core.Models.Events), read by hand; re-checked against the decompiled v0.111.0 classes; ids/keys/numbers only",
  "events": [
   {
    "id": "EVENT.ABYSSAL_BATHS",
@@ -202,7 +202,7 @@
     "Setting2Hp": 150,
     "Setting3Hp": 300
    },
-   "notes": "IsShared=true. Fight vs a dummy that never acts and has no block; TimeLimitPower 3 = 3 player turns, then it escapes (RanOutOfTime) and NO reward is given. Dummy HP vars are scaled by ScaleHpForMultiplayer (1 player: base; else base*players*1.1 in act 1, *1.2 later). No standard rewards (ShouldGiveRewards=false); only the setting reward.",
+   "notes": "IsShared=true. Fight vs a dummy that never acts and has no block; BattlewornDummyTimeLimitPower 3 (decrements at the end of each enemy turn; at 1 the dummy escapes) = 3 player turns, then it escapes (RanOutOfTime) and NO reward is given. Dummy HP vars are scaled by ScaleHpForMultiplayer (1 player: base; else base*players*1.1 in act 1, *1.2 later). No standard rewards (ShouldGiveRewards=false); only the setting reward. v0.111: each setting now has its own encounter (BATTLEWORN_DUMMY_EVENT_V1/V2/V3_ENCOUNTER, abstract base BattlewornDummyEventEncounter) with its own monster MONSTER.BATTLE_FRIEND_V1/V2/V3 (fixed HP 75/150/300); HP values and turn limit unchanged. The game computes all three HP vars with the V1 encounter for scaling (same result: all are Monster rooms).",
    "pages": [
     {
      "page": "INITIAL",
@@ -213,7 +213,7 @@
        "effects": [
         {
          "type": "fight",
-         "encounter": "ENCOUNTER.BATTLEWORN_DUMMY_EVENT_ENCOUNTER",
+         "encounter": "ENCOUNTER.BATTLEWORN_DUMMY_EVENT_V1_ENCOUNTER",
          "dummyHp": "Setting1Hp",
          "turnLimit": 3
         },
@@ -234,7 +234,7 @@
        "effects": [
         {
          "type": "fight",
-         "encounter": "ENCOUNTER.BATTLEWORN_DUMMY_EVENT_ENCOUNTER",
+         "encounter": "ENCOUNTER.BATTLEWORN_DUMMY_EVENT_V2_ENCOUNTER",
          "dummyHp": "Setting2Hp",
          "turnLimit": 3
         },
@@ -255,7 +255,7 @@
        "effects": [
         {
          "type": "fight",
-         "encounter": "ENCOUNTER.BATTLEWORN_DUMMY_EVENT_ENCOUNTER",
+         "encounter": "ENCOUNTER.BATTLEWORN_DUMMY_EVENT_V3_ENCOUNTER",
          "dummyHp": "Setting3Hp",
          "turnLimit": 3
         },
@@ -775,7 +775,7 @@
    ],
    "allowed": null,
    "vars": {},
-   "notes": "Shared ancient (ModelDb.AllSharedAncients), not in any act's AllAncients; RunManager.GenerateRooms hands random subsets of shared ancients to acts after the first, so acts = Hive/Glory only, and only if DarvEpoch is revealed. Offer generation: 9 relic sets (7 single-relic sets + 2 act-gated 2-relic sets); each set passing its filter yields one random relic; shuffled; with 50% chance take 2 + Dusty Tome, else take 3. Option key pattern = DARV.pages.INITIAL.options.<RELIC_ENTRY>. Relic effects not inspected.",
+   "notes": "Shared ancient (ModelDb.AllSharedAncients), not in any act's AllAncients; RunManager.GenerateRooms hands random subsets of shared ancients to acts after the first, so acts = Hive/Glory only, and only if DarvEpoch is revealed. Offer generation: 11 single-relic sets (ASTROLABE, BLACK_STAR, CALLING_BELL, EMPTY_CAGE, PANDORAS_BOX [not if a run modifier clears the deck], RUNIC_PYRAMID, SNECKO_EYE, ECTOPLASM [act index 1], SOZU [act index 1], PHILOSOPHERS_STONE [act index >= 1], VELVET_CHOKER [act index >= 1]); every set passing its filter yields its relic; shuffled; with 50% chance take 2 + DUSTY_TOME, else take 3. Option key pattern = DARV.pages.INITIAL.options.<RELIC_ENTRY>. Relic effects not inspected. v0.111: the two 2-relic sets were split into 4 single-relic sets: ECTOPLASM and SOZU can now both appear in act 2, and PHILOSOPHERS_STONE / VELVET_CHOKER are now available from act index 1 (Hive and Glory), each on its own.",
    "pages": [
     {
      "page": "INITIAL",
@@ -880,7 +880,7 @@
       },
       {
        "key": "DARV.pages.INITIAL.options.ECTOPLASM",
-       "condition": "only in act index 1 (act 2); that set yields ECTOPLASM or SOZU at random",
+       "condition": "only in act index 1 (act 2); own single-relic set (v0.111)",
        "effects": [
         {
          "type": "relic",
@@ -894,7 +894,7 @@
       },
       {
        "key": "DARV.pages.INITIAL.options.SOZU",
-       "condition": "only in act index 1 (act 2); that set yields ECTOPLASM or SOZU at random",
+       "condition": "only in act index 1 (act 2); own single-relic set (v0.111)",
        "effects": [
         {
          "type": "relic",
@@ -908,7 +908,7 @@
       },
       {
        "key": "DARV.pages.INITIAL.options.PHILOSOPHERS_STONE",
-       "condition": "only in act index 2 (act 3); that set yields PHILOSOPHERS_STONE or VELVET_CHOKER at random",
+       "condition": "only in act index >= 1 (acts 2 and 3); own single-relic set (v0.111)",
        "effects": [
         {
          "type": "relic",
@@ -922,7 +922,7 @@
       },
       {
        "key": "DARV.pages.INITIAL.options.VELVET_CHOKER",
-       "condition": "only in act index 2 (act 3); that set yields PHILOSOPHERS_STONE or VELVET_CHOKER at random",
+       "condition": "only in act index >= 1 (acts 2 and 3); own single-relic set (v0.111)",
        "effects": [
         {
          "type": "relic",
@@ -936,7 +936,7 @@
       },
       {
        "key": "DARV.pages.INITIAL.options.DUSTY_TOME",
-       "condition": "50% chance it replaces the 3rd option; carries a random Ancient-rarity card from the character pool (obtained upgraded and added to deck)",
+       "condition": "50% chance it replaces the 3rd option; carries a random Ancient-rarity card from the character pool, excluding the ARCHAIC_TOOTH result cards (obtained upgraded and added to deck)",
        "effects": [
         {
          "type": "relic",
@@ -955,7 +955,7 @@
   {
    "id": "EVENT.DENSE_VEGETATION",
    "kind": "event",
-   "shared": false,
+   "shared": true,
    "acts": [
     "ACT.OVERGROWTH"
    ],
@@ -963,7 +963,7 @@
    "vars": {
     "HpLoss": 8
    },
-   "notes": "IsShared=true. REST mimics a rest-site heal then forces a fight against Wrigglers (not stunned); event ends after the fight. Trudge On damage is unblockable. | non-numeric vars: Gold=61-99 (rolled); Heal=rest heal",
+   "notes": "IsShared=true. REST mimics a rest-site heal then forces a fight against Wrigglers (not stunned); event ends after the fight. Trudge On damage is unblockable. | non-numeric vars: Gold=61-99 (rolled); Heal=rest heal | v0.111: shared set to true to match IsShared=true (the old pack had false although its note said IsShared=true).",
    "pages": [
     {
      "page": "INITIAL",
@@ -1855,17 +1855,17 @@
   {
    "id": "EVENT.JUNGLE_MAZE_ADVENTURE",
    "kind": "event",
-   "shared": false,
+   "shared": true,
    "acts": [
     "ACT.OVERGROWTH"
    ],
-   "allowed": null,
+   "allowed": "Solo: always; multiplayer: every player current HP > SoloHp (18)",
    "vars": {
     "SoloGold": 150,
     "SoloHp": 18,
     "JoinForcesGold": 50
    },
-   "notes": "IsShared=true. Gold amounts get Rng.NextFloat(-15,15) added in CalculateVars (~135-165 and ~35-65). Damage unblockable. JOIN_FORCES has no condition in code (offered in solo too).",
+   "notes": "IsShared=true. Gold amounts get Rng.NextFloat(-15,15) added in CalculateVars (~135-165 and ~35-65). Damage unblockable. JOIN_FORCES has no condition in code (offered in solo too). v0.111: shared flag set to true to match IsShared=true (old file had false). v0.111: IsAllowed added/recorded: in multiplayer every player needs current HP above the SoloHp base (18); single player always allowed.",
    "pages": [
     {
      "page": "INITIAL",
@@ -2081,14 +2081,14 @@
    ],
    "allowed": null,
    "vars": {},
-   "notes": "No-modifier run: 3 options = 2 random from the positive pool + 1 curse-slot relic. Curse slot: random of {CURSED_PEARL,HEFTY_TABLET,LARGE_CAPSULE,LEAFY_POULTICE,NEOWS_BONES,PRECARIOUS_SHEARS,SILKEN_TRESS,SILVER_CRUCIBLE} filtered by relic.IsAllowedAtNeow. Positive pool base = {ARCANE_SCROLL,BOOMING_CONCH,FISHING_ROD,GOLDEN_PEARL,KALEIDOSCOPE,LEAD_PAPERWEIGHT,LOST_COFFER,MASSIVE_SCROLL,NEOWS_TORMENT,NEW_LEAF,PHIAL_HOLSTER,PRECISE_SCISSORS,SCROLL_BOXES,WINGED_BOOTS}; exclusions by curse: CURSED_PEARL->GOLDEN_PEARL, HEFTY_TABLET->ARCANE_SCROLL, LEAFY_POULTICE->NEW_LEAF, PRECARIOUS_SHEARS->PRECISE_SCISSORS. Then added: (unless curse=LARGE_CAPSULE) 50% LAVA_ROCK else SMALL_CAPSULE; 50% NUTRITIOUS_OYSTER else STONE_HUMIDIFIER; 50% NEOWS_TALISMAN else POMANDER; then IsAllowedAtNeow filter, shuffle, take 2. With run modifiers (custom/daily) the options are instead the modifiers' own Neow options (key = modifier id entry, shown one at a time) - not modeled. Option key per relic = NEOW.pages.INITIAL.options.<RELIC_ID_ENTRY> (assumed from OptionKey(page, relic.Id.Entry); verified key format in code, not against loc file). Neow is in Overgrowth and Underdocks ancient lists (act 1). Relic effects read from relic AfterObtained/hooks.",
+   "notes": "No-modifier run: 3 options = 2 random from the positive pool + 1 curse-slot relic. Curse slot: random of {CURSED_PEARL,DOWSING_ROD,HEFTY_TABLET,LARGE_CAPSULE,LEAFY_POULTICE,NEOWS_BONES,NEOWS_SACRIFICE,PRECARIOUS_SHEARS,SILKEN_TRESS,SILVER_CRUCIBLE} filtered by relic.IsAllowedAtNeow. Positive pool base = {ARCANE_SCROLL,BOOMING_CONCH,FISHING_ROD,GOLDEN_PEARL,KALEIDOSCOPE,LEAD_PAPERWEIGHT,LOST_COFFER,MASSIVE_SCROLL,NEOWS_TORMENT,NEW_LEAF,PHIAL_HOLSTER,PRECISE_SCISSORS,SCROLL_BOXES,WINGED_BOOTS}; exclusions by curse: CURSED_PEARL->GOLDEN_PEARL, HEFTY_TABLET->ARCANE_SCROLL, LEAFY_POULTICE->NEW_LEAF, PRECARIOUS_SHEARS->PRECISE_SCISSORS, NEOWS_SACRIFICE->PHIAL_HOLSTER and LOST_COFFER. Then added: (unless curse=LARGE_CAPSULE) 50% LAVA_ROCK else SMALL_CAPSULE; 50% NUTRITIOUS_OYSTER else STONE_HUMIDIFIER; 50% NEOWS_TALISMAN else POMANDER; then IsAllowedAtNeow filter, shuffle, take 2. With run modifiers (custom/daily) the options are instead the modifiers' own Neow options (key = modifier id entry, shown one at a time) - not modeled. Option key per relic = NEOW.pages.INITIAL.options.<RELIC_ID_ENTRY> (assumed from OptionKey(page, relic.Id.Entry); verified key format in code, not against loc file). Neow is in Overgrowth and Underdocks ancient lists (act 1). Relic effects read from relic AfterObtained/hooks. v0.111: curse slot grew from 8 to 10 relics (new RELIC.DOWSING_ROD and RELIC.NEOWS_SACRIFICE, both use the CURSED done text); NEOWS_SACRIFICE as the curse removes PHIAL_HOLSTER and LOST_COFFER from the positive pool.",
    "pages": [
     {
      "page": "INITIAL",
      "options": [
       {
        "key": "NEOW.pages.INITIAL.options.CURSED_PEARL",
-       "condition": "curse slot: 1 random of the 8 curse-slot relics (filtered by IsAllowedAtNeow); removes GOLDEN_PEARL from positive pool",
+       "condition": "curse slot: 1 random of the 10 curse-slot relics (filtered by IsAllowedAtNeow); removes GOLDEN_PEARL from positive pool",
        "effects": [
         {
          "type": "relic",
@@ -2110,8 +2110,34 @@
        "leave": false
       },
       {
+       "key": "NEOW.pages.INITIAL.options.DOWSING_ROD",
+       "condition": "curse slot: 1 random of the 10 curse-slot relics (filtered by IsAllowedAtNeow); new in v0.111; removes nothing from the positive pool",
+       "effects": [
+        {
+         "type": "relic",
+         "relic": "RELIC.DOWSING_ROD",
+         "tier": null,
+         "count": 1
+        },
+        {
+         "type": "cardAdd",
+         "card": "CARD.DOWSING",
+         "pool": null,
+         "rarity": null,
+         "count": 1,
+         "how": "fixed"
+        },
+        {
+         "type": "other",
+         "note": "CARD.DOWSING: unplayable Quest card, cannot be upgraded. Each Unknown map point entered while it is in the deck (first room of that point only) counts 1; at 5 the quest completes and the card transforms into CARD.ABUNDANCE (Ancient skill, cost 1, 0 when upgraded, exhaust: choose 1 of 3 distinct random Power cards from your character pool, offered upgraded; the pick goes to hand and is free this turn)"
+        }
+       ],
+       "next": null,
+       "leave": false
+      },
+      {
        "key": "NEOW.pages.INITIAL.options.HEFTY_TABLET",
-       "condition": "curse slot: 1 random of the 8 curse-slot relics (filtered by IsAllowedAtNeow); removes ARCANE_SCROLL from positive pool. Pick 1 of 3 rares (skippable, no upgrade roll) added directly to deck",
+       "condition": "curse slot: 1 random of the 10 curse-slot relics (filtered by IsAllowedAtNeow); removes ARCANE_SCROLL from positive pool. Pick 1 of 3 rares (skippable, no upgrade roll) added directly to deck",
        "effects": [
         {
          "type": "relic",
@@ -2137,7 +2163,7 @@
       },
       {
        "key": "NEOW.pages.INITIAL.options.LARGE_CAPSULE",
-       "condition": "curse slot: 1 random of the 8 curse-slot relics (filtered by IsAllowedAtNeow); when this is the curse, LAVA_ROCK/SMALL_CAPSULE are NOT added to positive pool. 2 extra relics (PullNextRelicFromFront x2) plus 1 extra basic Strike and 1 extra basic Defend",
+       "condition": "curse slot: 1 random of the 10 curse-slot relics (filtered by IsAllowedAtNeow); when this is the curse, LAVA_ROCK/SMALL_CAPSULE are NOT added to positive pool. 2 extra relics (PullNextRelicFromFront x2) plus 1 extra basic Strike and 1 extra basic Defend",
        "effects": [
         {
          "type": "relic",
@@ -2173,7 +2199,7 @@
       },
       {
        "key": "NEOW.pages.INITIAL.options.LEAFY_POULTICE",
-       "condition": "curse slot: 1 random of the 8 curse-slot relics (filtered by IsAllowedAtNeow); removes NEW_LEAF from positive pool",
+       "condition": "curse slot: 1 random of the 10 curse-slot relics (filtered by IsAllowedAtNeow); removes NEW_LEAF from positive pool",
        "effects": [
         {
          "type": "relic",
@@ -2197,7 +2223,7 @@
       },
       {
        "key": "NEOW.pages.INITIAL.options.NEOWS_BONES",
-       "condition": "curse slot: 1 random of the 8 curse-slot relics (filtered by IsAllowedAtNeow); uses POSITIVE done text. Also adds 1 random curse from the curse pool (CanBeGeneratedByModifiers, niche rng)",
+       "condition": "curse slot: 1 random of the 10 curse-slot relics (filtered by IsAllowedAtNeow); uses POSITIVE done text. Also adds 1 random curse from the curse pool (CanBeGeneratedByModifiers, niche rng)",
        "effects": [
         {
          "type": "relic",
@@ -2207,7 +2233,7 @@
         },
         {
          "type": "other",
-         "note": "Offer 2 relic rewards drawn at random from Neow's own relic options (allowed at Neow, excluding NEOWS_BONES); skipping disallowed"
+         "note": "Offer 2 relic rewards drawn at random from Neow's own relic options (allowed at Neow, excluding NEOWS_BONES); skipping disallowed (v0.111: that list now also includes DOWSING_ROD and NEOWS_SACRIFICE)"
         },
         {
          "type": "curse",
@@ -2219,8 +2245,36 @@
        "leave": false
       },
       {
+       "key": "NEOW.pages.INITIAL.options.NEOWS_SACRIFICE",
+       "condition": "curse slot: 1 random of the 10 curse-slot relics (filtered by IsAllowedAtNeow); new in v0.111; removes PHIAL_HOLSTER and LOST_COFFER from the positive pool",
+       "effects": [
+        {
+         "type": "relic",
+         "relic": "RELIC.NEOWS_SACRIFICE",
+         "tier": null,
+         "count": 1
+        },
+        {
+         "type": "potion",
+         "potion": "POTION.AMBERGRIS",
+         "count": 1
+        },
+        {
+         "type": "curse",
+         "card": "CARD.GUILTY",
+         "count": 1
+        },
+        {
+         "type": "other",
+         "note": "POTION.AMBERGRIS (Event rarity, usable any time, targets a player): heals 50% of max HP; used in combat it also grants 1 extra turn. Only procured if a potion slot is free. CARD.GUILTY: unplayable curse that removes itself from the deck after 5 combats end with it in the deck"
+        }
+       ],
+       "next": null,
+       "leave": false
+      },
+      {
        "key": "NEOW.pages.INITIAL.options.PRECARIOUS_SHEARS",
-       "condition": "curse slot: 1 random of the 8 curse-slot relics (filtered by IsAllowedAtNeow); removes PRECISE_SCISSORS from positive pool. 16 unpowered damage",
+       "condition": "curse slot: 1 random of the 10 curse-slot relics (filtered by IsAllowedAtNeow); removes PRECISE_SCISSORS from positive pool. 16 unpowered damage",
        "effects": [
         {
          "type": "relic",
@@ -2244,7 +2298,7 @@
       },
       {
        "key": "NEOW.pages.INITIAL.options.SILKEN_TRESS",
-       "condition": "curse slot: 1 random of the 8 curse-slot relics (filtered by IsAllowedAtNeow)",
+       "condition": "curse slot: 1 random of the 10 curse-slot relics (filtered by IsAllowedAtNeow)",
        "effects": [
         {
          "type": "relic",
@@ -2266,7 +2320,7 @@
       },
       {
        "key": "NEOW.pages.INITIAL.options.SILVER_CRUCIBLE",
-       "condition": "curse slot: 1 random of the 8 curse-slot relics (filtered by IsAllowedAtNeow); single-player only (relic IsAllowed Players.Count==1)",
+       "condition": "curse slot: 1 random of the 10 curse-slot relics (filtered by IsAllowedAtNeow); single-player only (relic IsAllowed Players.Count==1)",
        "effects": [
         {
          "type": "relic",
@@ -2407,7 +2461,7 @@
       },
       {
        "key": "NEOW.pages.INITIAL.options.LOST_COFFER",
-       "condition": "positive pool (Neow shows 2 of these); 1 card reward (3 cards) + 1 random potion reward",
+       "condition": "positive pool (Neow shows 2 of these); removed if curse is NEOWS_SACRIFICE (v0.111); 1 card reward (3 cards) + 1 random potion reward",
        "effects": [
         {
          "type": "relic",
@@ -2497,7 +2551,7 @@
       },
       {
        "key": "NEOW.pages.INITIAL.options.PHIAL_HOLSTER",
-       "condition": "positive pool (Neow shows 2 of these)",
+       "condition": "positive pool (Neow shows 2 of these); removed if curse is NEOWS_SACRIFICE (v0.111)",
        "effects": [
         {
          "type": "relic",
@@ -2705,7 +2759,7 @@
    ],
    "allowed": null,
    "vars": {},
-   "notes": "Pool = 9 base relics (+BEAUTIFUL_BRACELET if >=4 Swift-enchantable cards); shuffled with event Rng, first 3 shown. Key pattern NONUPEIPE.pages.INITIAL.options.<RELIC_ID_ENTRY>.",
+   "notes": "Pool = 9 base relics (+BEAUTIFUL_BRACELET if >=4 Swift-enchantable cards); shuffled with event Rng, first 3 shown. Key pattern NONUPEIPE.pages.INITIAL.options.<RELIC_ID_ENTRY>. v0.111: BEAUTIFUL_BRACELET now enchants 4 random Swift-enchantable deck cards with Swift 2 (was 3 chosen, Swift 3); DIAMOND_DIADEM reworked (turn-1 block + Blur); FUR_COAT marks 8 rooms (was 7); SIGNET_RING gives 888 gold (was 999).",
    "pages": [
     {
      "page": "INITIAL",
@@ -2780,7 +2834,7 @@
         },
         {
          "type": "other",
-         "note": "If you play <=2 cards in a turn, at end of turn gain a buff halving powered-attack damage taken through the enemy turn"
+         "note": "v0.111 rework: at the start of turn 1 of each combat gain 20 unpowered Block and 1 POWER.BLUR (Block is not removed at the start of the next turn)"
         }
        ],
        "next": null,
@@ -2798,7 +2852,7 @@
         },
         {
          "type": "other",
-         "note": "Marks 7 random Monster/Elite map rooms in the current act; enemies in those rooms start at 1 HP"
+         "note": "Marks 8 random Monster/Elite map rooms in the current act (v0.111: was 7); enemies in those rooms start at 1 HP"
         }
        ],
        "next": null,
@@ -2874,7 +2928,7 @@
         },
         {
          "type": "gold",
-         "amount": 999
+         "amount": 888
         }
        ],
        "next": null,
@@ -2893,10 +2947,10 @@
         {
          "type": "enchant",
          "enchantment": "ENCHANTMENT.SWIFT",
-         "count": 3,
-         "how": "choose",
-         "filter": null,
-         "amount": 3
+         "count": 4,
+         "how": "random",
+         "filter": "Swift-enchantable deck cards, picked at random (Rng.Niche)",
+         "amount": 2
         }
        ],
        "next": null,
@@ -2915,14 +2969,14 @@
    ],
    "allowed": null,
    "vars": {},
-   "notes": "3 options: slot 1 = Rng.NextItem of [ELECTRIC_SHRYMP, GLASS_EYE, SAND_CASTLE, X] where X = PRISMATIC_GEM with p=1/3 else SEA_GLASS for a random other unlocked character; slot 2 = uniform of [ALCHEMICAL_COFFER, DRIFTWOOD, RADIANT_PEARL]; slot 3 = uniform of available among [TOUCH_OF_OROBAS, ARCHAIC_TOOTH] else locked placeholder. All relics Ancient rarity.",
+   "notes": "3 options: slot 1 = Rng.NextItem of [ELECTRIC_SHRYMP, GLASS_EYE, X] where X = PRISMATIC_GEM with p=1/3 else SEA_GLASS for a random other unlocked character (own character if none); slot 2 = uniform of [ALCHEMICAL_COFFER, DRIFTWOOD, RADIANT_PEARL, SAND_CASTLE]; slot 3 = uniform of available among [TOUCH_OF_OROBAS, ARCHAIC_TOOTH] else locked placeholder. All relics Ancient rarity. v0.111: SAND_CASTLE moved from the slot-1 list to the slot-2 list (slot 1 now 1/3 each for ELECTRIC_SHRYMP, GLASS_EYE, X; slot 2 now 1/4 each). Run-history/metrics ids: an ancient choice is logged by the second-to-last segment of its title loc key; SEA_GLASS uses the relic title SEA_GLASS.<CHARACTER>.title, so stats list Sea Glass as OROBAS.IRONCLAD / SILENT / REGENT / NECROBINDER / DEFECT (the character whose cards it offers). The option text key itself is still OROBAS.pages.INITIAL.options.SEA_GLASS for every character.",
    "pages": [
     {
      "page": "INITIAL",
      "options": [
       {
        "key": "OROBAS.pages.INITIAL.options.ELECTRIC_SHRYMP",
-       "condition": "slot 1 candidate (uniform among ELECTRIC_SHRYMP, GLASS_EYE, SAND_CASTLE and one of PRISMATIC_GEM/SEA_GLASS)",
+       "condition": "slot 1 candidate (uniform among ELECTRIC_SHRYMP, GLASS_EYE and one of PRISMATIC_GEM/SEA_GLASS)",
        "effects": [
         {
          "type": "relic",
@@ -2963,26 +3017,6 @@
        "leave": false
       },
       {
-       "key": "OROBAS.pages.INITIAL.options.SAND_CASTLE",
-       "condition": "slot 1 candidate",
-       "effects": [
-        {
-         "type": "relic",
-         "relic": "RELIC.SAND_CASTLE",
-         "tier": null,
-         "count": 1
-        },
-        {
-         "type": "cardUpgrade",
-         "count": 6,
-         "how": "random",
-         "filter": null
-        }
-       ],
-       "next": null,
-       "leave": false
-      },
-      {
        "key": "OROBAS.pages.INITIAL.options.PRISMATIC_GEM",
        "condition": "slot 1 candidate with probability 1/3 (else SEA_GLASS takes its place in the candidate list)",
        "effects": [
@@ -3006,7 +3040,7 @@
       },
       {
        "key": "OROBAS.pages.INITIAL.options.SEA_GLASS",
-       "condition": "slot 1 candidate with probability 2/3; character = random other unlocked character (own if none). Key shared for all characters",
+       "condition": "slot 1 candidate with probability 2/3; character = random other unlocked character (own if none). Key shared for all characters; run-history/stats id is the character entry (e.g. OROBAS.IRONCLAD)",
        "effects": [
         {
          "type": "relic",
@@ -3029,7 +3063,7 @@
       },
       {
        "key": "OROBAS.pages.INITIAL.options.ALCHEMICAL_COFFER",
-       "condition": "slot 2 candidate (uniform among ALCHEMICAL_COFFER, DRIFTWOOD, RADIANT_PEARL)",
+       "condition": "slot 2 candidate (uniform among ALCHEMICAL_COFFER, DRIFTWOOD, RADIANT_PEARL, SAND_CASTLE)",
        "effects": [
         {
          "type": "relic",
@@ -3087,6 +3121,26 @@
        "leave": false
       },
       {
+       "key": "OROBAS.pages.INITIAL.options.SAND_CASTLE",
+       "condition": "slot 2 candidate (v0.111: moved here from slot 1)",
+       "effects": [
+        {
+         "type": "relic",
+         "relic": "RELIC.SAND_CASTLE",
+         "tier": null,
+         "count": 1
+        },
+        {
+         "type": "cardUpgrade",
+         "count": 6,
+         "how": "random",
+         "filter": null
+        }
+       ],
+       "next": null,
+       "leave": false
+      },
+      {
        "key": "OROBAS.pages.INITIAL.options.TOUCH_OF_OROBAS",
        "condition": "slot 3 candidate; only if player owns a Starter-rarity relic",
        "effects": [
@@ -3106,7 +3160,7 @@
       },
       {
        "key": "OROBAS.pages.INITIAL.options.ARCHAIC_TOOTH",
-       "condition": "slot 3 candidate; only if deck has a transcendable starter card",
+       "condition": "slot 3 candidate; only if deck has one of CARD.BASH, CARD.NEUTRALIZE, CARD.UNLEASH, CARD.FALLING_STAR, CARD.DUALCAST",
        "effects": [
         {
          "type": "relic",
@@ -3118,7 +3172,7 @@
          "type": "cardTransform",
          "count": 1,
          "how": "fixed",
-         "filter": "first deck starter card among Bash/Neutralize/Unleash/Falling Star/Dualcast becomes Break/Suppress/Protector/Meteor Shower/Quadcast (keeps upgrade and enchantment); other starters become Doubt"
+         "filter": "first deck card among CARD.BASH/NEUTRALIZE/UNLEASH/FALLING_STAR/DUALCAST becomes CARD.BREAK/SUPPRESS/PROTECTOR/METEOR_SHOWER/QUADCAST (keeps upgrade and enchantment)"
         }
        ],
        "next": null,
@@ -3994,7 +4048,7 @@
    "vars": {
     "HpLoss": 3
    },
-   "notes": "Listed in ModelDb.AllSharedEvents, which ActModel.GenerateRooms concatenates into every act's event pool, so it can appear in any act subject to IsAllowed. Overcome removes the displayed random card (non-Basic preferred; skips previously skipped cards and same-type duplicates). Hold On costs 3 + number of previous holds HP (unblockable, escalates without cap) and rerolls the displayed card. Page after the n-th hold is HOLD_ON_{suffix(n-1)} (suffix = n, 'LOOP' when >=7) with a hold option HOLD_ON_{suffix(n)}; modeled pages HOLD_ON_0..HOLD_ON_6 and HOLD_ON_LOOP. Hold option damage on a page = 3 + holds already taken when it is clicked. Overcome option key is always INITIAL.options.OVERCOME. NOTE: page names/hp values on the HOLD_ON_k pages are my reconstruction of the string-built keys; hp on page HOLD_ON_k option = 3 + (k+1) because k+1 holds were already taken when that page is shown.",
+   "notes": "Listed in ModelDb.AllSharedEvents, which ActModel.GenerateRooms concatenates into every act's event pool, so it can appear in any act subject to IsAllowed. Overcome removes the displayed random card (non-Basic preferred; skips previously skipped cards and same-type duplicates). Hold On costs 3 + number of previous holds HP (unblockable, escalates without cap) and rerolls the displayed card. Page after the n-th hold is HOLD_ON_{suffix(n-1)} (suffix = n, 'LOOP' when >=7) with a hold option HOLD_ON_{suffix(n)}; modeled pages HOLD_ON_0..HOLD_ON_6 and HOLD_ON_LOOP. Hold option damage on a page = 3 + holds already taken when it is clicked. Overcome option key is always INITIAL.options.OVERCOME. NOTE: page names/hp values on the HOLD_ON_k pages are my reconstruction of the string-built keys; hp on page HOLD_ON_k option = 3 + (k+1) because k+1 holds were already taken when that page is shown. v0.111: card-pick detail: only the first displayed card prefers non-Basic cards; each reroll picks from removable cards whose class differs from the card just shown and that were not shown before (Basic allowed); if that pool is empty it falls back to any removable card.",
    "pages": [
     {
      "page": "INITIAL",
@@ -4323,7 +4377,7 @@
    ],
    "allowed": "All players have a card enchantable with Spiral (Basic Strike/Defend)",
    "vars": {},
-   "notes": "Heal base = maxHp * 0.33 computed in CalculateVars (int rounding via IntValue not inspected; treat as ~33% of max HP). Observe: Spiral enchantment (the card is played 1 extra time) on 1 chosen Basic Strike/Defend. | non-numeric vars: Heal=0.33*maxHp",
+   "notes": "Heal base = maxHp * 0.33 computed in CalculateVars (int rounding via IntValue not inspected; treat as ~33% of max HP). Observe: Spiral enchantment (the card is played 1 extra time) on 1 chosen Basic Strike/Defend. | non-numeric vars: Heal=0.33*maxHp v0.111: rounding checked: the heal uses the var's IntValue, an int cast of maxHp*0.33 (truncation), so amount is floor(0.33*maxHp); maxHp is read when the event's vars are calculated.",
    "pages": [
     {
      "page": "INITIAL",
@@ -4350,7 +4404,7 @@
        "effects": [
         {
          "type": "heal",
-         "amount": "0.33*maxHp"
+         "amount": "floor(0.33*maxHp)"
         }
        ],
        "next": null,
@@ -4839,7 +4893,7 @@
    ],
    "allowed": null,
    "vars": {},
-   "notes": "Ancient (Act 3/Glory). GenerateInitialOptions: pool of 9 base relics (+ TRI_BOOMERANG only if deck has >= 3 cards enchantable with Instinct, i.e. attacks); shuffled with Rng, first 3 offered. Pick 1; event ends. Option keys use relic Id entry. All relics have Ancient rarity.",
+   "notes": "Ancient (Act 3/Glory). GenerateInitialOptions: pool of 9 base relics (+ TRI_BOOMERANG only if deck has >= 3 cards enchantable with Instinct, i.e. attacks); shuffled with Rng, first 3 offered. Pick 1; event ends. Option keys use relic Id entry. All relics have Ancient rarity. v0.111: CARD.WHISTLE (from TANXS_WHISTLE) costs 2 (was 3).",
    "pages": [
     {
      "page": "INITIAL",
@@ -4859,7 +4913,7 @@
          "count": 3,
          "how": "choose",
          "filter": null,
-         "note": "each chosen card becomes Maul (keeps upgrade/enchantment)"
+         "note": "each chosen card becomes CARD.MAUL (keeps upgrade/enchantment); code lets the player pick 0 to 6 cards (CardsVar 6, same in v0.107.1), count 3 is the pack's expected pick"
         }
        ],
        "next": null,
@@ -4975,7 +5029,7 @@
         },
         {
          "type": "other",
-         "note": "Whistle: 3 cost attack, 33 damage (44 upgraded), exhaust, stuns target"
+         "note": "CARD.WHISTLE: 2 cost attack (v0.111: was 3), 33 damage (44 upgraded), exhaust, stuns target"
         }
        ],
        "next": null,
@@ -5053,14 +5107,15 @@
    "acts": [
     "ACT.OVERGROWTH",
     "ACT.UNDERDOCKS",
-    "ACT.HIVE"
+    "ACT.HIVE",
+    "ACT.GLORY"
    ],
    "allowed": "currentActIndex < 2 and all players gold >= 150",
    "vars": {
     "BoneTeaCost": 50,
     "EmberTeaCost": 150
    },
-   "notes": "In ModelDb.AllSharedEvents: added to every act's event pool (ActModel.GenerateRooms concatenates AllEvents + AllSharedEvents), so acts lists all four; effective availability limited by allowed. Effective: acts 1-2 only (index<2). Bone/Ember options locked (keys BONE_TEA_LOCKED / EMBER_TEA_LOCKED, null onChosen) if gold below cost. Relics: BoneTea upgrades whole hand on first turn of next combat (1 combat); EmberTea +2 Strength at start of each of next 5 combats; TeaOfDiscourtesy adds 2 Dazed to draw pile at start of next combat (1 combat). Its HealVar 1 is declared but no heal seen in the part of the relic read.",
+   "notes": "In ModelDb.AllSharedEvents: added to every act's event pool (ActModel.GenerateRooms concatenates AllEvents + AllSharedEvents), so acts lists all four; effective availability limited by allowed. Effective: acts 1-2 only (index<2). Bone/Ember options locked (keys BONE_TEA_LOCKED / EMBER_TEA_LOCKED, null onChosen) if gold below cost. Relics: BoneTea upgrades whole hand on first turn of next combat (1 combat); EmberTea +2 Strength at start of each of next 5 combats; TeaOfDiscourtesy adds 2 Dazed to draw pile at start of next combat (1 combat). Its HealVar 1 is declared but no heal seen in the part of the relic read. v0.111: acts corrected to all four acts (old pack listed only three although TEA_MASTER is in ModelDb.AllSharedEvents); act 3 is still excluded by allowed (currentActIndex < 2).",
    "pages": [
     {
      "page": "INITIAL",
@@ -5140,7 +5195,7 @@
    ],
    "allowed": null,
    "vars": {},
-   "notes": "Ancient (Act 2/Hive). Offers exactly 3 options, one from each pool chosen with Rng.NextItem: pool1 = {VERY_HOT_COCOA, YUMMY_COOKIE, NUTRITIOUS_SOUP (only in pool1 if deck has a basic Strike)}; pool2 = {BIIIG_HUG, STORYBOOK, TOASTY_MITTENS}; pool3 = {GOLDEN_COMPASS, PUMPKIN_CANDLE, TOY_BOX, SEAL_OF_GOLD}. Display order pool1, pool2, pool3. Pick 1; event ends.",
+   "notes": "Ancient (Act 2/Hive). Offers exactly 3 options, one from each pool chosen with Rng.NextItem: pool1 = {VERY_HOT_COCOA, YUMMY_COOKIE, NUTRITIOUS_SOUP (only in pool1 if deck has a basic Strike)}; pool2 = {BIIIG_HUG, STORYBOOK, TOASTY_MITTENS}; pool3 = {GOLDEN_COMPASS, PUMPKIN_CANDLE, TOY_BOX, SEAL_OF_GOLD}. Display order pool1, pool2, pool3. Pick 1; event ends. v0.111: TOY_BOX offers 5 wax relics (was 4); SEAL_OF_GOLD costs 3 gold per turn (was 5); TOASTY_MITTENS now exhausts a card chosen from hand after the turn's draw (was the top card of the draw pile before the draw).",
    "pages": [
     {
      "page": "INITIAL",
@@ -5266,7 +5321,7 @@
         },
         {
          "type": "other",
-         "note": "each own turn before draw: exhaust top card of draw pile and gain +1 Strength"
+         "note": "each own turn right after the draw: choose 1 card in hand to exhaust, then gain +1 Strength (v0.111: was exhaust the top card of the draw pile before the draw)"
         }
        ],
        "next": null,
@@ -5322,11 +5377,11 @@
          "type": "relic",
          "relic": null,
          "tier": "random",
-         "count": 4
+         "count": 5
         },
         {
          "type": "other",
-         "note": "4 wax relics offered as reward; one wax relic melts every 3 combats, so they are temporary"
+         "note": "5 wax relics offered as reward (v0.111: was 4); one wax relic melts every 3 combats, so they are temporary"
         }
        ],
        "next": null,
@@ -5344,7 +5399,7 @@
         },
         {
          "type": "other",
-         "note": "at each own turn start if gold >= 5: pay 5 gold, gain 1 energy"
+         "note": "at each own turn start if gold >= 3: pay 3 gold, gain 1 energy (v0.111: was 5 gold)"
         }
        ],
        "next": null,
@@ -6158,7 +6213,7 @@
    ],
    "allowed": null,
    "vars": {},
-   "notes": "Ancient (Act 3/Glory). Offers 3 options, one from each pool (each pool shuffled, first taken). pool1 = {BLOOD_SOAKED_ROSE, WHISPERING_EARRING, FIDDLE}; pool2 = {PRESERVED_FOG, SERE_TALON, DISTINGUISHED_CAPE}; pool3 = {CHOICES_PARADOX, MUSIC_BOX, LORDS_PARASOL, JEWELED_MASK}. Display order pool1, pool2, pool3. Pick 1; event ends. | non-numeric vars: Visits=visit count (cosmetic)",
+   "notes": "Ancient (Act 3/Glory). Offers 3 options, one from each pool (each pool shuffled, first taken). pool1 = {BLOOD_SOAKED_ROSE, WHISPERING_EARRING, FIDDLE}; pool2 = {PRESERVED_FOG, SERE_TALON, DISTINGUISHED_CAPE}; pool3 = {CHOICES_PARADOX, MUSIC_BOX, LORDS_PARASOL, JEWELED_MASK}. Display order pool1, pool2, pool3. Pick 1; event ends. | non-numeric vars: Visits=visit count (cosmetic) v0.111: SERE_TALON and DISTINGUISHED_CAPE swapped their downsides: SERE_TALON now costs 9 max HP (option marked ThatDecreasesMaxHp 9) and DISTINGUISHED_CAPE now adds 2 distinct random curses.",
    "pages": [
     {
      "page": "INITIAL",
@@ -6253,7 +6308,7 @@
       },
       {
        "key": "VAKUU.pages.INITIAL.options.SERE_TALON",
-       "condition": "pool2 slot; 2 distinct random curses via Rng.Niche",
+       "condition": "pool2 slot",
        "effects": [
         {
          "type": "relic",
@@ -6262,9 +6317,8 @@
          "count": 1
         },
         {
-         "type": "curse",
-         "card": null,
-         "count": 2
+         "type": "maxHp",
+         "amount": -9
         },
         {
          "type": "cardAdd",
@@ -6280,7 +6334,7 @@
       },
       {
        "key": "VAKUU.pages.INITIAL.options.DISTINGUISHED_CAPE",
-       "condition": "pool2 slot",
+       "condition": "pool2 slot; 2 distinct random curses via Rng.Niche (unlocked curse pool, CanBeGeneratedByModifiers)",
        "effects": [
         {
          "type": "relic",
@@ -6289,8 +6343,9 @@
          "count": 1
         },
         {
-         "type": "maxHp",
-         "amount": -9
+         "type": "curse",
+         "card": null,
+         "count": 2
         },
         {
          "type": "cardAdd",
@@ -6387,7 +6442,7 @@
    "acts": [],
    "allowed": "IsAllowed false: only reached via LanternKey.ModifyNextEvent in act index 2 (Glory) when player holds LANTERN_KEY",
    "vars": {},
-   "notes": "Acts empty because it is not in any pool. Initial choice consumes the lantern key (all keys in multiplayer; one key in solo). In solo with a second LanternKey in deck a second page offers the other reward. Chest = 2 potion rewards + 2 relic rewards. Cage = HISTORY_COURSE relic (turn>1: replays a copy of last turn's last attack/skill) and sets FreedRepy flag.",
+   "notes": "Acts empty because it is not in any pool. Initial choice consumes the lantern key (all keys in multiplayer; one key in solo). In solo with a second LanternKey in deck a second page offers the other reward. Chest = 2 potion rewards + 2 relic rewards. Cage = HISTORY_COURSE relic (turn>1: auto-plays a copy of the last Attack the owner played last turn) and sets FreedRepy flag. v0.111: RELIC.HISTORY_COURSE only replays the last non-copy Attack from last turn; Skills no longer qualify (v0.107.1 replayed attack or skill).",
    "pages": [
     {
      "page": "INITIAL",
