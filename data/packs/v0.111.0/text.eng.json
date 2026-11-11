@@ -60,7 +60,24 @@
     "CARD.SPEEDSTER": "Does little without draw cards",
     "CARD.STRIKE_SILENT": "Basic card: remove it first",
     "CARD.TOOLS_OF_THE_TRADE": "The engine of discard decks",
-    "CARD.WRAITH_FORM": "Intangible ignores big attacks. For Bosses and Elites"
+    "CARD.WRAITH_FORM": "Intangible ignores big attacks. For Bosses and Elites",
+    "CARD.THE_BALL": "Multiplayer only. Grows each play and moves to another player's draw pile",
+    "CARD.HIBERNATE": "Multiplayer only. Channels Frost; this turn Frost Block also goes to the other players",
+    "CARD.IMITATION_LEARNING": "Multiplayer only. Copies Powers another player plays",
+    "CARD.ONE_FOR_ALL": "Multiplayer only. Every player's 0-cost attacks deal more damage",
+    "CARD.BLAZE": "Multiplayer only. Gives Strength to another player (not you)",
+    "CARD.MIDNIGHT": "Multiplayer only. Cost drops with every Exhaust, so only an Exhaust deck can play it",
+    "CARD.OUTRAGE": "Multiplayer only. 0-cost attack; every player gets a copy in their discard pile",
+    "CARD.CACOPHONY": "Multiplayer only. Slow damage that needs a very large number of draws",
+    "CARD.SOULBOUND": "Multiplayer only. When you create Souls, another player gets them too",
+    "CARD.UNDERWORLD": "Multiplayer only. This turn other players' attack damage also applies Doom",
+    "CARD.CONSTELLATION": "Multiplayer only. Spends stars to give another player draw, energy and Block",
+    "CARD.PLOT": "Multiplayer only. Every player (you too) draws more next turn",
+    "CARD.TUTOR": "Multiplayer only. Puts a card of your choice from another player's draw pile into their hand",
+    "CARD.BLADE_SYMPHONY": "Multiplayer only. Every player (you too) gets Shivs; upgrade lowers the cost",
+    "CARD.CONCOCT": "Multiplayer only. This turn another player's attacks also apply Poison",
+    "CARD.FADE": "Multiplayer only. Temporary Dexterity for another player",
+    "CARD.SIDESTEP": "Energy next turn: sets up a turn with expensive cards"
   },
   "combos": {
     "CARD.DEFRAGMENT+CARD.GLACIER": {
@@ -280,8 +297,8 @@
       "why": "Pops a big Poison stack faster"
     },
     "CARD.NOXIOUS_FUMES+CARD.OUTBREAK": {
-      "name": "Poison → AoE damage",
-      "why": "Poison applied each turn also deals AoE damage"
+      "name": "AoE Poison → instant tick",
+      "why": "Makes the AoE Poison stacked each turn tick once more right away"
     },
     "CARD.TOOLS_OF_THE_TRADE+CARD.TACTICIAN": {
       "name": "Discard each turn + Sly Energy",

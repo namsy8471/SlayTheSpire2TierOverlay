@@ -1,4 +1,4 @@
-// v0.107.1 팩의 가중치 덮어쓰기. 비워 두면 코드의 Weights 기본값(docs/DATA_SCHEMA.md §3.1)을 그대로 씁니다.
+// v0.111.0 팩의 가중치 덮어쓰기(v0.107.1 팩과 같은 값). 비워 두면 코드의 Weights 기본값(docs/DATA_SCHEMA.md §3.1)을 그대로 씁니다.
 // - 샘플 팩(data/packs/sample/weights.json)의 값은 형식 예시용 자리표시자라서 가져오지 않았습니다.
 // - 희귀도 확률 등 게임 수치는 다른 작업에서 Weights 기본값(코드)으로 갱신하므로 여기서 중복 정의하지 않습니다.
 // - "코어 먼저, 그다음 필수 시너지" 규칙(corePriority: bonus 15, starterBonus 6, noCoreFactor 0, noCoreMaxUnlock 0.5,
