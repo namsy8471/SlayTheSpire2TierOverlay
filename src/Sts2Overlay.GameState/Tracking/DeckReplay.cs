@@ -48,7 +48,14 @@ internal sealed class DeckReplay
 
     private readonly List<Slot> _slots;
 
-    public DeckReplay(IEnumerable<DeckCard> deck) => _slots = deck.Select(c => new Slot(c, null)).ToList();
+    /// <summary>The run's game generation: which embedded card table answers rarity / type / upgrade questions.</summary>
+    private readonly RngScheme _scheme;
+
+    public DeckReplay(IEnumerable<DeckCard> deck, RngScheme scheme = RngSeeds.Default)
+    {
+        _slots = deck.Select(c => new Slot(c, null)).ToList();
+        _scheme = scheme;
+    }
 
     public int Count => _slots.Count;
     public int Unidentified { get; private set; }
@@ -64,9 +71,9 @@ internal sealed class DeckReplay
     /// <param name="upgrade">Upgrade level the card arrives with (a reward card's replayed upgrade roll).</param>
     public void Add(string id, int floor, UncertainReason? reason = null, int upgrade = 0)
     {
-        int max = CardRarities.MaxUpgrade(id);
+        int max = CardRarities.MaxUpgrade(id, _scheme);
         // An egg upgrades a card of its type as it joins the deck, if it can still be upgraded.
-        if (CardRarities.TypeOf(id) is { } type && UpgradeAddedTypes.Contains(type) && upgrade < max) upgrade++;
+        if (CardRarities.TypeOf(id, _scheme) is { } type && UpgradeAddedTypes.Contains(type) && upgrade < max) upgrade++;
         var card = new DeckCard(new CardRef(id, upgrade), FloorAdded: floor);
         if (upgrade >= max && reason == UncertainReason.UpgradeRoll) reason = null; // already at its upgraded form
         _slots.Add(new Slot(card, reason));
@@ -83,7 +90,7 @@ internal sealed class DeckReplay
     public void UpgradeAll()
     {
         foreach (Slot s in _slots)
-            if (s.Card.Upgrade < CardRarities.MaxUpgrade(s.Card.Id))
+            if (s.Card.Upgrade < CardRarities.MaxUpgrade(s.Card.Id, _scheme))
                 s.Card = s.Card with { Card = s.Card.Card with { Upgrade = s.Card.Upgrade + 1 } };
         UnknownUpgrades = 0;
     }
@@ -229,12 +236,12 @@ internal sealed class DeckReplay
         return orders;
     }
 
-    private static bool Upgradable(Slot s) => s.Card.Upgrade < CardRarities.MaxUpgrade(s.Card.Id);
+    private bool Upgradable(Slot s) => s.Card.Upgrade < CardRarities.MaxUpgrade(s.Card.Id, _scheme);
     private static (string, int, string?) Identity(Slot s) => (s.Card.Id, s.Card.Upgrade, s.Card.EnchantmentId);
     private List<Slot> PeersOf(Slot s) => _slots.Where(o => o != s && Identity(o) == Identity(s)).ToList();
 
     private List<Slot> Candidates(string? type) =>
-        _slots.Where(s => Upgradable(s) && (type is null || CardRarities.TypeOf(s.Card.Id) == type)).ToList();
+        _slots.Where(s => Upgradable(s) && (type is null || CardRarities.TypeOf(s.Card.Id, _scheme) == type)).ToList();
 
     private static void UpgradeSlot(Slot s) =>
         s.Card = s.Card with { Card = s.Card.Card with { Upgrade = s.Card.Upgrade + 1 } };
@@ -301,8 +308,8 @@ internal sealed class DeckReplay
         var seatOf = order.Select((id, i) => (id, i)).ToDictionary(x => x.id, x => x.i);
         var mine = obs.Plays.Where(p => p.Owner == me).GroupBy(p => p.Index).Select(g => g.First()).ToList();
         // A token / status played by anyone was made during the fight, so every deck id is below it.
-        var made = obs.Plays.Where(p => CardRarities.IsCombatOnly(p.CardId)).Select(p => p.Index).ToList();
-        mine = mine.Where(p => !CardRarities.IsCombatOnly(p.CardId)).ToList();
+        var made = obs.Plays.Where(p => CardRarities.IsCombatOnly(p.CardId, _scheme)).Select(p => p.Index).ToList();
+        mine = mine.Where(p => !CardRarities.IsCombatOnly(p.CardId, _scheme)).ToList();
         if (mine.Count == 0) return;
         int myMin = mine.Min(p => p.Index);
         // Size used for bounds: cards added only from earlier fights don't widen the range (no runaway on one mistake),
@@ -366,7 +373,7 @@ internal sealed class DeckReplay
                 // roll has a -999999999 base: never), a random transform's result — makes a plain card, which only an
                 // egg upgrades (Hook.ModifyCardBeingAddedToDeck). So once I've been to a merchant, a card a merchant
                 // sells is taken as plain; anything else keeps its upgrade in doubt.
-                UncertainReason? reason = obs.AfterMerchant && CardRarities.Of(g.Key) is "Common" or "Uncommon" or "Rare"
+                UncertainReason? reason = obs.AfterMerchant && CardRarities.Of(g.Key, _scheme) is "Common" or "Uncommon" or "Rare"
                     ? null : UncertainReason.Inferred;
                 Add(g.Key, floor, reason);
                 if (DuplicateAdds) _slots.RemoveAt(_slots.Count - 1); // a copy Bing Bong made would show up on its own
@@ -390,13 +397,13 @@ internal sealed class DeckReplay
             .GroupBy(p => p.Index).Select(g => g.First().CardId)
             .GroupBy(id => id).ToDictionary(g => g.Key, g => g.Count());
 
-        Dictionary<string, int> gone = Copies(mineBefore.Where(p => CardRarities.LeavesCombatWhenPlayed(p.CardId)));
+        Dictionary<string, int> gone = Copies(mineBefore.Where(p => CardRarities.LeavesCombatWhenPlayed(p.CardId, _scheme)));
         Dictionary<string, int> stayed = Copies(mineAfter);
         var pool = new List<Slot>();
         foreach (var g in _slots.GroupBy(s => s.Card.Id))
             pool.AddRange(g.OrderBy(s => s.Card.Upgrade).Skip(gone.GetValueOrDefault(g.Key)));
 
-        var classOf = pool.Select(s => (s, p: CardRarities.StealPriority(s.Card.Id, s.Card.EnchantmentId)))
+        var classOf = pool.Select(s => (s, p: CardRarities.StealPriority(s.Card.Id, s.Card.EnchantmentId, _scheme)))
                           .Where(x => x.p is not null).ToList();
         if (classOf.Count == 0) { UnknownRemovals++; return; }
         int best = classOf.Min(x => x.p!.Value);

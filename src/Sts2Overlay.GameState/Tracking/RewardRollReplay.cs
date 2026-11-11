@@ -32,7 +32,7 @@ internal sealed record OfferSlot(int Counter, string Rarity, double Pick, float 
 /// </summary>
 internal sealed class RewardRollReplay
 {
-    /// <summary>Most values the stream may advance between two of my logged rolls (v0.107.1 runs: at most 22).</summary>
+    /// <summary>Most values the stream may advance between two of my logged rolls (v0.107.1 runs: at most 22; same stream use in v0.111.0).</summary>
     private const int MaxGap = 400;
     /// <summary>Wider search used only when the next roll confirms the hit (a gap we didn't foresee, a run joined late).</summary>
     private const int WideWindow = 20_000;
@@ -109,24 +109,37 @@ internal sealed class RewardRollReplay
 /// overlay doesn't know a guest's unlocks. Each combination of locked epochs is a hypothesis; a pick that a hypothesis
 /// can't produce rules it out. Checked against 51 runs' offered cards (<c>card_choices</c> in the .run files): every
 /// three-card offer reproduced.
+/// <para>
+/// The pool and the rarities come from the embedded catalogs of the run's <see cref="GameDataVersion"/>: v0.111 added 17
+/// pool cards (16 co-op only, filtered out by <see cref="CardRarities.AllowedWithPlayers"/> in single player) and moved
+/// the rarity of 10. <c>CardFactory.CreateForReward</c> / <c>RollForUpgrade</c> / <c>FilterForPlayerCount</c> and the
+/// odds (<c>CardRarityOdds</c>) are the same in the v0.111.0 source as in this port.
+/// </para>
 /// </summary>
 internal sealed class RewardCardPool
 {
-    private static readonly Lazy<Dictionary<string, (List<string> Cards, List<List<string>> Epochs)>> s_pools = new(Load);
+    private static readonly Lazy<Dictionary<string, (List<string> Cards, List<List<string>> Epochs)>> s_v0107 = new(() => Load(RngScheme.Legacy32));
+    private static readonly Lazy<Dictionary<string, (List<string> Cards, List<List<string>> Epochs)>> s_v0111 = new(() => Load(RngScheme.Xx64));
 
     private readonly List<string> _cards;
     private readonly List<List<string>> _epochs;
     private readonly bool _multiplayer;
 
-    private RewardCardPool(List<string> cards, List<List<string>> epochs, bool multiplayer)
+    private RewardCardPool(List<string> cards, List<List<string>> epochs, bool multiplayer, RngScheme scheme)
     {
         _cards = cards;
         _epochs = epochs;
         _multiplayer = multiplayer;
+        Scheme = scheme;
     }
 
-    public static RewardCardPool? For(string? character, bool multiplayer) =>
-        character != null && s_pools.Value.TryGetValue(character, out var p) ? new RewardCardPool(p.Cards, p.Epochs, multiplayer) : null;
+    /// <summary>The game generation whose pool and rarities this is.</summary>
+    public RngScheme Scheme { get; }
+
+    public static RewardCardPool? For(string? character, bool multiplayer, RngScheme scheme = RngSeeds.Default) =>
+        character != null && (scheme == RngScheme.Legacy32 ? s_v0107 : s_v0111).Value.TryGetValue(character, out var p)
+            ? new RewardCardPool(p.Cards, p.Epochs, multiplayer, scheme)
+            : null;
 
     /// <summary>Number of hypotheses: one per subset of still-locked epochs (bit i set = epoch i locked).</summary>
     public int Hypotheses => 1 << _epochs.Count;
@@ -139,7 +152,7 @@ internal sealed class RewardCardPool
         var locked = new HashSet<string>(StringComparer.Ordinal);
         for (int i = 0; i < _epochs.Count; i++)
             if ((lockedMask >> i & 1) != 0) locked.UnionWith(_epochs[i]);
-        return _cards.Where(c => !locked.Contains(c) && CardRarities.AllowedWithPlayers(c, _multiplayer)).ToList();
+        return _cards.Where(c => !locked.Contains(c) && CardRarities.AllowedWithPlayers(c, _multiplayer, Scheme)).ToList();
     }
 
     private static readonly string[] s_transformable = ["Basic", "Common", "Uncommon", "Rare"];
@@ -151,12 +164,12 @@ internal sealed class RewardCardPool
     /// </summary>
     public string? TransformTarget(string original, ulong raw, ulong liveMask)
     {
-        if (!_cards.Contains(original) || !s_transformable.Contains(CardRarities.Of(original))) return null;
+        if (!_cards.Contains(original) || !s_transformable.Contains(CardRarities.Of(original, Scheme))) return null;
         string? result = null;
         for (int h = 0; h < Hypotheses && h < 64; h++)
         {
             if ((liveMask >> h & 1) == 0) continue;
-            var options = Unlocked(h).Where(c => c != original && s_order.Contains(CardRarities.Of(c))).ToList();
+            var options = Unlocked(h).Where(c => c != original && s_order.Contains(CardRarities.Of(c, Scheme))).ToList();
             if (options.Count == 0) return null;
             string card = options[GameRng.ToInt(raw, options.Count)];
             if (result != null && result != card) return null;
@@ -175,19 +188,19 @@ internal sealed class RewardCardPool
             var options = pool.Where(c => !shown.Contains(c)).ToList();
             // CardFactory.GetNextAllowedRarity: a rarity with no card left moves up (Rare wraps to Common).
             string rarity = offer[s].Rarity;
-            for (int k = 0; k < 3 && !options.Any(c => CardRarities.Of(c) == rarity); k++)
+            for (int k = 0; k < 3 && !options.Any(c => CardRarities.Of(c, Scheme) == rarity); k++)
                 rarity = s_order[(Array.IndexOf(s_order, rarity) + 1) % 3];
-            var items = options.Where(c => CardRarities.Of(c) == rarity).ToList();
+            var items = options.Where(c => CardRarities.Of(c, Scheme) == rarity).ToList();
             if (items.Count == 0) return null;
             shown[s] = items[Math.Min((int)(offer[s].Pick * items.Count), items.Count - 1)];
         }
         return shown;
     }
 
-    private static Dictionary<string, (List<string>, List<List<string>>)> Load()
+    private static Dictionary<string, (List<string>, List<List<string>>)> Load(RngScheme scheme)
     {
         var map = new Dictionary<string, (List<string>, List<List<string>>)>(StringComparer.Ordinal);
-        using Stream? s = typeof(RewardCardPool).Assembly.GetManifestResourceStream("card-pools.json");
+        using Stream? s = typeof(RewardCardPool).Assembly.GetManifestResourceStream(GameDataVersion.Resource("card-pools", scheme));
         if (s == null) return map;
         using JsonDocument doc = JsonDocument.Parse(s);
         if (!doc.RootElement.TryGetProperty("pools", out JsonElement pools)) return map;

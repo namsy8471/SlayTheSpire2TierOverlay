@@ -47,14 +47,13 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
     private const string BingBong = "RELIC.BING_BONG";
     private const string UpgradeRollArg = "upgrade-roll";
 
-    private static bool MayRollUpgrade(string cardId) =>
-        CardRarities.Of(cardId) is not ("Rare" or null) && CardRarities.MaxUpgrade(cardId) > 0;
+    private static bool MayRollUpgrade(string cardId, RngScheme scheme) =>
+        CardRarities.Of(cardId, scheme) is not ("Rare" or null) && CardRarities.MaxUpgrade(cardId, scheme) > 0;
     /// <summary>Card type each egg relic upgrades when a card of that type joins the deck.</summary>
     private static readonly (string Relic, string Type)[] s_eggs =
         [("RELIC.FROZEN_EGG", "Power"), ("RELIC.MOLTEN_EGG", "Attack"), ("RELIC.TOXIC_EGG", "Skill")];
 
     private TrackerOptions _options; // Paths change when the saves folder shows up later or the game switches profile
-    private readonly StartingLoadouts _loadouts;
     private readonly Func<DateTime> _clock;
     private readonly object _gate = new();
 
@@ -124,7 +123,6 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
     public GameStateTracker(TrackerOptions? options = null)
     {
         _options = options ?? new TrackerOptions();
-        _loadouts = _options.Loadouts ?? StartingLoadouts.Embedded;
         _clock = _options.Clock ?? (() => DateTime.UtcNow);
     }
 
@@ -657,16 +655,16 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         {
             if (_relicsThisRoom.Add(relic)) AddPatch(PatchKind.AddRelic, relic, 0);
         }
-        else if (relic != null && DeckEffects.ForRelic(relic) != null)
+        else if (relic != null && DeckEffects.ForRelic(relic, Scheme()) != null)
             _relicsThisRoom.Add(relic);
-        ApplyEffect(DeckEffects.ForChoice(eo.EventId, eo.ChoiceKey), eo.EventId);
+        ApplyEffect(DeckEffects.ForChoice(eo.EventId, eo.ChoiceKey, Scheme()), eo.EventId);
     }
 
     /// <summary>A relic was obtained: apply its pickup effect once per room (an ancient option may have applied it already).</summary>
     private void ApplyRelicEffect(string relicId)
     {
         if (!_relicsThisRoom.Add(relicId)) return;
-        ApplyEffect(DeckEffects.ForRelic(relicId));
+        ApplyEffect(DeckEffects.ForRelic(relicId, Scheme()));
     }
 
     /// <summary>Fixed and random deck effects of an event option / relic; its card-select meaning waits for "chose cards".</summary>
@@ -830,7 +828,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         // The game writes that save just before it logs 'Event Room', but the watcher may deliver the file a moment after
         // the tailer reads the log line: until then the save in hand is the PREVIOUS room's entry save (an event room
         // writes no save when you leave it) and would predict the previous room's event. Wait for the logged save.
-        if (_eventGuess == null && snapshot is { Save: { } entry } && !IsBehindLog(snapshot) && EventPrediction.Predict(entry) is { } guess)
+        if (_eventGuess == null && snapshot is { Save: { } entry } && !IsBehindLog(snapshot) && EventPrediction.Predict(entry, Scheme()) is { } guess)
         {
             _eventGuess = guess;
             _eventCheck = (guess, entry.Events!.EventsSeen.Count);
@@ -1076,9 +1074,10 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
 
     private RewardCardPool? Pool()
     {
-        if (_pool == null)
+        RngScheme scheme = Scheme();
+        if (_pool == null || _pool.Scheme != scheme)
         {
-            _pool = RewardCardPool.For(MyCharacter(), IsMultiplayer());
+            _pool = RewardCardPool.For(MyCharacter(), IsMultiplayer(), scheme);
             _liveEpochs = ulong.MaxValue;
         }
         return _pool;
@@ -1123,8 +1122,9 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
     {
         List<OfferSlot>? picked = PickedSlots(cardId); // also narrows the epoch hypotheses, so run it for every pick
         int actIndex = CurrentAct() - 1;
-        if (!MayRollUpgrade(cardId) || actIndex <= 0) return 0;
-        string rarity = CardRarities.Of(cardId)!;
+        RngScheme scheme = Scheme();
+        if (!MayRollUpgrade(cardId, scheme) || actIndex <= 0) return 0;
+        string rarity = CardRarities.Of(cardId, scheme)!;
         int ascension = Ascension();
         List<bool> Outcomes(IEnumerable<OfferSlot> slots) =>
             slots.Select(s => RewardRollReplay.Upgrades(s.UpgradeRoll, rarity, actIndex, ascension)).Distinct().ToList();
@@ -1289,7 +1289,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         }
 
         // ---- apply log patches newer than the save -------------------------------------------------
-        var deck = new DeckReplay(state.Deck);
+        var deck = new DeckReplay(state.Deck, Scheme());
         var relics = state.Relics.ToList();
         int gold = state.Gold, removals = state.CardRemovalsBought, applied = 0;
         int rodFights = 0;
@@ -1431,7 +1431,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
                             ?? run.Players.FirstOrDefault(p => p.NetId == me)?.Character
                             ?? run.Players.FirstOrDefault()?.Character;
         if (character == null) return null;
-        StartingLoadout? loadout = _loadouts.For(character);
+        StartingLoadout? loadout = (_options.Loadouts ?? StartingLoadouts.EmbeddedFor(Scheme())).For(character);
         int ascension = run.Ascension ?? 0;
 
         var deck = (loadout?.Deck ?? []).Select(id => new DeckCard(new CardRef(id), FloorAdded: 1)).ToList();

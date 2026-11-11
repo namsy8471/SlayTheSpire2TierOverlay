@@ -337,28 +337,28 @@ public static class AncientOptions
     // ---------------------------------------------------------------------------------------------------------------
 
     // The conditional options' rules (shared by the draw and by PossibleKeys).
-    private static bool ClawAllowed(AncientInputs p) => p.Deck.Count(c => CanEnchant(c, "Goopy")) >= 3;
-    private static bool PaelsToothAllowed(AncientInputs p) => p.Deck.Count(c => !CardRarities.HasCanonicalKeyword(c.Id, "Eternal")) >= 5; // IsRemovable
-    private static bool SoupAllowed(AncientInputs p) => p.Deck.Any(c => CardRarities.HasTag(c.Id, "Strike") && CardRarities.Of(c.Id) == "Basic");
-    private static bool TouchAllowed(AncientInputs p) => p.Relics.Any(r => RelicTrading.RarityOf(r) == "Starter"); // TouchOfOrobas.SetupForPlayer
+    private static bool ClawAllowed(AncientInputs p) => p.Deck.Count(c => CanEnchant(c, "Goopy", p.Scheme)) >= 3;
+    private static bool PaelsToothAllowed(AncientInputs p) => p.Deck.Count(c => !CardRarities.HasCanonicalKeyword(c.Id, "Eternal", p.Scheme)) >= 5; // IsRemovable
+    private static bool SoupAllowed(AncientInputs p) => p.Deck.Any(c => CardRarities.HasTag(c.Id, "Strike", p.Scheme) && CardRarities.Of(c.Id, p.Scheme) == "Basic");
+    private static bool TouchAllowed(AncientInputs p) => p.Relics.Any(r => RelicTrading.RarityOf(r, p.Scheme) == "Starter"); // TouchOfOrobas.SetupForPlayer
     private static bool ArchaicToothAllowed(AncientInputs p) => p.Deck.Any(c => TranscendenceStarters.Contains(c.Id)); // ArchaicTooth.SetupForPlayer
-    private static bool BraceletAllowed(AncientInputs p) => p.Deck.Count(c => CanEnchant(c, "Swift")) >= 4;
-    private static bool BoomerangAllowed(AncientInputs p) => p.Deck.Count(c => CanEnchant(c, "Instinct")) >= 3;
+    private static bool BraceletAllowed(AncientInputs p) => p.Deck.Count(c => CanEnchant(c, "Swift", p.Scheme)) >= 4;
+    private static bool BoomerangAllowed(AncientInputs p) => p.Deck.Count(c => CanEnchant(c, "Instinct", p.Scheme)) >= 3;
 
     /// <summary>
     /// EnchantmentModel.CanEnchant for the three enchantments ancients count: never Status / Curse / Quest cards, never an
     /// Unplayable deck card, never an already enchanted card (none of them stacks); Goopy only Defend-tagged cards,
     /// Instinct only Attacks, Swift anything else.
     /// </summary>
-    private static bool CanEnchant(AncientDeckCard card, string enchantment)
+    private static bool CanEnchant(AncientDeckCard card, string enchantment, RngScheme scheme)
     {
-        string? type = CardRarities.TypeOf(card.Id);
+        string? type = CardRarities.TypeOf(card.Id, scheme);
         if (type is null or "Status" or "Curse" or "Quest") return false;
-        if (CardRarities.HasCanonicalKeyword(card.Id, "Unplayable")) return false;
+        if (CardRarities.HasCanonicalKeyword(card.Id, "Unplayable", scheme)) return false;
         if (card.EnchantmentId is not null) return false;
         return enchantment switch
         {
-            "Goopy" => CardRarities.HasTag(card.Id, "Defend"),
+            "Goopy" => CardRarities.HasTag(card.Id, "Defend", scheme),
             "Instinct" => type == "Attack",
             _ => true,
         };
@@ -366,7 +366,7 @@ public static class AncientOptions
 
     /// <summary>Player.HasEventPet: a relic that adds a pet (Byrdpip, Pael's Legion) or Byrdonis Egg in the deck.</summary>
     private static bool HasEventPet(AncientInputs p) =>
-        p.Relics.Any(RelicTrading.AddsPet) || p.Deck.Any(c => c.Id == "CARD.BYRDONIS_EGG");
+        p.Relics.Any(r => RelicTrading.AddsPet(r, p.Scheme)) || p.Deck.Any(c => c.Id == "CARD.BYRDONIS_EGG");
 
     /// <summary>Rng.NextItem: nothing drawn for an empty list.</summary>
     private static T? NextItem<T>(GameRng rng, IReadOnlyList<T> items) => items.Count == 0 ? default : items[rng.NextInt(items.Count)];

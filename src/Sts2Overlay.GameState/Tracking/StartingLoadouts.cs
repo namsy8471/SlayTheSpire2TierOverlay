@@ -8,9 +8,10 @@ public sealed record StartingLoadout(
     IReadOnlyList<string> Deck, IReadOnlyList<string> Relics);
 
 /// <summary>
-/// Starting decks per character, from <c>data/catalog/starting-decks.v0.107.1.json</c> (generated from sts2.dll by
-/// <c>tools/CatalogBuilder --starting-decks</c>, embedded into this assembly). Used to rebuild a co-op guest's
-/// deck, because a guest has no save file at all (RunSaveManager.cs:79 only saves for single player / host).
+/// Starting decks per character, from <c>data/catalog/starting-decks.&lt;version&gt;.json</c> (generated from sts2.dll by
+/// <c>tools/CatalogBuilder --starting-decks</c>, embedded into this assembly, one per <see cref="GameDataVersion"/>; the
+/// v0.107.1 and v0.111.0 files hold the same decks). Used to rebuild a co-op guest's deck, because a guest has no save
+/// file at all (RunSaveManager.cs:79 only saves for single player / host).
 /// </summary>
 public sealed class StartingLoadouts
 {
@@ -23,15 +24,22 @@ public sealed class StartingLoadouts
     private StartingLoadouts(IEnumerable<StartingLoadout> loadouts) =>
         _byCharacter = loadouts.ToDictionary(l => l.Character, StringComparer.Ordinal);
 
-    private static readonly Lazy<StartingLoadouts> s_embedded = new(() =>
-    {
-        using Stream s = typeof(StartingLoadouts).Assembly.GetManifestResourceStream("starting-decks.json")
-                         ?? throw new InvalidOperationException("embedded starting-decks.json missing");
-        return Load(s);
-    });
+    private static readonly Lazy<StartingLoadouts> s_v0107 = new(() => LoadEmbedded(RngScheme.Legacy32));
+    private static readonly Lazy<StartingLoadouts> s_v0111 = new(() => LoadEmbedded(RngScheme.Xx64));
 
-    /// <summary>The loadouts compiled into this assembly.</summary>
-    public static StartingLoadouts Embedded => s_embedded.Value;
+    private static StartingLoadouts LoadEmbedded(RngScheme scheme)
+    {
+        string name = GameDataVersion.Resource("starting-decks", scheme);
+        using Stream s = typeof(StartingLoadouts).Assembly.GetManifestResourceStream(name)
+                         ?? throw new InvalidOperationException($"embedded {name} missing");
+        return Load(s);
+    }
+
+    /// <summary>The loadouts compiled into this assembly for the newest game data (<see cref="RngSeeds.Default"/>).</summary>
+    public static StartingLoadouts Embedded => EmbeddedFor(RngSeeds.Default);
+
+    /// <summary>The loadouts compiled into this assembly for a run with this seed arithmetic (<see cref="GameDataVersion"/>).</summary>
+    public static StartingLoadouts EmbeddedFor(RngScheme scheme) => (scheme == RngScheme.Legacy32 ? s_v0107 : s_v0111).Value;
 
     public static StartingLoadouts Load(Stream json)
     {
