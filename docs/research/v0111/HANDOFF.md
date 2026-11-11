@@ -171,3 +171,7 @@ Next step for item 5: find the transform in the log (event id around the first m
 - Next step: print the details of the 22 mismatches and the 10 potion disagreements behind an env flag; split the upgrade misses by owned egg / Lava Lamp; then take the larger stop rooms one by one (BRAIN_LEECH, THIS_OR_THAT, Arcane Scroll's reward) and count their draws from the decompile.
 
 ### C, D, E: not started this session (PC shutdown). The brief's text for them stands.
+
+### Build / test state at the end of this session
+- Tree clean, nothing stashed. All three commits of this session (`c224c18`, `5c3cb22`, `2559692`) were built and the GameState tests pass at `2559692`: 312 passed, 0 failed, 3 skipped (opt-in corpus tests).
+- Not run at the end: Core, App and Resources test projects (no shared code changed there, but unverified).
