@@ -385,7 +385,7 @@ public sealed class CompletionWeights
 
     /// <summary>
     /// Fallback pool size per rarity for one character when no catalog is loaded. Defaults are the per-character counts of the
-    /// v0.107.1 catalog in single player (every character: 20 common, 35 uncommon, 25 rare).
+    /// v0.107.1 catalog in single player (every character: 20 common, 35 uncommon, 25 rare); the same in v0.111.0 (Sidestep replaces Scare; the other new pool cards are co-op only).
     /// </summary>
     [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
     public Dictionary<string, int> PoolSize { get; set; } = new(StringComparer.Ordinal)
@@ -397,7 +397,7 @@ public sealed class CompletionWeights
 }
 
 /// <summary>
-/// How the game rolls card rarity and reward upgrades (<c>Odds/CardRarityOdds.cs</c>, v0.107.1). [코드 확인] SPIKE §5.
+/// How the game rolls card rarity and reward upgrades (<c>Odds/CardRarityOdds.cs</c>, v0.107.1; unchanged in v0.111.0). [코드 확인] SPIKE §5.
 /// Use <see cref="CardOdds"/> to evaluate them.
 /// </summary>
 public sealed class CardOddsWeights

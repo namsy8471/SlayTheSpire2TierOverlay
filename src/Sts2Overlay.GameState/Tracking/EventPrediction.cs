@@ -26,6 +26,11 @@ public sealed record EventGuess(string EventId, bool Certain, IReadOnlyList<stri
 /// </code>
 /// An ancient node holds <c>rooms.ancient_id</c> instead. The room type itself needs no prediction: the log line
 /// "Preloading 'Event Room'" already says the "?" rolled an event.
+/// <para>
+/// Re-checked on the v0.111.0 source: the save-then-pull order (<c>RunManager.EnterMapPointInternal</c>), the loop
+/// (<c>RoomSet.EnsureNextEventIsValid</c>, <c>ActModel.PullNextEvent</c>), Lantern Key and every <c>IsAllowed</c> below are
+/// unchanged. The act's event list and its order are not ported: they come from the save (<c>event_ids</c>).
+/// </para>
 /// </summary>
 public static class EventPrediction
 {
@@ -36,8 +41,10 @@ public static class EventPrediction
     /// Predicts the event of the room being entered. Null when the save is not a single-player room-entry save
     /// (later saves of the same room already count the pulled event) or lacks the event lists.
     /// </summary>
-    public static EventGuess? Predict(ParsedSave save)
+    /// <param name="fallback">The run's seed arithmetic when the save has no schema (it picks the card and relic tables).</param>
+    public static EventGuess? Predict(ParsedSave save, RngScheme? fallback = null)
     {
+        RngScheme scheme = save.RngScheme ?? fallback ?? RngSeeds.Default;
         if (save.Events is not { } ev || !ev.IsRoomEntrySave || save.PlayerNetIds.Count > 1) return null;
         var state = save.State;
 
@@ -50,6 +57,7 @@ public static class EventPrediction
             Relics = save.RelicDetails,
             UnlockedEpochs = save.UnlockedEpochs,
             RelicGrabBag = save.RelicGrabBag,
+            Scheme = scheme,
         };
         var guess = Pull(ev.EventIds, ev.EventsVisited, ev.EventsSeen.ToHashSet(StringComparer.Ordinal), facts, out _);
         if (ev.ActIndex == 2 && state.Deck.Any(c => c.Id == "CARD.LANTERN_KEY")) return new EventGuess(WarHistorian, true, []);
@@ -107,19 +115,39 @@ public static class EventPrediction
 
         /// <summary>The player's relic grab bag (rarity key → ids); null = unknown (Luminous Choir is then approximate).</summary>
         public IReadOnlyDictionary<string, IReadOnlyList<string>>? RelicGrabBag { get; init; }
+
+        /// <summary>The run's game generation: which card / relic tables and upgrade rules apply (<see cref="GameDataVersion"/>).</summary>
+        public RngScheme Scheme { get; init; } = RngSeeds.Default;
     }
 
     /// <summary>
     /// Cards whose upgrade removes Exhaust (<c>OnUpgrade</c> → <c>RemoveKeyword(Exhaust)</c>, v0.107.1). No upgrade adds
     /// Exhaust, Eternal or Unplayable, so with the catalog's canonical keywords this gives a deck card's own keywords.
     /// </summary>
-    private static readonly HashSet<string> s_upgradeDropsExhaust = new(StringComparer.Ordinal)
+    private static readonly HashSet<string> s_upgradeDropsExhaustV0107 = new(StringComparer.Ordinal)
     {
         "CARD.CHILL", "CARD.DEMONIC_SHIELD", "CARD.DISCOVERY", "CARD.FUSION", "CARD.GRAVEBLAST", "CARD.HOLOGRAM",
         "CARD.HOTFIX", "CARD.IGNITION", "CARD.KNOW_THY_PLACE", "CARD.MIMIC", "CARD.PROLONG", "CARD.RAINBOW", "CARD.SCARE",
         "CARD.SECRET_TECHNIQUE", "CARD.SECRET_WEAPON", "CARD.SYNCHRONIZE", "CARD.THINKING_AHEAD", "CARD.TRANSFIGURE",
         "CARD.VOLTAIC",
     };
+
+    /// <summary>
+    /// The same list in v0.111.0 (<c>Models.Cards/*.OnUpgrade</c>; also the card-vars catalog's <c>removeKeywords</c>):
+    /// Mirage and the new Underworld drop Exhaust when upgraded, Synchronize no longer does, Scare is gone (Sidestep has
+    /// no Exhaust). Still no upgrade adds Exhaust, Eternal or Unplayable.
+    /// </summary>
+    private static readonly HashSet<string> s_upgradeDropsExhaustV0111 = new(StringComparer.Ordinal)
+    {
+        "CARD.CHILL", "CARD.DEMONIC_SHIELD", "CARD.DISCOVERY", "CARD.FUSION", "CARD.GRAVEBLAST", "CARD.HOLOGRAM",
+        "CARD.HOTFIX", "CARD.IGNITION", "CARD.KNOW_THY_PLACE", "CARD.MIMIC", "CARD.MIRAGE", "CARD.PROLONG", "CARD.RAINBOW",
+        "CARD.SECRET_TECHNIQUE", "CARD.SECRET_WEAPON", "CARD.THINKING_AHEAD", "CARD.TRANSFIGURE", "CARD.UNDERWORLD",
+        "CARD.VOLTAIC",
+    };
+
+    /// <summary>True when upgrading the card removes its Exhaust keyword in this game generation.</summary>
+    internal static bool UpgradeDropsExhaust(string cardId, RngScheme scheme) =>
+        (scheme == RngScheme.Legacy32 ? s_upgradeDropsExhaustV0107 : s_upgradeDropsExhaustV0111).Contains(cardId);
 
     /// <summary>The only thing that makes a deck card Eternal at runtime (<c>TezcatarasEmber.OnEnchant</c>).</summary>
     private const string EternalEnchantment = "ENCHANTMENT.TEZCATARAS_EMBER";
@@ -129,7 +157,9 @@ public static class EventPrediction
 
     /// <summary>
     /// <c>EventModel.IsAllowed</c> overrides of v0.107.1 (single player), read from the decompiled event classes and the
-    /// card/relic helpers they call. Every check is exact from the save plus the embedded card and relic tables; only
+    /// card/relic helpers they call, and re-read on v0.111.0: all 36 overrides give the same single-player answer.
+    /// v0.111.0 adds two co-op-only conditions (<c>JungleMazeAdventure</c>, <c>DenseVegetation</c>: every player's HP above
+    /// the solo option's HP cost) that return true for one player, so they fall to the default Yes here. Every check is exact from the save plus the embedded card and relic tables; only
     /// an unknown input (potions in a replay of past pulls, a card or relic missing from the tables, a relic-bag relic
     /// with its own <c>IsAllowed</c> rule) makes a check approximate (Probably / ProbablyNot).
     /// </summary>
@@ -137,28 +167,29 @@ public static class EventPrediction
     {
         static Allowed B(bool b) => b ? Allowed.Yes : Allowed.No;
         var deck = f.State.Deck;
+        RngScheme scheme = f.Scheme;
         // Potions unknown (replay): potion checks can't decide, so they say Probably.
         Allowed Potions(Func<IReadOnlyList<string>, bool> test) => f.Potions is { } p ? B(test(p)) : Allowed.Probably;
         // A card the catalog doesn't know makes card checks approximate (a game update added it).
-        bool unknownCard = deck.Any(c => !CardRarities.Knows(c.Id));
+        bool unknownCard = deck.Any(c => !CardRarities.Knows(c.Id, scheme));
         Allowed Cards(bool result) => unknownCard ? (result ? Allowed.Probably : Allowed.ProbablyNot) : B(result);
 
         // CardModel.IsRemovable = no Eternal keyword (catalog keyword, or Tezcatara's Ember enchantment).
-        bool Removable(DeckCard c) => !CardRarities.HasCanonicalKeyword(c.Id, "Eternal") && c.EnchantmentId != EternalEnchantment;
+        bool Removable(DeckCard c) => !CardRarities.HasCanonicalKeyword(c.Id, "Eternal", scheme) && c.EnchantmentId != EternalEnchantment;
         // EnchantmentModel.CanEnchant base: Attack/Skill/Power (no Status/Curse/Quest), not Unplayable, no enchantment yet.
         bool BaseEnchantable(DeckCard c) => c.EnchantmentId is null
-            && CardRarities.TypeOf(c.Id) is "Attack" or "Skill" or "Power"
-            && !CardRarities.HasCanonicalKeyword(c.Id, "Unplayable");
+            && CardRarities.TypeOf(c.Id, scheme) is "Attack" or "Skill" or "Power"
+            && !CardRarities.HasCanonicalKeyword(c.Id, "Unplayable", scheme);
         bool StrikeOrDefend(DeckCard c) =>
             c.Id.StartsWith("CARD.STRIKE_", StringComparison.Ordinal) || c.Id.StartsWith("CARD.DEFEND_", StringComparison.Ordinal);
         // Card keywords after upgrades (Soul's Power reads KeywordSources.Local).
-        bool HasExhaust(DeckCard c) => CardRarities.HasCanonicalKeyword(c.Id, "Exhaust") && !(c.Upgrade > 0 && s_upgradeDropsExhaust.Contains(c.Id));
+        bool HasExhaust(DeckCard c) => CardRarities.HasCanonicalKeyword(c.Id, "Exhaust", scheme) && !(c.Upgrade > 0 && UpgradeDropsExhaust(c.Id, scheme));
 
         // RelicModel.IsTradable over the player's relics (rarity, pickup effect, pets, melted, used up).
         Allowed Tradable(int atLeast)
         {
             var relics = f.Relics ?? f.State.Relics.Select(id => new SavedRelic(id, new HashSet<string>())).ToList();
-            int n = RelicTrading.CountTradable(relics, out bool exact);
+            int n = RelicTrading.CountTradable(relics, out bool exact, scheme);
             return n >= atLeast ? (exact ? Allowed.Yes : Allowed.Probably) : (exact ? Allowed.No : Allowed.ProbablyNot);
         }
 
@@ -168,7 +199,7 @@ public static class EventPrediction
             if (f.RelicGrabBag is not { } bag) return Allowed.Probably;
             var ids = new[] { "common", "uncommon", "rare", "shop" }.SelectMany(k => bag.GetValueOrDefault(k) ?? []).ToList();
             if (ids.Count == 0) return Allowed.No;
-            return ids.Any(RelicTrading.AlwaysPullable) ? Allowed.Yes : Allowed.Probably;
+            return ids.Any(id => RelicTrading.AlwaysPullable(id, scheme)) ? Allowed.Yes : Allowed.Probably;
         }
 
         return eventId switch
@@ -199,9 +230,9 @@ public static class EventPrediction
             "EVENT.AMALGAMATOR" => Cards(deck.Count(c => c.Id.StartsWith("CARD.STRIKE_", StringComparison.Ordinal) && Removable(c)) >= 2
                                          && deck.Count(c => c.Id.StartsWith("CARD.DEFEND_", StringComparison.Ordinal) && Removable(c)) >= 2),
             // Player.HasEventPet: a relic with AddsPet (Byrdpip, Pael's Legion) or a Byrdonis Egg in the deck.
-            "EVENT.BYRDONIS_NEST" => B(!deck.Any(c => c.Id == "CARD.BYRDONIS_EGG") && !f.State.Relics.Any(RelicTrading.AddsPet)),
+            "EVENT.BYRDONIS_NEST" => B(!deck.Any(c => c.Id == "CARD.BYRDONIS_EGG") && !f.State.Relics.Any(r => RelicTrading.AddsPet(r, scheme))),
             // Any removable Basic card (Bash, Neutralize, Zap ... count too, not only Strike/Defend).
-            "EVENT.WOOD_CARVINGS" => Cards(deck.Any(c => CardRarities.Of(c.Id) == "Basic" && Removable(c))),
+            "EVENT.WOOD_CARVINGS" => Cards(deck.Any(c => CardRarities.Of(c.Id, scheme) == "Basic" && Removable(c))),
             // Perfect Fit has no rule of its own: any card the base CanEnchant accepts.
             "EVENT.FIELD_OF_MAN_SIZED_HOLES" => Cards(deck.Any(BaseEnchantable)),
             // Spiral: base CanEnchant + Basic + Strike/Defend tag.

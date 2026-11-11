@@ -16,7 +16,7 @@ public static class ShopPricing
     public const double ColorlessFactor = 1.15;
 
     /// <summary>
-    /// Merchant relic base price (RelicModel.MerchantCost, v0.107.1): common 175, uncommon 225, rare 275, shop 200;
+    /// Merchant relic base price (RelicModel.MerchantCost, v0.107.1; unchanged in v0.111.0): common 175, uncommon 225, rare 275, shop 200;
     /// unknown rarity counts as uncommon. The game adds ±15 % jitter and relic discounts, ignored here.
     /// </summary>
     public static int RelicBasePrice(string? rarity) => rarity?.ToLowerInvariant() switch

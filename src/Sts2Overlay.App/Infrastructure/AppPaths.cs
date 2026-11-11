@@ -81,8 +81,28 @@ public sealed record AppLayout(string ContentRoot, string LocalDataDir, AppLayou
 /// <summary>Where the app reads and writes files.</summary>
 public static class AppPaths
 {
+    /// <summary>
+    /// The data version (pack folder <c>data/packs/&lt;v&gt;</c> + catalogs <c>data/catalog/*.&lt;v&gt;.json</c>) chosen for the
+    /// installed game by <see cref="Sts2Overlay.Resources.DataVersionSelector"/>. Set once at startup
+    /// (<see cref="SelectDataVersion"/>); a game update while the overlay runs takes effect at the next start.
+    /// </summary>
+    public static string DataVersion { get; private set; } = "v0.107.1";
+
     /// <summary>Default data pack, relative to the content root (the repo root, or the exe folder when installed).</summary>
-    public const string DefaultPackDir = "data/packs/v0.107.1";
+    public static string DefaultPackDir => "data/packs/" + DataVersion;
+
+    /// <summary>
+    /// Picks <see cref="DataVersion"/> from the pack folders under the content root and the game version
+    /// (release_info.json; null when unknown). The one place the app matches data to the game.
+    /// </summary>
+    public static Sts2Overlay.Resources.DataVersionChoice SelectDataVersion(string? gameVersion)
+    {
+        var packs = Path.Combine(ContentRoot, "data", "packs");
+        var names = Directory.Exists(packs) ? Directory.GetDirectories(packs).Select(Path.GetFileName).OfType<string>() : [];
+        var choice = Sts2Overlay.Resources.DataVersionSelector.Select(names, gameVersion);
+        if (choice.Version is { } v) DataVersion = v;
+        return choice;
+    }
 
     /// <summary>Our folder under %LOCALAPPDATA%.</summary>
     public const string DataFolderName = "Sts2Overlay";
@@ -107,8 +127,8 @@ public static class AppPaths
     /// <summary>The folder that holds <c>data/packs</c> and <c>data/catalog</c>: the repo root, or the exe folder when installed.</summary>
     public static string ContentRoot => Layout.ContentRoot;
 
-    /// <summary>The committed names-free catalog (<c>data/catalog/cards.v0.107.1.json</c>), shipped with installed builds too.</summary>
-    public static string CommittedCatalogFile => Path.Combine(ContentRoot, Sts2Overlay.Core.Data.DataPackLoader.DefaultCatalogRelativePath);
+    /// <summary>The committed names-free catalog of <see cref="DataVersion"/> (<c>data/catalog/cards.&lt;v&gt;.json</c>), shipped with installed builds too.</summary>
+    public static string CommittedCatalogFile => Path.Combine(ContentRoot, "data", "catalog", $"cards.{DataVersion}.json");
 
     /// <summary>
     /// Resolves the pack directory: an absolute path is used as-is, a relative one is taken from the content root

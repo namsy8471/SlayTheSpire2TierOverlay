@@ -1,0 +1,15 @@
+// 리젠트 2장 콤보 초안 (claude-draft-v1)
+{
+  "character": "CHARACTER.REGENT",
+  "combos": [
+    { "cards": ["CARD.GENESIS", "CARD.SEVEN_STARS"], "name": "별 수급 + 대형 소비", "why": "매 턴 들어오는 별로 큰 광역기를 반복", "w": 6 },
+    { "cards": ["CARD.GENESIS", "CARD.BLACK_HOLE"], "name": "별 획득 → 광역 피해", "why": "별을 얻고 쓸 때마다 피해", "w": 6 },
+    { "cards": ["CARD.CHILD_OF_THE_STARS", "CARD.ASTRAL_PULSE"], "name": "별 소비 → 방어", "why": "공격하면서 방어도도 확보", "w": 5 },
+    { "cards": ["CARD.SEEKING_EDGE", "CARD.CONQUEROR"], "name": "광역 검 + 피해 두 배", "why": "커뮤니티 가이드가 꼽는 벼리기 마무리 조합", "w": 7 },
+    { "cards": ["CARD.SWORD_SAGE", "CARD.FURNACE"], "name": "검 재사용 + 자동 벼리기", "why": "매 턴 강해지는 검을 여러 번", "w": 6 },
+    { "cards": ["CARD.PARRY", "CARD.SWORD_SAGE"], "name": "검 공격 → 방어", "why": "검을 반복할 때마다 방어도", "w": 5 },
+    { "cards": ["CARD.ARSENAL", "CARD.SPECTRUM_SHIFT"], "name": "매 턴 생성 → 힘", "why": "무색 카드가 생길 때마다 힘이 쌓임", "w": 6 },
+    { "cards": ["CARD.PILLAR_OF_CREATION", "CARD.CRASH_LANDING"], "name": "잔해 대량 → 방어", "why": "손을 채운 잔해 수만큼 방어도", "w": 5 },
+    { "cards": ["CARD.SUPERMASSIVE", "CARD.COLLISION_COURSE"], "name": "생성 누적 공격", "why": "0코 생성 카드로 생성 횟수를 쌓음", "w": 4 }
+  ]
+}

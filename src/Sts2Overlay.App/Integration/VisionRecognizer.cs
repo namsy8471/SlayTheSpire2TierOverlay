@@ -145,8 +145,8 @@ public sealed class VisionRecognizer : ICardRecognizer
         }
     }
 
-    /// <summary>The committed relic catalog next to the card catalog (data/catalog).</summary>
-    private const string RelicCatalogFile = "relics.v0.107.1.json";
+    /// <summary>The committed relic catalog of the selected data version, next to the card catalog (data/catalog).</summary>
+    private static string RelicCatalogFile => $"relics.{AppPaths.DataVersion}.json";
 
     private CardRecognizer? LoadLocked()
     {

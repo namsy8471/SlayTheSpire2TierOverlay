@@ -30,7 +30,7 @@ public enum UpgradePick
 }
 
 /// <summary>
-/// The deck side of one event option or relic pickup, as far as v0.107.1 does it deterministically.
+/// The deck side of one event option or relic pickup, as far as the game (v0.107.1, v0.111.0) does it deterministically.
 /// Random parts are counted, not guessed: <see cref="RandomUpgrades"/> (which card is upgraded comes from the game RNG and
 /// is never logged), <see cref="UnknownAdds"/> (a random card joins the deck; combat plays may identify it later),
 /// <see cref="RandomRemoves"/> (a random deck card leaves).
@@ -74,6 +74,10 @@ public sealed record DeckEffect
     public bool Transcend { get; init; }
     /// <summary>Tablet of Truth, 5th decipher: every upgradable card in the deck is upgraded.</summary>
     public bool UpgradeAll { get; init; }
+    /// <summary>Large Capsule: the character's basic Strike and basic Defend join the deck.</summary>
+    public bool AddBasicStrikeAndDefend { get; init; }
+    /// <summary>Every Defend-tagged deck card without another enchantment gets this enchantment (Pael's Claw: Goopy).</summary>
+    public string? EnchantAllDefends { get; init; }
 }
 
 /// <summary>
@@ -81,6 +85,12 @@ public sealed record DeckEffect
 /// decompiled v0.107.1 source (<c>Models.Events/*.cs</c> option handlers, <c>Models.Relics/*.cs</c> AfterObtained) and
 /// checked against the per-floor <c>cards_gained/removed/transformed/upgraded</c> of 51 run-history files.
 /// Options that don't touch the deck are simply absent.
+/// <para>
+/// v0.111.0 (decompiled, and run histories of both versions compared floor by floor) changed a few relics; those
+/// entries live in per-<see cref="GameDataVersion"/> tables that win over the shared one: Distinguished Cape and Sere
+/// Talon swapped downsides (the cape now adds 2 random curses, the talon costs max HP instead), and Neow's new curse-slot
+/// relics add their cards.
+/// </para>
 /// </summary>
 public static class DeckEffects
 {
@@ -165,12 +175,33 @@ public static class DeckEffects
         ["WOOD_CARVINGS.pages.INITIAL.options.BIRD"] = new() { Select = SelectMeaning.Transform, TransformTo = C + "PECK" },
         ["WOOD_CARVINGS.pages.INITIAL.options.SNAKE"] = Ench("SLITHER"),
         ["WOOD_CARVINGS.pages.INITIAL.options.TORUS"] = new() { Select = SelectMeaning.Transform, TransformTo = C + "TORIC_TOUGHNESS" },
-        ["ZEN_WEAVER.pages.INITIAL.options.BREATHING_TECHNIQUES"] = Add("ENLIGHTENMENT"),
+        ["ZEN_WEAVER.pages.INITIAL.options.BREATHING_TECHNIQUES"] = Add("ENLIGHTENMENT", "ENLIGHTENMENT"), // ZenWeaver.BreathingTechniques: 2 cards
         ["ZEN_WEAVER.pages.INITIAL.options.EMOTIONAL_AWARENESS"] = Sel(SelectMeaning.Remove),
         ["ZEN_WEAVER.pages.INITIAL.options.ARACHNID_ACUPUNCTURE"] = Sel(SelectMeaning.Remove),
     };
 
-    /// <summary>Relic pickups (ancient options, relic rewards, treasure picks) by relic id.</summary>
+    /// <summary>
+    /// v0.107.1 only. SereTalon: 3 Wish and 2 random curses (the curses come from the unreplayable Niche stream; run
+    /// histories show every v0.107.1 pick with two curses, every v0.111.0 pick with none).
+    /// </summary>
+    private static readonly Dictionary<string, DeckEffect> s_relicsV0107 = new(StringComparer.Ordinal)
+    {
+        ["RELIC.SERE_TALON"] = Add("WISH", "WISH", "WISH") with { UnknownAdds = 2 },
+    };
+
+    /// <summary>v0.109 and newer (checked on the v0.111.0 classes).</summary>
+    private static readonly Dictionary<string, DeckEffect> s_relicsV0111 = new(StringComparer.Ordinal)
+    {
+        // DistinguishedCape.AfterObtained: 3 Apparition, then 2 different random curses (Rng.Niche); no max HP loss any more.
+        ["RELIC.DISTINGUISHED_CAPE"] = Add("APPARITION", "APPARITION", "APPARITION") with { UnknownAdds = 2 },
+        // SereTalon: 3 Wish and 9 max HP (the cape's old downside).
+        ["RELIC.SERE_TALON"] = Add("WISH", "WISH", "WISH"),
+        // Neow's curse-slot relics added in v0.109 (DowsingRod / NeowsSacrifice.AfterObtained).
+        ["RELIC.DOWSING_ROD"] = Add("DOWSING"),
+        ["RELIC.NEOWS_SACRIFICE"] = Add("GUILTY"),
+    };
+
+    /// <summary>Relic pickups (ancient options, relic rewards, treasure picks) by relic id, the same in every version.</summary>
     private static readonly Dictionary<string, DeckEffect> s_relics = new(StringComparer.Ordinal)
     {
         ["RELIC.ASTROLABE"] = Sel(SelectMeaning.Transform),
@@ -190,14 +221,20 @@ public static class DeckEffects
         ["RELIC.HEFTY_TABLET"] = Sel(SelectMeaning.AddChosen, "INJURY"),
         ["RELIC.JEWELRY_BOX"] = Add("APOTHEOSIS"),
         ["RELIC.KIFUDA"] = Ench(),
+        // LargeCapsule.AfterObtained: 2 relics from the bag (no deck change), then the character's basic Strike and Defend.
+        ["RELIC.LARGE_CAPSULE"] = new() { AddBasicStrikeAndDefend = true },
         ["RELIC.LEAD_PAPERWEIGHT"] = Sel(SelectMeaning.AddChosen),
         ["RELIC.LEAFY_POULTICE"] = new() { TransformOneStrikeAndDefend = true },
         ["RELIC.MASSIVE_SCROLL"] = Sel(SelectMeaning.AddChosen),
         ["RELIC.NEOWS_TALISMAN"] = new() { UpgradeBasicStrikeAndDefend = true },
         ["RELIC.NEOWS_TORMENT"] = Add("NEOWS_FURY"),
+        // NeowsBones.AfterObtained: a relic reward, then 1 random curse (RunState.Rng.Niche: not replayable).
+        ["RELIC.NEOWS_BONES"] = new() { UnknownAdds = 1 },
         ["RELIC.NEW_LEAF"] = Sel(SelectMeaning.Transform),
+        // PaelsClaw.AfterObtained: Goopy on every deck card Goopy.CanEnchant accepts (Defend tag, no other enchantment).
+        ["RELIC.PAELS_CLAW"] = new() { EnchantAllDefends = "ENCHANTMENT.GOOPY" },
         ["RELIC.PAELS_GROWTH"] = Ench("CLONE"),
-        ["RELIC.PAELS_HORN"] = Add("RELAX"),
+        ["RELIC.PAELS_HORN"] = Add("RELAX", "RELAX"), // PaelsHorn.AfterObtained: 2 Relax
         ["RELIC.PAELS_TOOTH"] = Sel(SelectMeaning.Remove),
         ["RELIC.PANDORAS_BOX"] = new() { TransformAllBasics = true },
         ["RELIC.POMANDER"] = Sel(SelectMeaning.Upgrade),
@@ -228,15 +265,18 @@ public static class DeckEffects
     };
 
     /// <summary>Effect of an event option, or of the relic an ancient option grants (key ends with the relic id).</summary>
-    public static DeckEffect? ForChoice(string eventId, string choiceKey)
+    /// <param name="scheme">The run's seed arithmetic, which says the game generation (<see cref="GameDataVersion"/>).</param>
+    public static DeckEffect? ForChoice(string eventId, string choiceKey, RngScheme scheme = RngSeeds.Default)
     {
         if (s_events.TryGetValue(choiceKey, out DeckEffect? e)) return e;
         // Ancients (Neow, Pael, Vakuu, Orobas, Tanx, Darv, ...): "NEOW.pages.INITIAL.options.PRECARIOUS_SHEARS".
         int dot = choiceKey.LastIndexOf('.');
-        return dot >= 0 ? ForRelic("RELIC." + choiceKey[(dot + 1)..]) : null;
+        return dot >= 0 ? ForRelic("RELIC." + choiceKey[(dot + 1)..], scheme) : null;
     }
 
-    public static DeckEffect? ForRelic(string relicId) => s_relics.GetValueOrDefault(relicId);
+    /// <summary>A relic's pickup effect in the run's game generation.</summary>
+    public static DeckEffect? ForRelic(string relicId, RngScheme scheme = RngSeeds.Default) =>
+        (scheme == RngScheme.Legacy32 ? s_relicsV0107 : s_relicsV0111).GetValueOrDefault(relicId) ?? s_relics.GetValueOrDefault(relicId);
 
     /// <summary>Ancient events (subclasses of AncientEventModel): every option grants a relic.</summary>
     public static bool IsAncient(string eventId) => s_ancients.Contains(eventId);
@@ -249,4 +289,7 @@ public static class DeckEffects
     /// <summary>Basic Strike / Defend of any character (<c>CARD.STRIKE_DEFECT</c> ...).</summary>
     public static bool IsBasicStrike(string id) => id.StartsWith(C + "STRIKE_", StringComparison.Ordinal);
     public static bool IsBasicDefend(string id) => id.StartsWith(C + "DEFEND_", StringComparison.Ordinal);
+
+    /// <summary>Cards with <c>CardTag.Defend</c>: every character's basic Defend and Ultimate Defend (Models.Cards, both versions).</summary>
+    public static bool HasDefendTag(string id) => IsBasicDefend(id) || id == C + "ULTIMATE_DEFEND";
 }

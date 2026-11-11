@@ -1,0 +1,105 @@
+// 리젠트 아키타입 (v2). 카드 목록은 OP.GG 상위 랭커의 승천 10 바닐라 솔로 승리 덱(v0.107+, 리젠트 323판·45명, 그중 우수 플레이어 13명 237판; 2026-11 수집)과 Baalorlord의 A10 연승 덱에서 가져왔습니다. 근거 문서: docs/research/build-sources/regent.md
+// 시작 덱 카드(FALLING_STAR, VENERATE)와 시작 유물(DIVINE_RIGHT)은 넣지 않습니다. 축: STAR(별), FORGE(벼리기 = 검 토큰 강화), CREATE(카드 생성)
+// 판정: 플레이어별 가중치 상한 10%, 플레이어 단위 부트스트랩 200회에서 80% 이상 유지되는 결정만 반영. 우수 플레이어만으로는 표본이 얇아(빌드별 유효 플레이어 수 6 미만 또는 1위 플레이어가 절반 초과) 전체 플레이어 결과를 썼습니다.
+// 별 덱은 둘로 나눕니다: 다른 랭커의 별 덱(regent.stars)과 OP.GG 랭킹 1위 플레이어의 별 덱(regent.star_spend, 1위 플레이어 빌드). 베타에서 바뀐 카드(PILLAR_OF_CREATION, COLLISION_COURSE 등)는 v0.107.x 런만 봤습니다.
+{
+  "character": "CHARACTER.REGENT",
+  "archetypes": [
+    {
+      "id": "regent.stars",
+      "names": { "kor": "별 (블랙홀)", "eng": "Stars / Black Hole" },
+      "color": "#f4d03f",
+      // 근거(OP.GG A10 승리 덱, v0.107+): 빌드 덱 133판·34명(우수 플레이어 92판·11명, 1위 플레이어 0판, 한 사람 최대 36판).
+      // core BLACK_HOLE 비율 46%·lift 2.3·21명·부트스트랩 94%, core 유지 76%.
+      // 불확실(부트스트랩 80% 미만, v1 역할 유지): BIG_BANG enabler(69%), BLACK_HOLE core(76%), ROYAL_GAMBLE enabler(66%), SOLAR_STRIKE enabler(31%), STARDUST payoff(70%).
+      // 보조 근거(Baalorlord A10 리젠트 9판 중 5판 이상 + 축 카드 + OP.GG lift 1.0 이상이 부트스트랩 80% 이상): ASTRAL_PULSE 6/9, CLOAK_OF_STARS 5/9, GATHER_LIGHT 5/9, GLOW 8/9, PARTICLE_WALL 6/9, REFLECT 5/9.
+      // ASTRAL_PULSE: 보조 근거로만 남습니다. 보상에서 집는 비율은 전체 13%(819번 중 92번), 1위 플레이어 4%(196번 중 7번)로 낮고, 이 빌드 근거는 부트스트랩 51%로 불안정합니다.
+      // 예: https://op.gg/slay-the-spire2/history/4114272 https://op.gg/slay-the-spire2/history/6806553 https://op.gg/slay-the-spire2/history/4735669 https://op.gg/slay-the-spire2/history/7106770
+      "cards": {
+        "core": ["CARD.BLACK_HOLE"],
+        "enabler": ["CARD.GATHER_LIGHT", "CARD.GLOW", "CARD.HIDDEN_CACHE", "CARD.BIG_BANG", "CARD.ROYAL_GAMBLE", "CARD.SOLAR_STRIKE"],
+        "payoff": ["CARD.REFLECT", "CARD.CLOAK_OF_STARS", "CARD.GUIDING_STAR", "CARD.PARTICLE_WALL", "CARD.STARDUST"],
+        "support": ["CARD.ASTRAL_PULSE"]
+      },
+      // fullWeight 4.5 -> 5.5: 새 목록으로 다른 덱 commit 중앙값이 0.54(> 0.5, 변경 필요 부트스트랩 97%). 5.5에서 빌드 덱 0.83·다른 덱 0.45, 기준 충족 94%.
+      "fullWeight": 5.5,
+      // essentialTarget: 빌드 덱이 가진 서로 다른 enabler·payoff 수의 중앙값 5 (부트스트랩 89%).
+      "essentialTarget": 5,
+      // GALACTIC_DUST(별 소비 → 방어 유물): 빌드 덱 19/133·12명·lift 2.1·부트스트랩 83%로 다시 넣었습니다. LUNAR_PASTRY·MINI_REGENT·DIVINE_DESTINY는 기준 미달.
+      "keyRelics": [{ "id": "RELIC.GALACTIC_DUST", "w": 0.6 }],
+      "needs": [{ "tag": "STAR", "min": 3 }],
+      "desc": "별을 얻거나 쓸 때마다 모든 적을 때리는 파워를 깔고, 싼 별 비용 카드로 별을 계속 돌리는 빌드",
+      "guideHeroCard": "CARD.BLACK_HOLE"
+    },
+    {
+      "id": "regent.star_spend",
+      "names": { "kor": "별 소모 (별의 아이)", "eng": "Star Spend / Child of the Stars" },
+      "color": "#a569bd",
+      // OP.GG 랭킹 1위 플레이어 빌드: 그의 리젠트 승리 79판 중 별 덱 65판(모두 v0.107.x). 1위 플레이어 빌드 규칙(그의 승리 15판 이상)으로 인정, 카드는 그의 덱 50% 이상 + lift 1.5 이상, 그의 런 재표본 부트스트랩 80% 이상으로 판정.
+      // core CHILD_OF_THE_STARS 그의 덱 53%(31/59)·lift 2.3·런 재표본 부트스트랩 70%.
+      // 불확실(부트스트랩 80% 미만, v1 역할 유지): CHILD_OF_THE_STARS core(70%), RADIATE payoff(30%).
+      // 제거(2026-11 감사): BEGONE support(부트스트랩 32%). 카드 하나를 미니언 타격으로 바꾸는 카드 생성 카드라 별을 만들지도 쓰지도 않음(카드 생성 빌드의 enabler로는 남음). 랭커 2,155판 승리 덱에서도 이 빌드 카드 2장 이상 덱 대비 lift 0.81(좋은 플레이어 별 축 덱 1.16).
+      // 보조 근거(Baalorlord A10 리젠트 9판 중 5판 이상 + 축 카드 + OP.GG lift 1.0 이상이 부트스트랩 80% 이상): REFLECT 5/9.
+      // 예: https://op.gg/slay-the-spire2/history/6636495 https://op.gg/slay-the-spire2/history/6669199 https://op.gg/slay-the-spire2/history/6669204 https://op.gg/slay-the-spire2/history/6669185
+      "cards": {
+        "core": ["CARD.CHILD_OF_THE_STARS"],
+        "enabler": ["CARD.ROYAL_GAMBLE"],
+        "payoff": ["CARD.REFLECT", "CARD.RADIATE"],
+        "support": ["CARD.HIDDEN_CACHE"]
+      },
+      "fullWeight": 4.0,
+      // 핵심 유물: 1위 플레이어 덱 절반 이상 + lift 1.5 이상인 유물이 없습니다.
+      "keyRelics": [],
+      "needs": [{ "tag": "STAR", "min": 3 }],
+      "desc": "별을 쓸 때마다 방어도를 얻는 파워를 깔고, 별을 한꺼번에 크게 모아 방어와 광역 공격에 쓰는 빌드",
+      "guideHeroCard": "CARD.CHILD_OF_THE_STARS"
+    },
+    {
+      "id": "regent.forge",
+      "names": { "kor": "벼리기(검 토큰)", "eng": "Forge / Sovereign Blade" },
+      "color": "#b9770e",
+      // 근거(OP.GG A10 승리 덱, v0.107+): 빌드 덱 102판·27명(우수 플레이어 67판·9명, 1위 플레이어 35판, 한 사람 최대 35판).
+      // core FURNACE 비율 44%·lift 2.1·15명·부트스트랩 98%, core 유지 73%.
+      // 불확실(부트스트랩 80% 미만, v1 역할 유지): FURNACE core(73%), WROUGHT_IN_WAR enabler(68%).
+      // SWORD_SAGE는 근거는 안정적이지만(95%) 비율이 31%라 core 기준(40%)에 못 미쳐(core 유지 7%) payoff로 옮겼습니다.
+      // 예: https://op.gg/slay-the-spire2/history/6751787 https://op.gg/slay-the-spire2/history/5119239 https://op.gg/slay-the-spire2/history/4605613 https://op.gg/slay-the-spire2/history/7177823
+      "cards": {
+        "core": ["CARD.FURNACE"],
+        "enabler": ["CARD.REFINE_BLADE", "CARD.BULWARK", "CARD.SPOILS_OF_BATTLE", "CARD.SUMMON_FORTH"],
+        "payoff": ["CARD.PARRY", "CARD.SWORD_SAGE", "CARD.CONQUEROR"],
+        "support": ["CARD.WROUGHT_IN_WAR"]
+      },
+      "fullWeight": 4.0,
+      // essentialTarget: 빌드 덱이 가진 서로 다른 enabler·payoff 수의 중앙값 3 (부트스트랩 92%).
+      "essentialTarget": 3,
+      // FENCING_MANUAL: 빌드 덱 31/102·16명·lift 2.6·부트스트랩 98%.
+      "keyRelics": [{ "id": "RELIC.FENCING_MANUAL", "w": 0.6 }],
+      "needs": [{ "tag": "FORGE", "min": 3 }],
+      "desc": "벼리기 카드와 매 턴 벼리는 파워로 검 토큰 한 장을 계속 키우고, 검 토큰에 반응하는 카드로 마무리하는 빌드",
+      "guideHeroCard": "CARD.FURNACE"
+    },
+    {
+      "id": "regent.creation",
+      "names": { "kor": "카드 생성", "eng": "Creation" },
+      "color": "#48c9b0",
+      // 근거(OP.GG A10 승리 덱, v0.107+): 빌드 덱 115판·32명(우수 플레이어 73판·11명, 1위 플레이어 1판, 한 사람 최대 19판).
+      // core PILLAR_OF_CREATION 비율 72%·lift 1.9·17명·부트스트랩 92%, core 유지 92%.
+      // 불확실(부트스트랩 80% 미만, v1 역할 유지): MANIFEST_AUTHORITY enabler(58%), QUASAR enabler(36%).
+      // 보조 근거(Baalorlord A10 리젠트 9판 중 5판 이상 + 축 카드 + OP.GG lift 1.0 이상이 부트스트랩 80% 이상): BEGONE 5/9.
+      // core PILLAR_OF_CREATION은 v0.107.x 빌드 덱만 셉니다(31판). v1의 "core 비움"을 해제했습니다.
+      // 예: https://op.gg/slay-the-spire2/history/7202938 https://op.gg/slay-the-spire2/history/6497786 https://op.gg/slay-the-spire2/history/4220586 https://op.gg/slay-the-spire2/history/4735621
+      "cards": {
+        "core": ["CARD.PILLAR_OF_CREATION"],
+        "enabler": ["CARD.BEGONE", "CARD.CHARGE", "CARD.MANIFEST_AUTHORITY", "CARD.BUNDLE_OF_JOY", "CARD.QUASAR"],
+        "payoff": ["CARD.ARSENAL", "CARD.SUPERMASSIVE"],
+        "support": ["CARD.COLLISION_COURSE"]
+      },
+      "fullWeight": 4.0,
+      // TOOLBOX: 불확실(빌드 덱 8/115·7명·lift 2.7, 부트스트랩 48%) → v1 값 유지.
+      "keyRelics": [{ "id": "RELIC.TOOLBOX", "w": 0.3 }],
+      "needs": [{ "tag": "CREATE", "min": 3 }],
+      "desc": "무색·하수인 카드를 만들어 낼 때마다 방어도를 얻고, 만든 카드 수만큼 강해지는 공격으로 마무리하는 빌드",
+      "guideHeroCard": "CARD.PILLAR_OF_CREATION"
+    }
+  ]
+}

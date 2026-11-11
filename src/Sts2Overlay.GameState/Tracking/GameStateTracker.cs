@@ -46,15 +46,15 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
     private const int ScarcityAscension = 7; // AscensionLevel.Scarcity
     private const string BingBong = "RELIC.BING_BONG";
     private const string UpgradeRollArg = "upgrade-roll";
+    private const string TransformScreen = "deck_transform_select_screen", UpgradeScreen = "deck_upgrade_select_screen";
 
-    private static bool MayRollUpgrade(string cardId) =>
-        CardRarities.Of(cardId) is not ("Rare" or null) && CardRarities.MaxUpgrade(cardId) > 0;
+    private static bool MayRollUpgrade(string cardId, RngScheme scheme) =>
+        CardRarities.Of(cardId, scheme) is not ("Rare" or null) && CardRarities.MaxUpgrade(cardId, scheme) > 0;
     /// <summary>Card type each egg relic upgrades when a card of that type joins the deck.</summary>
     private static readonly (string Relic, string Type)[] s_eggs =
         [("RELIC.FROZEN_EGG", "Power"), ("RELIC.MOLTEN_EGG", "Attack"), ("RELIC.TOXIC_EGG", "Skill")];
 
     private TrackerOptions _options; // Paths change when the saves folder shows up later or the game switches profile
-    private readonly StartingLoadouts _loadouts;
     private readonly Func<DateTime> _clock;
     private readonly object _gate = new();
 
@@ -89,11 +89,13 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
     private bool _pendingRemovalReward;
     private bool _cardStolen;                            // Thieving Hopper took a card this room (not yet returned)
     private int _stealAt;                                // index in _combatPlays where the steal happened
+    private long _stealSeq;                              // log line of the steal (a save written after it already lacks the card)
     private (List<CombatPlay> Before, List<CombatPlay> After)? _stealPlays;
     private DeckEffect? _pendingSelect;                  // meaning of my next "chose cards" (event option / relic)
     private bool _merchantVisited;                       // I entered a merchant this run (my purchases aren't logged)
     private string? _pendingEventId;                     // the event that set _pendingSelect (its RNG stream is replayable)
     private bool _shopRemovalSeen;                       // a merchant sells one removal per visit
+    private string? _selectScreen;                       // deck card-select scene the log saw loading (first use per session only)
     private readonly List<int> _restSitePatches = [];    // provisional smith upgrades, fixed by the option line
     private readonly HashSet<string> _relicsThisRoom = new(StringComparer.Ordinal);
     private List<CombatPlay>? _combatPlays;              // plays of the fight in progress
@@ -124,7 +126,6 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
     public GameStateTracker(TrackerOptions? options = null)
     {
         _options = options ?? new TrackerOptions();
-        _loadouts = _options.Loadouts ?? StartingLoadouts.Embedded;
         _clock = _options.Clock ?? (() => DateTime.UtcNow);
     }
 
@@ -438,6 +439,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
                 _pendingRemovalReward = false;
                 _pendingSelect = null;
                 _shopRemovalSeen = false;
+                _selectScreen = null;
                 _restSitePatches.Clear();
                 _relicsThisRoom.Clear();
                 _offers.Clear();
@@ -499,14 +501,17 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
             // ---- patches: only for the local player ----------------------------------------------
             case MonsterMoveEvent { Move: "THIEVERY_MOVE" }:
                 _cardStolen = true; // every living player loses a card (which one is not logged)
+                _stealSeq = _seq;
                 _stealAt = _combatPlays?.Count ?? 0;
                 _stealPlays = null;
                 return false;
             case CardObtainedEvent { Special: true } c when IsMe(c.PlayerId) && _cardStolen:
                 // Killing the hopper gives the stolen card back as a "special card reward" (SwipePower.BeforeDeath):
-                // the unlogged steal and this return cancel out, so the deck is unchanged.
+                // the unlogged steal and this return cancel out, so the deck is unchanged — unless a save was written
+                // between them (the game saves at the end of the fight): that save lacks the card, so it comes back.
                 _cardStolen = false;
-                return false;
+                _patches.Add(new Patch(PatchKind.StolenReturned, c.CardId, 0, _seq) { StealSeq = _stealSeq });
+                return true;
             case CardObtainedEvent c when IsMe(c.PlayerId):
             {
                 // From act 2 on, a reward card may come pre-upgraded (CardFactory.RollForUpgrade: act index x 25%,
@@ -555,7 +560,14 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
                 _lastRestOption = ro.Option;
                 return FixRestSitePatches(ro.Option);
             case CardsChosenEvent ch when IsMe(ch.PlayerId) && ch.CardIds.Count > 0:
-                return ApplyChosen(ch);
+            {
+                bool changed = ApplyChosen(ch);
+                _selectScreen = null;
+                return changed;
+            }
+            case CardSelectScreenEvent sc:
+                _selectScreen = sc.Screen;
+                return false;
 
             default:
                 return false;
@@ -617,6 +629,15 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
                 return true;
             case RoomKind.Combat:
                 return false;
+            // Single player logs no event option, but the select screen's scene name, when its load was logged, says
+            // what the pick does: NDeckTransformSelectScreen (CardSelectCmd.FromDeckForTransformation) → the card leaves
+            // and an unnamed card joins; NDeckUpgradeSelectScreen (FromDeckForUpgrade) → the card is upgraded.
+            case not RoomKind.Merchant when _selectScreen == TransformScreen:
+                foreach (string card in ch.CardIds) AddPatch(PatchKind.TransformCard, card, 0);
+                return true;
+            case not RoomKind.Merchant when _selectScreen == UpgradeScreen:
+                foreach (string card in ch.CardIds) AddPatch(PatchKind.UpgradeCard, card, 0);
+                return true;
             default:
                 foreach (string card in ch.CardIds) AddPatch(PatchKind.UnknownSelect, card, 0);
                 return true;
@@ -657,16 +678,16 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         {
             if (_relicsThisRoom.Add(relic)) AddPatch(PatchKind.AddRelic, relic, 0);
         }
-        else if (relic != null && DeckEffects.ForRelic(relic) != null)
+        else if (relic != null && DeckEffects.ForRelic(relic, Scheme()) != null)
             _relicsThisRoom.Add(relic);
-        ApplyEffect(DeckEffects.ForChoice(eo.EventId, eo.ChoiceKey), eo.EventId);
+        ApplyEffect(DeckEffects.ForChoice(eo.EventId, eo.ChoiceKey, Scheme()), eo.EventId);
     }
 
     /// <summary>A relic was obtained: apply its pickup effect once per room (an ancient option may have applied it already).</summary>
     private void ApplyRelicEffect(string relicId)
     {
         if (!_relicsThisRoom.Add(relicId)) return;
-        ApplyEffect(DeckEffects.ForRelic(relicId));
+        ApplyEffect(DeckEffects.ForRelic(relicId, Scheme()));
     }
 
     /// <summary>Fixed and random deck effects of an event option / relic; its card-select meaning waits for "chose cards".</summary>
@@ -699,6 +720,14 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         if (effect.TransformOneStrikeAndDefend) AddPatch(PatchKind.TransformStrikeAndDefend, null, 0);
         if (effect.Transcend) AddPatch(PatchKind.Transcend, null, 0);
         if (effect.UpgradeAll) AddPatch(PatchKind.UpgradeAll, null, 0);
+        if (effect.AddBasicStrikeAndDefend && MyCharacter() is { } character
+            && StartingLoadouts.EmbeddedFor(Scheme()).For(character)?.Deck is { } starter)
+        {
+            // LargeCapsule.GetStrikeForCharacter / GetDefendForCharacter: the pool's Basic card tagged Strike / Defend.
+            foreach (string? card in new[] { starter.FirstOrDefault(DeckEffects.IsBasicStrike), starter.FirstOrDefault(DeckEffects.IsBasicDefend) })
+                if (card != null) AddPatch(PatchKind.AddCard, card, 0);
+        }
+        if (effect.EnchantAllDefends is { } enchantment) AddPatch(PatchKind.EnchantAllDefends, null, 0, enchantment);
     }
 
     /// <summary>Leaving the room with the stolen card not returned (hopper escaped / reward skipped): an unknown card is gone.</summary>
@@ -708,6 +737,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         _cardStolen = false;
         _patches.Add(new Patch(PatchKind.CardStolen, null, 0, _seq)
         {
+            StealSeq = _stealSeq,
             Before = _stealPlays?.Before ?? [],
             Combat = new CombatObservation(_stealPlays?.After ?? []),
         });
@@ -779,6 +809,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         _stealPlays = null;
         _pendingSelect = null;
         _shopRemovalSeen = false;
+        _selectScreen = null;
         _restSitePatches.Clear();
         _relicsThisRoom.Clear();
         _combatPlays = null;
@@ -830,7 +861,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         // The game writes that save just before it logs 'Event Room', but the watcher may deliver the file a moment after
         // the tailer reads the log line: until then the save in hand is the PREVIOUS room's entry save (an event room
         // writes no save when you leave it) and would predict the previous room's event. Wait for the logged save.
-        if (_eventGuess == null && snapshot is { Save: { } entry } && !IsBehindLog(snapshot) && EventPrediction.Predict(entry) is { } guess)
+        if (_eventGuess == null && snapshot is { Save: { } entry } && !IsBehindLog(snapshot) && EventPrediction.Predict(entry, Scheme()) is { } guess)
         {
             _eventGuess = guess;
             _eventCheck = (guess, entry.Events!.EventsSeen.Count);
@@ -1076,9 +1107,10 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
 
     private RewardCardPool? Pool()
     {
-        if (_pool == null)
+        RngScheme scheme = Scheme();
+        if (_pool == null || _pool.Scheme != scheme)
         {
-            _pool = RewardCardPool.For(MyCharacter(), IsMultiplayer());
+            _pool = RewardCardPool.For(MyCharacter(), IsMultiplayer(), scheme);
             _liveEpochs = ulong.MaxValue;
         }
         return _pool;
@@ -1123,8 +1155,9 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
     {
         List<OfferSlot>? picked = PickedSlots(cardId); // also narrows the epoch hypotheses, so run it for every pick
         int actIndex = CurrentAct() - 1;
-        if (!MayRollUpgrade(cardId) || actIndex <= 0) return 0;
-        string rarity = CardRarities.Of(cardId)!;
+        RngScheme scheme = Scheme();
+        if (!MayRollUpgrade(cardId, scheme) || actIndex <= 0) return 0;
+        string rarity = CardRarities.Of(cardId, scheme)!;
         int ascension = Ascension();
         List<bool> Outcomes(IEnumerable<OfferSlot> slots) =>
             slots.Select(s => RewardRollReplay.Upgrades(s.UpgradeRoll, rarity, actIndex, ascension)).Distinct().ToList();
@@ -1289,7 +1322,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         }
 
         // ---- apply log patches newer than the save -------------------------------------------------
-        var deck = new DeckReplay(state.Deck);
+        var deck = new DeckReplay(state.Deck, Scheme());
         var relics = state.Relics.ToList();
         int gold = state.Gold, removals = state.CardRemovalsBought, applied = 0;
         int rodFights = 0;
@@ -1299,8 +1332,10 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
             if (p.Seq <= cutoff) continue;
             // Uncertainty flags and fight observations only matter without a save (co-op guest): a save is exact.
             // (Replayed event-RNG upgrades are exact, so they apply on top of a save too.)
-            if (fromSave && p.Kind is PatchKind.UnknownSelect or PatchKind.RandomUpgrades
-                    or PatchKind.UnknownAdds or PatchKind.RandomRemoves) continue;
+            // A select naming a card the save doesn't have still proves the card is in the deck now (picked from a grid
+            // of new cards, e.g. Room Full of Cheese, or bought unlogged): add it.
+            if (fromSave && p.Kind == PatchKind.UnknownSelect) { deck.Named(p.Id!, state.Floor); applied++; continue; }
+            if (fromSave && p.Kind is PatchKind.RandomUpgrades or PatchKind.UnknownAdds or PatchKind.RandomRemoves) continue;
             applied++;
             switch (p.Kind)
             {
@@ -1328,7 +1363,11 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
                 case PatchKind.RandomUpgrades: deck.RandomUpgrades(p.Amount, p.Arg); break;
                 case PatchKind.UnknownAdds: deck.UnknownAdds(p.Amount); break;
                 case PatchKind.RandomRemoves: deck.RandomRemoves(p.Amount); break;
+                case PatchKind.StolenReturned:
+                    if (p.StealSeq <= cutoff) deck.Add(p.Id!, state.Floor); // the save already lacks the stolen card
+                    break;
                 case PatchKind.CardStolen:
+                    if (p.StealSeq <= cutoff) break; // the save already lacks the stolen card
                     deck.Stolen(p.Before!.Where(x => x.Owner == me).ToList(), p.Combat!.Plays.Where(x => x.Owner == me).ToList());
                     break;
                 case PatchKind.UpgradeBasics: deck.UpgradeBasics(); break;
@@ -1336,6 +1375,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
                 case PatchKind.TransformStrikeAndDefend: deck.TransformStrikeAndDefend(); break;
                 case PatchKind.Transcend: deck.Transcend(); break;
                 case PatchKind.CloneEnchanted: deck.CloneEnchanted(); break;
+                case PatchKind.EnchantAllDefends: deck.EnchantAll(DeckEffects.HasDefendTag, p.Arg!); break;
                 case PatchKind.CombatSeen:
                     if (!fromSave && p.Combat!.Plays.Count > 0) deck.Observe(p.Combat!, order, me, state.Floor);
                     deck.CombatEnded();
@@ -1431,7 +1471,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
                             ?? run.Players.FirstOrDefault(p => p.NetId == me)?.Character
                             ?? run.Players.FirstOrDefault()?.Character;
         if (character == null) return null;
-        StartingLoadout? loadout = _loadouts.For(character);
+        StartingLoadout? loadout = (_options.Loadouts ?? StartingLoadouts.EmbeddedFor(Scheme())).For(character);
         int ascension = run.Ascension ?? 0;
 
         var deck = (loadout?.Deck ?? []).Select(id => new DeckCard(new CardRef(id), FloorAdded: 1)).ToList();
@@ -1467,7 +1507,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         AddCard, RemoveCard, ShopRemoveCard, UpgradeCard, TransformCard, EnchantCard, DuplicateCard, UnknownSelect,
         RandomUpgrades, UnknownAdds, RandomRemoves, UpgradeBasics, TransformAllBasics, TransformStrikeAndDefend, Transcend,
         CloneEnchanted, CombatSeen, CardStolen, UpgradeAll, AddRelic, AddGold, AddPotion, RemovePotion,
-        ShuffleUpgrades, PickUpgrade,
+        ShuffleUpgrades, PickUpgrade, EnchantAllDefends, StolenReturned,
     }
 
     /// <param name="Seq">Log line number: patches are compared to save marks by this, not by wall-clock time.</param>
@@ -1478,6 +1518,8 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         public CombatObservation? Combat { get; init; }
         /// <summary>CardStolen: the fight's plays before the steal (<see cref="Combat"/> holds the ones after it).</summary>
         public IReadOnlyList<CombatPlay>? Before { get; init; }
+        /// <summary>CardStolen / StolenReturned: log line of the steal itself.</summary>
+        public long StealSeq { get; init; }
         /// <summary>ShuffleUpgrades / PickUpgrade: seed of the event's RNG stream (a fresh stream is made on each compose).</summary>
         public ulong? RngSeed { get; init; }
     }

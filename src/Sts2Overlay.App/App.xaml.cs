@@ -166,6 +166,20 @@ public partial class App : Application
 
         // --show-in-capture forces it on for this run (old debug flag); recognition stays safe either way.
         var captureVisibility = new OverlayCaptureVisibility(_settings.ShowOverlayInCapture || options.ShowInCapture);
+        // Match the data version to the installed game once, before anything loads a pack or catalog.
+        // A game update while the overlay runs is picked up at the next start (there is no re-detection while running).
+        string? gameVersion = null;
+        try
+        {
+            var install = Sts2Overlay.Resources.GameInstall.Locate(options.GameDir ?? _settings.GameDir);
+            gameVersion = install is null ? null : Sts2Overlay.Resources.ReleaseInfo.TryLoad(install.ReleaseInfoPath)?.Version;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        {
+            AppLog.Warn($"game version for data selection unreadable: {ex.Message}");
+        }
+        var dataChoice = AppPaths.SelectDataVersion(gameVersion);
+        AppLog.Info($"data version {dataChoice.Version} for game {gameVersion ?? "unknown"} ({dataChoice.Reason})");
         var packDir = AppPaths.ResolvePackDir(options.PackDir ?? _settings.PackDir);
         var catalog = AppPaths.FindLocalCatalog(options.CatalogPath ?? _settings.CatalogPath);
 

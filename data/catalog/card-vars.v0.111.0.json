@@ -1,0 +1,9197 @@
+{
+  "gameVersion": "v0.111.0",
+  "source": "static-il",
+  "note": "Game facts only (numbers and variable names, no text). vars = CanonicalVars base values; upgrade.vars = amount added by one upgrade (OnUpgrade), costDelta = energy cost change, add/removeKeywords = keyword changes. calculated: value shown out of combat = vars[base]; in combat it is vars[base] + vars[extra] x a runtime count. unresolved = variables only known at runtime. contextVars = variables CardModel.GetDescriptionForPile adds to every card description. Regenerate: dotnet run --project tools/CatalogBuilder -- --card-vars data/catalog/card-vars.<version>.json [--loc <localization dir> to also check the templates]",
+  "contextVars": {
+    "IfUpgraded": "IfUpgradedVar: {IfUpgraded:show:upgraded|normal} picks the first branch on an upgraded card (green in the upgrade preview), else the second",
+    "OnTable": "bool: the card is in hand or being played",
+    "InCombat": "bool: a combat is running and the card is in a combat pile (false in rewards, shop, deck view, library)",
+    "IsTargeting": "bool: the card is currently aimed at a target",
+    "TargetType": "string: the card's TargetType enum name (AnyEnemy, Self, ...)",
+    "GainsBlock": "bool: CardModel.GainsBlock",
+    "IsOstyAlive": "bool: the owner's Osty is alive (Necrobinder); false outside a run",
+    "energyPrefix": "string: energy icon colour of the card's pool (ironclad, silent, ..., colorless); used as {energyPrefix:energyIcons(n)} = n energy icons",
+    "singleStarIcon": "string: one star icon image tag"
+  },
+  "cards": [
+    {
+      "id": "CARD.ABRASIVE",
+      "vars": {
+        "ThornsPower": 4,
+        "DexterityPower": 1
+      },
+      "upgrade": {
+        "vars": {
+          "ThornsPower": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ABUNDANCE",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ACCELERANT",
+      "vars": {
+        "Accelerant": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Accelerant": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ACCURACY",
+      "vars": {
+        "AccuracyPower": 4
+      },
+      "upgrade": {
+        "vars": {
+          "AccuracyPower": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ACROBATICS",
+      "vars": {
+        "Cards": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ADAPTIVE_STRIKE",
+      "vars": {
+        "Damage": 18
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 5
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ADRENALINE",
+      "vars": {
+        "Energy": 1,
+        "Cards": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Energy": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.AFTERIMAGE",
+      "vars": {
+        "AfterimagePower": 1
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [
+          "Innate"
+        ],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.AFTERLIFE",
+      "vars": {
+        "Summon": 6
+      },
+      "upgrade": {
+        "vars": {
+          "Summon": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.AGGRESSION",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [
+          "Innate"
+        ],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ALCHEMIZE",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ALIGNMENT",
+      "vars": {
+        "Energy": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Energy": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ALL_FOR_ONE",
+      "vars": {
+        "Damage": 10
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 4
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ANGER",
+      "vars": {
+        "Damage": 6
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ANOINTED",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [
+          "Retain"
+        ],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ANTICIPATE",
+      "vars": {
+        "DexterityPower": 2
+      },
+      "upgrade": {
+        "vars": {
+          "DexterityPower": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.APOTHEOSIS",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.APPARITION",
+      "vars": {
+        "IntangiblePower": 1
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": [
+          "Ethereal"
+        ]
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ARMAMENTS",
+      "vars": {
+        "Block": 5
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ARSENAL",
+      "vars": {
+        "ArsenalPower": 1
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [
+          "Innate"
+        ],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ASCENDERS_BANE",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ASHEN_STRIKE",
+      "vars": {
+        "CalculationBase": 6,
+        "ExtraDamage": 3,
+        "CalculatedDamage": 6
+      },
+      "upgrade": {
+        "vars": {
+          "ExtraDamage": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedDamage": {
+          "base": "CalculationBase",
+          "extra": "ExtraDamage"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ASSASSINATE",
+      "vars": {
+        "Damage": 10,
+        "VulnerablePower": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3,
+          "VulnerablePower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ASTRAL_PULSE",
+      "vars": {
+        "Damage": 6
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.AUTOMATION",
+      "vars": {
+        "Energy": 1
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BACKFLIP",
+      "vars": {
+        "Block": 5,
+        "Cards": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BACKSTAB",
+      "vars": {
+        "Damage": 11
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 4
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BAD_LUCK",
+      "vars": {
+        "HpLoss": 13
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BALL_LIGHTNING",
+      "vars": {
+        "Damage": 7
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BANSHEES_CRY",
+      "vars": {
+        "Damage": 33,
+        "Energy": 2
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": -2,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BARRAGE",
+      "vars": {
+        "Damage": 5,
+        "CalculationBase": 0,
+        "CalculationExtra": 1,
+        "CalculatedHits": 0
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedHits": {
+          "base": "CalculationBase",
+          "extra": "CalculationExtra"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BARRICADE",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BASH",
+      "vars": {
+        "Damage": 8,
+        "VulnerablePower": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2,
+          "VulnerablePower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BATTLE_TRANCE",
+      "vars": {
+        "Cards": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BEACON_OF_HOPE",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [
+          "Innate"
+        ],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BEAM_CELL",
+      "vars": {
+        "Damage": 3,
+        "VulnerablePower": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 1,
+          "VulnerablePower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BEAT_DOWN",
+      "vars": {
+        "Cards": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BEAT_INTO_SHAPE",
+      "vars": {
+        "Damage": 5,
+        "CalculationBase": 5,
+        "CalculationExtra": 5,
+        "CalculatedForge": 5
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2,
+          "CalculationBase": 2,
+          "CalculationExtra": 2,
+          "CalculatedForge": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedForge": {
+          "base": "CalculationBase",
+          "extra": "CalculationExtra"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BECKON",
+      "vars": {
+        "HpLoss": 6
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BEGONE",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BELIEVE_IN_YOU",
+      "vars": {
+        "Energy": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Energy": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BIASED_COGNITION",
+      "vars": {
+        "FocusPower": 5,
+        "BiasedCognitionPower": 1
+      },
+      "upgrade": {
+        "vars": {
+          "FocusPower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BIG_BANG",
+      "vars": {
+        "Cards": 1,
+        "Energy": 1,
+        "Stars": 1,
+        "Forge": 5
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [
+          "Innate"
+        ],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BLACK_HOLE",
+      "vars": {
+        "BlackHolePower": 3
+      },
+      "upgrade": {
+        "vars": {
+          "BlackHolePower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BLADE_DANCE",
+      "vars": {
+        "Cards": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BLADE_OF_INK",
+      "vars": {
+        "Cards": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BLADE_SYMPHONY",
+      "vars": {
+        "Cards": 2
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BLAZE",
+      "vars": {
+        "StrengthPower": 5
+      },
+      "upgrade": {
+        "vars": {
+          "StrengthPower": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BLIGHT_STRIKE",
+      "vars": {
+        "Damage": 8
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BLOODLETTING",
+      "vars": {
+        "HpLoss": 3,
+        "Energy": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Energy": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BLOOD_WALL",
+      "vars": {
+        "HpLoss": 2,
+        "Block": 16
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 4
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BLUDGEON",
+      "vars": {
+        "Damage": 32
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 10
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BLUR",
+      "vars": {
+        "Block": 5,
+        "Blur": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BODYGUARD",
+      "vars": {
+        "Summon": 5
+      },
+      "upgrade": {
+        "vars": {
+          "Summon": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BODY_SLAM",
+      "vars": {
+        "CalculationBase": 0,
+        "ExtraDamage": 1,
+        "CalculatedDamage": 0
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedDamage": {
+          "base": "CalculationBase",
+          "extra": "ExtraDamage"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BOLAS",
+      "vars": {
+        "Damage": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BOMBARDMENT",
+      "vars": {
+        "Damage": 18
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 6
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BONE_SHARDS",
+      "vars": {
+        "OstyDamage": 9,
+        "Block": 9
+      },
+      "upgrade": {
+        "vars": {
+          "OstyDamage": 3,
+          "Block": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BOOST_AWAY",
+      "vars": {
+        "Block": 6
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BOOT_SEQUENCE",
+      "vars": {
+        "Block": 10
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BORROWED_TIME",
+      "vars": {
+        "Energy": 4,
+        "ExtraCost": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Energy": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BOUNCING_FLASK",
+      "vars": {
+        "PoisonPower": 3,
+        "Repeat": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Repeat": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BRAND",
+      "vars": {
+        "HpLoss": 1,
+        "StrengthPower": 1
+      },
+      "upgrade": {
+        "vars": {
+          "StrengthPower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BREAK",
+      "vars": {
+        "Damage": 20,
+        "VulnerablePower": 5
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 10,
+          "VulnerablePower": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BREAKTHROUGH",
+      "vars": {
+        "Damage": 9,
+        "HpLoss": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 4
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BRIGHTEST_FLAME",
+      "vars": {
+        "MaxHp": 2,
+        "Energy": 2,
+        "Cards": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Energy": 1,
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BUBBLE_BUBBLE",
+      "vars": {
+        "PoisonPower": 9
+      },
+      "upgrade": {
+        "vars": {
+          "PoisonPower": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BUFFER",
+      "vars": {
+        "BufferPower": 1
+      },
+      "upgrade": {
+        "vars": {
+          "BufferPower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BULK_UP",
+      "vars": {
+        "OrbSlots": 1,
+        "StrengthPower": 2,
+        "DexterityPower": 2
+      },
+      "upgrade": {
+        "vars": {
+          "StrengthPower": 1,
+          "DexterityPower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BULLET_TIME",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BULLY",
+      "vars": {
+        "CalculationBase": 4,
+        "ExtraDamage": 2,
+        "CalculatedDamage": 4
+      },
+      "upgrade": {
+        "vars": {
+          "ExtraDamage": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedDamage": {
+          "base": "CalculationBase",
+          "extra": "ExtraDamage"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BULWARK",
+      "vars": {
+        "Block": 12,
+        "Forge": 10
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 3,
+          "Forge": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BUNDLE_OF_JOY",
+      "vars": {
+        "Cards": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BURN",
+      "vars": {
+        "Damage": 2
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BURNING_PACT",
+      "vars": {
+        "Cards": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BURST",
+      "vars": {
+        "Skills": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Skills": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BURY",
+      "vars": {
+        "Damage": 52
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 11
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BYRDONIS_EGG",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.BYRD_SWOOP",
+      "vars": {
+        "Damage": 14
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 4
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CACOPHONY",
+      "vars": {
+        "Cards": 33,
+        "Damage": 66
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 33
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CALAMITY",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CALCIFY",
+      "vars": {
+        "CalcifyPower": 4
+      },
+      "upgrade": {
+        "vars": {
+          "CalcifyPower": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CALCULATED_GAMBLE",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [
+          "Retain"
+        ],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CALL_OF_THE_VOID",
+      "vars": {
+        "Cards": 1
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [
+          "Innate"
+        ],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CALTROPS",
+      "vars": {
+        "ThornsPower": 3
+      },
+      "upgrade": {
+        "vars": {
+          "ThornsPower": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CAPACITOR",
+      "vars": {
+        "Repeat": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Repeat": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CAPTURE_SPIRIT",
+      "vars": {
+        "Damage": 3,
+        "Cards": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 1,
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CASCADE",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CATASTROPHE",
+      "vars": {
+        "Cards": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CELESTIAL_MIGHT",
+      "vars": {
+        "Damage": 6,
+        "Repeat": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Repeat": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CHAOS",
+      "vars": {
+        "Repeat": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Repeat": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CHARGE",
+      "vars": {
+        "Cards": 2
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CHARGE_BATTERY",
+      "vars": {
+        "Block": 7,
+        "Energy": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CHILD_OF_THE_STARS",
+      "vars": {
+        "BlockForStars": 2
+      },
+      "upgrade": {
+        "vars": {
+          "BlockForStars": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CHILL",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": [
+          "Exhaust"
+        ]
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CINDER",
+      "vars": {
+        "Damage": 18
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 6
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CLASH",
+      "vars": {
+        "Damage": 14
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 4
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CLAW",
+      "vars": {
+        "Damage": 3,
+        "Increase": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 1,
+          "Increase": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CLEANSE",
+      "vars": {
+        "Summon": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Summon": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CLOAK_AND_DAGGER",
+      "vars": {
+        "Block": 6,
+        "Cards": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CLOAK_OF_STARS",
+      "vars": {
+        "Block": 7
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CLUMSY",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.COLD_SNAP",
+      "vars": {
+        "Damage": 6
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.COLLISION_COURSE",
+      "vars": {
+        "Damage": 10
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 4
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.COLOSSUS",
+      "vars": {
+        "Block": 4,
+        "Colossus": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.COMET",
+      "vars": {
+        "Damage": 33,
+        "VulnerablePower": 3,
+        "WeakPower": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 11
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.COMPACT",
+      "vars": {
+        "Block": 6
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.COMPILE_DRIVER",
+      "vars": {
+        "Damage": 7,
+        "CalculationBase": 0,
+        "CalculationExtra": 1,
+        "CalculatedCards": 0
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedCards": {
+          "base": "CalculationBase",
+          "extra": "CalculationExtra"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CONCOCT",
+      "vars": {
+        "ConcoctPower": 3
+      },
+      "upgrade": {
+        "vars": {
+          "ConcoctPower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CONFLAGRATION",
+      "vars": {
+        "Damage": 2,
+        "Repeat": 4
+      },
+      "upgrade": {
+        "vars": {
+          "Repeat": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CONQUEROR",
+      "vars": {
+        "Forge": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Forge": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CONSTELLATION",
+      "vars": {
+        "Cards": 1,
+        "Energy": 1,
+        "Block": 9
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CONSUMING_SHADOW",
+      "vars": {
+        "Repeat": 2,
+        "ConsumingShadowPower": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Repeat": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CONVERGENCE",
+      "vars": {
+        "Energy": 1,
+        "Stars": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Stars": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.COOLANT",
+      "vars": {
+        "CoolantPower": 2
+      },
+      "upgrade": {
+        "vars": {
+          "CoolantPower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.COOLHEADED",
+      "vars": {
+        "Cards": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.COORDINATE",
+      "vars": {
+        "StrengthPower": 5
+      },
+      "upgrade": {
+        "vars": {
+          "StrengthPower": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CORROSIVE_WAVE",
+      "vars": {
+        "CorrosiveWave": 2
+      },
+      "upgrade": {
+        "vars": {
+          "CorrosiveWave": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CORRUPTION",
+      "vars": {
+        "Power": 1
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.COSMIC_INDIFFERENCE",
+      "vars": {
+        "Block": 6
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.COUNTDOWN",
+      "vars": {
+        "CountdownPower": 6
+      },
+      "upgrade": {
+        "vars": {
+          "CountdownPower": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CRASH_LANDING",
+      "vars": {
+        "Damage": 21
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 5
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CREATIVE_AI",
+      "vars": {
+        "CreativeAi": 1
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CRESCENT_SPEAR",
+      "vars": {
+        "CalculationBase": 8,
+        "ExtraDamage": 2,
+        "CalculatedDamage": 8
+      },
+      "upgrade": {
+        "vars": {
+          "ExtraDamage": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedDamage": {
+          "base": "CalculationBase",
+          "extra": "ExtraDamage"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CRIMSON_MANTLE",
+      "vars": {
+        "CrimsonMantlePower": 7
+      },
+      "upgrade": {
+        "vars": {
+          "CrimsonMantlePower": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CRUELTY",
+      "vars": {
+        "CrueltyPower": 25
+      },
+      "upgrade": {
+        "vars": {
+          "CrueltyPower": 25
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CRUSH_UNDER",
+      "vars": {
+        "Damage": 8,
+        "StrengthLoss": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 1,
+          "StrengthLoss": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.CURSE_OF_THE_BELL",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DAGGER_SPRAY",
+      "vars": {
+        "Damage": 4
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DAGGER_THROW",
+      "vars": {
+        "Damage": 9
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DANSE_MACABRE",
+      "vars": {
+        "DanseMacabrePower": 4,
+        "Energy": 2
+      },
+      "upgrade": {
+        "vars": {
+          "DanseMacabrePower": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DARKNESS",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DARK_EMBRACE",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DARK_SHACKLES",
+      "vars": {
+        "StrengthLoss": 9
+      },
+      "upgrade": {
+        "vars": {
+          "StrengthLoss": 6
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DASH",
+      "vars": {
+        "Damage": 10,
+        "Block": 10
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3,
+          "Block": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DAZED",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DEADLY_POISON",
+      "vars": {
+        "PoisonPower": 5
+      },
+      "upgrade": {
+        "vars": {
+          "PoisonPower": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DEATHBRINGER",
+      "vars": {
+        "DoomPower": 21,
+        "WeakPower": 1
+      },
+      "upgrade": {
+        "vars": {
+          "DoomPower": 5
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DEATHS_DOOR",
+      "vars": {
+        "Block": 6,
+        "Repeat": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DEATH_MARCH",
+      "vars": {
+        "CalculationBase": 8,
+        "ExtraDamage": 4,
+        "CalculatedDamage": 8
+      },
+      "upgrade": {
+        "vars": {
+          "CalculationBase": 1,
+          "ExtraDamage": 2,
+          "CalculatedDamage": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedDamage": {
+          "base": "CalculationBase",
+          "extra": "ExtraDamage"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DEBILITATE",
+      "vars": {
+        "Damage": 10,
+        "DebilitatePower": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2,
+          "DebilitatePower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DEBRIS",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DEBT",
+      "vars": {
+        "Gold": 10
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DECAY",
+      "vars": {
+        "Damage": 2
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DECISIONS_DECISIONS",
+      "vars": {
+        "Cards": 3,
+        "Repeat": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DEFEND_DEFECT",
+      "vars": {
+        "Block": 5
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DEFEND_IRONCLAD",
+      "vars": {
+        "Block": 5
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DEFEND_NECROBINDER",
+      "vars": {
+        "Block": 5
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DEFEND_REGENT",
+      "vars": {
+        "Block": 5
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DEFEND_SILENT",
+      "vars": {
+        "Block": 5
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DEFILE",
+      "vars": {
+        "Damage": 13
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 4
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DEFLECT",
+      "vars": {
+        "Block": 4
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DEFRAGMENT",
+      "vars": {
+        "FocusPower": 1
+      },
+      "upgrade": {
+        "vars": {
+          "FocusPower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DEFY",
+      "vars": {
+        "Block": 6,
+        "WeakPower": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DELAY",
+      "vars": {
+        "Block": 11,
+        "Energy": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 2,
+          "Energy": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DEMESNE",
+      "vars": {
+        "Energy": 1,
+        "Cards": 1
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DEMONIC_SHIELD",
+      "vars": {
+        "CalculationBase": 0,
+        "HpLoss": 1,
+        "CalculationExtra": 1,
+        "CalculatedBlock": 0
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": [
+          "Exhaust"
+        ]
+      },
+      "calculated": {
+        "CalculatedBlock": {
+          "base": "CalculationBase",
+          "extra": "CalculationExtra"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DEMON_FORM",
+      "vars": {
+        "StrengthPower": 3
+      },
+      "upgrade": {
+        "vars": {
+          "StrengthPower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DEPRECATED_CARD",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DEVASTATE",
+      "vars": {
+        "Damage": 35
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 10
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DEVOUR_LIFE",
+      "vars": {
+        "DevourLifePower": 1
+      },
+      "upgrade": {
+        "vars": {
+          "DevourLifePower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DIRGE",
+      "vars": {
+        "Summon": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Summon": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DISCOVERY",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": [
+          "Exhaust"
+        ]
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DISINTEGRATION",
+      "vars": {
+        "DisintegrationPower": 6
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DISMANTLE",
+      "vars": {
+        "Damage": 8
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DISTRACTION",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DODGE_AND_ROLL",
+      "vars": {
+        "Block": 4
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DOMINATE",
+      "vars": {
+        "VulnerablePower": 1,
+        "StrengthPerVulnerable": 1
+      },
+      "upgrade": {
+        "vars": {
+          "VulnerablePower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DOUBLE_ENERGY",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DOUBT",
+      "vars": {
+        "WeakPower": 1
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DOWSING",
+      "vars": {
+        "Rooms": 5
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DRAIN_POWER",
+      "vars": {
+        "Damage": 10,
+        "Cards": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2,
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DRAMATIC_ENTRANCE",
+      "vars": {
+        "Damage": 11
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 4
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DREDGE",
+      "vars": {
+        "Cards": 3
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [
+          "Retain"
+        ],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DRUM_OF_BATTLE",
+      "vars": {
+        "Cards": 2,
+        "Energy": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Energy": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DUALCAST",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DUAL_WIELD",
+      "vars": {
+        "Cards": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.DYING_STAR",
+      "vars": {
+        "Damage": 9,
+        "StrengthLoss": 9
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2,
+          "StrengthLoss": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ECHOING_SLASH",
+      "vars": {
+        "Damage": 10
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ECHO_FORM",
+      "vars": {
+        "EchoForm": 1
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": [
+          "Ethereal"
+        ]
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.EIDOLON",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.END_OF_DAYS",
+      "vars": {
+        "DoomPower": 29
+      },
+      "upgrade": {
+        "vars": {
+          "DoomPower": 8
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ENERGY_SURGE",
+      "vars": {
+        "Energy": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Energy": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ENFEEBLING_TOUCH",
+      "vars": {
+        "StrengthLoss": 8
+      },
+      "upgrade": {
+        "vars": {
+          "StrengthLoss": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ENLIGHTENMENT",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ENTHRALLED",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ENTRENCH",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ENTROPY",
+      "vars": {
+        "Cards": 1
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [
+          "Innate"
+        ],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ENVENOM",
+      "vars": {
+        "EnvenomPower": 1
+      },
+      "upgrade": {
+        "vars": {
+          "EnvenomPower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.EQUILIBRIUM",
+      "vars": {
+        "Block": 13,
+        "Equilibrium": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ERADICATE",
+      "vars": {
+        "Damage": 11
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ESCAPE_PLAN",
+      "vars": {
+        "Block": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ETERNAL_ARMOR",
+      "vars": {
+        "PlatingPower": 9
+      },
+      "upgrade": {
+        "vars": {
+          "PlatingPower": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.EVIL_EYE",
+      "vars": {
+        "Block": 8
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.EXPECT_A_FIGHT",
+      "vars": {
+        "CalculationBase": 15,
+        "CalculationExtra": 5,
+        "CalculatedBlock": 15
+      },
+      "upgrade": {
+        "vars": {
+          "CalculationBase": 1,
+          "CalculationExtra": 3,
+          "CalculatedBlock": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedBlock": {
+          "base": "CalculationBase",
+          "extra": "CalculationExtra"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.EXPERTISE",
+      "vars": {
+        "Cards": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.EXPOSE",
+      "vars": {
+        "Power": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Power": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.EXTERMINATE",
+      "vars": {
+        "Damage": 3,
+        "Repeat": 4
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.FADE",
+      "vars": {
+        "DexterityPower": 6
+      },
+      "upgrade": {
+        "vars": {
+          "DexterityPower": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.FALLING_STAR",
+      "vars": {
+        "Damage": 8,
+        "VulnerablePower": 1,
+        "WeakPower": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 4
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.FAN_OF_KNIVES",
+      "vars": {
+        "Shivs": 4
+      },
+      "upgrade": {
+        "vars": {
+          "Shivs": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.FASTEN",
+      "vars": {
+        "ExtraBlock": 4
+      },
+      "upgrade": {
+        "vars": {
+          "ExtraBlock": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.FEAR",
+      "vars": {
+        "Damage": 7,
+        "VulnerablePower": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 1,
+          "VulnerablePower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.FEED",
+      "vars": {
+        "Damage": 10,
+        "MaxHp": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2,
+          "MaxHp": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.FEEDING_FRENZY",
+      "vars": {
+        "StrengthPower": 5
+      },
+      "upgrade": {
+        "vars": {
+          "StrengthPower": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.FEEL_NO_PAIN",
+      "vars": {
+        "Power": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Power": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.FERAL",
+      "vars": {
+        "FeralPower": 1
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.FETCH",
+      "vars": {
+        "OstyDamage": 3,
+        "Cards": 1
+      },
+      "upgrade": {
+        "vars": {
+          "OstyDamage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.FIEND_FIRE",
+      "vars": {
+        "Damage": 7
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.FIGHT_ME",
+      "vars": {
+        "Damage": 5,
+        "Repeat": 2,
+        "StrengthPower": 3,
+        "EnemyStrength": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 1,
+          "StrengthPower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.FIGHT_THROUGH",
+      "vars": {
+        "Block": 13
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 4
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.FINESSE",
+      "vars": {
+        "Block": 4,
+        "Cards": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.FINISHER",
+      "vars": {
+        "Damage": 6,
+        "CalculationBase": 0,
+        "CalculationExtra": 1,
+        "CalculatedHits": 0
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedHits": {
+          "base": "CalculationBase",
+          "extra": "CalculationExtra"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.FISTICUFFS",
+      "vars": {
+        "Damage": 7
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.FLAK_CANNON",
+      "vars": {
+        "Damage": 8,
+        "CalculationBase": 0,
+        "CalculationExtra": 1,
+        "CalculatedHits": 0
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedHits": {
+          "base": "CalculationBase",
+          "extra": "CalculationExtra"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.FLAME_BARRIER",
+      "vars": {
+        "Block": 12,
+        "DamageBack": 4
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 4,
+          "DamageBack": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.FLANKING",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.FLASH_OF_STEEL",
+      "vars": {
+        "Damage": 5,
+        "Cards": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.FLATTEN",
+      "vars": {
+        "OstyDamage": 12
+      },
+      "upgrade": {
+        "vars": {
+          "OstyDamage": 4
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.FLECHETTES",
+      "vars": {
+        "Damage": 5,
+        "CalculationBase": 0,
+        "CalculationExtra": 1,
+        "CalculatedHits": 0
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedHits": {
+          "base": "CalculationBase",
+          "extra": "CalculationExtra"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.FLICK_FLACK",
+      "vars": {
+        "Damage": 7
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.FOCUSED_STRIKE",
+      "vars": {
+        "Damage": 9,
+        "FocusPower": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2,
+          "FocusPower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.FOLLY",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.FOOTWORK",
+      "vars": {
+        "DexterityPower": 2
+      },
+      "upgrade": {
+        "vars": {
+          "DexterityPower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.FORBIDDEN_GRIMOIRE",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.FOREGONE_CONCLUSION",
+      "vars": {
+        "Cards": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.FORGOTTEN_RITUAL",
+      "vars": {
+        "Energy": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Energy": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.FRANTIC_ESCAPE",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.FRIENDSHIP",
+      "vars": {
+        "StrengthPower": 2,
+        "Energy": 1
+      },
+      "upgrade": {
+        "vars": {
+          "StrengthPower": -1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.FTL",
+      "vars": {
+        "Damage": 5,
+        "PlayMax": 3,
+        "Cards": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 1,
+          "PlayMax": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.FUEL",
+      "vars": {
+        "Energy": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Energy": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.FURNACE",
+      "vars": {
+        "Forge": 5
+      },
+      "upgrade": {
+        "vars": {
+          "Forge": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.FUSION",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": [
+          "Exhaust"
+        ]
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.GAMMA_BLAST",
+      "vars": {
+        "Damage": 13,
+        "VulnerablePower": 2,
+        "WeakPower": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 5
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.GANG_UP",
+      "vars": {
+        "CalculationBase": 5,
+        "ExtraDamage": 5,
+        "CalculatedDamage": 5
+      },
+      "upgrade": {
+        "vars": {
+          "ExtraDamage": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedDamage": {
+          "base": "CalculationBase",
+          "extra": "ExtraDamage"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.GATHER_LIGHT",
+      "vars": {
+        "Block": 8,
+        "Stars": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.GENESIS",
+      "vars": {
+        "StarsPerTurn": 2
+      },
+      "upgrade": {
+        "vars": {
+          "StarsPerTurn": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.GENETIC_ALGORITHM",
+      "vars": {
+        "Block": 1,
+        "Increase": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Increase": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "savedProperties": {
+        "Block": "CurrentBlock"
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.GIANT_ROCK",
+      "vars": {
+        "Damage": 20
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 4
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.GLACIER",
+      "vars": {
+        "Block": 6
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.GLASSWORK",
+      "vars": {
+        "Block": 5
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.GLIMMER",
+      "vars": {
+        "Cards": 3,
+        "PutBack": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.GLIMPSE_BEYOND",
+      "vars": {
+        "Cards": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.GLITTERSTREAM",
+      "vars": {
+        "Block": 11,
+        "BlockNextTurn": 5
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 2,
+          "BlockNextTurn": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.GLOW",
+      "vars": {
+        "Stars": 1,
+        "Cards": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Stars": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.GOLD_AXE",
+      "vars": {
+        "CalculationBase": 0,
+        "ExtraDamage": 1,
+        "CalculatedDamage": 0
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [
+          "Retain"
+        ],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedDamage": {
+          "base": "CalculationBase",
+          "extra": "ExtraDamage"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.GO_FOR_THE_EYES",
+      "vars": {
+        "Damage": 3,
+        "WeakPower": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 1,
+          "WeakPower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.GRAND_FINALE",
+      "vars": {
+        "Damage": 60
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 15
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.GRAVEBLAST",
+      "vars": {
+        "Damage": 4
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": [
+          "Exhaust"
+        ]
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.GRAVE_WARDEN",
+      "vars": {
+        "Block": 8,
+        "Cards": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.GREED",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.GUARDS",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.GUIDING_STAR",
+      "vars": {
+        "Damage": 12,
+        "Cards": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 1,
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.GUILTY",
+      "vars": {
+        "Combats": 5
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.GUNK_UP",
+      "vars": {
+        "Damage": 4,
+        "Repeat": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.HAILSTORM",
+      "vars": {
+        "HailstormPower": 6
+      },
+      "upgrade": {
+        "vars": {
+          "HailstormPower": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.HAMMER_TIME",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.HAND_OF_GREED",
+      "vars": {
+        "Damage": 20,
+        "Gold": 20
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 5,
+          "Gold": 5
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.HAND_TRICK",
+      "vars": {
+        "Block": 7
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.HANG",
+      "vars": {
+        "Damage": 10
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.HAUNT",
+      "vars": {
+        "HpLoss": 7
+      },
+      "upgrade": {
+        "vars": {
+          "HpLoss": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.HAVOC",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.HAZE",
+      "vars": {
+        "PoisonPower": 4,
+        "WeakPower": 1
+      },
+      "upgrade": {
+        "vars": {
+          "PoisonPower": 2,
+          "WeakPower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.HEADBUTT",
+      "vars": {
+        "Damage": 9
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.HEAVENLY_DRILL",
+      "vars": {
+        "Damage": 8,
+        "Energy": 4
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.HEGEMONY",
+      "vars": {
+        "Damage": 15,
+        "Energy": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3,
+          "Energy": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.HEIRLOOM_HAMMER",
+      "vars": {
+        "Damage": 20,
+        "Repeat": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 5
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.HELIX_DRILL",
+      "vars": {
+        "Damage": 3,
+        "CalculationBase": 0,
+        "CalculationExtra": 1,
+        "CalculatedHits": 0
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedHits": {
+          "base": "CalculationBase",
+          "extra": "CalculationExtra"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.HELLO_WORLD",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [
+          "Innate"
+        ],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.HELLRAISER",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.HEMOKINESIS",
+      "vars": {
+        "HpLoss": 2,
+        "Damage": 15
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 5
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.HIBERNATE",
+      "vars": {
+        "Repeat": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Repeat": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.HIDDEN_CACHE",
+      "vars": {
+        "Stars": 1,
+        "StarNextTurnPower": 3
+      },
+      "upgrade": {
+        "vars": {
+          "StarNextTurnPower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.HIDDEN_DAGGERS",
+      "vars": {
+        "Cards": 2,
+        "Shivs": 2
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.HIDDEN_GEM",
+      "vars": {
+        "Replay": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Replay": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.HIGH_FIVE",
+      "vars": {
+        "OstyDamage": 11,
+        "VulnerablePower": 2
+      },
+      "upgrade": {
+        "vars": {
+          "OstyDamage": 2,
+          "VulnerablePower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.HOLOGRAM",
+      "vars": {
+        "Block": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": [
+          "Exhaust"
+        ]
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.HOTFIX",
+      "vars": {
+        "FocusPower": 2
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": [
+          "Exhaust"
+        ]
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.HOWL_FROM_BEYOND",
+      "vars": {
+        "Damage": 18
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 6
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.HUDDLE_UP",
+      "vars": {
+        "Cards": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.HYPERBEAM",
+      "vars": {
+        "Damage": 24,
+        "FocusPower": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 6
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ICE_LANCE",
+      "vars": {
+        "Damage": 19,
+        "Repeat": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 5
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.IGNITION",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": [
+          "Exhaust"
+        ]
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.IMITATION_LEARNING",
+      "vars": {
+        "ImitationLearningPower": 2
+      },
+      "upgrade": {
+        "vars": {
+          "ImitationLearningPower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.IMPATIENCE",
+      "vars": {
+        "Cards": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.IMPERVIOUS",
+      "vars": {
+        "Block": 30
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 10
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.INFECTION",
+      "vars": {
+        "Damage": 3
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.INFERNAL_BLADE",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.INFERNO",
+      "vars": {
+        "InfernoPower": 6
+      },
+      "upgrade": {
+        "vars": {
+          "InfernoPower": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.INFINITE_BLADES",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [
+          "Innate"
+        ],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.INFLAME",
+      "vars": {
+        "StrengthPower": 2
+      },
+      "upgrade": {
+        "vars": {
+          "StrengthPower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.INJURY",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.INTERCEPT",
+      "vars": {
+        "Block": 9
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 4
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.INVOKE",
+      "vars": {
+        "Summon": 2,
+        "Energy": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Summon": 1,
+          "Energy": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.IRON_WAVE",
+      "vars": {
+        "Damage": 5,
+        "Block": 5
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2,
+          "Block": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ITERATION",
+      "vars": {
+        "IterationPower": 2
+      },
+      "upgrade": {
+        "vars": {
+          "IterationPower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.I_AM_INVINCIBLE",
+      "vars": {
+        "Block": 10
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.JACKPOT",
+      "vars": {
+        "Damage": 25,
+        "Cards": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 5
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.JACK_OF_ALL_TRADES",
+      "vars": {
+        "Cards": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.JUGGERNAUT",
+      "vars": {
+        "JuggernautPower": 6
+      },
+      "upgrade": {
+        "vars": {
+          "JuggernautPower": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.JUGGLING",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [
+          "Innate"
+        ],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.KINGLY_KICK",
+      "vars": {
+        "Damage": 27
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 8
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.KINGLY_PUNCH",
+      "vars": {
+        "Damage": 8,
+        "Increase": 4
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2,
+          "Increase": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.KNIFE_TRAP",
+      "vars": {
+        "CalculationBase": 0,
+        "CalculationExtra": 1,
+        "CalculatedShivs": 0
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedShivs": {
+          "base": "CalculationBase",
+          "extra": "CalculationExtra"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.KNOCKDOWN",
+      "vars": {
+        "Damage": 10,
+        "KnockdownPower": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 4,
+          "KnockdownPower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.KNOCKOUT_BLOW",
+      "vars": {
+        "Damage": 30,
+        "Stars": 5
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 8
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.KNOW_THY_PLACE",
+      "vars": {
+        "WeakPower": 1,
+        "VulnerablePower": 1
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": [
+          "Exhaust"
+        ]
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.LANTERN_KEY",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.LARGESSE",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.LEADING_STRIKE",
+      "vars": {
+        "Shivs": 2,
+        "Damage": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.LEAP",
+      "vars": {
+        "Block": 9
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.LEGION_OF_BONE",
+      "vars": {
+        "Summon": 6
+      },
+      "upgrade": {
+        "vars": {
+          "Summon": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.LEG_SWEEP",
+      "vars": {
+        "Block": 11,
+        "WeakPower": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 3,
+          "WeakPower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.LETHALITY",
+      "vars": {
+        "LethalityPower": 50
+      },
+      "upgrade": {
+        "vars": {
+          "LethalityPower": 25
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.LIFT",
+      "vars": {
+        "Block": 11
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 5
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.LIGHTNING_ROD",
+      "vars": {
+        "Block": 4,
+        "LightningRodPower": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.LOOP",
+      "vars": {
+        "Loop": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Loop": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.LUMINESCE",
+      "vars": {
+        "Energy": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Energy": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.LUNAR_BLAST",
+      "vars": {
+        "Damage": 4,
+        "CalculationBase": 0,
+        "CalculationExtra": 1,
+        "CalculatedHits": 0
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedHits": {
+          "base": "CalculationBase",
+          "extra": "CalculationExtra"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.MACHINE_LEARNING",
+      "vars": {
+        "Cards": 1
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [
+          "Innate"
+        ],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.MAD_SCIENCE",
+      "vars": {
+        "Damage": 12,
+        "Block": 8,
+        "SappingWeak": 2,
+        "SappingVulnerable": 2,
+        "ViolenceHits": 3,
+        "ChokingDamage": 6,
+        "EnergizedEnergy": 2,
+        "WisdomCards": 3,
+        "ExpertiseStrength": 2,
+        "ExpertiseDexterity": 2,
+        "CuriousReduction": 1
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [
+          "Innate"
+        ],
+        "removeKeywords": []
+      },
+      "unresolved": [
+        "CardType",
+        "HasRider",
+        "None",
+        "Sapping",
+        "Violence",
+        "Choking",
+        "Energized",
+        "Wisdom",
+        "Chaos",
+        "Expertise",
+        "Curious",
+        "Improvement"
+      ]
+    },
+    {
+      "id": "CARD.MAKE_IT_SO",
+      "vars": {
+        "Damage": 6,
+        "Cards": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.MALAISE",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.MANGLE",
+      "vars": {
+        "Damage": 20,
+        "StrengthLoss": 10
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 6,
+          "StrengthLoss": 5
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.MANIFEST_AUTHORITY",
+      "vars": {
+        "Block": 7
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.MASTER_OF_STRATEGY",
+      "vars": {
+        "Cards": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.MASTER_PLANNER",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.MAUL",
+      "vars": {
+        "Damage": 5,
+        "Increase": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 1,
+          "Increase": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.MAYHEM",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.MELANCHOLY",
+      "vars": {
+        "Block": 13,
+        "Energy": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 4
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.MEMENTO_MORI",
+      "vars": {
+        "CalculationBase": 9,
+        "ExtraDamage": 4,
+        "CalculatedDamage": 9
+      },
+      "upgrade": {
+        "vars": {
+          "CalculationBase": 2,
+          "ExtraDamage": 1,
+          "CalculatedDamage": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedDamage": {
+          "base": "CalculationBase",
+          "extra": "ExtraDamage"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.METAMORPHOSIS",
+      "vars": {
+        "Cards": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.METEOR_SHOWER",
+      "vars": {
+        "Damage": 14,
+        "VulnerablePower": 2,
+        "WeakPower": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 7
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.METEOR_STRIKE",
+      "vars": {
+        "Damage": 24
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 6
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.MIDNIGHT",
+      "vars": {
+        "Damage": 60
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 12
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.MIMIC",
+      "vars": {
+        "CalculationBase": 0,
+        "CalculationExtra": 1,
+        "CalculatedBlock": 0
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": [
+          "Exhaust"
+        ]
+      },
+      "calculated": {
+        "CalculatedBlock": {
+          "base": "CalculationBase",
+          "extra": "CalculationExtra"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.MIND_BLAST",
+      "vars": {
+        "CalculationBase": 0,
+        "ExtraDamage": 1,
+        "CalculatedDamage": 0
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedDamage": {
+          "base": "CalculationBase",
+          "extra": "ExtraDamage"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.MIND_ROT",
+      "vars": {
+        "MindRotPower": 1
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.MINION_DIVE_BOMB",
+      "vars": {
+        "Damage": 13
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.MINION_SACRIFICE",
+      "vars": {
+        "Block": 7
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.MINION_STRIKE",
+      "vars": {
+        "Damage": 6,
+        "Cards": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.MIRAGE",
+      "vars": {
+        "CalculationBase": 0,
+        "CalculationExtra": 1,
+        "CalculatedBlock": 0
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": [
+          "Exhaust"
+        ]
+      },
+      "calculated": {
+        "CalculatedBlock": {
+          "base": "CalculationBase",
+          "extra": "CalculationExtra"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.MISERY",
+      "vars": {
+        "Damage": 7
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [
+          "Retain"
+        ],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.MODDED",
+      "vars": {
+        "Repeat": 1,
+        "Cards": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.MOLTEN_FIST",
+      "vars": {
+        "Damage": 10
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 4
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.MOMENTUM_STRIKE",
+      "vars": {
+        "Damage": 11
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 4
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.MONARCHS_GAZE",
+      "vars": {
+        "StrengthLoss": 1
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.MONOLOGUE",
+      "vars": {
+        "Power": 1
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [
+          "Retain"
+        ],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.MULTI_CAST",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.MURDER",
+      "vars": {
+        "CalculationBase": 1,
+        "ExtraDamage": 1,
+        "CalculatedDamage": 1
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedDamage": {
+          "base": "CalculationBase",
+          "extra": "ExtraDamage"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.NECRO_MASTERY",
+      "vars": {
+        "Summon": 5
+      },
+      "upgrade": {
+        "vars": {
+          "Summon": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.NEGATIVE_PULSE",
+      "vars": {
+        "Block": 5,
+        "DoomPower": 7
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 1,
+          "DoomPower": 4
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.NEOWS_FURY",
+      "vars": {
+        "Damage": 10,
+        "Cards": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 4,
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.NEUROSURGE",
+      "vars": {
+        "NeurosurgePower": 3,
+        "Energy": 3,
+        "Cards": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Energy": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.NEUTRALIZE",
+      "vars": {
+        "Damage": 3,
+        "WeakPower": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 1,
+          "WeakPower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.NEUTRON_AEGIS",
+      "vars": {
+        "PlatingPower": 8
+      },
+      "upgrade": {
+        "vars": {
+          "PlatingPower": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.NIGHTMARE",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.NORMALITY",
+      "vars": {
+        "CalculationBase": 3,
+        "CalculationExtra": -1,
+        "CalculatedCards": 3
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedCards": {
+          "base": "CalculationBase",
+          "extra": "CalculationExtra"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.NOSTALGIA",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.NOT_YET",
+      "vars": {
+        "Heal": 10
+      },
+      "upgrade": {
+        "vars": {
+          "Heal": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.NOXIOUS_FUMES",
+      "vars": {
+        "PoisonPerTurn": 2
+      },
+      "upgrade": {
+        "vars": {
+          "PoisonPerTurn": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.NO_ESCAPE",
+      "vars": {
+        "DoomThreshold": 10,
+        "CalculationBase": 10,
+        "CalculationExtra": 5,
+        "CalculatedDoom": 10
+      },
+      "upgrade": {
+        "vars": {
+          "CalculationBase": 5,
+          "CalculatedDoom": 5
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedDoom": {
+          "base": "CalculationBase",
+          "extra": "CalculationExtra"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.NULL",
+      "vars": {
+        "Damage": 10,
+        "WeakPower": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3,
+          "WeakPower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.OBLIVION",
+      "vars": {
+        "DoomPower": 3
+      },
+      "upgrade": {
+        "vars": {
+          "DoomPower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.OFFERING",
+      "vars": {
+        "HpLoss": 6,
+        "Energy": 2,
+        "Cards": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.OMNISLICE",
+      "vars": {
+        "Damage": 8
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ONE_FOR_ALL",
+      "vars": {
+        "OneForAllPower": 3
+      },
+      "upgrade": {
+        "vars": {
+          "OneForAllPower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ONE_TWO_PUNCH",
+      "vars": {
+        "Attacks": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Attacks": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ORBIT",
+      "vars": {
+        "Energy": 1
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.OUTBREAK",
+      "vars": {
+        "PoisonPower": 9
+      },
+      "upgrade": {
+        "vars": {
+          "PoisonPower": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.OUTMANEUVER",
+      "vars": {
+        "Energy": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Energy": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.OUTRAGE",
+      "vars": {
+        "Damage": 9
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 4
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.OVERCLOCK",
+      "vars": {
+        "Cards": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.PACTS_END",
+      "vars": {
+        "Damage": 18,
+        "Cards": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 6
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.PAGESTORM",
+      "vars": {
+        "Cards": 1
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.PALE_BLUE_DOT",
+      "vars": {
+        "Cards": 1,
+        "CardPlay": 5
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.PANACHE",
+      "vars": {
+        "PanacheDamage": 10
+      },
+      "upgrade": {
+        "vars": {
+          "PanacheDamage": 4
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.PANIC_BUTTON",
+      "vars": {
+        "Block": 30,
+        "Turns": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 10
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.PARRY",
+      "vars": {
+        "ParryPower": 10
+      },
+      "upgrade": {
+        "vars": {
+          "ParryPower": 4
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.PARSE",
+      "vars": {
+        "Cards": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.PARTICLE_WALL",
+      "vars": {
+        "Block": 9
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.PATTER",
+      "vars": {
+        "Block": 8,
+        "VigorPower": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 2,
+          "VigorPower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.PECK",
+      "vars": {
+        "Damage": 2,
+        "Repeat": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Repeat": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.PERFECTED_STRIKE",
+      "vars": {
+        "CalculationBase": 6,
+        "ExtraDamage": 2,
+        "CalculatedDamage": 6
+      },
+      "upgrade": {
+        "vars": {
+          "ExtraDamage": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedDamage": {
+          "base": "CalculationBase",
+          "extra": "ExtraDamage"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.PHANTOM_BLADES",
+      "vars": {
+        "PhantomBladesPower": 9
+      },
+      "upgrade": {
+        "vars": {
+          "PhantomBladesPower": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.PHOTON_CUT",
+      "vars": {
+        "Damage": 10,
+        "Cards": 1,
+        "PutBack": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3,
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.PIERCING_WAIL",
+      "vars": {
+        "StrengthLoss": 6
+      },
+      "upgrade": {
+        "vars": {
+          "StrengthLoss": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.PILLAGE",
+      "vars": {
+        "Damage": 6
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.PILLAR_OF_CREATION",
+      "vars": {
+        "Block": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.PINPOINT",
+      "vars": {
+        "Damage": 15
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 4
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.PLOT",
+      "vars": {
+        "Cards": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.POISONED_STAB",
+      "vars": {
+        "Damage": 6,
+        "PoisonPower": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2,
+          "PoisonPower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.POKE",
+      "vars": {
+        "OstyDamage": 6
+      },
+      "upgrade": {
+        "vars": {
+          "OstyDamage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.POMMEL_STRIKE",
+      "vars": {
+        "Damage": 9,
+        "Cards": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 1,
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.POOR_SLEEP",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.POUNCE",
+      "vars": {
+        "Damage": 14
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 6
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.PRECISE_CUT",
+      "vars": {
+        "CalculationBase": 13,
+        "ExtraDamage": 2,
+        "CalculatedDamage": 13
+      },
+      "upgrade": {
+        "vars": {
+          "CalculationBase": 3,
+          "CalculatedDamage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedDamage": {
+          "base": "CalculationBase",
+          "extra": "ExtraDamage"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.PREDATOR",
+      "vars": {
+        "Damage": 15
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 5
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.PREPARED",
+      "vars": {
+        "Cards": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.PREP_TIME",
+      "vars": {
+        "PrepTimePower": 4
+      },
+      "upgrade": {
+        "vars": {
+          "PrepTimePower": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.PRIMAL_FORCE",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.PRODUCTION",
+      "vars": {
+        "Energy": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Energy": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.PROLONG",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": [
+          "Exhaust"
+        ]
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.PROPHESIZE",
+      "vars": {
+        "Cards": 6
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.PROTECTOR",
+      "vars": {
+        "CalculationBase": 10,
+        "ExtraDamage": 1,
+        "CalculatedDamage": 10
+      },
+      "upgrade": {
+        "vars": {
+          "CalculationBase": 5,
+          "CalculatedDamage": 5
+        },
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedDamage": {
+          "base": "CalculationBase",
+          "extra": "ExtraDamage"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.PROWESS",
+      "vars": {
+        "StrengthPower": 1,
+        "DexterityPower": 1
+      },
+      "upgrade": {
+        "vars": {
+          "DexterityPower": 1,
+          "StrengthPower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.PULL_AGGRO",
+      "vars": {
+        "Summon": 4,
+        "Block": 7
+      },
+      "upgrade": {
+        "vars": {
+          "Summon": 1,
+          "Block": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.PULL_FROM_BELOW",
+      "vars": {
+        "Damage": 5,
+        "CalculationBase": 0,
+        "CalculationExtra": 1,
+        "CalculatedHits": 0
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedHits": {
+          "base": "CalculationBase",
+          "extra": "CalculationExtra"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.PURITY",
+      "vars": {
+        "Cards": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.PUTREFY",
+      "vars": {
+        "Power": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Power": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.PYRE",
+      "vars": {
+        "Energy": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Energy": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.QUADCAST",
+      "vars": {
+        "Repeat": 4
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.QUASAR",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.RADIATE",
+      "vars": {
+        "Damage": 3,
+        "Stars": 1,
+        "CalculationBase": 0,
+        "CalculationExtra": 1,
+        "CalculatedHits": 0
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedHits": {
+          "base": "CalculationBase",
+          "extra": "CalculationExtra"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.RAGE",
+      "vars": {
+        "Power": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Power": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.RAINBOW",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": [
+          "Exhaust"
+        ]
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.RALLY",
+      "vars": {
+        "Block": 12
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 5
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.RAMPAGE",
+      "vars": {
+        "Damage": 10,
+        "Increase": 5
+      },
+      "upgrade": {
+        "vars": {
+          "Increase": 5
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.RATTLE",
+      "vars": {
+        "OstyDamage": 7,
+        "CalculationBase": 0,
+        "CalculationExtra": 1,
+        "CalculatedHits": 0
+      },
+      "upgrade": {
+        "vars": {
+          "OstyDamage": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedHits": {
+          "base": "CalculationBase",
+          "extra": "CalculationExtra"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.REANIMATE",
+      "vars": {
+        "Summon": 20
+      },
+      "upgrade": {
+        "vars": {
+          "Summon": 5
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.REAP",
+      "vars": {
+        "Damage": 27
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 6
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.REAPER_FORM",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [
+          "Retain"
+        ],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.REAVE",
+      "vars": {
+        "Damage": 10,
+        "Cards": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.REBOOT",
+      "vars": {
+        "Cards": 4
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.REBOUND",
+      "vars": {
+        "Damage": 9
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.REFINE_BLADE",
+      "vars": {
+        "Forge": 8,
+        "Energy": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Forge": 4
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.REFLECT",
+      "vars": {
+        "Block": 15
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 5
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.REFLEX",
+      "vars": {
+        "Cards": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.REFRACT",
+      "vars": {
+        "Repeat": 2,
+        "Damage": 10
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.REGRET",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.RELAX",
+      "vars": {
+        "Block": 16,
+        "Cards": 2,
+        "Energy": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 2,
+          "Cards": 1,
+          "Energy": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.REND",
+      "vars": {
+        "CalculationBase": 10,
+        "ExtraDamage": 5,
+        "CalculatedDamage": 10
+      },
+      "upgrade": {
+        "vars": {
+          "ExtraDamage": 3,
+          "CalculationBase": 2,
+          "CalculatedDamage": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedDamage": {
+          "base": "CalculationBase",
+          "extra": "ExtraDamage"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.RESONANCE",
+      "vars": {
+        "StrengthPower": 1
+      },
+      "upgrade": {
+        "vars": {
+          "StrengthPower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.RESTLESSNESS",
+      "vars": {
+        "Cards": 2,
+        "Energy": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 1,
+          "Energy": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.RICOCHET",
+      "vars": {
+        "Damage": 3,
+        "Repeat": 4
+      },
+      "upgrade": {
+        "vars": {
+          "Repeat": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.RIGHT_HAND_HAND",
+      "vars": {
+        "OstyDamage": 4,
+        "Energy": 2
+      },
+      "upgrade": {
+        "vars": {
+          "OstyDamage": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.RIP_AND_TEAR",
+      "vars": {
+        "Damage": 7
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ROCKET_PUNCH",
+      "vars": {
+        "Damage": 13,
+        "Cards": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 1,
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ROLLING_BOULDER",
+      "vars": {
+        "RollingBoulderPower": 5,
+        "IncrementAmount": 5
+      },
+      "upgrade": {
+        "vars": {
+          "RollingBoulderPower": 5
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ROYALTIES",
+      "vars": {
+        "Gold": 30
+      },
+      "upgrade": {
+        "vars": {
+          "Gold": 10
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ROYAL_GAMBLE",
+      "vars": {
+        "Stars": 9
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [
+          "Retain"
+        ],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.RUPTURE",
+      "vars": {
+        "StrengthPower": 1
+      },
+      "upgrade": {
+        "vars": {
+          "StrengthPower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SACRIFICE",
+      "vars": {
+        "CalculationBase": 0,
+        "CalculationExtra": 1,
+        "CalculatedBlock": 0
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedBlock": {
+          "base": "CalculationBase",
+          "extra": "CalculationExtra"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SALVO",
+      "vars": {
+        "Damage": 12
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 4
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SCAVENGE",
+      "vars": {
+        "Energy": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Energy": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SCOURGE",
+      "vars": {
+        "DoomPower": 13,
+        "Cards": 1
+      },
+      "upgrade": {
+        "vars": {
+          "DoomPower": 3,
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SCRAPE",
+      "vars": {
+        "Damage": 7,
+        "Cards": 4
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3,
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SCRAWL",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [
+          "Retain"
+        ],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SCULPTING_STRIKE",
+      "vars": {
+        "Damage": 9
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SEANCE",
+      "vars": {
+        "Cards": 1
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SECOND_WIND",
+      "vars": {
+        "Block": 5
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SECRET_TECHNIQUE",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": [
+          "Exhaust"
+        ]
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SECRET_WEAPON",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": [
+          "Exhaust"
+        ]
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SEEKER_STRIKE",
+      "vars": {
+        "Damage": 9,
+        "Cards": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SEEKING_EDGE",
+      "vars": {
+        "Forge": 7
+      },
+      "upgrade": {
+        "vars": {
+          "Forge": 4
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SENTRY_MODE",
+      "vars": {
+        "SentryModePower": 1
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SERPENT_FORM",
+      "vars": {
+        "SerpentFormPower": 4
+      },
+      "upgrade": {
+        "vars": {
+          "SerpentFormPower": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SETUP_STRIKE",
+      "vars": {
+        "Damage": 7,
+        "StrengthPower": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2,
+          "StrengthPower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SEVEN_STARS",
+      "vars": {
+        "Damage": 7,
+        "Repeat": 7
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SEVERANCE",
+      "vars": {
+        "Damage": 13
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 5
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SHADOWMELD",
+      "vars": {
+        "Power": 1
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SHADOW_SHIELD",
+      "vars": {
+        "Block": 11
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 4
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SHADOW_STEP",
+      "vars": {
+        "Cards": 3
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SHAME",
+      "vars": {
+        "Frail": 1
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SHARED_FATE",
+      "vars": {
+        "EnemyStrengthLoss": 2,
+        "PlayerStrengthLoss": 2
+      },
+      "upgrade": {
+        "vars": {
+          "EnemyStrengthLoss": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SHATTER",
+      "vars": {
+        "Damage": 7
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 4
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SHINING_STRIKE",
+      "vars": {
+        "Damage": 8,
+        "Stars": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SHIV",
+      "vars": {
+        "Damage": 4
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SHOCKWAVE",
+      "vars": {
+        "Power": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Power": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SHROUD",
+      "vars": {
+        "Block": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SHRUG_IT_OFF",
+      "vars": {
+        "Block": 8,
+        "Cards": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SIC_EM",
+      "vars": {
+        "OstyDamage": 5,
+        "SicEmPower": 3
+      },
+      "upgrade": {
+        "vars": {
+          "OstyDamage": 1,
+          "SicEmPower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SIDESTEP",
+      "vars": {
+        "Energy": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Energy": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SIGNAL_BOOST",
+      "vars": {
+        "SignalBoostPower": 1
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SKEWER",
+      "vars": {
+        "Damage": 8
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SKIM",
+      "vars": {
+        "Cards": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SLEIGHT_OF_FLESH",
+      "vars": {
+        "SleightOfFleshPower": 9
+      },
+      "upgrade": {
+        "vars": {
+          "SleightOfFleshPower": 4
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SLICE",
+      "vars": {
+        "Damage": 6
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SLIMED",
+      "vars": {
+        "Cards": 1
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SLOTH",
+      "vars": {
+        "SlothPower": 3
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SMOKESTACK",
+      "vars": {
+        "SmokestackPower": 5
+      },
+      "upgrade": {
+        "vars": {
+          "SmokestackPower": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SNAKEBITE",
+      "vars": {
+        "PoisonPower": 7
+      },
+      "upgrade": {
+        "vars": {
+          "PoisonPower": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SNAP",
+      "vars": {
+        "OstyDamage": 7
+      },
+      "upgrade": {
+        "vars": {
+          "OstyDamage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SNEAKY",
+      "vars": {
+        "SneakyPower": 1
+      },
+      "upgrade": {
+        "vars": {
+          "SneakyPower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SOLAR_STRIKE",
+      "vars": {
+        "Damage": 9,
+        "Stars": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 1,
+          "Stars": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SOOT",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SOUL",
+      "vars": {
+        "Cards": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SOULBOUND",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [
+          "Innate"
+        ],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SOUL_STORM",
+      "vars": {
+        "CalculationBase": 9,
+        "ExtraDamage": 4,
+        "CalculatedDamage": 9
+      },
+      "upgrade": {
+        "vars": {
+          "ExtraDamage": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedDamage": {
+          "base": "CalculationBase",
+          "extra": "ExtraDamage"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SOVEREIGN_BLADE",
+      "vars": {
+        "Damage": 10,
+        "CalculationBase": 0,
+        "CalculationExtra": 1,
+        "CalculatedBlock": 0,
+        "Repeat": 1
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedBlock": {
+          "base": "CalculationBase",
+          "extra": "CalculationExtra"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SOW",
+      "vars": {
+        "Damage": 8
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SPECTRUM_SHIFT",
+      "vars": {
+        "Cards": 1
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SPEEDSTER",
+      "vars": {
+        "SpeedsterPower": 2
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [
+          "Innate"
+        ],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SPINNER",
+      "vars": {
+        "SpinnerPower": 1
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SPIRIT_OF_ASH",
+      "vars": {
+        "BlockOnExhaust": 4
+      },
+      "upgrade": {
+        "vars": {
+          "BlockOnExhaust": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SPITE",
+      "vars": {
+        "Damage": 5,
+        "Repeat": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Repeat": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SPLASH",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SPOILS_MAP",
+      "vars": {
+        "Gold": 600
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SPOILS_OF_BATTLE",
+      "vars": {
+        "Forge": 6,
+        "Cards": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Forge": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SPORE_MIND",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SPUR",
+      "vars": {
+        "Summon": 3,
+        "Heal": 5
+      },
+      "upgrade": {
+        "vars": {
+          "Summon": 2,
+          "Heal": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SQUASH",
+      "vars": {
+        "Damage": 10,
+        "VulnerablePower": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2,
+          "VulnerablePower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SQUEEZE",
+      "vars": {
+        "CalculationBase": 25,
+        "ExtraDamage": 5,
+        "CalculatedDamage": 25
+      },
+      "upgrade": {
+        "vars": {
+          "CalculationBase": 5,
+          "ExtraDamage": 1,
+          "CalculatedDamage": 5
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedDamage": {
+          "base": "CalculationBase",
+          "extra": "ExtraDamage"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.STACK",
+      "vars": {
+        "CalculationBase": 0,
+        "CalculationExtra": 1,
+        "CalculatedBlock": 0
+      },
+      "upgrade": {
+        "vars": {
+          "CalculationBase": 3,
+          "CalculatedBlock": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedBlock": {
+          "base": "CalculationBase",
+          "extra": "CalculationExtra"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.STAMPEDE",
+      "vars": {
+        "Power": 1
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.STARDUST",
+      "vars": {
+        "Damage": 5
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.STOKE",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.STOMP",
+      "vars": {
+        "Damage": 12
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.STONE_ARMOR",
+      "vars": {
+        "PlatingPower": 4
+      },
+      "upgrade": {
+        "vars": {
+          "PlatingPower": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.STORM",
+      "vars": {
+        "StormPower": 1
+      },
+      "upgrade": {
+        "vars": {
+          "StormPower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.STORM_OF_STEEL",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.STRANGLE",
+      "vars": {
+        "Damage": 8,
+        "StranglePower": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2,
+          "StranglePower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.STRATAGEM",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.STRIKE_DEFECT",
+      "vars": {
+        "Damage": 6
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.STRIKE_IRONCLAD",
+      "vars": {
+        "Damage": 6
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.STRIKE_NECROBINDER",
+      "vars": {
+        "Damage": 6
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.STRIKE_REGENT",
+      "vars": {
+        "Damage": 6
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.STRIKE_SILENT",
+      "vars": {
+        "Damage": 6
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SUBROUTINE",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SUCKER_PUNCH",
+      "vars": {
+        "Damage": 8,
+        "WeakPower": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2,
+          "WeakPower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SUMMON_FORTH",
+      "vars": {
+        "Forge": 8
+      },
+      "upgrade": {
+        "vars": {
+          "Forge": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SUNDER",
+      "vars": {
+        "Damage": 26,
+        "Energy": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 8
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SUPERCRITICAL",
+      "vars": {
+        "Energy": 4
+      },
+      "upgrade": {
+        "vars": {
+          "Energy": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SUPERMASSIVE",
+      "vars": {
+        "CalculationBase": 5,
+        "ExtraDamage": 3,
+        "CalculatedDamage": 5
+      },
+      "upgrade": {
+        "vars": {
+          "ExtraDamage": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedDamage": {
+          "base": "CalculationBase",
+          "extra": "ExtraDamage"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SUPPRESS",
+      "vars": {
+        "Damage": 11,
+        "WeakPower": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 6,
+          "WeakPower": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SURVIVOR",
+      "vars": {
+        "Block": 8
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SWEEPING_BEAM",
+      "vars": {
+        "Damage": 6,
+        "Cards": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SWEEPING_GAZE",
+      "vars": {
+        "OstyDamage": 10
+      },
+      "upgrade": {
+        "vars": {
+          "OstyDamage": 5
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SWORD_BOOMERANG",
+      "vars": {
+        "Damage": 3,
+        "Repeat": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Repeat": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SWORD_SAGE",
+      "vars": {
+        "SwordSagePower": 1
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SYNCHRONIZE",
+      "vars": {
+        "CalculationBase": 0,
+        "CalculationExtra": 1,
+        "CalculatedFocus": 0
+      },
+      "upgrade": {
+        "vars": {
+          "CalculationExtra": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedFocus": {
+          "base": "CalculationBase",
+          "extra": "CalculationExtra"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.SYNTHESIS",
+      "vars": {
+        "Damage": 14
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 6
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.TACTICIAN",
+      "vars": {
+        "Energy": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Energy": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.TAG_TEAM",
+      "vars": {
+        "Damage": 11
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 4
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.TANK",
+      "vars": {
+        "DamageIncrease": 1.5,
+        "DamageDecrease": 0.5
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.TAUNT",
+      "vars": {
+        "Block": 6,
+        "VulnerablePower": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 1,
+          "VulnerablePower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.TEAR_ASUNDER",
+      "vars": {
+        "Damage": 5,
+        "Repeat": 1,
+        "CalculationBase": 0,
+        "CalculationExtra": 1,
+        "CalculatedHits": 0
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedHits": {
+          "base": "CalculationBase",
+          "extra": "CalculationExtra"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.TEMPEST",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.TERRAFORMING",
+      "vars": {
+        "VigorPower": 7
+      },
+      "upgrade": {
+        "vars": {
+          "VigorPower": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.TESLA_COIL",
+      "vars": {
+        "Damage": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.THE_BALL",
+      "vars": {
+        "Damage": 10,
+        "Increase": 10
+      },
+      "upgrade": {
+        "vars": {
+          "Increase": 5
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.THE_BOMB",
+      "vars": {
+        "Turns": 3,
+        "BombDamage": 40
+      },
+      "upgrade": {
+        "vars": {
+          "BombDamage": 10
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.THE_GAMBIT",
+      "vars": {
+        "Block": 50
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 25
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.THE_HUNT",
+      "vars": {
+        "Damage": 10
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 5
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.THE_SCYTHE",
+      "vars": {
+        "Damage": 13,
+        "Increase": 5
+      },
+      "upgrade": {
+        "vars": {
+          "Increase": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "savedProperties": {
+        "Damage": "CurrentDamage"
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.THE_SEALED_THRONE",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.THE_SMITH",
+      "vars": {
+        "Forge": 30
+      },
+      "upgrade": {
+        "vars": {
+          "Forge": 10
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.THINKING_AHEAD",
+      "vars": {
+        "Cards": 2
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": [
+          "Exhaust"
+        ]
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.THRASH",
+      "vars": {
+        "Damage": 4
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.THRUMMING_HATCHET",
+      "vars": {
+        "Damage": 11
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.THUNDER",
+      "vars": {
+        "ThunderPower": 8
+      },
+      "upgrade": {
+        "vars": {
+          "ThunderPower": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.THUNDERCLAP",
+      "vars": {
+        "Damage": 4,
+        "VulnerablePower": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.TIMES_UP",
+      "vars": {
+        "CalculationBase": 0,
+        "ExtraDamage": 1,
+        "CalculatedDamage": 0
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [
+          "Retain"
+        ],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedDamage": {
+          "base": "CalculationBase",
+          "extra": "ExtraDamage"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.TOOLS_OF_THE_TRADE",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.TORIC_TOUGHNESS",
+      "vars": {
+        "Turns": 2,
+        "Block": 5
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.TOXIC",
+      "vars": {
+        "Damage": 5
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.TRACKING",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.TRANSFIGURE",
+      "vars": {
+        "Energy": 1
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": [
+          "Exhaust"
+        ]
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.TRASH_TO_TREASURE",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.TREMBLE",
+      "vars": {
+        "VulnerablePower": 3
+      },
+      "upgrade": {
+        "vars": {
+          "VulnerablePower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.TRUE_GRIT",
+      "vars": {
+        "Block": 7
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.TURBO",
+      "vars": {
+        "Energy": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Energy": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.TUTOR",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.TWIN_STRIKE",
+      "vars": {
+        "Damage": 5
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.TYRANNY",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [
+          "Innate"
+        ],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ULTIMATE_DEFEND",
+      "vars": {
+        "Block": 11
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 4
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ULTIMATE_STRIKE",
+      "vars": {
+        "Damage": 14
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 6
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.UNDEATH",
+      "vars": {
+        "Block": 7
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.UNDERWORLD",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": [
+          "Exhaust"
+        ]
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.UNLEASH",
+      "vars": {
+        "CalculationBase": 6,
+        "ExtraDamage": 1,
+        "CalculatedDamage": 6
+      },
+      "upgrade": {
+        "vars": {
+          "CalculationBase": 3,
+          "CalculatedDamage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "calculated": {
+        "CalculatedDamage": {
+          "base": "CalculationBase",
+          "extra": "ExtraDamage"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.UNMOVABLE",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.UNRELENTING",
+      "vars": {
+        "Damage": 14
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 6
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.UNTOUCHABLE",
+      "vars": {
+        "Block": 6
+      },
+      "upgrade": {
+        "vars": {
+          "Block": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.UPPERCUT",
+      "vars": {
+        "Damage": 13,
+        "Power": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Power": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.UPROAR",
+      "vars": {
+        "Damage": 6
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.UP_MY_SLEEVE",
+      "vars": {
+        "Cards": 3
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.VEILPIERCER",
+      "vars": {
+        "Damage": 10
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.VENERATE",
+      "vars": {
+        "Stars": 2
+      },
+      "upgrade": {
+        "vars": {
+          "Stars": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.VICIOUS",
+      "vars": {
+        "Cards": 1
+      },
+      "upgrade": {
+        "vars": {
+          "Cards": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.VOID",
+      "vars": {
+        "Energy": 1
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.VOID_FORM",
+      "vars": {
+        "VoidFormPower": 2
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": [
+          "Ethereal"
+        ]
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.VOLLEY",
+      "vars": {
+        "Damage": 10
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 4
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.VOLTAIC",
+      "vars": {
+        "CalculationBase": 0,
+        "CalculationExtra": 1,
+        "CalculatedChannels": 0
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": [
+          "Exhaust"
+        ]
+      },
+      "calculated": {
+        "CalculatedChannels": {
+          "base": "CalculationBase",
+          "extra": "CalculationExtra"
+        }
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.WASTE_AWAY",
+      "vars": {
+        "WasteAwayPower": 1
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.WELL_LAID_PLANS",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.WHIRLWIND",
+      "vars": {
+        "Damage": 5
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 3
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.WHISTLE",
+      "vars": {
+        "Damage": 33
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 11
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.WHITE_NOISE",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.WISH",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [
+          "Retain"
+        ],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.WISP",
+      "vars": {
+        "Energy": 1
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [
+          "Retain"
+        ],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.WITHER",
+      "vars": {
+        "Damage": 3
+      },
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.WOUND",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.WRAITH_FORM",
+      "vars": {
+        "IntangiblePower": 2,
+        "WraithFormPower": 1
+      },
+      "upgrade": {
+        "vars": {
+          "IntangiblePower": 1
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.WRITHE",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.WROUGHT_IN_WAR",
+      "vars": {
+        "Damage": 7,
+        "Forge": 7
+      },
+      "upgrade": {
+        "vars": {
+          "Damage": 2,
+          "Forge": 2
+        },
+        "costDelta": 0,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    },
+    {
+      "id": "CARD.ZAP",
+      "vars": {},
+      "upgrade": {
+        "vars": {},
+        "costDelta": -1,
+        "addKeywords": [],
+        "removeKeywords": []
+      },
+      "unresolved": []
+    }
+  ]
+}
