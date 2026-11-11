@@ -149,4 +149,11 @@ Next step for item 5: find the transform in the log (event id around the first m
 - DeckEffects bugs fixed (same in both versions; they matter when the choice is logged, i.e. co-op): LARGE_CAPSULE adds the character's basic Strike + Defend; PAELS_CLAW puts Goopy on every Defend-tagged card (basic Defends, ULTIMATE_DEFEND); PAELS_HORN adds 2 RELAX; ZEN_WEAVER BREATHING_TECHNIQUES adds 2 ENLIGHTENMENT; NEOWS_BONES adds 1 unknown curse.
 - Log-only result on the real run after the fixes: 22 cards; STRIKE_IRONCLAD x2 both flagged, DEFEND x4, no PECK / ULTIMATE_STRIKE (the history has 23: DEFEND x5, PECK, ULTIMATE_STRIKE, no Strike). The remaining gap is the known single-player log-only limit (Neow capsule, Wood Carvings result, Amalgamator result are never logged).
 - StateProbe now prints an `uncertain [...]` line.
+- Save copies of the same run (another session's live copies of `current_run.save`, 49 of this run, each matched to its `Wrote N bytes` log line by size): new `StateProbe --compare-saves <dir>`.
+  - Log-only deck at each write vs the copy: 1/49. Every miss starts with Neow's LARGE_CAPSULE (unlogged), then the other unlogged changes add up.
+  - Previous copy as the save + log patches vs the next copy: 38/48 before, **40/48** after two fixes made here:
+    - A Thieving Hopper card returned after the fight-end save (the save already lacks it) is added back; before, the return cancelled a steal the save had already applied (`StolenReturned`).
+    - With a save, an unknown select that names a card the save lacks adds it (Room Full of Cheese grid picks); before, every unknown select was skipped on top of a save.
+  - The 8 left are one room each, fixed by the next save, and all unlogged in single player: Neow capsule cards, Aroma's transform result, a shop purchase, Wood Carvings' PECK, Pael's Claw Goopy, the stolen card mid-fight, Amalgamator, Symbiote's enchant.
+  - Possible next step: with a save, `EventPrediction` names the event; with the transform-screen hint, Aroma's LET_GO is the only transform option, so its result could be replayed (`TransformRngCall` 0). Not done.
 

@@ -143,6 +143,9 @@ internal sealed class DeckReplay
         else Unidentified++;
     }
 
+    /// <summary>A log line names this card as in the deck: added (<see cref="UncertainReason.Inferred"/>) if we don't have it.</summary>
+    public void Named(string id, int floor) => Require(id, floor, plainest: false);
+
     /// <summary>A card-select whose meaning is unknown (unlisted event, second pick in a shop ...): keep the card, flag it.</summary>
     public void MarkUnknown(string id, int floor)
     {

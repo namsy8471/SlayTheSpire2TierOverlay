@@ -11,6 +11,10 @@
 //   dotnet run --project tools/StateProbe -- --extract-run <N.run> <outDir>   write a test fixture of one co-op run:
 //                                                          only the log lines the parser understands (IDs, no game
 //                                                          text) + the .run file, Steam IDs replaced by 7656119000000000k
+//   dotnet run --project tools/StateProbe -- --compare-saves <dir>   copies of current_run.save taken during play
+//                                                          (any file names): for each copy of the log's run, the
+//                                                          tracker's deck at the matching "Wrote N bytes" line, log
+//                                                          only and with the previous copy as the save, vs the copy
 // Overrides: --root <SlayTheSpire2 dir>  --saves <dir>  --log <godot.log>  --net-id <steam id>
 
 using System.Globalization;
@@ -19,7 +23,7 @@ using Sts2Overlay.GameState.Log;
 using Sts2Overlay.GameState.Save;
 using Sts2Overlay.GameState.Tracking;
 
-string? root = null, saves = null, log = null, saveFile = null, extractRun = null, extractOut = null;
+string? root = null, saves = null, log = null, saveFile = null, extractRun = null, extractOut = null, compareDir = null;
 ulong? netId = null;
 bool events = false, once = false, evalGuest = false;
 for (int i = 0; i < args.Length; i++)
@@ -36,6 +40,7 @@ for (int i = 0; i < args.Length; i++)
         case "--save": saveFile = Next(); break;
         case "--eval-guest": evalGuest = true; break;
         case "--extract-run": extractRun = Next(); extractOut = Next(); break;
+        case "--compare-saves": compareDir = Next(); break;
         default: Console.Error.WriteLine($"Unknown argument: {args[i]}"); return 1;
     }
 }
@@ -56,6 +61,9 @@ if (extractRun != null)
     string historyDir = Path.Combine(paths.SavesDirectory ?? "", "history");
     return Sts2Overlay.GameState.Diagnostics.FixtureExtractor.Extract(logsDir, historyDir, extractRun, extractOut!, Console.Out) ? 0 : 1;
 }
+
+if (compareDir != null)
+    return CompareSaves(compareDir, paths.LogFile, netId ?? paths.SteamId);
 
 if (evalGuest)
 {
@@ -158,6 +166,68 @@ static string Describe(TrackedRun? run)
     if (run.Map is { } m)
         w.WriteLine($"map {m.ActId} {m.Width}x{m.Height} nodes {m.Nodes.Count} current {m.Current?.ToString() ?? "-"} boss {m.Boss}");
     return w.ToString().TrimEnd();
+}
+
+// Deck of a save copy vs the tracker's deck at the moment the game wrote it (counts and card ids only).
+static int CompareSaves(string dir, string? logFile, ulong? netId)
+{
+    if (logFile == null || !File.Exists(logFile)) { Console.Error.WriteLine("godot.log not found"); return 1; }
+    string[] lines = File.ReadAllLines(logFile);
+    string? seed = lines.Select(l => LogLineParser.Parse(l)).OfType<RunStartedEvent>().LastOrDefault()?.Seed;
+    // Index of each current_run.save write line, with its size.
+    var writes = lines.Select((l, i) => (i, e: LogLineParser.Parse(l) as RunSaveWrittenEvent))
+                      .Where(x => x.e is { FileName: "current_run.save" }).Select(x => (x.i, x.e!.Bytes)).ToList();
+    var copies = new List<(string File, long Bytes, ParsedSave Save, int Line)>();
+    int from = 0;
+    foreach (string file in Directory.GetFiles(dir).Order(StringComparer.Ordinal))
+    {
+        byte[] bytes = File.ReadAllBytes(file);
+        ParsedSave save;
+        try { save = RunSaveParser.Parse(Sts2Overlay.GameState.IO.SharedFile.Decode(bytes), netId); }
+        catch (Exception) { continue; }
+        if (save.Seed != seed) continue;
+        int w = writes.FindIndex(from, x => x.Bytes == bytes.Length);
+        if (w < 0) continue;
+        from = w + 1;
+        copies.Add((file, bytes.Length, save, writes[w].i));
+    }
+    Console.WriteLine($"run {seed}: {copies.Count} save copies matched to log write lines");
+
+    static string Key(Sts2Overlay.Core.Model.DeckCard c) => c.Card + (c.EnchantmentId is { } e ? $"[{e}]" : "");
+    static string Diff(IReadOnlyList<Sts2Overlay.Core.Model.DeckCard> got, IReadOnlyList<Sts2Overlay.Core.Model.DeckCard> want)
+    {
+        var a = got.GroupBy(Key).ToDictionary(g => g.Key, g => g.Count());
+        var b = want.GroupBy(Key).ToDictionary(g => g.Key, g => g.Count());
+        var parts = a.Keys.Union(b.Keys).Order(StringComparer.Ordinal)
+            .Select(k => (k, d: a.GetValueOrDefault(k) - b.GetValueOrDefault(k))).Where(x => x.d != 0)
+            .Select(x => $"{(x.d > 0 ? "+" : "")}{x.d} {x.k}");
+        return string.Join(", ", parts);
+    }
+
+    int logOk = 0, saveOk = 0, saveTried = 0;
+    for (int k = 0; k < copies.Count; k++)
+    {
+        var (file, _, want, line) = copies[k];
+        var t = new GameStateTracker(new TrackerOptions { LocalNetIdOverride = netId });
+        t.ProcessLines(lines[..(line + 1)]);
+        string d1 = t.Current is { } r1 ? Diff(r1.State.Deck, want.State.Deck) : "(no run)";
+        if (d1.Length == 0) logOk++;
+
+        string d2 = "-";
+        if (k > 0)
+        {
+            saveTried++;
+            var prev = copies[k - 1];
+            var t2 = new GameStateTracker(new TrackerOptions { LocalNetIdOverride = netId });
+            t2.OnSave(new SaveSnapshot(Path.Combine(dir, "current_run.save"), prev.Save, DateTime.UtcNow, prev.Bytes));
+            t2.ProcessLines(lines[..(line + 1)]);
+            d2 = t2.Current is { } r2 ? Diff(r2.State.Deck, want.State.Deck) : "(no run)";
+            if (d2.Length == 0) saveOk++;
+        }
+        Console.WriteLine($"{k + 1,3}/{copies.Count} floor {want.State.Floor,2}  log-only {(d1.Length == 0 ? "ok" : d1)}  |  prev save + log {(d2.Length == 0 ? "ok" : d2)}");
+    }
+    Console.WriteLine($"log-only matched {logOk}/{copies.Count}; previous save + log matched {saveOk}/{saveTried}");
+    return 0;
 }
 
 static void PrintSave(ParsedSave s)

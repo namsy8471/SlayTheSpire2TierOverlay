@@ -168,6 +168,54 @@ public class GameStateTrackerTests
     }
 
     [Fact]
+    public void A_stolen_card_returned_after_the_fight_end_save_comes_back()
+    {
+        // The game saves at the end of the hopper fight, after the steal: that save lacks the card. The "special card
+        // reward" that returns it must then add it back (it only cancels the steal when both happen after the save).
+        var t = NewTracker();
+        t.ProcessLines([Embark, Wrote(100)]);
+        t.OnSave(Save("S1", 100, "CARD.BASH", "CARD.HEMOKINESIS"));
+        t.ProcessLines([
+            "[INFO] Creating NCombatRoom with mode=ActiveCombat encounter=THIEVING_HOPPER_WEAK.",
+            "[INFO] Monster THIEVING_HOPPER performing move THIEVERY_MOVE",
+            Wrote(200),
+        ]);
+        t.OnSave(Save("S1", 200, "CARD.BASH"));
+        t.ProcessLines([
+            "[INFO] CHARACTER.IRONCLAD has won against encounter ENCOUNTER.THIEVING_HOPPER_WEAK. That's 9 wins",
+            "[INFO] Player 1 obtained CARD.HEMOKINESIS from special card reward",
+            "[INFO] Player vote changed for 1: ->MapVote (gen: 2 coord: (1, 4))",
+            "[INFO] Preloading 'Combat Room' assets... count=8 vfx=0",
+        ]);
+        Assert.Equal(["CARD.BASH", "CARD.HEMOKINESIS"], t.Current!.State.Deck.Select(c => c.Id));
+
+        // Without the save in between, the steal and the return still cancel out.
+        var u = NewTracker();
+        u.ProcessLines([Embark, Wrote(100)]);
+        u.OnSave(Save("S1", 100, "CARD.BASH", "CARD.HEMOKINESIS"));
+        u.ProcessLines([
+            "[INFO] Monster THIEVING_HOPPER performing move THIEVERY_MOVE",
+            "[INFO] Player 1 obtained CARD.HEMOKINESIS from special card reward",
+            "[INFO] Preloading 'Combat Room' assets... count=8 vfx=0",
+        ]);
+        Assert.Equal(["CARD.BASH", "CARD.HEMOKINESIS"], u.Current!.State.Deck.Select(c => c.Id));
+    }
+
+    [Fact]
+    public void An_unknown_select_naming_a_card_the_save_lacks_adds_it()
+    {
+        // Room Full of Cheese GORGE: the two picked cards come from a grid of new cards. Single player logs no option.
+        var t = NewTracker();
+        t.ProcessLines([Embark, Wrote(100)]);
+        t.OnSave(Save("S1", 100, "CARD.BASH", "CARD.STRIKE_IRONCLAD"));
+        t.ProcessLines([
+            "[INFO] Preloading 'Event Room' assets... count=2 vfx=0",
+            "[INFO] Player 1 chose cards [BREAKTHROUGH,STRIKE_IRONCLAD]",
+        ]);
+        Assert.Equal(["CARD.BASH", "CARD.STRIKE_IRONCLAD", "CARD.BREAKTHROUGH"], t.Current!.State.Deck.Select(c => c.Id));
+    }
+
+    [Fact]
     public void Save_delivered_before_its_log_line_self_corrects()
     {
         var t = NewTracker();

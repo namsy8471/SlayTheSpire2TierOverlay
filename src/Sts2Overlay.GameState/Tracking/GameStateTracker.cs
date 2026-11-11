@@ -89,6 +89,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
     private bool _pendingRemovalReward;
     private bool _cardStolen;                            // Thieving Hopper took a card this room (not yet returned)
     private int _stealAt;                                // index in _combatPlays where the steal happened
+    private long _stealSeq;                              // log line of the steal (a save written after it already lacks the card)
     private (List<CombatPlay> Before, List<CombatPlay> After)? _stealPlays;
     private DeckEffect? _pendingSelect;                  // meaning of my next "chose cards" (event option / relic)
     private bool _merchantVisited;                       // I entered a merchant this run (my purchases aren't logged)
@@ -500,14 +501,17 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
             // ---- patches: only for the local player ----------------------------------------------
             case MonsterMoveEvent { Move: "THIEVERY_MOVE" }:
                 _cardStolen = true; // every living player loses a card (which one is not logged)
+                _stealSeq = _seq;
                 _stealAt = _combatPlays?.Count ?? 0;
                 _stealPlays = null;
                 return false;
             case CardObtainedEvent { Special: true } c when IsMe(c.PlayerId) && _cardStolen:
                 // Killing the hopper gives the stolen card back as a "special card reward" (SwipePower.BeforeDeath):
-                // the unlogged steal and this return cancel out, so the deck is unchanged.
+                // the unlogged steal and this return cancel out, so the deck is unchanged — unless a save was written
+                // between them (the game saves at the end of the fight): that save lacks the card, so it comes back.
                 _cardStolen = false;
-                return false;
+                _patches.Add(new Patch(PatchKind.StolenReturned, c.CardId, 0, _seq) { StealSeq = _stealSeq });
+                return true;
             case CardObtainedEvent c when IsMe(c.PlayerId):
             {
                 // From act 2 on, a reward card may come pre-upgraded (CardFactory.RollForUpgrade: act index x 25%,
@@ -733,6 +737,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         _cardStolen = false;
         _patches.Add(new Patch(PatchKind.CardStolen, null, 0, _seq)
         {
+            StealSeq = _stealSeq,
             Before = _stealPlays?.Before ?? [],
             Combat = new CombatObservation(_stealPlays?.After ?? []),
         });
@@ -1327,8 +1332,10 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
             if (p.Seq <= cutoff) continue;
             // Uncertainty flags and fight observations only matter without a save (co-op guest): a save is exact.
             // (Replayed event-RNG upgrades are exact, so they apply on top of a save too.)
-            if (fromSave && p.Kind is PatchKind.UnknownSelect or PatchKind.RandomUpgrades
-                    or PatchKind.UnknownAdds or PatchKind.RandomRemoves) continue;
+            // A select naming a card the save doesn't have still proves the card is in the deck now (picked from a grid
+            // of new cards, e.g. Room Full of Cheese, or bought unlogged): add it.
+            if (fromSave && p.Kind == PatchKind.UnknownSelect) { deck.Named(p.Id!, state.Floor); applied++; continue; }
+            if (fromSave && p.Kind is PatchKind.RandomUpgrades or PatchKind.UnknownAdds or PatchKind.RandomRemoves) continue;
             applied++;
             switch (p.Kind)
             {
@@ -1356,7 +1363,11 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
                 case PatchKind.RandomUpgrades: deck.RandomUpgrades(p.Amount, p.Arg); break;
                 case PatchKind.UnknownAdds: deck.UnknownAdds(p.Amount); break;
                 case PatchKind.RandomRemoves: deck.RandomRemoves(p.Amount); break;
+                case PatchKind.StolenReturned:
+                    if (p.StealSeq <= cutoff) deck.Add(p.Id!, state.Floor); // the save already lacks the stolen card
+                    break;
                 case PatchKind.CardStolen:
+                    if (p.StealSeq <= cutoff) break; // the save already lacks the stolen card
                     deck.Stolen(p.Before!.Where(x => x.Owner == me).ToList(), p.Combat!.Plays.Where(x => x.Owner == me).ToList());
                     break;
                 case PatchKind.UpgradeBasics: deck.UpgradeBasics(); break;
@@ -1496,7 +1507,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         AddCard, RemoveCard, ShopRemoveCard, UpgradeCard, TransformCard, EnchantCard, DuplicateCard, UnknownSelect,
         RandomUpgrades, UnknownAdds, RandomRemoves, UpgradeBasics, TransformAllBasics, TransformStrikeAndDefend, Transcend,
         CloneEnchanted, CombatSeen, CardStolen, UpgradeAll, AddRelic, AddGold, AddPotion, RemovePotion,
-        ShuffleUpgrades, PickUpgrade, EnchantAllDefends,
+        ShuffleUpgrades, PickUpgrade, EnchantAllDefends, StolenReturned,
     }
 
     /// <param name="Seq">Log line number: patches are compared to save marks by this, not by wall-clock time.</param>
@@ -1507,6 +1518,8 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         public CombatObservation? Combat { get; init; }
         /// <summary>CardStolen: the fight's plays before the steal (<see cref="Combat"/> holds the ones after it).</summary>
         public IReadOnlyList<CombatPlay>? Before { get; init; }
+        /// <summary>CardStolen / StolenReturned: log line of the steal itself.</summary>
+        public long StealSeq { get; init; }
         /// <summary>ShuffleUpgrades / PickUpgrade: seed of the event's RNG stream (a fresh stream is made on each compose).</summary>
         public ulong? RngSeed { get; init; }
     }
