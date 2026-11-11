@@ -17,13 +17,23 @@ public sealed record AncientVisit(
 {
     public bool Exact => Truth.SequenceEqual(Replay);
 
+    /// <summary>The run file's <c>build_id</c> (decides the seed arithmetic, <see cref="RngSeeds.ForGameVersion"/>).</summary>
+    public string BuildId { get; init; } = "";
+
+    /// <summary>
+    /// The game showed options this release's ancient can't offer (a mod added or replaced options): not a replay
+    /// target. Decided from the truth alone (option count, ids outside <see cref="AncientOptions.AllOptions"/>).
+    /// </summary>
+    public bool Modded { get; init; }
+
     public override string ToString() =>
         $"{RunFile} {EventId} act {Inputs.ActIndex + 1} slot {Slot}/{Players}: game [{string.Join(", ", Truth)}] replay [{string.Join(", ", Replay)}]";
 }
 
 /// <summary>
 /// Replays every act-start ancient (not Neow: <see cref="NeowOptions"/>) of run-history files and compares with the
-/// options the game recorded. Only runs of the version the replay was ported from (v0.107.1) without modifiers count.
+/// options the game recorded. Only runs of the given game version (default v0.107.1, the first port) without modifiers
+/// count; the run's <c>build_id</c> picks the seed arithmetic.
 /// </summary>
 public static class AncientReplayEvaluation
 {
@@ -32,10 +42,13 @@ public static class AncientReplayEvaluation
     /// <summary>
     /// Every ancient visit in <paramref name="runFiles"/>. <paramref name="epochsOf"/> gives a player's unlocked epochs
     /// (from their progress.save; null = all unlocked) — history files don't keep them. <paramref name="anyVersion"/> also
-    /// reads runs of other game versions (to measure how far the replay carries; not a target).
+    /// reads runs of other game versions (to measure how far the replay carries; not a target). Runs whose seed a save
+    /// migration prefixed (<c>old...</c>: started before v0.109, finished after) are left out: which of their ancients
+    /// the old game drew can't be told from the file.
     /// </summary>
     public static IReadOnlyList<AncientVisit> Run(
-        IEnumerable<string> runFiles, Func<long, IReadOnlyCollection<string>?>? epochsOf = null, bool anyVersion = false)
+        IEnumerable<string> runFiles, Func<long, IReadOnlyCollection<string>?>? epochsOf = null, bool anyVersion = false,
+        string version = Version)
     {
         var visits = new List<AncientVisit>();
         foreach (string file in runFiles)
@@ -43,8 +56,11 @@ public static class AncientReplayEvaluation
             string json = File.ReadAllText(file);
             using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;
-            if ((!anyVersion && root.GetProperty("build_id").GetString() != Version) || root.GetProperty("modifiers").GetArrayLength() > 0) continue;
+            string build = root.GetProperty("build_id").GetString() ?? "";
+            if ((!anyVersion && build != version) || root.GetProperty("modifiers").GetArrayLength() > 0) continue;
             RunHistory run = RunHistoryReader.Parse(json);
+            if (RngSeeds.IsMigrated(run.Seed)) continue;
+            RngScheme scheme = RngSeeds.ForGameVersion(build);
             var players = run.Players.Select(p => p.Id).ToList();
             var timelines = players.ToDictionary(id => id, id => DeckTimeline.Build(run, id));
 
@@ -71,11 +87,16 @@ public static class AncientReplayEvaluation
                             Deck = timelines[id].DeckBefore(index).Select(c => new AncientDeckCard(c.Id, c.EnchantmentId)).ToArray(),
                             Relics = RelicsBefore(run, player, index),
                             UnlockedEpochs = epochsOf?.Invoke(id),
+                            Scheme = scheme,
                         };
                         var draw = AncientOptions.Draw(eventId, inputs)!;
                         var replay = draw.Options.Select(o => o == AncientOptions.SeaGlass ? Entry(draw.SeaGlassCharacter!) : o).ToArray();
                         var truth = choices.EnumerateArray().Select(c => c.GetProperty("TextKey").GetString()!).ToArray();
-                        visits.Add(new AncientVisit(Path.GetFileName(file), eventId, inputs.Slot, players.Count, inputs, truth, replay));
+                        visits.Add(new AncientVisit(Path.GetFileName(file), eventId, inputs.Slot, players.Count, inputs, truth, replay)
+                        {
+                            BuildId = build,
+                            Modded = truth.Length != replay.Length || !truth.All(t => Known(eventId, t, scheme)),
+                        });
                     }
                 }
             }
@@ -104,4 +125,10 @@ public static class AncientReplayEvaluation
     }
 
     private static string Entry(string id) => id[(id.IndexOf('.') + 1)..];
+
+    private static readonly HashSet<string> CharacterEntries = new(StringComparer.Ordinal) { "IRONCLAD", "SILENT", "REGENT", "NECROBINDER", "DEFECT" };
+
+    /// <summary>An option history can list for this ancient: one of its options, Orobas's locked slot, or Sea Glass's character.</summary>
+    private static bool Known(string eventId, string option, RngScheme scheme) =>
+        AncientOptions.AllOptions(eventId, scheme).Contains(option) || option == AncientOptions.OrobasLocked || CharacterEntries.Contains(option);
 }

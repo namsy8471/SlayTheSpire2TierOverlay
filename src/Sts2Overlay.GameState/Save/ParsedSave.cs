@@ -30,7 +30,11 @@ public sealed record ParsedSave
     /// <summary>Run seed string (<c>rng.seed</c>), e.g. <c>H6VRKY8PFE</c>. Same as the log's <c>Seed:</c>.</summary>
     public string? Seed { get; init; }
 
+    /// <summary><c>schema_version</c>: 16 in v0.107.1, 20 in v0.111.0; 0 when the save has none.</summary>
     public int SchemaVersion { get; init; }
+
+    /// <summary>The run's seed arithmetic by <see cref="SchemaVersion"/> (19+ = 64-bit seeds); null without a schema.</summary>
+    public Tracking.RngScheme? RngScheme => Tracking.RngSeeds.ForSaveSchema(SchemaVersion);
 
     /// <summary><c>net_id</c> of the player we picked as "me" (1 in single player, Steam ID in co-op).</summary>
     public ulong MyNetId { get; init; }
@@ -115,7 +119,10 @@ public sealed record EventRoomState
     /// <summary><c>pre_finished_room</c> is set (a reload into a room whose combat already ended).</summary>
     public bool PreFinishedRoom { get; init; }
 
-    /// <summary><c>rng.counters.unknown_map_point</c>: calls already drawn from the "?" room stream.</summary>
+    /// <summary>
+    /// <c>rng.counters.unknown_map_point</c> (schema ≤ 18) or <c>rng.rngs.unknown_map_point.counter</c> (schema 19+):
+    /// calls already drawn from the "?" room stream.
+    /// </summary>
     public int UnknownMapPointCounter { get; init; }
 
     /// <summary>The previous map point had a shop room (a "?" can't roll a shop right after one).</summary>

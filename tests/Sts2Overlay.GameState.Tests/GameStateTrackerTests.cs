@@ -122,6 +122,7 @@ public class GameStateTrackerTests
                 Deck = deck.Select(id => new DeckCard(new CardRef(id))).ToList(),
             },
             Seed = seed,
+            SchemaVersion = 16, // a v0.107.1 save: the seeds below were recorded with the old 32-bit arithmetic
             PlayerNetIds = [1],
             MyNetId = 1,
             CardRarityOffset = 0.02,
@@ -243,7 +244,7 @@ public class GameStateTrackerTests
     }
 
     /// <summary>A single-player Neow room: the run-start save stands on the act's ancient node.</summary>
-    private static SaveSnapshot NeowSave(string seed, int modifiers)
+    private static SaveSnapshot NeowSave(string seed, int modifiers, int schema = 16)
     {
         var start = new MapCoord(3, 0);
         SaveSnapshot s = Save(seed, 100);
@@ -251,6 +252,7 @@ public class GameStateTrackerTests
         {
             Save = s.Save with
             {
+                SchemaVersion = schema,
                 ModifierCount = modifiers,
                 Map = new MapGraph
                 {
@@ -262,13 +264,13 @@ public class GameStateTrackerTests
         };
     }
 
-    private static GameStateTracker NeowTracker(string progressJson, string seed, int modifiers = 0)
+    private static GameStateTracker NeowTracker(string progressJson, string seed, int modifiers = 0, int schema = 16)
     {
         string dir = Directory.CreateTempSubdirectory("sts2-neow-").FullName;
         File.WriteAllText(Path.Combine(dir, ProgressSave.FileName), progressJson);
         var t = new GameStateTracker(new TrackerOptions { Paths = new GamePaths(dir, null, null), Clock = () => T0 });
         t.ProcessLines([$"[INFO] Embarking on a singleplayer IRONCLAD run. Ascension: 0 Seed: {seed}", Wrote(100)]);
-        t.OnSave(NeowSave(seed, modifiers));
+        t.OnSave(NeowSave(seed, modifiers, schema));
         t.ProcessLine("[INFO] Preloading 'Event Room' assets... count=2 vfx=0");
         return t;
     }
@@ -287,7 +289,31 @@ public class GameStateTrackerTests
         Assert.Equal(
             ["NEOW.pages.INITIAL.options.LEAD_PAPERWEIGHT", "NEOW.pages.INITIAL.options.NEOWS_TORMENT", "NEOW.pages.INITIAL.options.LEAFY_POULTICE"],
             ev.OptionKeys);
-        Assert.Equal(NeowOptions.PossibleKeys(1, allCharactersUnlocked: true), ev.PossibleKeys);
+        Assert.Equal(NeowOptions.PossibleKeys(1, allCharactersUnlocked: true, RngScheme.Legacy32), ev.PossibleKeys);
+    }
+
+    [Fact]
+    public void Schema_20_save_replays_neow_with_the_v0111_arithmetic()
+    {
+        // PZ4J3CV19SSW: a live v0.111.0 run; the game offered Golden Pearl, Nutritious Oyster, Large Capsule.
+        var ev = NeowTracker(AllUnlocked, "PZ4J3CV19SSW", schema: 20).Current!.CurrentEvent!;
+        Assert.True(ev.OptionsReplayed);
+        Assert.Equal(
+            ["NEOW.pages.INITIAL.options.GOLDEN_PEARL", "NEOW.pages.INITIAL.options.NUTRITIOUS_OYSTER", "NEOW.pages.INITIAL.options.LARGE_CAPSULE"],
+            ev.OptionKeys);
+        Assert.Equal(NeowOptions.PossibleKeys(1, allCharactersUnlocked: true, RngScheme.Xx64), ev.PossibleKeys);
+        Assert.Contains("NEOW.pages.INITIAL.options.NEOWS_SACRIFICE", ev.PossibleKeys!);
+    }
+
+    [Fact]
+    public void Without_a_save_schema_the_log_version_picks_the_arithmetic()
+    {
+        var t = NeowTracker(AllUnlocked, "R9REQLA5XL", schema: 0); // nothing says the version: the current game's rules
+        Assert.Equal(NeowOptions.Keys("R9REQLA5XL", 0, 1, allCharactersUnlocked: true, RngScheme.Xx64), t.Current!.CurrentEvent!.OptionKeys);
+        t.ProcessLine("Release Version: v0.107.1");
+        Assert.Equal(
+            ["NEOW.pages.INITIAL.options.LEAD_PAPERWEIGHT", "NEOW.pages.INITIAL.options.NEOWS_TORMENT", "NEOW.pages.INITIAL.options.LEAFY_POULTICE"],
+            t.Current!.CurrentEvent!.OptionKeys);
     }
 
     [Fact]
@@ -297,7 +323,7 @@ public class GameStateTrackerTests
         Assert.Contains("NEOW.pages.INITIAL.options.KALEIDOSCOPE", NeowTracker(AllUnlocked, seed).Current!.CurrentEvent!.OptionKeys!);
         var locked = NeowTracker("""{"epochs":[{"id":"SILENT1_EPOCH","state":"revealed"}]}""", seed).Current!.CurrentEvent!.OptionKeys!;
         Assert.DoesNotContain("NEOW.pages.INITIAL.options.KALEIDOSCOPE", locked);
-        Assert.Equal(NeowOptions.Keys(seed, 0, 1, allCharactersUnlocked: false), locked);
+        Assert.Equal(NeowOptions.Keys(seed, 0, 1, allCharactersUnlocked: false, RngScheme.Legacy32), locked);
     }
 
     /// <summary>A single-player room-entry save of the act-1 "?" room <paramref name="visited"/> (1-based), events pulled so far seen.</summary>

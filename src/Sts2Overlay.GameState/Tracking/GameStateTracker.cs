@@ -102,6 +102,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
     private long _pityLogSeq = -1;
     private IReadOnlyList<RarityRoll> _lastRolls = [];
     private RewardRollReplay? _rewardRng;                // my Rewards stream, replayed from the run seed
+    private string? _logGameVersion;                     // "release=v0.111.0" from this log's startup lines
     private readonly List<List<OfferSlot>> _offers = []; // my located reward-card offers in this room (slots per screen)
     private RewardCardPool? _pool;                       // my character's reward pool, to replay which card each slot shows
     private ulong _liveEpochs = ulong.MaxValue;          // epoch-lock hypotheses (bit h) the picks so far allow
@@ -314,6 +315,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
             ResetRun(null);
             _saveMarks.Clear();
             _logLocalId = _profileSteamId = null;
+            _logGameVersion = null;
             _screen = ScreenHint.Unknown;
             run = Recompute();
         }
@@ -390,6 +392,12 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
                 if (id.FromProfilePath) { _profileSteamId = id.NetId; FollowProfile(id); }
                 else if (id.NetId > 1) _logLocalId = id.NetId; // "Local player 1 is ready" = single player, not an id
                 return false;
+
+            case GameVersionEvent v:
+                if (_logGameVersion == v.Version) return false;
+                _logGameVersion = v.Version;
+                Diagnostic?.Invoke(this, $"game {v.Version}: {RngSeeds.ForGameVersion(v.Version)} seeds unless a save says otherwise");
+                return true;
 
             case ActEnteredEvent a:
                 if (a.ActId != _logActId) { _logAct++; _logActId = a.ActId; _moveSinceRoom = true; _partnerVotes.Clear(); _myVote = null; }
@@ -841,7 +849,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
 
     private sealed record ReplayedOptions(IReadOnlyList<string> Keys, IReadOnlyList<string> Possible);
 
-    private (string Seed, int Slot, int Players, ReplayedOptions? Draw)? _neowDraw; // the last answer, null ones included
+    private (string Seed, int Slot, int Players, RngScheme Scheme, ReplayedOptions? Draw)? _neowDraw; // the last answer, null ones included
     private (string Key, ReplayedOptions? Draw)? _ancientDraw; // same for the act-start ancients
 
     /// <summary>An ancient's offered options replayed from the run seed (Neow or an act-start ancient); null for other events.</summary>
@@ -861,7 +869,8 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
             || !map.Nodes.TryGetValue(cur, out var node) || node.Type != MapNodeType.Ancient) return null;
         int slot = MySlot();
         if (slot < 0) return null;
-        string key = $"{seed}|{slot}|{eventId}|{ev.ActIndex}";
+        RngScheme scheme = Scheme();
+        string key = $"{seed}|{slot}|{eventId}|{ev.ActIndex}|{scheme}";
         if (_ancientDraw is { } c && c.Key == key) return c.Draw;
 
         var inputs = new AncientInputs
@@ -873,6 +882,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
             Deck = save.State.Deck.Select(d => new AncientDeckCard(d.Id, d.EnchantmentId)).ToArray(),
             Relics = save.State.Relics,
             UnlockedEpochs = save.UnlockedEpochs,
+            Scheme = scheme,
         };
         IReadOnlyList<string>? keys = AncientOptions.Keys(eventId, inputs)!;
         // No epochs in the save (an old save, or a fresh profile): usable only when the unlocks don't change the draw.
@@ -898,18 +908,20 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         int slot = MySlot();
         if (slot < 0) return null;
         int players = IsMultiplayer() ? PlayerOrder().Count : 1;
-        if (_neowDraw is { } c && c.Seed == seed && c.Slot == slot && c.Players == players) return c.Draw;
+        RngScheme scheme = Scheme();
+        if (_neowDraw is { } c && c.Seed == seed && c.Slot == slot && c.Players == players && c.Scheme == scheme) return c.Draw;
 
         bool? unlocked = _options.Paths?.SavesDirectory is { } dir ? ProgressSave.AllCharactersUnlockedIn(dir) : null;
+        RngScheme pools = NeowOptions.EffectiveScheme(seed, scheme); // a migrated "old..." seed had its Neow on the old game
         ReplayedOptions? draw;
-        if (unlocked is { } u) draw = new(NeowOptions.Keys(seed, slot, players, u), NeowOptions.PossibleKeys(players, u));
+        if (unlocked is { } u) draw = new(NeowOptions.Keys(seed, slot, players, u, scheme), NeowOptions.PossibleKeys(players, u, pools));
         else
         {
             // Unlocks unknown: usable only when Kaleidoscope's condition doesn't change the draw.
-            var a = NeowOptions.Keys(seed, slot, players, true);
-            draw = a.SequenceEqual(NeowOptions.Keys(seed, slot, players, false)) ? new(a, NeowOptions.PossibleKeys(players, true)) : null;
+            var a = NeowOptions.Keys(seed, slot, players, true, scheme);
+            draw = a.SequenceEqual(NeowOptions.Keys(seed, slot, players, false, scheme)) ? new(a, NeowOptions.PossibleKeys(players, true, pools)) : null;
         }
-        _neowDraw = (seed, slot, players, draw);
+        _neowDraw = (seed, slot, players, scheme, draw);
         Diagnostic?.Invoke(this, draw is null
             ? "neow options: progress.save unreadable and the unlocks decide the draw; showing every option"
             : $"neow options (seed replay): {string.Join(", ", draw.Keys.Select(k => k[(k.LastIndexOf('.') + 1)..]))}");
@@ -1015,18 +1027,25 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
     {
         int slot = MySlot();
         if (slot < 0 || RunSeed() is not { } seed) return null;
-        if (_rewardRng?.Slot != slot) _rewardRng = new RewardRollReplay(seed, slot);
+        RngScheme scheme = Scheme();
+        if (_rewardRng?.Slot != slot || _rewardRng.Scheme != scheme) _rewardRng = new RewardRollReplay(seed, slot, scheme);
         return _rewardRng;
     }
 
-    /// <summary>EventModel.BeginEvent: <c>new Rng((uint)((int)runSeed + slot) + hash(event id entry))</c> (events aren't shared).</summary>
-    private uint? EventRngSeed(string eventId)
+    /// <summary>
+    /// The run's seed arithmetic (<see cref="RngSeeds"/>): the run save's schema when one is at hand, else the game
+    /// version this log printed at startup, else <see cref="RngSeeds.Default"/> (64-bit, v0.109+).
+    /// </summary>
+    private RngScheme Scheme() =>
+        ChooseSave()?.Save.RngScheme
+        ?? (_logGameVersion is { } v ? RngSeeds.ForGameVersion(v) : RngSeeds.Default);
+
+    /// <summary>EventModel.BeginEvent: <c>new Rng(runSeed + slot + hash(event id entry))</c> (events aren't shared).</summary>
+    private ulong? EventRngSeed(string eventId)
     {
         int slot = MySlot();
         if (slot < 0 || RunSeed() is not { } seed) return null;
-        string entry = eventId.StartsWith("EVENT.", StringComparison.Ordinal) ? eventId["EVENT.".Length..] : eventId;
-        uint runSeed = (uint)GameRng.DeterministicHash(seed);
-        return unchecked((uint)((int)runSeed + slot) + (uint)GameRng.DeterministicHash(entry));
+        return RngSeeds.EventStream(Scheme(), seed, slot, eventId);
     }
 
     /// <summary>
@@ -1385,6 +1404,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
                 .OrderBy(v => v.PlayerId)
                 .ToList(),
             Seed = save?.Save.Seed ?? _logRun?.Seed,
+            RngScheme = Scheme(),
             Outcome = _outcome,
             Save = save?.Save,
             UpdatedAt = _clock(),
@@ -1459,6 +1479,6 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         /// <summary>CardStolen: the fight's plays before the steal (<see cref="Combat"/> holds the ones after it).</summary>
         public IReadOnlyList<CombatPlay>? Before { get; init; }
         /// <summary>ShuffleUpgrades / PickUpgrade: seed of the event's RNG stream (a fresh stream is made on each compose).</summary>
-        public uint? RngSeed { get; init; }
+        public ulong? RngSeed { get; init; }
     }
 }

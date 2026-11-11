@@ -68,9 +68,9 @@ public sealed partial class AppController
         if (_settings.MapOverlay && Demo is null && snap.Map is { } map && snap.Seed is { } seed)
         {
             // Same act map: keep the layout (positions don't depend on where we are), just take the newer graph.
-            target = _mapWatcher.Target is { } cur && cur.Key == MapTarget.KeyFor(map, seed)
+            target = _mapWatcher.Target is { } cur && cur.Key == MapTarget.KeyFor(map, seed, snap.RngScheme)
                 ? cur with { Map = map }
-                : MapTarget.For(map, seed);
+                : MapTarget.For(map, seed, snap.RngScheme);
             if (target is not null && target.Key != _mapWatcher.Target?.Key) AppLog.Info($"map overlay: act {map.Act} layout, {target.Marks.Count} nodes");
         }
         _mapWatcher.Target = target;

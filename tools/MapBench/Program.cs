@@ -46,7 +46,7 @@ if (savesDir != null)
     {
         ParsedSave? s = RunSaveParser.ParseFile(f, null);
         if (s != null && MarkPreview.TimeOf(Path.GetFileName(f)) is { } savedAt) saves.Add((savedAt, s));
-        if (s?.Map is not { } map || MapScreenGeometry.Compute(map, s.Seed) is not { } layout) continue;
+        if (s?.Map is not { } map || MapScreenGeometry.Compute(map, s.Seed, s.RngScheme ?? RngSeeds.Default) is not { } layout) continue;
         if (layouts.Any(l => l.Layout.Seed == layout.Seed && l.Layout.ActIndex == layout.ActIndex)) continue;
         layouts.Add(($"{s.Seed}/act{layout.ActIndex + 1}", layout, map));
     }

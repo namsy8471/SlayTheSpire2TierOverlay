@@ -18,18 +18,19 @@ namespace Sts2Overlay.App.Services;
 public sealed record MapTarget(string Key, MapGraph Map, MapScreenLayout Layout, IReadOnlyList<MapMark> Marks)
 {
     /// <summary>Null when the map or seed is unknown (the node jitter can't be reproduced without the seed).</summary>
-    public static MapTarget? For(MapGraph? map, string? seed)
+    public static MapTarget? For(MapGraph? map, string? seed, RngScheme scheme = RngSeeds.Default)
     {
-        if (map is null || MapScreenGeometry.Compute(map, seed) is not { } layout) return null;
+        if (map is null || MapScreenGeometry.Compute(map, seed, scheme) is not { } layout) return null;
         var marks = layout.Centers
             .Where(kv => kv.Key != map.Start && kv.Key != map.Boss && kv.Key != map.SecondBoss)
             .Select(kv => new MapMark(kv.Value.X, kv.Value.Y))
             .ToList();
-        return new MapTarget(KeyFor(map, seed), map, layout, marks);
+        return new MapTarget(KeyFor(map, seed, scheme), map, layout, marks);
     }
 
     /// <summary>Same key = same node positions (the layout depends on the seed and the act's nodes, not on where we are).</summary>
-    public static string KeyFor(MapGraph map, string? seed) => $"{seed}|{map.Act}|{map.ActId}|{map.Nodes.Count}|{map.Width}x{map.Height}";
+    public static string KeyFor(MapGraph map, string? seed, RngScheme scheme = RngSeeds.Default) =>
+        $"{seed}|{scheme}|{map.Act}|{map.ActId}|{map.Nodes.Count}|{map.Width}x{map.Height}";
 }
 
 /// <summary>Result of looking for the map in one captured frame.</summary>

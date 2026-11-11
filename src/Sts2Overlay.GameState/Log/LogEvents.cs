@@ -32,6 +32,12 @@ public sealed record LobbyPlayer(ulong NetId, string Character);
 public sealed record RunStartedEvent(bool IsMultiplayer, string? Character, int Ascension, string Seed,
                                      IReadOnlyList<LobbyPlayer> Players, string Mode) : LogEvent;
 
+/// <summary>
+/// The game's version at startup: <c>[Sentry.NET] Initialized: env=..., release=v0.111.0</c> or
+/// <c>Release Version: v0.111.0</c> (both lines seen in v0.107.1 and v0.111.0 logs). Decides the seed arithmetic when no save says it (<see cref="Tracking.RngSeeds"/>).
+/// </summary>
+public sealed record GameVersionEvent(string Version) : LogEvent;
+
 /// <summary><c>Continuing run with character: CHARACTER.DEFECT</c> (NMainMenu.cs:708; players[0]'s character).</summary>
 public sealed record RunContinuedEvent(string Character) : LogEvent;
 

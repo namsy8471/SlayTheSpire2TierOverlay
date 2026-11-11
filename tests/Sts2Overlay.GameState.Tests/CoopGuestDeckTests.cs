@@ -98,6 +98,7 @@ public class CoopGuestDeckTests
 
     private static readonly string[] Header =
     [
+        "Release Version: v0.107.1", // the replayed draws below were taken with v0.107.1's seed arithmetic
         "[INFO] [StartRunLobby (76561190000000001)] Local player 76561190000000001 is ready",
         "[INFO] Embarking on a multiplayer run. Players: Player 76561190000000001, DEFECT,Player 76561190000000002, SILENT. Ascension: 0 Seed: TESTSEED01",
         "[INFO] Preloading 'Act=OVERGROWTH' assets... count=8 vfx=0",

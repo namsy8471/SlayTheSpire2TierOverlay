@@ -32,12 +32,15 @@ public sealed record AncientInputs
 
     /// <summary>A run modifier clears the starting deck (Darv then never offers Pandora's Box).</summary>
     public bool DeckClearingModifier { get; init; }
+
+    /// <summary>The run's seed arithmetic (save schema / game version).</summary>
+    public RngScheme Scheme { get; init; } = RngSeeds.Default;
 }
 
 /// <summary>
 /// The options an act-start ancient offers, replayed exactly (v0.107.1, Models.Events.*.GenerateInitialOptions).
 /// <para>
-/// Every ancient draws from its own fresh stream, seeded like Neow's: <c>new Rng((uint)((int)runSeed + slot) + hash(id))</c>
+/// Every ancient draws from its own fresh stream, seeded like Neow's: <c>new Rng(runSeed + slot + hash(id))</c>
 /// with id = <c>PAEL</c>, <c>OROBAS</c> ... (EventModel.BeginEvent; ancients are not shared events, so the slot is added).
 /// Nothing else reads that stream before the options are made, so the run seed plus the player's deck and relics at the
 /// node decide them completely. The rules, in the game's order:
@@ -58,6 +61,12 @@ public sealed record AncientInputs
 /// </code>
 /// <c>Rng.NextItem</c> of an empty list draws nothing; of a one-item list it still draws. <c>Hook.ShouldAllowAncient</c>
 /// has no overrides in this version.
+/// <para>
+/// From v0.109 (<see cref="RngScheme.Xx64"/>, checked on the v0.111.0 source and run histories) two ancients changed:
+/// Orobas moved Sand Castle from the first pool to the second (<c>NextItem(Shrymp, Glass Eye, first)</c>,
+/// <c>NextItem(Coffer, Driftwood, Pearl, Sand Castle)</c>), and Darv split its act-gated pairs into single-relic sets
+/// (Ectoplasm, Sozu: act 2; Philosopher's Stone, Velvet Choker: act 2 and later). The other five are unchanged.
+/// </para>
 /// </summary>
 public static class AncientOptions
 {
@@ -86,12 +95,9 @@ public static class AncientOptions
     public static bool Handles(string eventId) =>
         eventId.StartsWith("EVENT.", StringComparison.Ordinal) && Ancients.Contains(eventId["EVENT.".Length..]);
 
-    /// <summary>The ancient's stream seed: like Neow's, with the ancient's own id hashed in.</summary>
-    public static uint StreamSeed(string runSeed, int slot, string eventId)
-    {
-        uint run = unchecked((uint)GameRng.DeterministicHash(runSeed));
-        return unchecked((uint)((int)run + slot) + (uint)GameRng.DeterministicHash(Entry(eventId)));
-    }
+    /// <summary>The ancient's stream seed: like Neow's, with the ancient's own id hashed in (<see cref="RngSeeds.EventStream"/>).</summary>
+    public static ulong StreamSeed(string runSeed, int slot, string eventId, RngScheme scheme = RngSeeds.Default) =>
+        RngSeeds.EventStream(scheme, runSeed, slot, Entry(eventId));
 
     /// <summary>
     /// The offered options in button order, as option-key suffixes (<c>PAELS_FLESH</c>, <see cref="SeaGlass"/>,
@@ -110,7 +116,7 @@ public static class AncientOptions
     public static AncientDraw? Draw(string eventId, AncientInputs inputs)
     {
         if (!Handles(eventId)) return null;
-        var rng = new GameRng(StreamSeed(inputs.RunSeed, inputs.Slot, eventId));
+        var rng = new GameRng(StreamSeed(inputs.RunSeed, inputs.Slot, eventId, inputs.Scheme));
         string? seaGlass = null;
         IReadOnlyList<string> options = Entry(eventId) switch
         {
@@ -126,16 +132,19 @@ public static class AncientOptions
         return new AncientDraw(options, seaGlass);
     }
 
-    /// <summary>Every option this ancient can show (Orobas's locked placeholder aside), as option-key suffixes.</summary>
-    public static IReadOnlyList<string> AllOptions(string eventId) => Entry(eventId) switch
+    /// <summary>
+    /// Every option this ancient can show (Orobas's locked placeholder aside), as option-key suffixes. The same set in
+    /// both schemes (the v0.109 changes moved options between pools, they added none).
+    /// </summary>
+    public static IReadOnlyList<string> AllOptions(string eventId, RngScheme scheme = RngSeeds.Default) => Entry(eventId) switch
     {
         "PAEL" => ["PAELS_FLESH", "PAELS_HORN", "PAELS_TEARS", "PAELS_WING", "PAELS_EYE", "PAELS_BLOOD", "PAELS_CLAW", "PAELS_TOOTH", "PAELS_LEGION", "PAELS_GROWTH"],
         "TEZCATARA" => ["VERY_HOT_COCOA", "YUMMY_COOKIE", "BIIIG_HUG", "STORYBOOK", "TOASTY_MITTENS", "GOLDEN_COMPASS", "PUMPKIN_CANDLE", "TOY_BOX", "SEAL_OF_GOLD", "NUTRITIOUS_SOUP"],
-        "OROBAS" => ["ELECTRIC_SHRYMP", "GLASS_EYE", "SAND_CASTLE", "ALCHEMICAL_COFFER", "DRIFTWOOD", "RADIANT_PEARL", "TOUCH_OF_OROBAS", "ARCHAIC_TOOTH", SeaGlass, "PRISMATIC_GEM"],
+        "OROBAS" => [.. OrobasPool1(scheme), .. OrobasPool2(scheme), "TOUCH_OF_OROBAS", "ARCHAIC_TOOTH", SeaGlass, "PRISMATIC_GEM"],
         "NONUPEIPE" => [.. NonupeipePool, "BEAUTIFUL_BRACELET"],
         "TANX" => [.. TanxPool, "TRI_BOOMERANG"],
         "VAKUU" => [.. VakuuPools.SelectMany(p => p)],
-        "DARV" => [.. DarvSets.SelectMany(s => s.Relics), "DUSTY_TOME"],
+        "DARV" => [.. DarvSetsFor(scheme).SelectMany(s => s.Relics), "DUSTY_TOME"],
         _ => [],
     };
 
@@ -170,14 +179,12 @@ public static class AncientOptions
                 Unless(BoomerangAllowed(p), "TRI_BOOMERANG");
                 break;
             case "DARV":
-                Unless(!p.DeckClearingModifier, "PANDORAS_BOX");
-                Unless(p.ActIndex == 1, "ECTOPLASM");
-                Unless(p.ActIndex == 1, "SOZU");
-                Unless(p.ActIndex == 2, "PHILOSOPHERS_STONE");
-                Unless(p.ActIndex == 2, "VELVET_CHOKER");
+                foreach (var set in DarvSetsFor(p.Scheme))
+                    foreach (string relic in set.Relics)
+                        Unless(DarvGateOpen(set.Gate, p), relic);
                 break;
         }
-        var options = AllOptions(eventId).Where(o => !excluded.Contains(o)).ToList();
+        var options = AllOptions(eventId, p.Scheme).Where(o => !excluded.Contains(o)).ToList();
         if (Entry(eventId) == "OROBAS" && !touch && !tooth) options.Add(OrobasLocked);
         return options.Select(o => KeyPrefix(eventId) + o).ToArray();
     }
@@ -228,15 +235,23 @@ public static class AncientOptions
         string first;
         if (rng.NextFloat() < 0.3333333f) { first = "PRISMATIC_GEM"; seaGlass = null; }
         else { first = SeaGlass; seaGlass = other; }
-        string a = NextItem(rng, ["ELECTRIC_SHRYMP", "GLASS_EYE", "SAND_CASTLE", first])!;
+        string a = NextItem(rng, [.. OrobasPool1(p.Scheme), first])!;
         if (a != SeaGlass) seaGlass = null;
-        string b = NextItem(rng, ["ALCHEMICAL_COFFER", "DRIFTWOOD", "RADIANT_PEARL"])!;
+        string b = NextItem(rng, OrobasPool2(p.Scheme))!;
         var third = new List<string>();
         if (TouchAllowed(p)) third.Add("TOUCH_OF_OROBAS");
         if (ArchaicToothAllowed(p)) third.Add("ARCHAIC_TOOTH");
         if (third.Count == 0) third.Add(OrobasLocked);
         return [a, b, NextItem(rng, third)!];
     }
+
+    /// <summary>Orobas.OptionPool1 (before the Prismatic Gem / Sea Glass slot is appended): v0.109 moved Sand Castle to pool 2.</summary>
+    private static string[] OrobasPool1(RngScheme scheme) =>
+        scheme == RngScheme.Legacy32 ? ["ELECTRIC_SHRYMP", "GLASS_EYE", "SAND_CASTLE"] : ["ELECTRIC_SHRYMP", "GLASS_EYE"];
+
+    /// <summary>Orobas.OptionPool2.</summary>
+    private static string[] OrobasPool2(RngScheme scheme) =>
+        scheme == RngScheme.Legacy32 ? ["ALCHEMICAL_COFFER", "DRIFTWOOD", "RADIANT_PEARL"] : ["ALCHEMICAL_COFFER", "DRIFTWOOD", "RADIANT_PEARL", "SAND_CASTLE"];
 
     private static readonly string[] NonupeipePool =
     [
@@ -278,25 +293,41 @@ public static class AncientOptions
         return [pools[0][0], pools[1][0], pools[2][0]];
     }
 
-    private enum DarvGate { None, NoDeckClearingModifier, Act2, Act3 }
+    private enum DarvGate { None, NoDeckClearingModifier, Act2, Act3, Act2OrLater }
 
-    private static readonly (DarvGate Gate, string[] Relics)[] DarvSets =
+    /// <summary>Darv._validRelicSets, v0.107.1: the act-gated relics come in pairs.</summary>
+    private static readonly (DarvGate Gate, string[] Relics)[] DarvSetsV107 =
     [
         (DarvGate.None, ["ASTROLABE"]), (DarvGate.None, ["BLACK_STAR"]), (DarvGate.None, ["CALLING_BELL"]), (DarvGate.None, ["EMPTY_CAGE"]),
         (DarvGate.NoDeckClearingModifier, ["PANDORAS_BOX"]), (DarvGate.None, ["RUNIC_PYRAMID"]), (DarvGate.None, ["SNECKO_EYE"]),
         (DarvGate.Act2, ["ECTOPLASM", "SOZU"]), (DarvGate.Act3, ["PHILOSOPHERS_STONE", "VELVET_CHOKER"]),
     ];
 
+    /// <summary>Darv._validRelicSets, v0.109+: every relic is its own set; Philosopher's Stone and Velvet Choker from act 2 on.</summary>
+    private static readonly (DarvGate Gate, string[] Relics)[] DarvSetsV109 =
+    [
+        (DarvGate.None, ["ASTROLABE"]), (DarvGate.None, ["BLACK_STAR"]), (DarvGate.None, ["CALLING_BELL"]), (DarvGate.None, ["EMPTY_CAGE"]),
+        (DarvGate.NoDeckClearingModifier, ["PANDORAS_BOX"]), (DarvGate.None, ["RUNIC_PYRAMID"]), (DarvGate.None, ["SNECKO_EYE"]),
+        (DarvGate.Act2, ["ECTOPLASM"]), (DarvGate.Act2, ["SOZU"]),
+        (DarvGate.Act2OrLater, ["PHILOSOPHERS_STONE"]), (DarvGate.Act2OrLater, ["VELVET_CHOKER"]),
+    ];
+
+    private static (DarvGate Gate, string[] Relics)[] DarvSetsFor(RngScheme scheme) =>
+        scheme == RngScheme.Legacy32 ? DarvSetsV107 : DarvSetsV109;
+
+    private static bool DarvGateOpen(DarvGate gate, AncientInputs p) => gate switch
+    {
+        DarvGate.NoDeckClearingModifier => !p.DeckClearingModifier,
+        DarvGate.Act2 => p.ActIndex == 1,
+        DarvGate.Act3 => p.ActIndex == 2,
+        DarvGate.Act2OrLater => p.ActIndex >= 1,
+        _ => true,
+    };
+
     private static string[] Darv(GameRng rng, AncientInputs p)
     {
-        var picks = DarvSets
-            .Where(s => s.Gate switch
-            {
-                DarvGate.NoDeckClearingModifier => !p.DeckClearingModifier,
-                DarvGate.Act2 => p.ActIndex == 1,
-                DarvGate.Act3 => p.ActIndex == 2,
-                _ => true,
-            })
+        var picks = DarvSetsFor(p.Scheme)
+            .Where(s => DarvGateOpen(s.Gate, p))
             .Select(s => NextItem(rng, s.Relics)!) // one draw per set, single-relic sets included
             .ToList();
         rng.Shuffle(picks);

@@ -223,16 +223,21 @@ public class MapScreenGeometryTests
     /// hashed run seed, two doubles per grid node, columns left to right, each column bottom to top) must match exactly.
     /// </summary>
     [Theory]
-    [InlineData(1, false)]
-    [InlineData(2, false)]
-    [InlineData(3, true)]
-    public void Jitter_matches_an_independent_column_major_derivation(int act, bool secondBoss)
+    [InlineData(1, false, RngScheme.Legacy32)]
+    [InlineData(2, false, RngScheme.Legacy32)]
+    [InlineData(3, true, RngScheme.Legacy32)]
+    [InlineData(1, false, RngScheme.Xx64)]
+    [InlineData(3, true, RngScheme.Xx64)]
+    public void Jitter_matches_an_independent_column_major_derivation(int act, bool secondBoss, RngScheme scheme)
     {
         MapGraph map = Map(secondBoss, act: act, reverse: true);
-        MapScreenLayout layout = MapScreenGeometry.Compute(map, Seed)!;
+        MapScreenLayout layout = MapScreenGeometry.Compute(map, Seed, scheme)!;
 
-        uint runSeed = unchecked((uint)GameRng.DeterministicHash(Seed));
-        var rng = new GameRng(runSeed, "map_jitter_" + (act - 1));
+        // v0.107.1: (uint)hash(seed) + (uint)hash(name) in 32 bits; v0.109+: XxHash64(seed) + XxHash64(name) in 64 bits.
+        string name = "map_jitter_" + (act - 1);
+        var rng = new GameRng(scheme == RngScheme.Legacy32
+            ? unchecked((uint)GameRng.DeterministicHash(Seed) + (uint)GameRng.DeterministicHash(name))
+            : unchecked(XxHash64.Hash(Seed) + XxHash64.Hash(name)));
         float distX = 1050f / 7;
         float distY = 2325f / 15 * (secondBoss ? 0.9f : 1f);
         int checkedNodes = 0;

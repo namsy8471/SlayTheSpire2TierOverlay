@@ -106,6 +106,7 @@ public sealed class GameStateAdapter : IGameStateSource, ICardOfferSink
         {
             LogOnly = !run.FromSave,
             Seed = run.Seed,
+            RngScheme = run.RngScheme,
             PartnerVotes = run.PartnerVotes.Select(v => v.Coord).ToList(),
             MyVote = run.MyVote,
             UnknownOdds = run.Save is { } save ? UnknownRoomOdds.From(save.UnknownMapPointOdds) : null,

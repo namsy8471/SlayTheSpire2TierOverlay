@@ -46,6 +46,9 @@ public sealed record GameStateSnapshot(
     /// <summary>Run seed string (save <c>rng.seed</c>): the map overlay needs it to place the nodes exactly.</summary>
     public string? Seed { get; init; }
 
+    /// <summary>How the game turns <see cref="Seed"/> into the map's jitter stream (v0.109+ hashes it differently).</summary>
+    public RngScheme RngScheme { get; init; } = RngSeeds.Default;
+
     /// <summary>Co-op: the nodes the other players currently vote for on this act's map (empty in single player).</summary>
     public IReadOnlyList<MapCoord> PartnerVotes { get; init; } = [];
 
