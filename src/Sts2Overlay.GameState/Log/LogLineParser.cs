@@ -89,6 +89,9 @@ public static partial class LogLineParser
 
     private const string HopperSteal = "Monster THIEVING_HOPPER performing move THIEVERY_MOVE";
 
+    [GeneratedRegex(@"^Asset not cached: res://scenes/screens/card_selection/(?<screen>[a-z_]+)\.tscn")]
+    private static partial Regex SelectScreen();
+
     [GeneratedRegex(@"^Wrote (?<bytes>\d+) bytes to path=(?<path>.+?) save_dir=")]
     private static partial Regex Wrote();
 
@@ -197,6 +200,7 @@ public static partial class LogLineParser
                 return line.StartsWith(HopperSteal, StringComparison.Ordinal) ? new MonsterMoveEvent("MONSTER.THIEVING_HOPPER", "THIEVERY_MOVE") : null;
 
             case 'A':
+                if ((m = SelectScreen().Match(line)).Success) return new CardSelectScreenEvent(m.Groups["screen"].Value);
                 return line.StartsWith("Abandoning an in-progress run", StringComparison.Ordinal) ? new RunAbandonedEvent() : null;
 
             case 'R':

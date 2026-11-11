@@ -151,6 +151,9 @@ static string Describe(TrackedRun? run)
                 $"last rolls [{string.Join(", ", run.LastRewardRolls.Select(r => $"{r.Source}{(r.IsRare ? " RARE" : "")} {r.Roll:0.###}<{r.Need:0.###}"))}]");
     w.WriteLine($"removals bought {s.CardRemovalsBought}  potions [{string.Join(", ", run.Potions.Select(x => $"{x.Slot}:{x.Id}"))}]");
     w.WriteLine($"deck ({s.Deck.Count}): {string.Join(", ", s.Deck.GroupBy(c => c.Card.ToString() + (c.EnchantmentId != null ? $"[{c.EnchantmentId}]" : "")).Select(g => g.Count() > 1 ? $"{g.Key} x{g.Count()}" : g.Key))}");
+    if (run.UncertainCards.Count > 0 || run.UnidentifiedCards > 0 || run.UnknownUpgrades > 0 || run.UnknownRemovals > 0)
+        w.WriteLine($"uncertain [{string.Join(", ", run.UncertainCards.Select(u => $"{u.CardId}:{u.Reason}"))}]  " +
+                    $"unidentified {run.UnidentifiedCards}  unplaced upgrades {run.UnknownUpgrades}  unplaced removals {run.UnknownRemovals}");
     w.WriteLine($"relics ({s.Relics.Count}): {string.Join(", ", s.Relics)}");
     if (run.Map is { } m)
         w.WriteLine($"map {m.ActId} {m.Width}x{m.Height} nodes {m.Nodes.Count} current {m.Current?.ToString() ?? "-"} boss {m.Boss}");

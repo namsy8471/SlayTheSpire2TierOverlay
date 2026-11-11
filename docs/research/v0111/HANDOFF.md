@@ -133,3 +133,20 @@ Vision tests were not run: no file of the Vision project changed (the relic-cata
 - Relics are incomplete in log-only mode (4 of 10), as before.
 
 Next step for item 5: find the transform in the log (event id around the first missing strike), compare with `ReplayTransform` / `DeckEffects` for v0.111, then build the corpus measurement.
+
+## 2026-11-12: follow-up session (items A–E of the second brief)
+
+### A. The transform on the real run (seed PZ4J3CV19SSW): cause found, fixed where possible
+- The run history names three deck changes the log-only replay could not follow:
+  - floor 6 AROMA_OF_CHAOS LET_GO: Strike → random card (AGGRESSION). This is the pick after the one logged `deck_transform_select_screen` load.
+  - floor 15 WOOD_CARVINGS BIRD: Strike → PECK (fixed target). Same scene, but no load line: Godot reused its resource cache.
+  - floor 24 AMALGAMATOR COMBINE_STRIKES: 2 Strikes removed, ULTIMATE_STRIKE added.
+  - Neow LARGE_CAPSULE (+Strike, +Defend) is not in the log at all.
+- What a single-player godot.log has: `Player 1 chose cards [STRIKE_IRONCLAD]` only. No event id, no option key, no Neow/ancient choice, no transform result, and card plays without a combat id (`Player 1 playing card X (targeting …)`, not parsed: a created card can't be told from a deck card). `[EventSynchronizer]` / `[ActionQueueSet]` lines exist only in co-op logs.
+- How the game picks the result (v0.111.0, unchanged): `AromaOfChaos.LetGo` → `CardCmd.TransformToRandom(card, EventModel.Rng)` → `CardFactory.CreateRandomCardForTransform`: `rng.NextItem` over the original's pool (unlocked, player-count filtered), Common/Uncommon/Rare, not the original. The new card goes to the end of the deck. `RewardCardPool.TransformTarget` already ports this; it runs when the event is known (co-op log).
+- Bug fixed (`DeckReplay.Find`): between equal copies, the least doubtful copy is now acted on. Before, a shop removal or a second unknown pick took the already flagged Strike, so the flags disappeared and the three Strikes left looked certain. Now all remaining Strikes stay flagged `UnknownCardSelect`.
+- New hint (`CardSelectScreenEvent`): `Asset not cached: …/card_selection/deck_transform_select_screen.tscn` before a pick outside shops / rest sites makes it a transform (card removed, one unidentified card); `deck_upgrade_select_screen` makes it an upgrade. Logged only the first time per game session, so it is sometimes missing, never wrong.
+- DeckEffects bugs fixed (same in both versions; they matter when the choice is logged, i.e. co-op): LARGE_CAPSULE adds the character's basic Strike + Defend; PAELS_CLAW puts Goopy on every Defend-tagged card (basic Defends, ULTIMATE_DEFEND); PAELS_HORN adds 2 RELAX; ZEN_WEAVER BREATHING_TECHNIQUES adds 2 ENLIGHTENMENT; NEOWS_BONES adds 1 unknown curse.
+- Log-only result on the real run after the fixes: 22 cards; STRIKE_IRONCLAD x2 both flagged, DEFEND x4, no PECK / ULTIMATE_STRIKE (the history has 23: DEFEND x5, PECK, ULTIMATE_STRIKE, no Strike). The remaining gap is the known single-player log-only limit (Neow capsule, Wood Carvings result, Amalgamator result are never logged).
+- StateProbe now prints an `uncertain [...]` line.
+

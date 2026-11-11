@@ -294,6 +294,17 @@ internal sealed class DeckReplay
     }
 
     /// <summary>
+    /// Every deck card <paramref name="accepts"/> takes that has no enchantment yet gets <paramref name="enchantment"/>
+    /// (EnchantmentModel.CanEnchant: no other enchantment, not Unplayable; Pael's Claw's Goopy needs the Defend tag).
+    /// </summary>
+    public void EnchantAll(Func<string, bool> accepts, string enchantment)
+    {
+        foreach (Slot s in _slots)
+            if (s.Card.EnchantmentId == null && accepts(s.Card.Id))
+                s.Card = s.Card with { EnchantmentId = enchantment, EnchantmentAmount = 1 };
+    }
+
+    /// <summary>
     /// Uses one fight's card plays as a partial deck listing. At combat start the game numbers every player's deck in
     /// player order (NetCombatCardDb.StartCombat): player 0 gets 0..n0-1, player 1 gets n0..n0+n1-1, and cards created
     /// during the fight get ids after ALL decks. So a play of mine whose id is below the next player's lowest id (or,
@@ -431,6 +442,12 @@ internal sealed class DeckReplay
         return _slots.Count - 1;
     }
 
+    /// <summary>
+    /// A copy of <paramref name="id"/> to act on, -1 if none. Between otherwise equal copies the least doubtful wins
+    /// (<see cref="Doubt"/>): a card a log line names surely exists, so a doubtful copy keeps its doubt (removing the
+    /// flagged Strike would leave the other Strikes looking certain), and an unknown select flags a copy not flagged yet
+    /// (each card one select names is a separate copy).
+    /// </summary>
     private int Find(string id, bool plainest, bool unenchanted = false)
     {
         int best = -1;
@@ -443,7 +460,12 @@ internal sealed class DeckReplay
             if (unenchanted && (b.EnchantmentId != null) != (c.EnchantmentId != null)) { if (c.EnchantmentId == null) best = i; continue; }
             // plainest: lowest upgrade (removal keeps the good copy); otherwise also lowest upgrade (smith upgrades a plain copy).
             if (c.Upgrade < b.Upgrade || (plainest && c.Upgrade == b.Upgrade && c.EnchantmentId == null && b.EnchantmentId != null)) best = i;
+            else if (c.Upgrade == b.Upgrade && (c.EnchantmentId == null) == (b.EnchantmentId == null)
+                     && Doubt(_slots[i]) < Doubt(_slots[best])) best = i;
         }
         return best;
     }
+
+    /// <summary>Tie-break between equal copies, lower first: certain, then upgrade in doubt, then maybe gone.</summary>
+    private static int Doubt(Slot s) => s.Reason is null ? 0 : s.Reason == UncertainReason.UnknownCardSelect ? 2 : 1;
 }

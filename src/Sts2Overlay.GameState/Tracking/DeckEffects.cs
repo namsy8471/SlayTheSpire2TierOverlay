@@ -74,6 +74,10 @@ public sealed record DeckEffect
     public bool Transcend { get; init; }
     /// <summary>Tablet of Truth, 5th decipher: every upgradable card in the deck is upgraded.</summary>
     public bool UpgradeAll { get; init; }
+    /// <summary>Large Capsule: the character's basic Strike and basic Defend join the deck.</summary>
+    public bool AddBasicStrikeAndDefend { get; init; }
+    /// <summary>Every Defend-tagged deck card without another enchantment gets this enchantment (Pael's Claw: Goopy).</summary>
+    public string? EnchantAllDefends { get; init; }
 }
 
 /// <summary>
@@ -171,7 +175,7 @@ public static class DeckEffects
         ["WOOD_CARVINGS.pages.INITIAL.options.BIRD"] = new() { Select = SelectMeaning.Transform, TransformTo = C + "PECK" },
         ["WOOD_CARVINGS.pages.INITIAL.options.SNAKE"] = Ench("SLITHER"),
         ["WOOD_CARVINGS.pages.INITIAL.options.TORUS"] = new() { Select = SelectMeaning.Transform, TransformTo = C + "TORIC_TOUGHNESS" },
-        ["ZEN_WEAVER.pages.INITIAL.options.BREATHING_TECHNIQUES"] = Add("ENLIGHTENMENT"),
+        ["ZEN_WEAVER.pages.INITIAL.options.BREATHING_TECHNIQUES"] = Add("ENLIGHTENMENT", "ENLIGHTENMENT"), // ZenWeaver.BreathingTechniques: 2 cards
         ["ZEN_WEAVER.pages.INITIAL.options.EMOTIONAL_AWARENESS"] = Sel(SelectMeaning.Remove),
         ["ZEN_WEAVER.pages.INITIAL.options.ARACHNID_ACUPUNCTURE"] = Sel(SelectMeaning.Remove),
     };
@@ -217,14 +221,20 @@ public static class DeckEffects
         ["RELIC.HEFTY_TABLET"] = Sel(SelectMeaning.AddChosen, "INJURY"),
         ["RELIC.JEWELRY_BOX"] = Add("APOTHEOSIS"),
         ["RELIC.KIFUDA"] = Ench(),
+        // LargeCapsule.AfterObtained: 2 relics from the bag (no deck change), then the character's basic Strike and Defend.
+        ["RELIC.LARGE_CAPSULE"] = new() { AddBasicStrikeAndDefend = true },
         ["RELIC.LEAD_PAPERWEIGHT"] = Sel(SelectMeaning.AddChosen),
         ["RELIC.LEAFY_POULTICE"] = new() { TransformOneStrikeAndDefend = true },
         ["RELIC.MASSIVE_SCROLL"] = Sel(SelectMeaning.AddChosen),
         ["RELIC.NEOWS_TALISMAN"] = new() { UpgradeBasicStrikeAndDefend = true },
         ["RELIC.NEOWS_TORMENT"] = Add("NEOWS_FURY"),
+        // NeowsBones.AfterObtained: a relic reward, then 1 random curse (RunState.Rng.Niche: not replayable).
+        ["RELIC.NEOWS_BONES"] = new() { UnknownAdds = 1 },
         ["RELIC.NEW_LEAF"] = Sel(SelectMeaning.Transform),
+        // PaelsClaw.AfterObtained: Goopy on every deck card Goopy.CanEnchant accepts (Defend tag, no other enchantment).
+        ["RELIC.PAELS_CLAW"] = new() { EnchantAllDefends = "ENCHANTMENT.GOOPY" },
         ["RELIC.PAELS_GROWTH"] = Ench("CLONE"),
-        ["RELIC.PAELS_HORN"] = Add("RELAX"),
+        ["RELIC.PAELS_HORN"] = Add("RELAX", "RELAX"), // PaelsHorn.AfterObtained: 2 Relax
         ["RELIC.PAELS_TOOTH"] = Sel(SelectMeaning.Remove),
         ["RELIC.PANDORAS_BOX"] = new() { TransformAllBasics = true },
         ["RELIC.POMANDER"] = Sel(SelectMeaning.Upgrade),
@@ -279,4 +289,7 @@ public static class DeckEffects
     /// <summary>Basic Strike / Defend of any character (<c>CARD.STRIKE_DEFECT</c> ...).</summary>
     public static bool IsBasicStrike(string id) => id.StartsWith(C + "STRIKE_", StringComparison.Ordinal);
     public static bool IsBasicDefend(string id) => id.StartsWith(C + "DEFEND_", StringComparison.Ordinal);
+
+    /// <summary>Cards with <c>CardTag.Defend</c>: every character's basic Defend and Ultimate Defend (Models.Cards, both versions).</summary>
+    public static bool HasDefendTag(string id) => IsBasicDefend(id) || id == C + "ULTIMATE_DEFEND";
 }

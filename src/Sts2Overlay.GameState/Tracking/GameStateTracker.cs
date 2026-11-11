@@ -46,6 +46,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
     private const int ScarcityAscension = 7; // AscensionLevel.Scarcity
     private const string BingBong = "RELIC.BING_BONG";
     private const string UpgradeRollArg = "upgrade-roll";
+    private const string TransformScreen = "deck_transform_select_screen", UpgradeScreen = "deck_upgrade_select_screen";
 
     private static bool MayRollUpgrade(string cardId, RngScheme scheme) =>
         CardRarities.Of(cardId, scheme) is not ("Rare" or null) && CardRarities.MaxUpgrade(cardId, scheme) > 0;
@@ -93,6 +94,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
     private bool _merchantVisited;                       // I entered a merchant this run (my purchases aren't logged)
     private string? _pendingEventId;                     // the event that set _pendingSelect (its RNG stream is replayable)
     private bool _shopRemovalSeen;                       // a merchant sells one removal per visit
+    private string? _selectScreen;                       // deck card-select scene the log saw loading (first use per session only)
     private readonly List<int> _restSitePatches = [];    // provisional smith upgrades, fixed by the option line
     private readonly HashSet<string> _relicsThisRoom = new(StringComparer.Ordinal);
     private List<CombatPlay>? _combatPlays;              // plays of the fight in progress
@@ -436,6 +438,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
                 _pendingRemovalReward = false;
                 _pendingSelect = null;
                 _shopRemovalSeen = false;
+                _selectScreen = null;
                 _restSitePatches.Clear();
                 _relicsThisRoom.Clear();
                 _offers.Clear();
@@ -553,7 +556,14 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
                 _lastRestOption = ro.Option;
                 return FixRestSitePatches(ro.Option);
             case CardsChosenEvent ch when IsMe(ch.PlayerId) && ch.CardIds.Count > 0:
-                return ApplyChosen(ch);
+            {
+                bool changed = ApplyChosen(ch);
+                _selectScreen = null;
+                return changed;
+            }
+            case CardSelectScreenEvent sc:
+                _selectScreen = sc.Screen;
+                return false;
 
             default:
                 return false;
@@ -615,6 +625,15 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
                 return true;
             case RoomKind.Combat:
                 return false;
+            // Single player logs no event option, but the select screen's scene name, when its load was logged, says
+            // what the pick does: NDeckTransformSelectScreen (CardSelectCmd.FromDeckForTransformation) → the card leaves
+            // and an unnamed card joins; NDeckUpgradeSelectScreen (FromDeckForUpgrade) → the card is upgraded.
+            case not RoomKind.Merchant when _selectScreen == TransformScreen:
+                foreach (string card in ch.CardIds) AddPatch(PatchKind.TransformCard, card, 0);
+                return true;
+            case not RoomKind.Merchant when _selectScreen == UpgradeScreen:
+                foreach (string card in ch.CardIds) AddPatch(PatchKind.UpgradeCard, card, 0);
+                return true;
             default:
                 foreach (string card in ch.CardIds) AddPatch(PatchKind.UnknownSelect, card, 0);
                 return true;
@@ -697,6 +716,14 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         if (effect.TransformOneStrikeAndDefend) AddPatch(PatchKind.TransformStrikeAndDefend, null, 0);
         if (effect.Transcend) AddPatch(PatchKind.Transcend, null, 0);
         if (effect.UpgradeAll) AddPatch(PatchKind.UpgradeAll, null, 0);
+        if (effect.AddBasicStrikeAndDefend && MyCharacter() is { } character
+            && StartingLoadouts.EmbeddedFor(Scheme()).For(character)?.Deck is { } starter)
+        {
+            // LargeCapsule.GetStrikeForCharacter / GetDefendForCharacter: the pool's Basic card tagged Strike / Defend.
+            foreach (string? card in new[] { starter.FirstOrDefault(DeckEffects.IsBasicStrike), starter.FirstOrDefault(DeckEffects.IsBasicDefend) })
+                if (card != null) AddPatch(PatchKind.AddCard, card, 0);
+        }
+        if (effect.EnchantAllDefends is { } enchantment) AddPatch(PatchKind.EnchantAllDefends, null, 0, enchantment);
     }
 
     /// <summary>Leaving the room with the stolen card not returned (hopper escaped / reward skipped): an unknown card is gone.</summary>
@@ -777,6 +804,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         _stealPlays = null;
         _pendingSelect = null;
         _shopRemovalSeen = false;
+        _selectScreen = null;
         _restSitePatches.Clear();
         _relicsThisRoom.Clear();
         _combatPlays = null;
@@ -1336,6 +1364,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
                 case PatchKind.TransformStrikeAndDefend: deck.TransformStrikeAndDefend(); break;
                 case PatchKind.Transcend: deck.Transcend(); break;
                 case PatchKind.CloneEnchanted: deck.CloneEnchanted(); break;
+                case PatchKind.EnchantAllDefends: deck.EnchantAll(DeckEffects.HasDefendTag, p.Arg!); break;
                 case PatchKind.CombatSeen:
                     if (!fromSave && p.Combat!.Plays.Count > 0) deck.Observe(p.Combat!, order, me, state.Floor);
                     deck.CombatEnded();
@@ -1467,7 +1496,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         AddCard, RemoveCard, ShopRemoveCard, UpgradeCard, TransformCard, EnchantCard, DuplicateCard, UnknownSelect,
         RandomUpgrades, UnknownAdds, RandomRemoves, UpgradeBasics, TransformAllBasics, TransformStrikeAndDefend, Transcend,
         CloneEnchanted, CombatSeen, CardStolen, UpgradeAll, AddRelic, AddGold, AddPotion, RemovePotion,
-        ShuffleUpgrades, PickUpgrade,
+        ShuffleUpgrades, PickUpgrade, EnchantAllDefends,
     }
 
     /// <param name="Seq">Log line number: patches are compared to save marks by this, not by wall-clock time.</param>

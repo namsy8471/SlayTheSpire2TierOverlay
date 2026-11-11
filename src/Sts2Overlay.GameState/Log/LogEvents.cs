@@ -150,6 +150,14 @@ public sealed record CardRemovalRewardEvent(ulong PlayerId) : LogEvent;
 /// </summary>
 public sealed record CardsChosenEvent(ulong PlayerId, IReadOnlyList<string> CardIds) : LogEvent;
 
+/// <summary>
+/// <c>Asset not cached: res://scenes/screens/card_selection/deck_transform_select_screen.tscn</c> (AssetCache.LoadAsset):
+/// a deck card-select screen was built outside the room's preload. Logged only the first time the scene is loaded in a
+/// game session (later loads reuse Godot's resource cache), so it is a hint that is sometimes missing, never a wrong one.
+/// <paramref name="Screen"/> is the scene name (NDeckTransformSelectScreen / NDeckUpgradeSelectScreen / ...).
+/// </summary>
+public sealed record CardSelectScreenEvent(string Screen) : LogEvent;
+
 /// <summary><c>Player 1 using potion EXPLOSIVE_AMPOULE (no target)</c> / <c>discarding potion X</c>.</summary>
 public sealed record PotionUsedEvent(ulong PlayerId, string PotionId, bool Discarded) : LogEvent;
 
