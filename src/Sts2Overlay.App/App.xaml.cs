@@ -336,6 +336,7 @@ public partial class App : Application
         // While the menu is open the 1 s topmost re-assert must not lift the panel above it.
         _tray.MenuOpenChanged += open => _controller!.TrayMenuOpen = open;
         _tray.MapOverlayRequested += () => _controller!.ToggleMapOverlay();
+        _tray.CombatAdvisorRequested += () => _controller!.ToggleCombatAdvisor();
         _tray.ShowInCaptureRequested += () =>
         {
             _controller!.ToggleShowInCapture();
@@ -423,6 +424,7 @@ public partial class App : Application
         _tray.SetAlwaysOnTop(_controller.AlwaysOnTop);
         _tray.SetClickThrough(_controller.ClickThrough);
         _tray.SetMapOverlay(_controller.MapOverlayOn);
+        _tray.SetCombatAdvisor(_controller.CombatAdvisorAvailable, _controller.CombatAdvisorOn);
         _tray.SetShowInCapture(_controller.ShowOverlayInCapture, _controller.CaptureForcedHidden);
         _tray.SetUpdateReady(_updates?.ReadyVersion);
         _tray.SetUpdateChecking(_updates?.IsChecking == true);

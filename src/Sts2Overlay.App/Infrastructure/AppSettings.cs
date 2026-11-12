@@ -73,6 +73,21 @@ public sealed class AppSettings
     /// </summary>
     public bool MapOverlay { get; set; } = true;
 
+    /// <summary>
+    /// "전투 추천 순서": during a fight, the cards to play this turn in order, from the combat advisor helper process
+    /// (docs/COMBAT_ADVISOR.md). Only takes effect when the helper is found (<see cref="CombatAdvisorCommand"/>, or
+    /// <c>advisor\Sts2CombatAdvisor.exe</c> next to the overlay exe). Tray menu.
+    /// </summary>
+    public bool CombatAdvisorEnabled { get; set; } = true;
+
+    /// <summary>
+    /// The combat advisor helper to start, as a command line: a full path to an exe (quoted when it has spaces) plus
+    /// optional leading arguments, e.g. <c>"C:\Program Files\dotnet\dotnet.exe" C:\tools\Helper.dll</c>. The overlay
+    /// appends <c>live --save &lt;current_run.save&gt; --log &lt;godot.log&gt;</c>. Null = <c>advisor\Sts2CombatAdvisor.exe</c>
+    /// next to the overlay exe. settings.json only; read at start.
+    /// </summary>
+    public string? CombatAdvisorCommand { get; set; }
+
     /// <summary>Capture rate while the map screen is open, so the marks follow when the map is scrolled.</summary>
     public double MapHz { get; set; } = 6;
 

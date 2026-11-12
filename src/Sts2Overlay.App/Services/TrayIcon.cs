@@ -20,7 +20,7 @@ public sealed class TrayIcon : IDisposable
     private readonly Icon _drawnIcon;
     private readonly string _versionText;
     private readonly bool _devBuild;
-    private readonly ToolStripMenuItem _demoReward, _demoShop, _demoOther, _demoOff, _toggle, _scaleAuto, _outlines, _onTop, _clickThrough, _mapOverlay, _inCapture;
+    private readonly ToolStripMenuItem _demoReward, _demoShop, _demoOther, _demoOff, _toggle, _scaleAuto, _outlines, _onTop, _clickThrough, _mapOverlay, _combatAdvice, _inCapture;
     private readonly ToolStripMenuItem _applyUpdate;
     private readonly ToolStripMenuItem _demo, _scaleMenu, _recognize, _reloadPack, _advanced, _version, _checkUpdate, _exit;
     private readonly ToolStripMenuItem _languageMenu, _languageAuto, _languageKor, _languageEng;
@@ -73,6 +73,8 @@ public sealed class TrayIcon : IDisposable
         _onTop = new ToolStripMenuItem("", null, (_, _) => AlwaysOnTopRequested?.Invoke());
         _clickThrough = new ToolStripMenuItem("", null, (_, _) => ClickThroughRequested?.Invoke());
         _mapOverlay = new ToolStripMenuItem("", null, (_, _) => MapOverlayRequested?.Invoke());
+        // Shown only when the combat advisor helper is installed (SetCombatAdvisor).
+        _combatAdvice = new ToolStripMenuItem("", null, (_, _) => CombatAdvisorRequested?.Invoke()) { Visible = false };
         _inCapture = new ToolStripMenuItem("", null, (_, _) => ShowInCaptureRequested?.Invoke());
         _recognize = new ToolStripMenuItem("", null, (_, _) => RecognizeRequested?.Invoke());
         // No capture / log items: players never need them. Debug captures are a settings.json switch (debugCaptures).
@@ -92,6 +94,7 @@ public sealed class TrayIcon : IDisposable
             _onTop,
             _clickThrough,
             _mapOverlay,
+            _combatAdvice,
             _inCapture,
             _scaleMenu,
             _languageMenu,
@@ -136,6 +139,7 @@ public sealed class TrayIcon : IDisposable
         _clickThrough.Text = Loc.T("클릭 통과 (Ctrl+F7)", "Click-through (Ctrl+F7)");
         _advanced.Text = Loc.T("고급", "Advanced");
         _mapOverlay.Text = Loc.T("맵·휴식처 위 추천 표시 (Ctrl+F5)", "Show advice on Map / Rest Site (Ctrl+F5)");
+        _combatAdvice.Text = Loc.T("전투 추천 순서 표시", "Show combat play order");
         _inCapture.Text = InCaptureLabel(_inCapture.Checked, _inCaptureForcedHidden);
         _recognize.Text = Loc.T("지금 인식 (Ctrl+F10)", "Recognize now (Ctrl+F10)");
         _reloadPack.Text = Loc.T("데이터 팩 다시 읽기", "Reload data pack");
@@ -177,6 +181,17 @@ public sealed class TrayIcon : IDisposable
     public event Action? MapOverlayRequested;
 
     public void SetMapOverlay(bool on) => _mapOverlay.Checked = on;
+
+    /// <summary>"전투 추천 순서 표시": the in-fight play order from the combat advisor helper.</summary>
+    public event Action? CombatAdvisorRequested;
+
+    /// <param name="available">The helper was found; otherwise the item is hidden.</param>
+    /// <param name="on">The user's choice.</param>
+    public void SetCombatAdvisor(bool available, bool on)
+    {
+        _combatAdvice.Visible = available;
+        _combatAdvice.Checked = on;
+    }
 
     /// <summary>"방송·캡처에 오버레이 표시": the overlay in OBS / Discord / screenshots.</summary>
     public event Action? ShowInCaptureRequested;

@@ -178,6 +178,15 @@ public sealed class PanelViewModel : ObservableObject
         set => Set(ref _path, value);
     }
 
+    private CombatAdviceSectionVm _combat = CombatAdviceSectionVm.Empty;
+
+    /// <summary>In-fight play order above the tabs (Controllers/AppController.CombatAdvice.cs); empty outside fights.</summary>
+    public CombatAdviceSectionVm Combat
+    {
+        get => _combat;
+        set => Set(ref _combat, value);
+    }
+
     // ---- forecast / run review (m2/forecast-review) ----------------------------------------------------
 
     private ForecastSectionVm _forecast = ForecastSectionVm.Empty;

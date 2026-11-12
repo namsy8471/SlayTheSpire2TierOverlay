@@ -102,6 +102,9 @@ public sealed class UiText : INotifyPropertyChanged
     public string PathEmptyCoopGuest => Loc.T("경로 추천 없음\n협동 게스트는 지도 정보를 받을 수 없어 경로 추천이 표시되지 않습니다.",
         "No path advice\nCo-op guests do not receive the map, so no path advice.");
 
+    // ---- in-fight play order (above the tabs) ----
+    public string CombatUncertainTag => Controllers.CombatAdvicePresenter.UncertainTag;
+
     // ---- 리뷰 tab ----
     public string ReviewEmpty => Loc.T("끝난 런이 없습니다.\n런이 끝나면 카드 선택을 추천과 비교한 리뷰가 표시됩니다.",
         "No finished run yet.\nWhen a run ends, a review compares your card picks with the advice.");

@@ -160,6 +160,56 @@ public sealed record BuildSectionVm
     public IReadOnlyList<ArchetypeVm> Archetypes { get; init; } = [];
 }
 
+/// <summary>One row of the in-fight play order: "1. 강타 → 턱벌레", or the closing "턴 종료" / "마무리!".</summary>
+/// <param name="NumberText">"1." … ; empty for the closing row.</param>
+/// <param name="Name">Card / potion name (upgrades end in "+"), or the closing text.</param>
+/// <param name="TargetText">Who to aim at ("턱벌레", "턱벌레 (2번째)", "2번째 적"); null when untargeted.</param>
+/// <param name="KindTag">"포션" for a potion; null for a card.</param>
+/// <param name="Tip">Hover text (e.g. which card in hand); null for none.</param>
+public sealed record CombatStepVm(string NumberText, string Name, string? TargetText = null, string? KindTag = null, bool IsEnding = false, string? Tip = null)
+{
+    /// <summary>The row as one line, e.g. "강타 → 턱벌레" (tests and the log).</summary>
+    public string Text => TargetText is null ? Name : $"{Name} → {TargetText}";
+
+    public bool HasTarget => TargetText is not null;
+
+    public bool HasKindTag => KindTag is not null;
+}
+
+/// <summary>
+/// "이번 턴 추천 순서": the cards to play this turn, in order, from the combat advisor helper
+/// (Controllers/AppController.CombatAdvice.cs). Shown above the tabs only during a fight.
+/// </summary>
+public sealed record CombatAdviceSectionVm
+{
+    public static CombatAdviceSectionVm Empty { get; } = new() { HasContent = false };
+
+    public bool HasContent { get; init; } = true;
+
+    /// <summary>The header and rows are shown (otherwise the one <see cref="StatusText"/> line).</summary>
+    public bool ShowSteps => StatusText is null;
+
+    /// <summary>"이번 턴 추천 순서 · 2턴"; empty for a status-only section.</summary>
+    public string Title { get; init; } = "";
+
+    /// <summary>Header hover: energy, HP, block, actions already seen, search time.</summary>
+    public string? DetailTip { get; init; }
+
+    /// <summary>The helper is unsure the simulated hand equals the real one: a small muted tag.</summary>
+    public bool IsUncertain { get; init; }
+
+    /// <summary>The uncertain tag's hover (the helper's note).</summary>
+    public string? UncertainTip { get; init; }
+
+    public IReadOnlyList<CombatStepVm> Steps { get; init; } = [];
+
+    /// <summary>One muted line instead of the rows ("이 전투는 추적이 끊겼습니다"); null when advice is shown.</summary>
+    public string? StatusText { get; init; }
+
+    /// <summary>The status line's hover (the helper's reason).</summary>
+    public string? StatusTip { get; init; }
+}
+
 public sealed record PathOptionVm(string Label, string Summary, IReadOnlyList<string> Chips, string? ScoreText, bool IsRecommended);
 
 public sealed record PathSectionVm

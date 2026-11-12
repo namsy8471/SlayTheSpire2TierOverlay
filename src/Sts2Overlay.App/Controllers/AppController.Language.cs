@@ -49,6 +49,7 @@ public sealed partial class AppController
 
             RefreshOffer();
             UpdateEvent(_snapshot); // the open event room: re-scored (key cleared above), markers redrawn
+            RenderCombatAdvice(); // the in-fight play order (AppController.CombatAdvice.cs)
             RedrawMap();
             _pipeline.RequestRecognize(); // next capture rebuilds the rest-site marks with the re-advised text
         }
