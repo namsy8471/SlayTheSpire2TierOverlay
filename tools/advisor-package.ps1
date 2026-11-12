@@ -229,6 +229,11 @@ function Invoke-SelfTest {
         $json = '{ "url": "' + $url.Replace('\', '\\') + '", "sha256": "' + $sha + '", "version": "' + $version + '" }'
         [System.IO.File]::WriteAllText((Join-Path $repo 'advisor.lock.json'), $json)
     }
+    # 절대 경로를 file:// 주소로 바꿉니다. [Uri]$path 캐스트는 쓰지 않습니다: Linux에서는 '/tmp/…'를 상대 주소로 읽어
+    # AbsoluteUri가 예외를 내고, PowerShell은 속성 예외를 삼켜 $null(빈 url)을 돌려줍니다.
+    function ConvertTo-FileUrl([string]$path) {
+        return (New-Object System.Uri -ArgumentList $path, ([System.UriKind]::Absolute)).AbsoluteUri
+    }
     try {
         $repo = Join-Path $root 'repo'
         New-Item -ItemType Directory -Force -Path $repo | Out-Null
@@ -263,7 +268,8 @@ function Invoke-SelfTest {
         $zip = Join-Path $root 'advisor-made-up.zip'
         Compress-Archive -Path (Join-Path $pkg 'advisor') -DestinationPath $zip
         $sha = Get-Sha256 $zip
-        $url = ([Uri]$zip).AbsoluteUri
+        $url = ConvertTo-FileUrl $zip
+        Assert-True ($url -like 'file:///*') "zip path becomes a file:// url ($url)"
 
         # lock 모양 검사
         Write-Lock $repo 'http://example.invalid/a.zip' $sha '1'
@@ -308,7 +314,7 @@ function Invoke-SelfTest {
         Remove-Item -LiteralPath (Join-Path (Join-Path $pkg 'advisor') 'sts2_search.dll') -Force
         $bad = Join-Path $root 'bad.zip'
         Compress-Archive -Path (Join-Path $pkg 'advisor') -DestinationPath $bad
-        Write-Lock $repo ([Uri]$bad).AbsoluteUri (Get-Sha256 $bad) 'made-up-3'
+        Write-Lock $repo (ConvertTo-FileUrl $bad) (Get-Sha256 $bad) 'made-up-3'
         Assert-Throws { Install-Advisor (Get-AdvisorSource $repo -LockOnly) (Join-Path $root 'out5-advisor') '' } 'sts2_search.dll' 'zip without the dll fails'
     }
     finally {
