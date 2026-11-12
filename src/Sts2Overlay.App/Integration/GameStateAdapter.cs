@@ -5,6 +5,7 @@ using Sts2Overlay.Core.Map;
 using Sts2Overlay.Core.Model;
 using Sts2Overlay.GameState;
 using Sts2Overlay.GameState.Log;
+using Sts2Overlay.GameState.Save;
 using Sts2Overlay.GameState.Tracking;
 using TrackerHint = Sts2Overlay.GameState.Tracking.ScreenHint;
 
@@ -60,6 +61,15 @@ public sealed class GameStateAdapter : IGameStateSource, ICardOfferSink
 
     /// <summary>The tracker's full snapshot (potions, pity offset, approximations) for future panels.</summary>
     public TrackedRun? Tracked => _tracker.Current;
+
+    /// <summary>
+    /// Full path of the single-player <c>current_run.save</c> in the saves folder the tracker watches (the file may not
+    /// exist yet), or null while no saves folder is known. Co-op runs use another file; callers check the run first.
+    /// </summary>
+    public string? SinglePlayerSavePath => _tracker.SavesDirectory is { } dir ? Path.Combine(dir, RunSaveParser.RunSaveFileNames[0]) : null;
+
+    /// <summary>Full path of the <c>godot.log</c> the tracker tails, or null.</summary>
+    public string? LogFile => _tracker.LogFile;
 
     public void Start()
     {

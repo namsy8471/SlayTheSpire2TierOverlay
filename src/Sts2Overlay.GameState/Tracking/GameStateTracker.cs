@@ -132,6 +132,12 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
     /// <summary>Latest snapshot, or null when no run is known (no save, no run in the log).</summary>
     public TrackedRun? Current { get { lock (_gate) return _current; } }
 
+    /// <summary>The <c>profileN\saves</c> folder being watched now (it can change later), or null while none is found.</summary>
+    public string? SavesDirectory => _watchedSaves;
+
+    /// <summary>The <c>godot.log</c> being tailed (it may not exist yet), or null when none was given.</summary>
+    public string? LogFile => _options.Paths?.LogFile;
+
     /// <summary>Raised (on a background thread) after any change that can affect the snapshot.</summary>
     public event EventHandler<TrackedRun?>? Changed;
 
