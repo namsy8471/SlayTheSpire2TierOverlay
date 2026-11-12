@@ -28,6 +28,27 @@ public class EventScreenTrackerTests
             { "page": "ANSWER", "options": [ { "key": "TEST_DOOR.pages.ANSWER.options.PROCEED", "leave": true } ] },
             { "page": "DONE", "options": [ { "key": "TEST_DOOR.pages.DONE.options.PROCEED", "leave": true } ] }
           ]
+        },
+        {
+          "id": "EVENT.TEST_COURT",
+          "pages": [
+            { "page": "INITIAL", "options": [
+              { "key": "TEST_COURT.pages.INITIAL.options.ACCEPT", "next": "RANDOM_SCENARIO" },
+              { "key": "TEST_COURT.pages.INITIAL.options.REJECT", "next": "REJECT" }
+            ]},
+            { "page": "REJECT", "options": [
+              { "key": "TEST_COURT.pages.REJECT.options.ACCEPT", "next": "RANDOM_SCENARIO" },
+              { "key": "TEST_COURT.pages.REJECT.options.DOUBLE_DOWN" }
+            ]},
+            { "page": "MERCHANT", "options": [
+              { "key": "TEST_COURT.pages.MERCHANT.options.GUILTY" },
+              { "key": "TEST_COURT.pages.MERCHANT.options.INNOCENT" }
+            ]},
+            { "page": "NOBLE", "options": [
+              { "key": "TEST_COURT.pages.NOBLE.options.GUILTY" },
+              { "key": "TEST_COURT.pages.NOBLE.options.INNOCENT" }
+            ]}
+          ]
         }
       ]
     }
@@ -109,6 +130,91 @@ public class EventScreenTrackerTests
         t.SetEvent("EVENT.TEST_DOOR"); // same room: still nothing
         t.OnScreen(Screen(2, text: 1));
         Assert.Null(t.Current);
+    }
+
+    private static readonly Dictionary<string, string> Noble = new() { ["RANDOM_SCENARIO"] = "NOBLE" };
+
+    private static EventScreenTracker StartCourt(bool replayed = true)
+    {
+        var t = new EventScreenTracker(Catalog);
+        t.SetEvent("EVENT.TEST_COURT");
+        if (replayed) t.SetRandomPages(Noble);
+        return t;
+    }
+
+    [Fact]
+    public void A_random_next_page_is_the_page_the_seed_replay_names()
+    {
+        var t = StartCourt();
+        t.OnScreen(Screen(2));
+        t.OnScreen(Screen(2, hover: 0));          // mouse on ACCEPT
+        t.OnScreen(Screen(2, hover: 0, text: 1)); // clicked: two buttons again, other text
+        t.OnScreen(Screen(2, hover: 0, text: 1));
+        Assert.Equal("NOBLE", t.Current!.Page);
+        Assert.Equal(["TEST_COURT.pages.NOBLE.options.GUILTY", "TEST_COURT.pages.NOBLE.options.INNOCENT"], t.Current.Keys);
+    }
+
+    [Fact]
+    public void A_random_next_page_is_reached_through_another_page_too()
+    {
+        var t = StartCourt();
+        t.OnScreen(Screen(2));
+        t.OnScreen(Screen(2, hover: 1));          // REJECT
+        t.OnScreen(Screen(2, hover: 1, text: 1));
+        t.OnScreen(Screen(2, hover: 1, text: 1)); // the REJECT page
+        Assert.Equal("REJECT", t.Current!.Page);
+        t.OnScreen(Screen(2, hover: 0, text: 1)); // mouse on its ACCEPT
+        t.OnScreen(Screen(2, hover: 0, text: 2));
+        t.OnScreen(Screen(2, hover: 0, text: 2));
+        Assert.Equal("NOBLE", t.Current!.Page);
+    }
+
+    [Fact]
+    public void A_random_next_page_without_a_replay_gives_no_markers()
+    {
+        var t = StartCourt(replayed: false);
+        t.OnScreen(Screen(2, hover: 0));
+        t.OnScreen(Screen(2, hover: 0, text: 1));
+        t.OnScreen(Screen(2, hover: 0, text: 1));
+        Assert.Null(t.Current);
+        Assert.False(t.Lost); // the click was seen; only the page behind it is not known
+    }
+
+    [Fact]
+    public void An_unseen_click_is_reported_as_lost_and_a_seen_one_is_not()
+    {
+        var t = StartCourt();
+        t.OnScreen(Screen(2));
+        Assert.False(t.Lost);
+        Assert.Equal("INITIAL", t.Page);
+        t.OnScreen(null);
+        t.OnScreen(null);
+        Assert.True(t.Lost);
+        Assert.Null(t.Page);
+        t.SetEvent(null);
+        t.SetEvent("EVENT.TEST_COURT"); // the next room starts clean
+        Assert.False(t.Lost);
+    }
+
+    [Fact]
+    public void The_last_click_of_the_room_keeps_its_page_for_the_panel()
+    {
+        var t = StartCourt();
+        var log = new List<string>();
+        t.Log = log.Add;
+        t.OnScreen(Screen(2, hover: 0));
+        t.OnScreen(Screen(2, hover: 0, text: 1));
+        t.OnScreen(Screen(2, hover: 0, text: 1)); // NOBLE
+        t.OnScreen(Screen(2, hover: 1, text: 1)); // mouse on INNOCENT
+        Assert.Null(t.EndedOn);
+        t.OnScreen(null);
+        t.OnScreen(null);                         // clicked: no next page
+        Assert.Null(t.Page);
+        Assert.False(t.Lost);
+        Assert.Equal("NOBLE", t.EndedOn);
+        Assert.Equal(2, log.Count);
+        Assert.Contains("RANDOM_SCENARIO = NOBLE", log[0]);
+        Assert.Contains("TEST_COURT.pages.NOBLE.options.INNOCENT", log[1]);
     }
 
     [Fact]

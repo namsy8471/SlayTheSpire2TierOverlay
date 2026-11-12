@@ -77,7 +77,7 @@ public sealed partial class AppController
         _dummy = null;
         _dummyPending = null;
         _eventText = EventTextProvider.ForLocalData();
-        _eventScreens = new EventScreenTracker(catalog);
+        _eventScreens = new EventScreenTracker(catalog) { Log = AppLog.Info };
         _eventKey = null;
         _pipeline.FrameProbe = OnEventFrame;
     }
@@ -106,6 +106,7 @@ public sealed partial class AppController
         }
         // The log names the offered options; so does a seed replay (Neow, act-start ancients), in button order.
         if (active.Source == EventSource.Log || active.OptionsReplayed) _eventScreens?.SetLog(active.OptionKeys, active.ChosenKeys);
+        _eventScreens?.SetRandomPages(active.RandomPages); // the Trial's defendant, replayed from the seed
         if (_lastResult is not null)
         {
             _eventMarkers?.Clear(); // a card screen (event card choice) is up
@@ -171,12 +172,27 @@ public sealed partial class AppController
         ShowEventMarkers();
     }
 
-    /// <summary>The page showing now: the last chosen option's next page (co-op log), else the first page.</summary>
+    /// <summary>
+    /// The page showing now while no buttons are lined up: the last chosen option's next page (co-op log), else the
+    /// page the screen tracker followed the clicks to, else the first page (null).
+    /// <para>
+    /// A click the tracker did not see leaves the page unknown. An event with one seed-replayed random page (the Trial's
+    /// defendant) then shows that page: every way through the event ends on it, and the first page is surely over.
+    /// </para>
+    /// </summary>
     private string? CurrentPage(ActiveEvent active)
     {
-        if (active.ChosenKeys.Count == 0) return null;
-        var hit = _eventScorer!.Catalog.FindOption(active.ChosenKeys[^1]);
-        return hit?.Option.Next ?? hit?.Page.Page;
+        if (active.ChosenKeys.Count > 0)
+        {
+            var hit = _eventScorer!.Catalog.FindOption(active.ChosenKeys[^1]);
+            var next = hit?.Option.Next;
+            if (next is not null && active.RandomPages is { } map && map.TryGetValue(next, out var real)) next = real;
+            return next ?? hit?.Page.Page;
+        }
+        if (_eventScreens is not { } screens) return null;
+        if (screens.Page is { } page) return page;
+        if (screens.EndedOn is { } last) return last; // the last option was clicked: not back to the first page
+        return screens.Lost && active.RandomPages is { Count: 1 } random ? random.Values.First() : null;
     }
 
     // ---- screen: buttons → markers ----------------------------------------------------------------------------

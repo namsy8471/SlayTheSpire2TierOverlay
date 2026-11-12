@@ -20,6 +20,10 @@ public sealed record EventButtonMatch(string Page, IReadOnlyList<string> Keys, I
 /// the choices, which override all of that.
 /// </para>
 /// <para>
+/// A <c>next</c> may name a page the game picks at random (the Trial's <c>RANDOM_SCENARIO</c>): <see cref="SetRandomPages"/>
+/// says which real page that is in this run (seed replay), so the tracker follows onto it like any other page.
+/// </para>
+/// <para>
 /// Text changes are read from each button's <see cref="TextInk"/> against the ink it was matched on (every button,
 /// hovered or not, since a click usually leaves the mouse on a button of the next page): <see cref="TextVerdict.Changed"/>
 /// counts as the buttons going away, <see cref="TextVerdict.Unsure"/> hides the markers until a frame reads the same
@@ -56,6 +60,31 @@ public sealed class EventScreenTracker(EventCatalog catalog)
 
     public EventButtonMatch? Current { get; private set; }
 
+    /// <summary>
+    /// The page the tracker believes is showing (a random page already resolved), matched on screen or not; null when
+    /// unknown or outside events.
+    /// </summary>
+    public string? Page => Resolve(_page);
+
+    /// <summary>True when a page was left without seeing which button was clicked, so the page showing is unknown.</summary>
+    public bool Lost { get; private set; }
+
+    /// <summary>
+    /// The last page of the room, once an option without a next page was seen clicked (the room is over, its result
+    /// text is up): the panel keeps that page's ranking instead of going back to the first page's. Null otherwise.
+    /// </summary>
+    public string? EndedOn { get; private set; }
+
+    /// <summary>Told each time a page is left: where from, which button, where to (for the app log).</summary>
+    public Action<string>? Log { get; set; }
+
+    private IReadOnlyDictionary<string, string>? _randomPages;
+
+    /// <summary>Placeholder page → the real page of this run (null: the event has no random pages).</summary>
+    public void SetRandomPages(IReadOnlyDictionary<string, string>? pages) => _randomPages = pages;
+
+    private string? Resolve(string? page) => page is not null && _randomPages is { } map && map.TryGetValue(page, out var real) ? real : page;
+
     /// <summary>The event the tracker follows; a new id starts over at its first page.</summary>
     public void SetEvent(string? eventId)
     {
@@ -63,7 +92,10 @@ public sealed class EventScreenTracker(EventCatalog catalog)
         _eventId = eventId;
         _page = eventId is null ? null : catalog.Find(eventId)?.InitialPage?.Page;
         _offered = null; // the last room's offered keys (log or seed replay) must not line up this room's buttons
+        _randomPages = null;
         _logChosen = 0;
+        Lost = false;
+        EndedOn = null;
         Unmatch();
     }
 
@@ -77,6 +109,7 @@ public sealed class EventScreenTracker(EventCatalog catalog)
         if (chosen.Count == _logChosen) return;
         _logChosen = chosen.Count;
         _page = catalog.FindOption(chosen[^1]) is { } hit ? hit.Option.Next : null;
+        Lost = false;
         Unmatch();
     }
 
@@ -123,7 +156,7 @@ public sealed class EventScreenTracker(EventCatalog catalog)
     private void TryMatch(EventScreen screen)
     {
         var def = _eventId is null ? null : catalog.Find(_eventId);
-        var page = def?.FindPage(_page);
+        var page = def?.FindPage(Page);
         IReadOnlyList<string>? keys = null;
         var exact = false;
         if (_logChosen == 0 && _offered is { Count: > 0 } offered && page is not null && page.Page == def!.InitialPage?.Page)
@@ -153,9 +186,14 @@ public sealed class EventScreenTracker(EventCatalog catalog)
     private void LeavePage()
     {
         // A co-op log line naming the choice may come before or after this; SetLog overrides either way.
-        _page = _lastHover >= 0 && _matchedKeys is { } keys && _lastHover < keys.Count && catalog.FindOption(keys[_lastHover]) is { } hit
-            ? hit.Option.Next
-            : null;
+        var from = Page;
+        var clicked = _lastHover >= 0 && _matchedKeys is { } keys && _lastHover < keys.Count ? catalog.FindOption(keys[_lastHover]) : null;
+        _page = clicked?.Option.Next;
+        Lost = clicked is null;
+        EndedOn = clicked is not null && _page is null ? from : null;
+        Log?.Invoke(clicked is { } c
+            ? $"event page {from} left by {c.Option.Key}: next {(_page is null ? "none (room ends)" : _page == Page ? _page : $"{_page} = {Page}")}"
+            : $"event page {from} left, click not seen (hovered {_lastHover}): page unknown");
         Unmatch();
     }
 
