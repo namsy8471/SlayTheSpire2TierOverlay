@@ -1,13 +1,18 @@
 // v0.111.0 팩의 가중치 덮어쓰기(v0.107.1 팩과 같은 값). 비워 두면 코드의 Weights 기본값(docs/DATA_SCHEMA.md §3.1)을 그대로 씁니다.
 // - 샘플 팩(data/packs/sample/weights.json)의 값은 형식 예시용 자리표시자라서 가져오지 않았습니다.
 // - 희귀도 확률 등 게임 수치는 다른 작업에서 Weights 기본값(코드)으로 갱신하므로 여기서 중복 정의하지 않습니다.
-// - "코어 먼저, 그다음 필수 시너지" 규칙(corePriority: bonus 15, starterBonus 6, noCoreFactor 0, noCoreMaxUnlock 0.5,
-//   essentialTarget 2, subBeforeEssential 0.4 ...)도 코드 기본값을 씁니다. 표는 docs/DATA_SCHEMA.md §3.1.
+// - "코어 먼저, 그다음 필수 시너지" 규칙(corePriority: bonus 15, starterBonus 6, essentialTarget 2, subBeforeEssential 0.4 ...)은
+//   코드 기본값을 씁니다. 표는 docs/DATA_SCHEMA.md §3.1. 단, core를 갖기 전의 감점(noCoreFactor)은 아래에서 껐습니다.
 // - 코어를 잡은 뒤 "빌드 필수 카드"(corePriority.securedEssentialFloor 27, securedEssentialExtra 2, emergencyGap 0.7 ...)도 코드 기본값입니다.
 // - 초반 스킵 완화(skip.basicPickBias 1:30 2:10 3:0, basicShareFull 0.5, lowConfidenceStep 15)도 코드 기본값을 씁니다.
 //   시작 덱 1막에서 스킵 기준이 45 → 15가 되어 D 티어(20) 카드도 타격·수비보다 낫다고 봅니다.
 // - 값을 바꿀 때는 이유를 주석으로 남기고, 런 기록 리플레이(README 참고)로 전후 일치율을 비교하세요.
 {
+  // 2026-11-12: core 보유 전 감점 끔(noCoreFactor 0 → 1). core가 없어도 그 빌드의 enabler·payoff·support 카드는 빌드 점수를 그대로 받고,
+  //   빠진 core 카드에 주는 가산("코어 확보", bonus 15)만 남습니다. 근거: docs/research/v0111/CORE_GATE.md
+  //   v0.111.0 랭커 1,162판·카드 선택 15,232회에서 감점을 켜면 1위 일치가 23회 적고(나빠진 게임 96, 좋아진 게임 68),
+  //   가산은 켜는 쪽이 15회 많음(좋아진 게임 35, 나빠진 게임 19). core가 있는 빌드의 랭커 승리 덱 중 26~61%는 core 없이 이김.
+  "corePriority": { "noCoreFactor": { "payoff": 1, "support": 1, "enabler": 1 } },
   // 2026-11 카드 점수 보정(docs/research/CARD_CALIBRATION.md): 랭커 선택으로 다시 맞춘 막별 역할 긴급도.
   //   바꾼 칸은 1막 draw, 2·3막 frontload·aoe 다섯 칸뿐이고 나머지는 코드 기본값과 같습니다.
   "urgency": {
