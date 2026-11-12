@@ -1,4 +1,5 @@
 // 아이언클래드 아키타입 (상위 플레이어 근거 v2). 카드 목록은 OP.GG 상위 플레이어(주간 최단 승리 상위 100에 오른 171명)의 A10 바닐라 승리 덱 683판·66명(v0.107.0~v0.111.0, 2026-11 수집)에서 가져왔습니다. 결정은 우수 플레이어(A10 5승 이상, 1막 통과 후 승률 25% 이상) 397판·18명 기준. 근거 표: docs/research/build-sources/ironclad.md
+// v0.111 재판정(2026-11-12): 같은 규칙을 v0.111.0 랭커 승리 덱만으로 다시 계산했습니다(A10 바닐라 솔로 승리 192판·50명, 우수 105판·21명). 바뀐 곳은 각 빌드의 "v0.111:" 주석에 있습니다. 넣기 = 부트스트랩 80% 이상 통과 + 효과가 빌드 축에 작용. 빼기 = 우수 멤버 덱 25판 이상인데 지원 부트스트랩이 우수·전체 모두 20% 이하이고 lift 1.0 이상도 80% 미만. 그 밖은 표본이 작아 그대로 둠. 근거 표: docs/research/build-sources/v0111/ironclad.md
 // 공통 규칙: 멤버 덱 = 축 카드(anchor) 2장 이상(베타 변경 카드는 v0.107.x 런에서만 셈), 카드 평가는 자기 자신을 뺀 leave-one-out. 점유율·lift는 플레이어 균형(한 플레이어 가중치 10% 상한). 지원 = 5명 이상·lift 1.5 이상·점유율 25% 이상(또는 15% 이상 + 10회 이상 제시 중 픽 50% 이상). core = 지원 + 고급/희귀 엔진 카드 + 점유율 40% 이상. 플레이어 부트스트랩 200회 중 80% 이상 유지될 때만 결정, 아니면 v1 값을 두고 불확실로 표시.
 {
   "character": "CHARACTER.IRONCLAD",
@@ -11,15 +12,21 @@
       // 불확실(부트스트랩 20~80%, v1 역할 유지): CONFLAGRATION.
       // v1에서 제외(부트스트랩 80% 이상 기준 미달): DARK_EMBRACE, FIGHT_ME, INFLAME, UNRELENTING, VICIOUS.
       // 예: https://op.gg/slay-the-spire2/history/3952049 https://op.gg/slay-the-spire2/history/5870693
+      // v0.111: 축 카드에 EXPECT_A_FIGHT 추가(v0.111에서 "힘 1당 방어도 추가"로 바뀜). 멤버 덱 우수 44판·17명 / 전체 69판·31명.
+      //   추가 EXPECT_A_FIGHT payoff: 우수 점유율 56%·lift 2.27·10명·부트 85%(전체 45%·2.17·15명·88%). 힘을 방어도로 바꾸는 카드라 힘 공급원이 먼저 필요 → core 아님.
+      //   추가 FIGHT_ME enabler: 우수 45%·lift 2.59·13명·부트 92%(전체 35%·2.49·17명·91%). core 부트 우수 74%·전체 23%라 core 기준(80%) 미달.
+      //   제외 BLOOD_WALL support: 우수 39%·lift 0.99·부트 2%(전체 41%·1.10·4%). 힘 덱 밖에서도 같은 비율로 듦(자해 빌드 enabler로는 유지).
+      //   core 여전히 없음: DEMON_FORM 우수 28%·INFLAME 13%·BRAND 5%로 40% 기준 미달.
       "cards": {
         "core": [],
-        "enabler": [],
-        "payoff": ["CARD.CONFLAGRATION"],
-        "support": ["CARD.BLOOD_WALL"]
+        "enabler": ["CARD.FIGHT_ME"],
+        "payoff": ["CARD.CONFLAGRATION", "CARD.EXPECT_A_FIGHT"],
+        "support": []
       },
       // onTheme(빌드 밖 감점 면제, 빌드 점수 없음): 빌드 확정 덱(commit ≥ 0.7)에 다른 승리 덱보다 1.5배 이상 자주 있고 5명 이상이 들었으며(부트스트랩 80%) 역할 목록에는 없는 카드. 좋은 플레이어 표본이 얇아 전체 플레이어로 판정: RUPTURE, TWIN_STRIKE. 근거: docs/research/v2-stats/on-theme.md
-      "onTheme": ["CARD.RUPTURE", "CARD.TWIN_STRIKE"],
-      // fullWeight 2.0 유지: 멤버 덱 commit 중앙값 0.25(<0.7)라 보정 대상이지만 이미 최솟값 2.0. 목록이 짧아(카드 2장) commit이 낮게 나옴.
+      // v0.111: RUPTURE 제외. v0.111 힘 멤버 덱 보유 우수 3%(1/36)·전체 5%(3/55), lift 0.19·0.32, 부트스트랩에서 lift 1.0 이상인 경우 0%.
+      "onTheme": ["CARD.TWIN_STRIKE"],
+      // fullWeight 2.0 유지(v0.111): 새 목록으로 우수 멤버 덱 commit 중앙값 0.80, 비멤버 0.00(보정 조건 아님).
       "fullWeight": 2.0,
       // 유물: 기준(멤버 덱 lift 1.5 이상·5명 이상·부트스트랩 80%)을 넘고 효과가 빌드 축에 작용하는 유물 없음.
       "keyRelics": [],
@@ -41,15 +48,18 @@
         "core": ["CARD.FEEL_NO_PAIN"],
         "enabler": ["CARD.TRUE_GRIT", "CARD.SECOND_WIND", "CARD.STOKE"],
         // FORGOTTEN_RITUAL 제외(v0.111): "이번 턴에 소멸시켰다면" 조건이 사라져 어느 덱에서나 쓰는 에너지 카드가 됨. v0.111 랭커 보상 화면 선택률은 소멸 카드 2장 미만 덱 53%(77/145), 2장 이상 덱 60%(44/73)로 거의 같음(v0.107.x는 13% 대 24%).
-        "payoff": ["CARD.DARK_EMBRACE", "CARD.ASHEN_STRIKE"],
+        // v0.111: 축 카드에서 FORGOTTEN_RITUAL 제외(위와 같은 이유). 멤버 덱 우수 57판·20명 / 전체 106판·38명(v0.111 승리 덱의 55%, v0.107.x는 33%).
+        //   추가 HOWL_FROM_BEYOND payoff: 우수 32%·lift 2.40·15명·부트 87%(전체 29%·2.72·23명·84%). 소멸 더미에 있으면 턴 끝에 스스로 발동하는 광역 공격.
+        //   유지 확인: FEEL_NO_PAIN core 우수 59%·lift 1.90·부트 84%/core 84%(전체 93%/93%), DARK_EMBRACE 부트 84%, STOKE·TRUE_GRIT 전체 95%·94%.
+        "payoff": ["CARD.DARK_EMBRACE", "CARD.ASHEN_STRIKE", "CARD.HOWL_FROM_BEYOND"],
         "support": ["CARD.STONE_ARMOR"]
       },
       // onTheme(빌드 밖 감점 면제, 빌드 점수 없음): 빌드 확정 덱(commit ≥ 0.7)에 다른 승리 덱보다 1.5배 이상 자주 있고 5명 이상이 들었으며(부트스트랩 80%) 역할 목록에는 없는 카드. 근거: docs/research/v2-stats/on-theme.md
       "onTheme": ["CARD.DRUM_OF_BATTLE"],
       // fullWeight 4.5 유지(불확실): 멤버 중앙값 0.71가 0.7 경계에 있어 부트스트랩의 53%만 같은 값 → v1 값 유지.
       "fullWeight": 4.5,
-      // essentialTarget: 멤버 승리 덱이 가진 서로 다른 enabler·payoff 카드 수의 중앙값 2(부트스트랩 97%). coreTarget은 core 보유 중앙값 1이라 기본값.
-      "essentialTarget": 2,
+      // essentialTarget 2 → 3(v0.111): 새 목록에서 우수 멤버 승리 덱이 가진 서로 다른 enabler·payoff 카드 수의 중앙값 3(부트스트랩 85%). coreTarget은 core 보유 중앙값 1이라 기본값. fullWeight 4.5는 멤버 0.84·비멤버 0.23이라 그대로.
+      "essentialTarget": 3,
       // 유물: CHARONS_ASHES 유지(lift 1.52·15명·부트스트랩 56%, 불확실); TOASTY_MITTENS 유지(lift 3.67·15명·부트스트랩 99%); 제거: BURNING_STICKS, JOSS_PAPER, FORGOTTEN_SOUL(lift 1.5·5명 기준 부트스트랩 미달).
       "keyRelics": [
         { "id": "RELIC.CHARONS_ASHES", "w": 0.7 },
@@ -147,15 +157,20 @@
       // 우수 플레이어만으로는 미결이라 전체 플레이어 결과로 판정: STAMPEDE, THRASH.
       // v1에서 제외(부트스트랩 80% 이상 기준 미달): BLUDGEON, BREAK, FLAME_BARRIER, INFLAME, JUGGLING, UNRELENTING, VICIOUS.
       // 예: https://op.gg/slay-the-spire2/history/5551713 https://op.gg/slay-the-spire2/history/4463429
+      // v0.111: 멤버 덱 우수 21판·13명 / 전체 42판·30명.
+      //   추가 UNRELENTING enabler(onTheme에서 올림): 우수 45%·lift 4.20·9명·부트 97%(전체 40%·2.64·16명·99%). 다음 공격을 0코스트로 만들어 큰 공격을 한 턴에 더 씀.
+      //   추가 BLUDGEON support(onTheme에서 올림): 우수 30%·lift 1.82·부트 32%로 미결 → 전체 41%·lift 2.50·9명·부트 92%로 통과. 재사용·무료화 대상이 되는 큰 공격.
+      //   core 여전히 없음: STAMPEDE core 부트 우수 33%·전체 40%.
       "cards": {
         "core": [],
-        "enabler": ["CARD.STAMPEDE"],
+        "enabler": ["CARD.STAMPEDE", "CARD.UNRELENTING"],
         "payoff": ["CARD.THRASH"],
-        "support": ["CARD.PYRE"]
+        "support": ["CARD.PYRE", "CARD.BLUDGEON"]
       },
       // onTheme(빌드 밖 감점 면제, 빌드 점수 없음): 빌드 확정 덱(commit ≥ 0.7)에 다른 승리 덱보다 1.5배 이상 자주 있고 5명 이상이 들었으며(부트스트랩 80%) 역할 목록에는 없는 카드. 좋은 플레이어 표본이 얇아 전체 플레이어로 판정: AGGRESSION, BLUDGEON, UNRELENTING. 근거: docs/research/v2-stats/on-theme.md
-      "onTheme": ["CARD.AGGRESSION", "CARD.BLUDGEON", "CARD.UNRELENTING"],
+      "onTheme": ["CARD.AGGRESSION"],
       // fullWeight 4.0 → 2.0: 새 목록으로 멤버 덱 commit 중앙값 0.26(<0.7)라 0.85 목표로 보정(최솟값 2.0). 보정 후 멤버 0.52·비멤버 0.00. 부트스트랩 100%가 ±0.5 안.
+      // v0.111: 카드 2장을 더한 목록으로 우수 멤버 중앙값 0.85·비멤버 0.00 → 2.0 유지.
       "fullWeight": 2.0,
       // essentialTarget: 멤버 승리 덱이 가진 서로 다른 enabler·payoff 카드 수의 중앙값 1(부트스트랩 100%). coreTarget은 core 보유 중앙값 1이라 기본값.
       "essentialTarget": 1,

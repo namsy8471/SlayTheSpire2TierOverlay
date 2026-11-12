@@ -1,0 +1,10 @@
+{
+  "ironclad.strength": { "anchors": ["BRAND", "DEMON_FORM", "DOMINATE", "FIGHT_ME", "INFLAME", "RUPTURE", "EXPECT_A_FIGHT"] },
+  "ironclad.exhaust": { "anchors": ["ASHEN_STRIKE", "DARK_EMBRACE", "DRUM_OF_BATTLE", "EVIL_EYE", "FEEL_NO_PAIN", "HOWL_FROM_BEYOND", "PACTS_END"] },
+  "ironclad.block": { "anchors": ["BARRICADE", "BODY_SLAM", "JUGGERNAUT", "UNMOVABLE"] },
+  "ironclad.self_damage": { "anchors": ["INFERNO", "RUPTURE", "SPITE", "TEAR_ASUNDER", "CRIMSON_MANTLE"] },
+  "ironclad.vulnerable": { "anchors": ["BULLY", "COLOSSUS", "CRUELTY", "DISMANTLE", "DOMINATE", "MOLTEN_FIST", "VICIOUS"] },
+  "ironclad.attack_replay": { "anchors": ["AGGRESSION", "BLUDGEON", "MANGLE", "STAMPEDE", "THRASH"] },
+  "ironclad.strike_tempo": { "anchors": ["ANGER", "HELLRAISER", "JUGGLING", "PERFECTED_STRIKE", "SETUP_STRIKE", "TWIN_STRIKE"] },
+  "ironclad.hellraiser": { "anchors": ["HELLRAISER"], "min": 1 }
+}

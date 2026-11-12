@@ -58,6 +58,7 @@
 | 파일 | 바뀐 것 | 내용 |
 |---|---|---|
 | `archetypes/*.json` | 0 | 바뀐 카드를 가리키는 항목은 있지만 역할이 그대로 맞음. 새 카드는 솔로 데이터가 없어 빌드에 넣지 않음 |
+| `archetypes/ironclad.json` (재판정, 2026-11-12) | 4 빌드 | v0.111.0 랭커 승리 192판만으로 다시 판정: 힘 성장 + `EXPECT_A_FIGHT`·`FIGHT_ME`, − `BLOOD_WALL`; 소멸 + `HOWL_FROM_BEYOND`; 공격 재사용 + `UNRELENTING`·`BLUDGEON`. core 4장은 그대로. 근거: [`../build-sources/v0111/ironclad.md`](../build-sources/v0111/ironclad.md) |
 | `combos/silent.json` | 1 | `NOXIOUS_FUMES`+`OUTBREAK` 콤보 이름·이유: `OUTBREAK`가 파워에서 "독을 주고 바로 발동"하는 스킬로 바뀜 → "광역 독 → 즉시 발동" |
 | `relic-fit.json` | 0 | `silent.shiv`의 `BEAUTIFUL_BRACELET`·`TOY_BOX`는 수치만 바뀌어 유지 |
 | `weights.json` | 주석 1줄 | 첫 주석의 버전만. 값은 그대로 |
