@@ -75,8 +75,15 @@ public static class DataPackLoader
         return o;
     }
 
-    /// <summary>Repository-relative path of the committed names-free catalog (<c>data/catalog/cards.v0.107.1.json</c>).</summary>
-    public static readonly string DefaultCatalogRelativePath = Path.Combine("data", "catalog", "cards.v0.107.1.json");
+    /// <summary>
+    /// Repository-relative path of the committed names-free catalog of one data version:
+    /// <c>v0.111.0</c> → <c>data/catalog/cards.v0.111.0.json</c>. There is no default on purpose: the caller names the
+    /// version, so a v0.111 pack never gets the v0.107.1 catalog by accident.
+    /// </summary>
+    public static string CatalogRelativePath(string dataVersion) => Path.Combine("data", "catalog", $"cards.{dataVersion}.json");
+
+    /// <summary>Repository-relative path of a data version's pack: <c>v0.111.0</c> → <c>data/packs/v0.111.0</c>.</summary>
+    public static string PackRelativePath(string dataVersion) => Path.Combine("data", "packs", dataVersion);
 
     /// <summary>
     /// The committed catalog that belongs to a pack directory by name: <c>data/packs/v0.107.1</c> →

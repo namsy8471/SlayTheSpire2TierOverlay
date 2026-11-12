@@ -10,10 +10,19 @@ namespace Sts2Overlay.Core.Tests.Combat;
 /// <summary>
 /// The training dummy fights in the recorded runs (tests/fixtures/runs): the dummy's HP the game showed, and whether the
 /// players killed it, against the HP rule and the simulator's forecast for the decks they had at that floor.
+/// One subclass per shipped combat data version. The recorded runs are older builds (v0.98.3, v0.107.1), so on newer data
+/// the forecast check asks "do these decks still give a forecast that agrees with what happened", not a replay.
 /// </summary>
-public class DummyHistoryTests(ITestOutputHelper output)
+public abstract class DummyHistoryTests(ITestOutputHelper output)
 {
-    private static readonly Lazy<CombatData> Data = new(() => CombatData.LoadPack(Path.Combine(TestPaths.RepoRoot, "data", "packs", "v0.107.1"))!);
+    /// <summary>The combat data version under test.</summary>
+    protected abstract string Version { get; }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<CombatData>> s_data = new(StringComparer.Ordinal);
+
+    /// <summary>Loaded once per version (xUnit makes a new instance per test).</summary>
+    private CombatData Data => s_data.GetOrAdd(Version, v => new Lazy<CombatData>(
+        () => CombatData.LoadPack(Path.Combine(TestPaths.RepoRoot, "data", "packs", v))!)).Value;
 
     private sealed record DummyFightRecord(string Run, int NodeIndex, int ActIndex, int Setting, IReadOnlyDictionary<string, double> ShownHp,
         IReadOnlyList<RunState> Decks, bool Won);
@@ -80,7 +89,7 @@ public class DummyHistoryTests(ITestOutputHelper output)
     [Fact]
     public void RecordedOutcomes_AreWithinTheForecast()
     {
-        var sim = new TurnSimulator(Data.Value);
+        var sim = new TurnSimulator(Data);
         var fights = Fights().ToList();
         Assert.NotEmpty(fights);
         var wrong = new List<string>();
@@ -103,7 +112,7 @@ public class DummyHistoryTests(ITestOutputHelper output)
     [Fact]
     public void Lookahead_DealsAtLeastAsMuchAsGreedy()
     {
-        var sim = new TurnSimulator(Data.Value);
+        var sim = new TurnSimulator(Data);
         foreach (var f in Fights())
         {
             foreach (var player in Players(f))
@@ -120,9 +129,19 @@ public class DummyHistoryTests(ITestOutputHelper output)
     public void Lookahead_IsRepeatable()
     {
         var f = Fights().First();
-        var sim = new TurnSimulator(Data.Value);
+        var sim = new TurnSimulator(Data);
         var a = DummyFight.Forecast(sim, Players(f));
         var b = DummyFight.Forecast(sim, Players(f));
         Assert.Equal(a.Totals, b.Totals);
     }
+}
+
+public sealed class DummyHistoryTestsV0107(ITestOutputHelper output) : DummyHistoryTests(output)
+{
+    protected override string Version => "v0.107.1";
+}
+
+public sealed class DummyHistoryTestsV0111(ITestOutputHelper output) : DummyHistoryTests(output)
+{
+    protected override string Version => "v0.111.0";
 }

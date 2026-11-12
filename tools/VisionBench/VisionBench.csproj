@@ -11,6 +11,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Sts2Overlay.Vision\Sts2Overlay.Vision.csproj" />
+    <!-- DataVersionSelector: the default data version, the same rule the app uses. -->
+    <ProjectReference Include="..\..\src\Sts2Overlay.Resources\Sts2Overlay.Resources.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using SkiaSharp;
+using Sts2Overlay.Core.Data;
 using Sts2Overlay.Resources;
 using Sts2Overlay.Resources.Pck;
 using Sts2Overlay.Tools.TitleBench;
@@ -23,7 +24,8 @@ using Sts2Overlay.Vision;
 //   TitleBench digits [--price-out dir]
 //       Shop price labels rendered in GyeonggiBatang (Korean game) and Kreon Bold (English), segmented by the real
 //       ShopPriceReader: template sets + width ranges (PriceGlyphs.Data.cs KreonData) and read accuracy per set.
-// Options: --pck <SlayTheSpire2.pck>, --catalog data/local/catalog.v0.107.1.json
+// Options: --pck <SlayTheSpire2.pck>, --catalog data/local/catalog.<game version>.json, --data-version v0.111.0 (pack + committed
+// catalog; default: the one the app picks for the game data/local was prepared from)
 //
 // Fonts and names are read from the game's pack / data/local at run time; nothing is written into the repo.
 
@@ -40,7 +42,12 @@ for (int i = 1; i < args.Length; i++)
 }
 string pckPath = opts.GetValueOrDefault("pck") ?? GameInstall.Locate()?.PckPath
     ?? @"C:\Program Files (x86)\Steam\steamapps\common\Slay the Spire 2\SlayTheSpire2.pck";
-string catalogPath = opts.GetValueOrDefault("catalog") ?? Path.Combine(repo, "data", "local", "catalog.v0.107.1.json");
+string localDir = Path.Combine(repo, "data", "local");
+string dataVersion = opts.GetValueOrDefault("data-version") ?? DataVersionSelector.ForLocalResources(repo, localDir).Version
+    ?? throw new InvalidOperationException("no data pack under data/packs: pass --data-version");
+Console.WriteLine($"data version {dataVersion}");
+string catalogPath = opts.GetValueOrDefault("catalog") ?? new LocalLayout(localDir).ManifestCatalog()
+    ?? Path.Combine(localDir, $"catalog.{dataVersion}.json");
 string outDir = opts.GetValueOrDefault("out") ?? Path.Combine(repo, "data", "local", "bench", "titles");
 
 using var pck = new PckReader(pckPath);
@@ -102,7 +109,7 @@ void Validate()
     string captures = opts.GetValueOrDefault("captures") ?? Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Sts2Overlay", "captures");
     var db = CardArtDatabase.LoadOrBuild(Path.Combine(repo, "data", "local", "pck", "card_art"),
-        Path.Combine(repo, "data", "catalog", "cards.v0.107.1.json"), Path.Combine(repo, "data", "local", "vision", "card-art.bin"));
+        Path.Combine(repo, DataPackLoader.CatalogRelativePath(dataVersion)), Path.Combine(repo, "data", "local", "vision", "card-art.bin"));
     var rec = new CardRecognizer(db);
     var byId = catalog.ToDictionary(c => c.Id);
 
@@ -270,7 +277,7 @@ void Events()
 {
     using var engBold = new TitleFont("eng-bold", GameFonts.Load(pck, "kreon_bold.ttf"), transform: 1f, glyphSpacing: 1);
     string loc = Path.Combine(repo, "data", "local", "pck", "localization");
-    using JsonDocument pack = JsonDocument.Parse(File.ReadAllText(Path.Combine(repo, "data", "packs", "v0.107.1", "events.json")));
+    using JsonDocument pack = JsonDocument.Parse(File.ReadAllText(Path.Combine(repo, DataPackLoader.PackRelativePath(dataVersion), "events.json")));
     var top = new SKRect(78, 13, 728, 19);    // texture y 5..11, x 1000..1650
     var bottom = new SKRect(78, 80, 728, 88); // texture y 72..80
     foreach (string lang in new[] { "kor", "eng" })
@@ -382,7 +389,7 @@ void EventsValidate(string capture, string eventId, string pageName)
     string captures = opts.GetValueOrDefault("captures") ?? Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Sts2Overlay", "captures");
     var screen = Sts2Overlay.Vision.Events.EventButtonDetector.Detect(ImageLoader.Load(Path.Combine(captures, capture)));
-    using JsonDocument pack = JsonDocument.Parse(File.ReadAllText(Path.Combine(repo, "data", "packs", "v0.107.1", "events.json")));
+    using JsonDocument pack = JsonDocument.Parse(File.ReadAllText(Path.Combine(repo, DataPackLoader.PackRelativePath(dataVersion), "events.json")));
     using JsonDocument text = JsonDocument.Parse(File.ReadAllText(Path.Combine(repo, "data", "local", "pck", "localization", "kor", "events.json")));
     string? Get(string k) => text.RootElement.TryGetProperty(k, out JsonElement v) ? v.GetString() : null;
     JsonElement ev = pack.RootElement.GetProperty("events").EnumerateArray().First(e => e.GetProperty("id").GetString() == eventId);

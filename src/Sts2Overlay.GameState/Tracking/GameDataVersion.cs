@@ -38,6 +38,30 @@ public static class GameDataVersion
     public static IReadOnlyDictionary<string, string> Renames(RngScheme scheme) =>
         scheme == RngScheme.Legacy32 ? s_noRenames : s_v111Renames;
 
+    /// <summary>
+    /// Whether every player sees one copy of this event (<c>EventModel.IsShared</c>). It matters for the event's own stream:
+    /// v0.111.0 <c>EventModel.BeginEvent</c> seeds it with <c>runSeed + (IsShared ? 0 : slot) + hash(id)</c>, so in co-op all
+    /// players of a shared event draw from the same stream (<see cref="RngSeeds.EventStream"/>).
+    /// <para>Xx64: the eight v0.111.0 events that override <c>IsShared</c> to true. Legacy32: always false, i.e. the slot is
+    /// always added as before. v0.107.1 marked six of these events shared too (pack <c>events.json</c>), but its
+    /// <c>BeginEvent</c> seed is not in hand (no v0.107.1 decompile), so the old behaviour is kept.</para>
+    /// </summary>
+    /// <param name="eventId"><c>EVENT.JUNGLE_MAZE_ADVENTURE</c> or the entry <c>JUNGLE_MAZE_ADVENTURE</c>.</param>
+    public static bool IsSharedEvent(RngScheme scheme, string eventId)
+    {
+        if (scheme == RngScheme.Legacy32) return false;
+        string entry = eventId.StartsWith("EVENT.", StringComparison.Ordinal) ? eventId["EVENT.".Length..] : eventId;
+        return s_v111SharedEvents.Contains(entry);
+    }
+
+    // v0.111.0: BattlewornDummy, DenseVegetation, FakeMerchant, JungleMazeAdventure, MorphicGrove, PunchOff, TheLanternKey,
+    // WarHistorianRepy (`public override bool IsShared => true`).
+    private static readonly HashSet<string> s_v111SharedEvents = new(StringComparer.Ordinal)
+    {
+        "BATTLEWORN_DUMMY", "DENSE_VEGETATION", "FAKE_MERCHANT", "JUNGLE_MAZE_ADVENTURE",
+        "MORPHIC_GROVE", "PUNCH_OFF", "THE_LANTERN_KEY", "WAR_HISTORIAN_REPY",
+    };
+
     private static readonly Dictionary<string, string> s_noRenames = new(StringComparer.Ordinal);
 
     private static readonly Dictionary<string, string> s_v111Renames = new(StringComparer.Ordinal)

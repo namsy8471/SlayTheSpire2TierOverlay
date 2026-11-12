@@ -91,7 +91,7 @@ internal static class Cli
                 return 1;
             }
 
-            return PickExportCommand.Run(files, LoadPack(packDir, catalogFile ?? FindCommittedCatalog()), outFile);
+            return PickExportCommand.Run(files, LoadPack(packDir, catalogFile ?? FindCommittedCatalog(packDir)), outFile);
         }
 
         var runs = files.Select(RunHistoryReader.ReadFile).ToArray();
@@ -116,7 +116,7 @@ internal static class Cli
             }
 
             // Upgrade limits and card types come from the catalog, so load the committed one when none is given.
-            Write(RestAdviceCommand.Run(files.Zip(runs).ToArray(), LoadPack(packDir, catalogFile ?? FindCommittedCatalog()), player, allPlayers), outFile);
+            Write(RestAdviceCommand.Run(files.Zip(runs).ToArray(), LoadPack(packDir, catalogFile ?? FindCommittedCatalog(packDir)), player, allPlayers), outFile);
             return 0;
         }
 
@@ -128,7 +128,7 @@ internal static class Cli
                 return 1;
             }
 
-            Write(UpgradeExportCommand.Run(files.Zip(runs).ToArray(), LoadPack(packDir, catalogFile ?? FindCommittedCatalog()), player, allPlayers), outFile);
+            Write(UpgradeExportCommand.Run(files.Zip(runs).ToArray(), LoadPack(packDir, catalogFile ?? FindCommittedCatalog(packDir)), player, allPlayers), outFile);
             return 0;
         }
 
@@ -194,7 +194,7 @@ internal static class Cli
             case "calibrate":
             {
                 var pack = LoadPack(packDir, catalogFile);
-                var catalogPath = catalogFile ?? FindCommittedCatalog();
+                var catalogPath = catalogFile ?? FindCommittedCatalog(packDir);
                 var pool = catalogPath is not null ? ForecastCardPool.FromCatalogJson(File.ReadAllText(catalogPath)) : ForecastCardPool.FromPack(pack);
                 // In co-op "me" is the Steam id of the history folder (steam/<id>/profile1/...); without it LocalPlayer picks player 1.
                 var options = new ForecastOptions { Simulations = sims, PickNoise = noise, Policy = policy, Seed = 12345 };
@@ -223,8 +223,13 @@ internal static class Cli
         return pack;
     }
 
-    private static string? FindCommittedCatalog()
+    /// <summary>
+    /// The committed catalog of the pack's data version (<see cref="DataPackLoader.SiblingCatalogPath"/>), so a v0.107.1
+    /// pack never gets the v0.111.0 catalog; without a pack (or a sibling), the newest committed one.
+    /// </summary>
+    private static string? FindCommittedCatalog(string? packDir)
     {
+        if (packDir is not null && DataPackLoader.SiblingCatalogPath(packDir) is { } sibling && File.Exists(sibling)) return sibling;
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
         {
             var candidate = Path.Combine(dir.FullName, "data", "catalog");

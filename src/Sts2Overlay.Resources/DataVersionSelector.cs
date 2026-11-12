@@ -44,4 +44,16 @@ public static class DataVersionSelector
             ? new DataVersionChoice(notNewer[^1].Name, game, DataVersionReason.NewestNotNewerThanGame)
             : new DataVersionChoice(versions[0].Name, game, DataVersionReason.GameOlderThanAll);
     }
+
+    /// <summary>
+    /// The same rule for a repo tool that was given no data version: the pack folders under
+    /// <c>&lt;contentRoot&gt;/data/packs</c> against the game version the local resources were prepared from
+    /// (<c>&lt;localDir&gt;/manifest.json</c>), so the tool's pack and catalogs match the card art and text it reads.
+    /// </summary>
+    public static DataVersionChoice ForLocalResources(string contentRoot, string localDir)
+    {
+        string packs = Path.Combine(contentRoot, "data", "packs");
+        var names = Directory.Exists(packs) ? Directory.GetDirectories(packs).Select(Path.GetFileName).OfType<string>() : [];
+        return Select(names, ResourceManifest.TryLoad(new LocalLayout(localDir).ManifestPath)?.GameVersion);
+    }
 }

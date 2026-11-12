@@ -700,7 +700,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         foreach (string card in effect.Removes) AddPatch(PatchKind.RemoveCard, card, 0);
         if (effect.RandomUpgrades > 0)
         {
-            // Event streams are replayable (seeded by run seed + slot + event id); the Niche stream (relics) is not.
+            // Event streams are replayable (run seed + slot unless shared + event id); the Niche stream (relics) is not.
             if (effect.Pick != UpgradePick.Unknown && eventId != null && EventRngSeed(eventId) is { } seed)
             {
                 bool shuffle = effect.Pick == UpgradePick.EventShuffle;
@@ -1071,13 +1071,20 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         ChooseSave()?.Save.RngScheme
         ?? (_logGameVersion is { } v ? RngSeeds.ForGameVersion(v) : RngSeeds.Default);
 
-    /// <summary>EventModel.BeginEvent: <c>new Rng(runSeed + slot + hash(event id entry))</c> (events aren't shared).</summary>
+    /// <summary>
+    /// EventModel.BeginEvent: <c>new Rng(runSeed + (IsShared ? 0 : slot) + hash(event id entry))</c>; a shared event
+    /// (<see cref="GameDataVersion.IsSharedEvent"/>) gives every player the slot-0 stream.
+    /// </summary>
     private ulong? EventRngSeed(string eventId)
     {
         int slot = MySlot();
         if (slot < 0 || RunSeed() is not { } seed) return null;
-        return RngSeeds.EventStream(Scheme(), seed, slot, eventId);
+        return EventRngSeed(Scheme(), seed, slot, eventId);
     }
+
+    /// <inheritdoc cref="EventRngSeed(string)"/>
+    internal static ulong EventRngSeed(RngScheme scheme, string seed, int slot, string eventId) =>
+        RngSeeds.EventStream(scheme, seed, slot, eventId, GameDataVersion.IsSharedEvent(scheme, eventId));
 
     /// <summary>
     /// Finds this burst's rolls in my replayed Rewards stream (other players' rolls aren't in it) and keeps them as

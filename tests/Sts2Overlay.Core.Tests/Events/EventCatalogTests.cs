@@ -5,16 +5,28 @@ using Sts2Overlay.Core.Model;
 
 namespace Sts2Overlay.Core.Tests.Events;
 
-/// <summary>Checks the committed <c>data/packs/v0.107.1/events.json</c> (66 events read from the decompiled game code).</summary>
-public class EventCatalogTests
+/// <summary>
+/// Checks a committed <c>data/packs/&lt;version&gt;/events.json</c> (66 events read from the decompiled game code).
+/// One subclass per shipped data version.
+/// </summary>
+public abstract class EventCatalogTests
 {
-    private static readonly EventCatalog Catalog =
-        EventCatalog.LoadDirectory(Path.Combine(TestPaths.RepoRoot, "data", "packs", "v0.107.1"));
+    /// <summary>The pack version under test.</summary>
+    protected abstract string Version { get; }
+
+    /// <summary>Events whose <c>EventModel.IsShared</c> is true in that game version (all players see one event).</summary>
+    protected abstract string[] SharedEvents { get; }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<EventCatalog>> s_catalogs = new(StringComparer.Ordinal);
+
+    private EventCatalog Catalog => s_catalogs.GetOrAdd(Version, v => new Lazy<EventCatalog>(
+        () => EventCatalog.LoadDirectory(Path.Combine(TestPaths.RepoRoot, "data", "packs", v)))).Value;
 
     [Fact]
     public void HasEveryEventOfTheBuild()
     {
         Assert.Equal(66, Catalog.Events.Count);
+        Assert.Equal(Version, Catalog.GameVersion);
         Assert.Equal(Catalog.Events.Count, Catalog.Events.Select(e => e.Id).Distinct().Count());
         Assert.All(Catalog.Events, e => Assert.StartsWith("EVENT.", e.Id));
         Assert.NotNull(Catalog.Find("EVENT.NEOW"));
@@ -75,6 +87,13 @@ public class EventCatalogTests
         }
     }
 
+    [Fact]
+    public void SharedFlags_MatchTheGame()
+    {
+        var shared = Catalog.Events.Where(e => e.Shared).Select(e => e.Id).Order(StringComparer.Ordinal);
+        Assert.Equal(SharedEvents.Order(StringComparer.Ordinal), shared);
+    }
+
     private static bool Evaluates(JsonElement el, RunState s, EventDef e)
     {
         var vars = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase)
@@ -85,4 +104,27 @@ public class EventCatalogTests
         foreach (var (k, v) in e.Vars) { vars.TryAdd(k, v); vars[$"var.{k}"] = v; }
         return EventFormula.TryEvaluate(el.GetString()!, vars, out _);
     }
+}
+
+public sealed class EventCatalogTestsV0107 : EventCatalogTests
+{
+    protected override string Version => "v0.107.1";
+
+    protected override string[] SharedEvents =>
+    [
+        "EVENT.BATTLEWORN_DUMMY", "EVENT.FAKE_MERCHANT", "EVENT.MORPHIC_GROVE", "EVENT.PUNCH_OFF", "EVENT.THE_LANTERN_KEY",
+        "EVENT.WAR_HISTORIAN_REPY",
+    ];
+}
+
+public sealed class EventCatalogTestsV0111 : EventCatalogTests
+{
+    protected override string Version => "v0.111.0";
+
+    // v0.111.0 adds Dense Vegetation and Jungle Maze Adventure (their IsShared overrides).
+    protected override string[] SharedEvents =>
+    [
+        "EVENT.BATTLEWORN_DUMMY", "EVENT.DENSE_VEGETATION", "EVENT.FAKE_MERCHANT", "EVENT.JUNGLE_MAZE_ADVENTURE",
+        "EVENT.MORPHIC_GROVE", "EVENT.PUNCH_OFF", "EVENT.THE_LANTERN_KEY", "EVENT.WAR_HISTORIAN_REPY",
+    ];
 }

@@ -91,4 +91,32 @@ public class GameDataVersionTests
             StartingLoadouts.EmbeddedFor(RngScheme.Legacy32).For("CHARACTER.IRONCLAD")!.Deck.Count,
             StartingLoadouts.EmbeddedFor(RngScheme.Xx64).For("CHARACTER.IRONCLAD")!.Deck.Count);
     }
+
+    [Theory]
+    // v0.111.0 EventModel.BeginEvent: runSeed + (IsShared ? 0 : slot) + hash(id). Jungle Maze and Morphic Grove are shared.
+    [InlineData("EVENT.JUNGLE_MAZE_ADVENTURE", true)]
+    [InlineData("MORPHIC_GROVE", true)]
+    [InlineData("EVENT.AROMA_OF_CHAOS", false)]
+    [InlineData("EVENT.NEOW", false)]
+    public void Shared_events_use_the_slot_0_stream_on_xx64(string eventId, bool shared)
+    {
+        const string seed = "TESTSEED01";
+        Assert.Equal(shared, GameDataVersion.IsSharedEvent(RngScheme.Xx64, eventId));
+        ulong guest = GameStateTracker.EventRngSeed(RngScheme.Xx64, seed, 1, eventId);
+        ulong host = GameStateTracker.EventRngSeed(RngScheme.Xx64, seed, 0, eventId);
+        Assert.Equal(shared, guest == host);
+        Assert.Equal(RngSeeds.EventStream(RngScheme.Xx64, seed, shared ? 0 : 1, eventId), guest);
+    }
+
+    [Fact]
+    public void Legacy32_keeps_adding_the_slot_for_every_event()
+    {
+        // The v0.107.1 seed rule for shared events is not known: the slot is still added.
+        const string seed = "TESTSEED01";
+        Assert.False(GameDataVersion.IsSharedEvent(RngScheme.Legacy32, "EVENT.MORPHIC_GROVE"));
+        Assert.Equal(RngSeeds.EventStream(RngScheme.Legacy32, seed, 1, "EVENT.MORPHIC_GROVE"),
+            GameStateTracker.EventRngSeed(RngScheme.Legacy32, seed, 1, "EVENT.MORPHIC_GROVE"));
+        Assert.NotEqual(GameStateTracker.EventRngSeed(RngScheme.Legacy32, seed, 0, "EVENT.MORPHIC_GROVE"),
+            GameStateTracker.EventRngSeed(RngScheme.Legacy32, seed, 1, "EVENT.MORPHIC_GROVE"));
+    }
 }

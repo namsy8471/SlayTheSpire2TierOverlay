@@ -533,7 +533,7 @@ public class DataPackLoaderTests
         Assert.True(catalog.Cards[1].MultiplayerOnly);
 
         // Same shape as the real catalog: every property of the example card exists on the real one.
-        var real = DataPackLoader.LoadCatalogFile(Path.Combine(TestPaths.RepoRoot, DataPackLoader.DefaultCatalogRelativePath));
+        var real = DataPackLoader.LoadCatalogFile(Path.Combine(TestPaths.RepoRoot, DataPackLoader.CatalogRelativePath("v0.107.1")));
         var ball = real.Cards.Single(c => c.Id == "CARD.BALL_LIGHTNING");
         Assert.Equal(ball.Pool, catalog.Cards[0].Pool);
         Assert.Equal(ball.Type, catalog.Cards[0].Type);
