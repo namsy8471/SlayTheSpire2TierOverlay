@@ -12,6 +12,8 @@ namespace Sts2Overlay.App.Controllers;
 /// <summary>
 /// Rest site on the game screen: "추천!" on the 휴식 / 재련 button and, in the Smith grid, on the card to upgrade.
 /// Drawn by the same mark layer as the map (<see cref="Views.MapOverlayWindow"/>); the two never show at once.
+/// An event option that lets the player pick a card to upgrade (Sapphire Seed's Eat, ...) opens the very same grid
+/// (the game's <c>CardSelectCmd.FromDeckForUpgrade</c>), so it gets the same marks (<see cref="EventUpgradePick"/>).
 ///
 /// <code>
 ///  VisionRecognizer: RestSiteDetector (buttons, Smith grid) ─▶ RecognitionResult.RestSite
@@ -23,11 +25,14 @@ public sealed partial class AppController
     private MapMarkPlan _restPlan = MapMarkPlan.Empty;
     private RestSiteAdvice? _restAdvice;
     private string? _restKey;
+    private EventUpgradePick _eventUpgrade = new(Core.Events.EventCatalog.Empty);
 
     /// <summary>Every recognition (also "Other" screens): rebuilds the rest-site marks or clears them.</summary>
     private void UpdateRestMarks(RecognitionResult r)
     {
         var plan = MapMarkPlan.Empty;
+        // An event option that upgrades a card of the player's choice was clicked and its grid is up (or not yet over).
+        var eventPick = _eventUpgrade.Update(_eventWatch ? _eventScreens?.Clicked : null, r.RestSite is { CardGridOpen: true }, _loggedButtons > 0);
         try
         {
             if (_settings.MapOverlay && Demo is null && _snapshot.Run is { } run && r.RestSite is { } rest)
@@ -36,8 +41,9 @@ public sealed partial class AppController
                 {
                     plan = RestMarks.Choice(rest, RestAdvice(run), _cards.Name);
                 }
-                // The same deck grid is used for removals, transforms and pile views: only trust it at a rest site.
-                else if (rest.CardGridOpen && _snapshot.Hint == ScreenHint.RestSite)
+                // The same deck grid is used for removals, transforms and pile views: only trust it at a rest site, or
+                // right after an event option that opens the upgrade pick.
+                else if (rest.CardGridOpen && (_snapshot.Hint == ScreenHint.RestSite || eventPick))
                 {
                     // The card recogniser reads the scrolled grid in only some frames; the ranking panel shows in all of them.
                     List<(CardRef, RectF)> cards = [];
@@ -57,7 +63,8 @@ public sealed partial class AppController
             AppLog.Error("rest-site advice failed", ex);
         }
         if (plan.IsEmpty && _restPlan.IsEmpty) return;
-        if (!plan.IsEmpty && _restPlan.IsEmpty) AppLog.Info($"rest marks: {string.Join(", ", plan.Rects.Select(x => x.Ribbon))} ({_restAdvice?.Action})");
+        if (!plan.IsEmpty && _restPlan.IsEmpty)
+            AppLog.Info($"rest marks: {string.Join(", ", plan.Rects.Select(x => x.Ribbon))} ({(eventPick ? $"event pick {_eventScreens?.Clicked}" : _restAdvice?.Action)})");
         _restPlan = plan;
         RedrawMap();
         UpdateCadence();
@@ -80,4 +87,7 @@ public sealed partial class AppController
     /// <summary>Capture rate at a rest site: like a reward screen, so the grid marks follow scrolling and hovering.</summary>
     private double RestCadenceHz() =>
         _snapshot.Hint == ScreenHint.RestSite || !_restPlan.IsEmpty ? Math.Clamp(_settings.RecognizeHz, 0.5, 10) : 0;
+
+    /// <summary>Marks expected soon (layer hook): at a rest site, or while an event's upgrade pick is open or about to open.</summary>
+    private bool RestMarksLikely => _snapshot.Hint == ScreenHint.RestSite || !_restPlan.IsEmpty || (_eventWatch && _eventUpgrade.Expects(_eventScreens?.Clicked));
 }

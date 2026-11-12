@@ -111,7 +111,7 @@ public sealed partial class AppController
     {
         if (_mapLayer is null) return;
         // Marks expected soon: keep the layer full size (an empty layer is trimmed otherwise, see LayerTrimmer).
-        _mapLayer.SetLayerReady(_settings.MapOverlay && (MapCadenceHz() > 0 || _snapshot.Hint == ScreenHint.RestSite || !_restPlan.IsEmpty));
+        _mapLayer.SetLayerReady(_settings.MapOverlay && (MapCadenceHz() > 0 || RestMarksLikely));
         // Rest-site marks (AppController.RestOverlay.cs) use the same layer; the map can't be open at the same time.
         if (!_restPlan.IsEmpty)
         {
