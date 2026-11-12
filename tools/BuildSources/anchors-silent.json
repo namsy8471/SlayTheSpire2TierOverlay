@@ -1,0 +1,32 @@
+{
+  "silent.poison": {
+    "anchors": [
+      "NOXIOUS_FUMES",
+      "SNAKEBITE",
+      "BOUNCING_FLASK",
+      "DEADLY_POISON",
+      "ACCELERANT",
+      "BUBBLE_BUBBLE"
+    ]
+  },
+  "silent.shiv": {
+    "anchors": [
+      "INFINITE_BLADES",
+      "CLOAK_AND_DAGGER",
+      "HIDDEN_DAGGERS",
+      "BLADE_OF_INK",
+      "PHANTOM_BLADES",
+      "KNIFE_TRAP",
+      "FAN_OF_KNIVES"
+    ]
+  },
+  "silent.sly_discard": {
+    "anchors": [
+      "PREPARED",
+      "ACROBATICS",
+      "TACTICIAN",
+      "REFLEX",
+      "RICOCHET"
+    ]
+  }
+}
