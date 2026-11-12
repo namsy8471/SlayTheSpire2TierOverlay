@@ -121,21 +121,23 @@ public sealed partial class AppController
     }
 
     /// <summary>
-    /// Draws the section from the last line. Shown only while the game runs and the tracker says a fight is on, whatever
-    /// the helper said last (see <see cref="CombatAdvicePresenter"/>).
+    /// Draws the section from the last line. Shown only while the helper and the game run and the tracker says a fight is
+    /// on, or the player is in an event room (an event can start a fight in its own room, which the log does not show
+    /// until the first card is played; the helper is idle there unless it follows that fight). Hidden everywhere else,
+    /// whatever the helper said last (see <see cref="CombatAdvicePresenter.PlaceOf"/>).
     /// </summary>
     private void RenderCombatAdvice()
     {
-        var inCombat = _advisor?.Arguments is not null && _tracker.Current is not null && _snapshot.Hint == ScreenHint.Combat;
+        var place = CombatAdvicePresenter.PlaceOf(_advisor?.Arguments is not null, _tracker.Current is not null, _snapshot.Hint, _snapshot.InEventRoom);
         // Snapshots come with every log line, many per turn in a fight: rebuild the rows only when something they show changed.
-        var key = (_combatMessage, inCombat, Loc.Current, _cards, _combatText);
+        var key = (_combatMessage, place, Loc.Current, _cards, _combatText);
         if (key == _combatRenderKey) return;
         _combatRenderKey = key;
-        var section = CombatAdvicePresenter.Build(_combatMessage, inCombat, new CombatNames(_cards, _combatText));
+        var section = CombatAdvicePresenter.Build(_combatMessage, place, new CombatNames(_cards, _combatText));
         if (section != _vm.Combat) _vm.Combat = section;
     }
 
-    private (CombatAdviceMessage?, bool, Lang, CardInfoProvider, CombatTextProvider)? _combatRenderKey;
+    private (CombatAdviceMessage?, CombatAdvicePlace, Lang, CardInfoProvider, CombatTextProvider)? _combatRenderKey;
 
     /// <summary>data/local was regenerated or the language changed: new names.</summary>
     private void ReloadCombatAdvice()

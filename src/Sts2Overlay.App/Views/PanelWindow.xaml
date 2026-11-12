@@ -570,12 +570,19 @@
             </DockPanel>
           </Border>
           <!-- ==== /run review banner ==== -->
-          <!-- ==== in-fight play order (Controllers/AppController.CombatAdvice.cs): only during a fight, whatever tab is open ==== -->
+          <!-- ==== in-fight play order (Controllers/AppController.CombatAdvice.cs): during a fight (or an event room whose fight
+               the helper follows), whatever tab is open. It only adds height above the tab strip: it never changes the
+               selected tab or covers a page. ==== -->
           <Border DataContext="{Binding Combat}" Visibility="{Binding HasContent, Converter={StaticResource BoolVis}}"
                   Margin="8,0,8,6" Padding="9,4,9,5" CornerRadius="7" Background="{StaticResource RowBg}" BorderBrush="#33FFFFFF" BorderThickness="1">
             <StackPanel>
               <StackPanel Visibility="{Binding ShowSteps, Converter={StaticResource BoolVis}}">
                 <DockPanel Margin="0,0,0,2">
+                  <!-- "전투를 고르면": the event page may still be open. Same muted tag as "불확실", which it replaces. -->
+                  <Border DockPanel.Dock="Right" CornerRadius="7" Padding="6,0,6,1" Background="#22FFFFFF" VerticalAlignment="Center"
+                          Visibility="{Binding PreviewHint, Converter={StaticResource BoolVis}}" ToolTip="{Binding PreviewTip}">
+                    <TextBlock Text="{Binding PreviewHint}" FontSize="10.5" Foreground="{StaticResource TextDim}" />
+                  </Border>
                   <Border DockPanel.Dock="Right" CornerRadius="7" Padding="6,0,6,1" Background="#22FFFFFF" VerticalAlignment="Center"
                           Visibility="{Binding IsUncertain, Converter={StaticResource BoolVis}}" ToolTip="{Binding UncertainTip}">
                     <TextBlock Text="{Binding CombatUncertainTag, Source={x:Static vm:UiText.Instance}}" FontSize="10.5" Foreground="{StaticResource TextDim}" />
