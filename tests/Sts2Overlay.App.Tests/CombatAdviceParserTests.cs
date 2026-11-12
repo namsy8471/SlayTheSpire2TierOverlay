@@ -87,6 +87,22 @@ public class CombatAdviceParserTests
         Assert.Equal(CombatEnding.None, m.Ending); // unknown ending: no closing row
     }
 
+    [Theory]
+    [InlineData("draw", CombatEnding.AdviseAfterPlay)]
+    [InlineData("end_turn", CombatEnding.EndTurn)]
+    [InlineData("win", CombatEnding.Win)]
+    [InlineData("", CombatEnding.None)]
+    [InlineData("Draw", CombatEnding.None)] // values are case-sensitive, like every other protocol word
+    [InlineData("draw_more", CombatEnding.None)]
+    public void Reads_the_ending(string ending, CombatEnding expected)
+    {
+        var m = ParseOk($$"""{"v":1,"state":"advice","steps":[{"kind":"card","id":"BASH"}],"ending":"{{ending}}","confidence":"exact","note":"next steps depend on the cards drawn"}""");
+
+        Assert.Equal(expected, m.Ending);
+        Assert.False(m.Uncertain); // a draw stop is exact advice, not an uncertain one
+        Assert.Equal("next steps depend on the cards drawn", m.Note);
+    }
+
     [Fact]
     public void Missing_confidence_counts_as_uncertain_and_missing_numbers_are_null()
     {
