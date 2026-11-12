@@ -166,7 +166,12 @@ public sealed record BuildSectionVm
 /// <param name="TargetText">Who to aim at ("턱벌레", "턱벌레 (2번째)", "2번째 적"); null when untargeted.</param>
 /// <param name="KindTag">"포션" for a potion; null for a card.</param>
 /// <param name="Tip">Hover text (e.g. which card in hand); null for none.</param>
-public sealed record CombatStepVm(string NumberText, string Name, string? TargetText = null, string? KindTag = null, bool IsEnding = false, string? Tip = null)
+/// <param name="IsSoft">
+/// A closing row that is a pause, not an instruction ("… 이 카드를 낸 뒤 다시 추천"): drawn muted instead of gold. Only with
+/// <paramref name="IsEnding"/>.
+/// </param>
+public sealed record CombatStepVm(string NumberText, string Name, string? TargetText = null, string? KindTag = null, bool IsEnding = false, string? Tip = null,
+    bool IsSoft = false)
 {
     /// <summary>The row as one line, e.g. "강타 → 턱벌레" (tests and the log).</summary>
     public string Text => TargetText is null ? Name : $"{Name} → {TargetText}";

@@ -600,6 +600,13 @@
                         <DataTrigger Binding="{Binding IsEnding}" Value="True">
                           <Setter TargetName="StepName" Property="Foreground" Value="{StaticResource Gold}" />
                         </DataTrigger>
+                        <!-- "… 이 카드를 낸 뒤 다시 추천": a pause, not an instruction. Muted like the panel's Dim text (no italic:
+                             Hangul has no italic face and WPF would only slant it). Declared after IsEnding, so it wins. -->
+                        <DataTrigger Binding="{Binding IsSoft}" Value="True">
+                          <Setter TargetName="StepName" Property="Foreground" Value="{StaticResource TextDim}" />
+                          <Setter TargetName="StepName" Property="FontWeight" Value="Normal" />
+                          <Setter TargetName="StepName" Property="FontSize" Value="11.5" />
+                        </DataTrigger>
                       </DataTemplate.Triggers>
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>

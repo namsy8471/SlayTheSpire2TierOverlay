@@ -69,20 +69,72 @@ public static class CombatAdvicePresenter
         var rows = new List<CombatStepVm>();
         var shown = Math.Min(m.Steps.Count, MaxSteps);
         for (var i = 0; i < shown; i++) rows.Add(Step(i + 1, m.Steps[i], names));
-        if (m.Steps.Count > shown)
+        var more = m.Steps.Count - shown;
+        var reason = DrawReasonOf(m.Note);
+        if (m.Ending == CombatEnding.AdviseAfterPlay)
         {
-            var more = m.Steps.Count - shown;
-            rows.Add(new CombatStepVm("", Loc.T($"… {more}개 더", $"… {more} more"), IsEnding: true));
+            // "이 카드" is the last step. When the cap hides it among the "N개 더", the two rows merge into one so the pause
+            // does not seem to come after the 10th row.
+            var text = more > 0 ? AdviseAfterMoreText(more) : AdviseAfterPlayText;
+            rows.Add(new CombatStepVm("", text, IsEnding: true, Tip: AdviseAfterPlayTip(reason), IsSoft: true));
         }
-        if (EndingText(m.Ending) is { } ending) rows.Add(new CombatStepVm("", ending, IsEnding: true));
+        else
+        {
+            if (more > 0) rows.Add(new CombatStepVm("", Loc.T($"… {more}개 더", $"… {more} more"), IsEnding: true));
+            if (EndingText(m.Ending) is { } ending) rows.Add(new CombatStepVm("", ending, IsEnding: true));
+        }
         return new CombatAdviceSectionVm
         {
             Title = Title(m.Turn),
             DetailTip = Detail(m),
             IsUncertain = m.Uncertain,
-            UncertainTip = m.Note.Length > 0 ? m.Note : Loc.T("계산한 손패가 실제 손패와 다를 수 있습니다", "The simulated hand may differ from the real one"),
+            // The helper's note is English; a known draw note is already said (localized) by the closing row's tooltip.
+            UncertainTip = m.Note.Length > 0 && reason is null
+                ? m.Note
+                : Loc.T("계산한 손패가 실제 손패와 다를 수 있습니다", "The simulated hand may differ from the real one"),
             Steps = rows,
         };
+    }
+
+    /// <summary>Why the helper stopped at a <c>draw</c> step, read from its (English) note; null for any other note.</summary>
+    public enum DrawReason
+    {
+        CardsDrawn,
+        PileOrder,
+        Random,
+    }
+
+    /// <summary>The three notes the helper sends with <c>ending: "draw"</c> (docs/COMBAT_ADVISOR.md); anything else → null.</summary>
+    public static DrawReason? DrawReasonOf(string note)
+    {
+        if (!note.StartsWith("next steps depend on", StringComparison.OrdinalIgnoreCase)) return null;
+        if (note.Contains("random", StringComparison.OrdinalIgnoreCase)) return DrawReason.Random;
+        if (note.Contains("order", StringComparison.OrdinalIgnoreCase)) return DrawReason.PileOrder;
+        if (note.Contains("drawn", StringComparison.OrdinalIgnoreCase)) return DrawReason.CardsDrawn;
+        return null;
+    }
+
+    /// <summary>The closing row of a <c>draw</c> line: the advice pauses at the last step.</summary>
+    public static string AdviseAfterPlayText => Loc.T("… 이 카드를 낸 뒤 다시 추천", "… more after this play");
+
+    /// <summary>The same, when the row cap hides the last steps: one row instead of "… N개 더" + the pause.</summary>
+    public static string AdviseAfterMoreText(int more) => Loc.T($"… {more}개 더 낸 뒤 다시 추천", $"… {more} more, then new advice");
+
+    /// <summary>
+    /// Tooltip of the pause row: why the list stops (localized from the helper's note), and that this is on purpose: the
+    /// overlay never shows cards that are not drawn yet or results that are not rolled yet.
+    /// </summary>
+    public static string AdviseAfterPlayTip(DrawReason? reason)
+    {
+        var why = reason switch
+        {
+            DrawReason.CardsDrawn => Loc.T("다음 행동은 이 카드로 뽑을 카드에 따라 달라집니다.", "What comes next depends on the cards this play draws."),
+            DrawReason.PileOrder => Loc.T("다음 행동은 섞인 뽑을 카드 더미의 새 순서에 따라 달라집니다.", "What comes next depends on the draw pile's new order."),
+            DrawReason.Random => Loc.T("다음 행동은 무작위 결과에 따라 달라집니다.", "What comes next depends on a random result."),
+            _ => Loc.T("다음 행동은 뽑거나 무작위로 정해질 결과에 따라 달라집니다.", "What comes next depends on what is drawn or rolled."),
+        };
+        return why + Loc.T(" 아직 모르는 카드나 결과를 미리 보여 주지 않도록, 이 카드를 낸 뒤에 이어서 추천합니다.",
+            " So that nothing you could not know yet is shown, the rest is advised after this play.");
     }
 
     /// <summary>"이번 턴 추천 순서 · 2턴" / "This turn's plays · Turn 2".</summary>

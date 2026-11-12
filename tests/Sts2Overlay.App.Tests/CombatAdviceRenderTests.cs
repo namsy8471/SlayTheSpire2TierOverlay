@@ -97,6 +97,21 @@ public class CombatAdviceRenderTests
         var bitmap = new RenderTargetBitmap((int)Math.Ceiling(root.ActualWidth), (int)Math.Ceiling(root.ActualHeight), 96, 96, PixelFormats.Pbgra32);
         bitmap.Render(root); // throws if a template cannot be drawn
 
+        // A draw stop: the closing row is muted (TextDim, normal weight), unlike the gold "턴 종료".
+        var endTurnRow = Descendants(root).OfType<TextBlock>().First(t => t.Text == "턴 종료");
+        Assert.Equal(window.FindResource("Gold"), endTurnRow.Foreground);
+        vm.Combat = CombatAdvicePresenter.Build(message with { Ending = CombatEnding.AdviseAfterPlay, Uncertain = false, Note = "next steps depend on a random result" },
+            inCombat: true, new Names());
+        Layout(root);
+        texts = Texts(root);
+        Assert.Contains("… 이 카드를 낸 뒤 다시 추천", texts);
+        Assert.DoesNotContain("턴 종료", texts);
+        Assert.DoesNotContain("불확실", texts);
+        var pauseRow = Descendants(root).OfType<TextBlock>().First(t => t.Text == "… 이 카드를 낸 뒤 다시 추천");
+        Assert.Equal(window.FindResource("TextDim"), pauseRow.Foreground);
+        Assert.Equal(FontWeights.Normal, pauseRow.FontWeight);
+        Assert.Contains("무작위 결과", Assert.IsType<string>(((FrameworkElement)VisualTreeHelper.GetParent(pauseRow)).ToolTip));
+
         vm.Combat = CombatAdvicePresenter.Build(new CombatAdviceMessage(CombatAdviceState.Lost) { Reason = "made-up reason" }, inCombat: true, new Names());
         Layout(root);
         texts = Texts(root);

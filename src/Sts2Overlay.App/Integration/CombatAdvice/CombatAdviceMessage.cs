@@ -41,6 +41,12 @@ public enum CombatEnding
 
     /// <summary><c>win</c>: the line kills every enemy.</summary>
     Win,
+
+    /// <summary>
+    /// <c>draw</c>: the last step draws cards, reshuffles or rolls something random, so what comes after it depends on
+    /// information nobody has yet. The helper stops the line there and advises again once that play has resolved.
+    /// </summary>
+    AdviseAfterPlay,
 }
 
 /// <summary>One action of the advised order.</summary>
@@ -180,6 +186,7 @@ public static class CombatAdviceParser
             {
                 "end_turn" => CombatEnding.EndTurn,
                 "win" => CombatEnding.Win,
+                "draw" => CombatEnding.AdviseAfterPlay,
                 _ => CombatEnding.None,
             },
             // Only an explicit "exact" is trusted; a missing or unknown value shows the uncertain tag.
