@@ -11,6 +11,9 @@
 
   켜져 있는 exe도 이름은 바꿀 수 있어서, 이전 exe를 Sts2Overlay.prev.exe로 옮기고 새 exe를 넣습니다.
   빌드가 실패하면 dist는 그대로 둡니다. Windows PowerShell 5.1과 PowerShell 7 모두에서 돕니다.
+
+  전투 추천 도우미: 레포 맨 위 advisor-dist\에 Sts2CombatAdvisor.exe가 있으면 세 파일을 dist\advisor\에 넣습니다
+  (tools\advisor-package.ps1). 없으면 한 줄 안내만 하고 도우미 없이 빌드합니다. exe만 있고 dll이나 테이블이 없으면 실패합니다.
   종료 코드: 0 성공, 1 실패.
 #>
 param(
@@ -30,6 +33,7 @@ Set-Location -LiteralPath $repo
 $dist = Join-Path $repo 'dist'
 $exe = Join-Path $dist 'Sts2Overlay.exe'
 $stage = Join-Path $repo 'artifacts\exe-build'
+$advisorScript = Join-Path $PSScriptRoot 'advisor-package.ps1'
 
 function Finish([int]$code) {
     if (-not $NoPause) {
@@ -46,11 +50,21 @@ function Fail([string]$message) {
     Finish 1
 }
 
+# advisor-dist\의 도우미 세 파일을 dist\advisor\에 넣고 한 줄로 알립니다 (없으면 도우미 없이). 실패하면 $false.
+function Update-DistAdvisor {
+    & $advisorScript -Destination (Join-Path $dist 'advisor') -NoLock
+    return ($LASTEXITCODE -eq 0)
+}
+
 Write-Host '== STS2 오버레이 exe 다시 만들기 ==' -ForegroundColor Cyan
 
 if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
     Fail '.NET SDK(dotnet)를 찾지 못했습니다. https://dotnet.microsoft.com/download 에서 .NET 10 SDK를 설치해 주세요.'
 }
+
+# 빌드(1~3분) 전에 확인: advisor-dist\에 exe만 있고 dll이나 테이블이 없으면 바로 멈춥니다.
+& $advisorScript -Check -NoLock -Quiet
+if ($LASTEXITCODE -ne 0) { Fail 'advisor-dist\ 폴더를 고친 뒤 다시 실행해 주세요.' }
 
 # ---- 1. 어떤 코드로 빌드하는지 보여 주기 (git이 없으면 건너뜀) ----
 $hasGit = [bool](Get-Command git -ErrorAction SilentlyContinue)
@@ -99,6 +113,8 @@ if (Test-Path -LiteralPath $exe) {
         Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue
         Write-Host ''
         Write-Host '바뀐 내용이 없습니다. dist\Sts2Overlay.exe를 그대로 둡니다.' -ForegroundColor Green
+        # 도우미는 exe와 따로 바뀔 수 있습니다 (advisor-dist\에 새 파일을 넣은 경우).
+        if (-not (Update-DistAdvisor)) { Finish 1 }
         Finish 0
     }
 }
@@ -150,6 +166,8 @@ $seconds = [int]((Get-Date) - $started).TotalSeconds
 Write-Host ''
 Write-Host ('완료: {0} ({1:N0} MB, {2}초)' -f $info.FullName, ($info.Length / 1MB), $seconds) -ForegroundColor Green
 Write-Host '바탕화면 "STS2 오버레이" 바로가기는 이 exe를 엽니다.'
+# 오버레이를 끈 뒤(다시 켜기 전)에 넣어야 실행 중인 도우미 파일과 겹치지 않습니다.
+$advisorOk = Update-DistAdvisor
 
 if ($relaunch) {
     Start-Process -FilePath $exe -WorkingDirectory $dist
@@ -157,5 +175,9 @@ if ($relaunch) {
 }
 elseif ($running.Count -gt 0) {
     Write-Host '켜져 있는 오버레이는 이전 버전입니다. 껐다 켜면 새 버전이 실행됩니다.' -ForegroundColor Yellow
+}
+if (-not $advisorOk) {
+    Write-Host '오버레이 exe는 바꿨지만 전투 추천 도우미를 넣지 못했습니다 (위 메시지).' -ForegroundColor Red
+    Finish 1
 }
 Finish 0

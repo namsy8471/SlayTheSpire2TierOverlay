@@ -184,6 +184,14 @@ jobs:
           name: publish
           path: publish
 
+      # 선택: 전투 추천 도우미. 이 워크플로는 도우미를 빌드하는 비공개 레포에 닿지 못하므로, 추적되는 advisor.lock.json
+      # ({ "url", "sha256", "version" })이 있을 때만 그 zip을 받아 SHA-256을 확인하고(다르면 릴리스 실패) publish/advisor에 풉니다.
+      # 파일이 없으면(기본) 한 줄 안내만 하고 넘어갑니다. 자세한 것은 docs/DISTRIBUTION.md "Combat advisor helper".
+      - name: Combat advisor helper (optional, advisor.lock.json)
+        run: |
+          ./tools/advisor-package.ps1 -Destination publish/advisor -LockOnly
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
       - name: Restore vpk (local dotnet tool)
         run: |
           dotnet tool restore
