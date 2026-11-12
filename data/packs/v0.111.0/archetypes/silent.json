@@ -1,5 +1,6 @@
 // 사일런트 아키타입 v2. 카드 목록은 상위 플레이어의 A10 승리 덱에서 뽑았습니다(OP.GG 주간 상위 100에 오른 플레이어 전원의 전체 기록, 바닐라 v0.107~v0.111 승리 888판·77명, 판정은 좋은 플레이어 19명 482판·플레이어 균형·부트스트랩). 근거와 수치: docs/research/build-sources/silent.md
 // 시작 덱 카드와 시작 유물은 넣지 않습니다. 베타에서 바뀐 카드(†)는 v0.107.x 판만으로 판단했습니다. "불확실"은 부트스트랩 80% 기준을 못 넘어 v1 값을 유지한 항목입니다.
+// v0.111 재판정(2026-11-12): v0.111.0 랭커 승리 덱만으로 다시 계산했습니다. 바뀐 곳은 각 빌드의 "v0.111" 주석에 있습니다. 넣기 = 부트스트랩 80% 이상 통과 + 효과가 빌드 축에 작용. core 승격 = core 부트스트랩 80% 이상 + 고급·희귀 엔진. 빼기 = 우수 멤버 덱 25판 이상인데 지원 부트스트랩이 우수·전체 모두 20% 이하이고 lift 1.0 이상 재표본도 80% 미만. 근거 표: docs/research/build-sources/v0111/silent.md
 {
   "character": "CHARACTER.SILENT",
   "archetypes": [
@@ -13,14 +14,17 @@
       // ACCELERANT†는 core에서 payoff로: 균형 점유율 31%(v0.107 멤버 22/57판)라 core 기준을 넘는 재표본이 16%뿐(전체 플레이어 6%). 카드 기준 통과는 66%(전체 플레이어 96%)라 payoff로 목록에 유지(좋은 플레이어 66%는 6명뿐이라 전체 플레이어로 판정).
       // v1에서 제거(탈락이 부트스트랩으로 안정): BLUR, LEG_SWEEP, MIRAGE†, REFLEX, TRACKING†, UNTOUCHABLE.
       // 예: https://op.gg/slay-the-spire2/history/7176716 https://op.gg/slay-the-spire2/history/7089416 https://op.gg/slay-the-spire2/history/6479296 https://op.gg/slay-the-spire2/history/6405508
+      // v0.111(v0.111.0 승리 덱만으로 재판정): 멤버 덱 우수 40판·18명 / 전체 65판·33명.
+      //   ACCELERANT payoff → core: 우수 60%·lift 6.86·13명·부트 100%·core 부트 100%(전체 69%·lift 9.29·27명·부트 100%·core 100%). 고급 파워, 중독을 추가로 발동시키는 배수 엔진.
+      //   추가 OUTBREAK payoff: 우수 28%·lift 5.75·8명·부트 86%(전체 28%·lift 6.99·15명·부트 99%). v0.111에서 "모든 적에게 중독 + 즉시 발동"으로 바뀜.
       "cards": {
-        "core": ["CARD.NOXIOUS_FUMES"],
+        "core": ["CARD.NOXIOUS_FUMES", "CARD.ACCELERANT"],
         "enabler": ["CARD.SNAKEBITE", "CARD.BOUNCING_FLASK", "CARD.DEADLY_POISON"],
-        "payoff": ["CARD.ACCELERANT", "CARD.BUBBLE_BUBBLE"],
+        "payoff": ["CARD.BUBBLE_BUBBLE", "CARD.OUTBREAK"],
         "support": ["CARD.HAZE"]
       },
       // onTheme(빌드 밖 감점 면제, 빌드 점수 없음): 빌드 확정 덱(commit ≥ 0.7)에 다른 승리 덱보다 1.5배 이상 자주 있고 5명 이상이 들었으며(부트스트랩 80%) 역할 목록에는 없는 카드. 좋은 플레이어 표본이 얇아 전체 플레이어로 판정: MIRAGE, OUTBREAK. 근거: docs/research/v2-stats/on-theme.md
-      "onTheme": ["CARD.BULLET_TIME", "CARD.BURST", "CARD.CORROSIVE_WAVE", "CARD.MASTER_PLANNER", "CARD.MIRAGE", "CARD.OUTBREAK", "CARD.POISONED_STAB"],
+      "onTheme": ["CARD.BULLET_TIME", "CARD.BURST", "CARD.CORROSIVE_WAVE", "CARD.MASTER_PLANNER", "CARD.MIRAGE", "CARD.POISONED_STAB"],
       // fullWeight 4.0 → 3.0: 새 목록으로 멤버 덱 commit 중앙값이 0.66(<0.7)라 0.85 근처로 맞춤(3.0에서 멤버 0.88, 비멤버 0.17; 플레이어 균형 중앙값).
       "fullWeight": 3.0,
       // essentialTarget: 멤버 승리 덱이 든 서로 다른 enabler·payoff 카드 수의 균형 중앙값 2(부트스트랩 90%). coreTarget은 core 보유 중앙값이 1장이라 기본값 1.
@@ -43,10 +47,12 @@
       // INFINITE_BLADES core 유지(불확실): 좋은 플레이어 균형 점유율 40%로 40% 경계, 전체 플레이어로는 46%·core 통과 93%.
       // v1에서 제거(탈락이 부트스트랩으로 안정): DEFLECT, ENVENOM, ESCAPE_PLAN, TRACKING†.
       // 예: https://op.gg/slay-the-spire2/history/3724911 https://op.gg/slay-the-spire2/history/6364114 https://op.gg/slay-the-spire2/history/5870874 https://op.gg/slay-the-spire2/history/6757188
+      // v0.111(v0.111.0 승리 덱만으로 재판정): 멤버 덱 우수 69판·17명 / 전체 103판·36명.
+      //   PHANTOM_BLADES payoff → core: 우수 45%·lift 2.47·14명·부트 96%·core 부트 70%(전체 48%·lift 3.13·26명·부트 100%·core 93%). 고급 파워, 단도 보존 + 매 턴 첫 단도 추가 피해.
       "cards": {
-        "core": ["CARD.ACCURACY", "CARD.INFINITE_BLADES"],
+        "core": ["CARD.ACCURACY", "CARD.INFINITE_BLADES", "CARD.PHANTOM_BLADES"],
         "enabler": ["CARD.BLADE_DANCE", "CARD.LEADING_STRIKE", "CARD.CLOAK_AND_DAGGER", "CARD.HIDDEN_DAGGERS", "CARD.BLADE_OF_INK"],
-        "payoff": ["CARD.PHANTOM_BLADES", "CARD.KNIFE_TRAP", "CARD.FAN_OF_KNIVES"],
+        "payoff": ["CARD.KNIFE_TRAP", "CARD.FAN_OF_KNIVES"],
         "support": ["CARD.EXPOSE", "CARD.AFTERIMAGE"]
       },
       // onTheme(빌드 밖 감점 면제, 빌드 점수 없음): 빌드 확정 덱(commit ≥ 0.7)에 다른 승리 덱보다 1.5배 이상 자주 있고 5명 이상이 들었으며(부트스트랩 80%) 역할 목록에는 없는 카드. 근거: docs/research/v2-stats/on-theme.md

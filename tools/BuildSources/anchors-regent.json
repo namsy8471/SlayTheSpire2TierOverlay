@@ -1,0 +1,48 @@
+{
+  "regent.stars": {
+    "anchors": [
+      "BLACK_HOLE",
+      "HIDDEN_CACHE",
+      "BIG_BANG",
+      "ROYAL_GAMBLE",
+      "SOLAR_STRIKE",
+      "REFLECT",
+      "CLOAK_OF_STARS",
+      "GUIDING_STAR",
+      "PARTICLE_WALL",
+      "STARDUST"
+    ]
+  },
+  "regent.star_spend": {
+    "anchors": [
+      "CHILD_OF_THE_STARS",
+      "ROYAL_GAMBLE",
+      "REFLECT",
+      "RADIATE"
+    ]
+  },
+  "regent.forge": {
+    "anchors": [
+      "FURNACE",
+      "REFINE_BLADE",
+      "BULWARK",
+      "SPOILS_OF_BATTLE",
+      "SUMMON_FORTH",
+      "PARRY",
+      "SWORD_SAGE",
+      "CONQUEROR"
+    ]
+  },
+  "regent.creation": {
+    "anchors": [
+      "PILLAR_OF_CREATION",
+      "BEGONE",
+      "CHARGE",
+      "MANIFEST_AUTHORITY",
+      "BUNDLE_OF_JOY",
+      "QUASAR",
+      "ARSENAL",
+      "SUPERMASSIVE"
+    ]
+  }
+}

@@ -2,6 +2,7 @@
 // 시작 덱 카드(FALLING_STAR, VENERATE)와 시작 유물(DIVINE_RIGHT)은 넣지 않습니다. 축: STAR(별), FORGE(벼리기 = 검 토큰 강화), CREATE(카드 생성)
 // 판정: 플레이어별 가중치 상한 10%, 플레이어 단위 부트스트랩 200회에서 80% 이상 유지되는 결정만 반영. 우수 플레이어만으로는 표본이 얇아(빌드별 유효 플레이어 수 6 미만 또는 1위 플레이어가 절반 초과) 전체 플레이어 결과를 썼습니다.
 // 별 덱은 둘로 나눕니다: 다른 랭커의 별 덱(regent.stars)과 OP.GG 랭킹 1위 플레이어의 별 덱(regent.star_spend, 1위 플레이어 빌드). 베타에서 바뀐 카드(PILLAR_OF_CREATION, COLLISION_COURSE 등)는 v0.107.x 런만 봤습니다.
+// v0.111 재판정(2026-11-12): v0.111.0 랭커 승리 덱만으로 다시 계산했습니다. 바뀐 곳은 각 빌드의 "v0.111" 주석에 있습니다. 넣기 = 부트스트랩 80% 이상 통과 + 효과가 빌드 축에 작용. core 승격 = core 부트스트랩 80% 이상 + 고급·희귀 엔진. 빼기 = 우수 멤버 덱 25판 이상인데 지원 부트스트랩이 우수·전체 모두 20% 이하이고 lift 1.0 이상 재표본도 80% 미만. 근거 표: docs/research/build-sources/v0111/regent.md
 {
   "character": "CHARACTER.REGENT",
   "archetypes": [
@@ -15,11 +16,14 @@
       // 보조 근거(Baalorlord A10 리젠트 9판 중 5판 이상 + 축 카드 + OP.GG lift 1.0 이상이 부트스트랩 80% 이상): ASTRAL_PULSE 6/9, CLOAK_OF_STARS 5/9, GATHER_LIGHT 5/9, GLOW 8/9, PARTICLE_WALL 6/9, REFLECT 5/9.
       // ASTRAL_PULSE: 보조 근거로만 남습니다. 보상에서 집는 비율은 전체 13%(819번 중 92번), 1위 플레이어 4%(196번 중 7번)로 낮고, 이 빌드 근거는 부트스트랩 51%로 불안정합니다.
       // 예: https://op.gg/slay-the-spire2/history/4114272 https://op.gg/slay-the-spire2/history/6806553 https://op.gg/slay-the-spire2/history/4735669 https://op.gg/slay-the-spire2/history/7106770
+      // v0.111(v0.111.0 승리 덱만으로 재판정): 멤버 덱 우수 39판·11명 / 전체 48판·20명.
+      //   추가 RADIATE payoff: 우수 33%·lift 1.96·6명·부트 48%(전체 35%·lift 6.90·10명·부트 84%). 이번 턴에 얻은 별만큼 광역 타격.
+      //   제외 ASTRAL_PULSE support: 우수 15%·lift 0.93·4명·부트 9%(전체 17%·lift 1.74·6명·부트 10%), lift 1.0 이상 재표본 47%·71%.
       "cards": {
         "core": ["CARD.BLACK_HOLE"],
         "enabler": ["CARD.GATHER_LIGHT", "CARD.GLOW", "CARD.HIDDEN_CACHE", "CARD.BIG_BANG", "CARD.ROYAL_GAMBLE", "CARD.SOLAR_STRIKE"],
-        "payoff": ["CARD.REFLECT", "CARD.CLOAK_OF_STARS", "CARD.GUIDING_STAR", "CARD.PARTICLE_WALL", "CARD.STARDUST"],
-        "support": ["CARD.ASTRAL_PULSE"]
+        "payoff": ["CARD.REFLECT", "CARD.CLOAK_OF_STARS", "CARD.GUIDING_STAR", "CARD.PARTICLE_WALL", "CARD.STARDUST", "CARD.RADIATE"],
+        "support": []
       },
       // fullWeight 4.5 -> 5.5: 새 목록으로 다른 덱 commit 중앙값이 0.54(> 0.5, 변경 필요 부트스트랩 97%). 5.5에서 빌드 덱 0.83·다른 덱 0.45, 기준 충족 94%.
       "fullWeight": 5.5,
@@ -41,10 +45,13 @@
       // 제거(2026-11 감사): BEGONE support(부트스트랩 32%). 카드 하나를 미니언 타격으로 바꾸는 카드 생성 카드라 별을 만들지도 쓰지도 않음(카드 생성 빌드의 enabler로는 남음). 랭커 2,155판 승리 덱에서도 이 빌드 카드 2장 이상 덱 대비 lift 0.81(좋은 플레이어 별 축 덱 1.16).
       // 보조 근거(Baalorlord A10 리젠트 9판 중 5판 이상 + 축 카드 + OP.GG lift 1.0 이상이 부트스트랩 80% 이상): REFLECT 5/9.
       // 예: https://op.gg/slay-the-spire2/history/6636495 https://op.gg/slay-the-spire2/history/6669199 https://op.gg/slay-the-spire2/history/6669204 https://op.gg/slay-the-spire2/history/6669185
+      // v0.111(v0.111.0 승리 덱만으로 재판정): 멤버 덱 우수 20판·7명 / 전체 24판·11명.
+      //   추가 PARTICLE_WALL payoff: 우수 56%·lift 2.29·7명·부트 86%(전체 53%·lift 2.22·9명·부트 88%). 별 2개를 쓰고 손으로 돌아오는 방어 카드.
+      //   추가 GAMMA_BLAST payoff: 우수 44%·lift 4.99·5명·부트 60%(전체 47%·lift 6.03·7명·부트 89%). 별 3개를 쓰는 공격.
       "cards": {
         "core": ["CARD.CHILD_OF_THE_STARS"],
         "enabler": ["CARD.ROYAL_GAMBLE"],
-        "payoff": ["CARD.REFLECT", "CARD.RADIATE"],
+        "payoff": ["CARD.REFLECT", "CARD.RADIATE", "CARD.PARTICLE_WALL", "CARD.GAMMA_BLAST"],
         "support": ["CARD.HIDDEN_CACHE"]
       },
       "fullWeight": 4.0,
@@ -88,9 +95,11 @@
       // 보조 근거(Baalorlord A10 리젠트 9판 중 5판 이상 + 축 카드 + OP.GG lift 1.0 이상이 부트스트랩 80% 이상): BEGONE 5/9.
       // core PILLAR_OF_CREATION은 v0.107.x 빌드 덱만 셉니다(31판). v1의 "core 비움"을 해제했습니다.
       // 예: https://op.gg/slay-the-spire2/history/7202938 https://op.gg/slay-the-spire2/history/6497786 https://op.gg/slay-the-spire2/history/4220586 https://op.gg/slay-the-spire2/history/4735621
+      // v0.111(v0.111.0 승리 덱만으로 재판정): 멤버 덱 우수 31판·11명 / 전체 41판·21명.
+      //   추가 GUARDS enabler: 우수 40%·lift 1.80·8명·부트 64%(전체 39%·lift 2.74·12명·부트 93%). 손의 카드를 다른 카드로 변환(생성).
       "cards": {
         "core": ["CARD.PILLAR_OF_CREATION"],
-        "enabler": ["CARD.BEGONE", "CARD.CHARGE", "CARD.MANIFEST_AUTHORITY", "CARD.BUNDLE_OF_JOY", "CARD.QUASAR"],
+        "enabler": ["CARD.BEGONE", "CARD.CHARGE", "CARD.MANIFEST_AUTHORITY", "CARD.BUNDLE_OF_JOY", "CARD.QUASAR", "CARD.GUARDS"],
         "payoff": ["CARD.ARSENAL", "CARD.SUPERMASSIVE"],
         "support": ["CARD.COLLISION_COURSE"]
       },

@@ -1,6 +1,7 @@
 // 네크로바인더 아키타입. 카드 목록은 OP.GG 상위 플레이어(주간 랭킹 상위 100에 든 171명)의 A10 바닐라 솔로 승리 전체 기록에서 뽑았습니다: 네크로바인더 승리 381판·38명, 그중 판정에 쓴 "좋은 플레이어"(A10 승리 5판 이상·막1 통과 런 승률 25% 이상) 317판·14명. 런 날짜 2026-06-05~11-08, v0.107.0 이상.
 // 카드별 근거·표·제외 사유는 docs/research/build-sources/necrobinder.md. 비율은 플레이어 균형값(한 사람 가중치 최대 10%), 안정성은 플레이어 200회 재표본(부트스트랩) 80% 이상일 때만 바꿨습니다. 80% 미만은 이전 값을 두고 "불확실"로 표시했습니다.
 // 시작 덱 카드(BODYGUARD, UNLEASH)와 시작 유물(BOUND_PHYLACTERY)은 넣지 않습니다. 축: SUMMON·OSTY_ATTACK(오스티), DOOM(파멸), ETHEREAL(휘발성). 영혼(souls) 빌드는 이번 표본에서도 12판(좋은 플레이어 8판)이라 다시 넣지 않았습니다.
+// v0.111 재판정(2026-11-12): v0.111.0 랭커 승리 덱만으로 다시 계산했습니다. 바뀐 곳은 각 빌드의 "v0.111" 주석에 있습니다. 넣기 = 부트스트랩 80% 이상 통과 + 효과가 빌드 축에 작용. core 승격 = core 부트스트랩 80% 이상 + 고급·희귀 엔진. 빼기 = 우수 멤버 덱 25판 이상인데 지원 부트스트랩이 우수·전체 모두 20% 이하이고 lift 1.0 이상 재표본도 80% 미만. 근거 표: docs/research/build-sources/v0111/necrobinder.md
 {
   "character": "CHARACTER.NECROBINDER",
   "archetypes": [
@@ -14,9 +15,11 @@
       // 새로 추가(부트스트랩 80% 이상): POKE(enabler, 52%·lift 4.38·10명·100%), RATTLE(payoff, 39%·lift 16.33·8명·94%), REANIMATE(enabler, 37%·lift 2.75·9명·90%), SENTRY_MODE(enabler, 28%·lift 3.15·9명·90%), SQUEEZE(payoff, 40%·lift 8.22·8명·96%).
       // 제외(부트스트랩 20% 이하로 지지 안 됨): FEAR(lift 0.99), FRIENDSHIP(lift 1.15), GRAVEBLAST(lift 1.11), GRAVE_WARDEN(lift 1.08), INVOKE(lift 1.14).
       // 예: https://op.gg/slay-the-spire2/history/6495912 https://op.gg/slay-the-spire2/history/6696754 https://op.gg/slay-the-spire2/history/6485302 https://op.gg/slay-the-spire2/history/7052722
+      // v0.111(v0.111.0 승리 덱만으로 재판정): 멤버 덱 우수 44판·13명 / 전체 54판·23명.
+      //   제외 CLEANSE enabler: 우수 15%·lift 0.51·5명·부트 2%(전체 19%·lift 0.68·8명·부트 0%), lift 1.0 이상 재표본 11%·14%.
       "cards": {
         "core": ["CARD.CALCIFY"],
-        "enabler": ["CARD.POKE", "CARD.FETCH", "CARD.SIC_EM", "CARD.HIGH_FIVE", "CARD.REANIMATE", "CARD.PULL_AGGRO", "CARD.RIGHT_HAND_HAND", "CARD.CLEANSE", "CARD.SENTRY_MODE", "CARD.SNAP"],
+        "enabler": ["CARD.POKE", "CARD.FETCH", "CARD.SIC_EM", "CARD.HIGH_FIVE", "CARD.REANIMATE", "CARD.PULL_AGGRO", "CARD.RIGHT_HAND_HAND", "CARD.SENTRY_MODE", "CARD.SNAP"],
         "payoff": ["CARD.FLATTEN", "CARD.SQUEEZE", "CARD.RATTLE"],
         "support": []
       },
@@ -42,10 +45,12 @@
       // 새로 추가(부트스트랩 80% 이상): OBLIVION(enabler, 26%·lift 3.62·7명·87%), SHROUD(payoff, 50%·lift 11.43·6명·80%).
       // 제외(부트스트랩 20% 이하로 지지 안 됨): AFTERLIFE(lift 0.83), CALL_OF_THE_VOID(lift 0.90), DELAY(lift 0.84), GRAVE_WARDEN(lift 0.85), INVOKE(lift 1.20).
       // 예: https://op.gg/slay-the-spire2/history/7052868 https://op.gg/slay-the-spire2/history/5870732 https://op.gg/slay-the-spire2/history/6289844 https://op.gg/slay-the-spire2/history/4245638
+      // v0.111(v0.111.0 승리 덱만으로 재판정): 멤버 덱 우수 38판·11명 / 전체 49판·19명.
+      //   SHROUD payoff → core: 우수 49%·lift 6.56·10명·부트 100%·core 부트 76%(전체 46%·lift 7.93·14명·부트 100%·core 80%). 고급 파워, 파멸을 걸 때마다 방어도.
       "cards": {
-        "core": ["CARD.SLEIGHT_OF_FLESH"],
+        "core": ["CARD.SLEIGHT_OF_FLESH", "CARD.SHROUD"],
         "enabler": ["CARD.NEGATIVE_PULSE", "CARD.DEATHBRINGER", "CARD.COUNTDOWN", "CARD.OBLIVION"],
-        "payoff": ["CARD.SHROUD", "CARD.NO_ESCAPE", "CARD.DEATHS_DOOR", "CARD.END_OF_DAYS"],
+        "payoff": ["CARD.NO_ESCAPE", "CARD.DEATHS_DOOR", "CARD.END_OF_DAYS"],
         "support": ["CARD.SCOURGE", "CARD.DREDGE", "CARD.DANSE_MACABRE", "CARD.CAPTURE_SPIRIT", "CARD.NEUROSURGE"]
       },
       // fullWeight 4.0 유지: 새 목록 기준 멤버 덱 commit 중앙값 1.00, 비멤버 0.34(좋은 플레이어·균형). 조정 조건(멤버 < 0.7 또는 비멤버 > 0.5)에 해당하지 않음.
@@ -68,11 +73,13 @@
       // 새로 추가(부트스트랩 80% 이상): FEAR(enabler, 48%·lift 2.00·10명·82%), SPIRIT_OF_ASH(payoff, 31%·lift 4.59·8명·90%).
       // 제외(부트스트랩 20% 이하로 지지 안 됨): HIGH_FIVE(lift 0.55), NEUROSURGE(lift 1.02).
       // 예: https://op.gg/slay-the-spire2/history/6523951 https://op.gg/slay-the-spire2/history/6159803 https://op.gg/slay-the-spire2/history/6484763 https://op.gg/slay-the-spire2/history/3952064
+      // v0.111(v0.111.0 승리 덱만으로 재판정): 멤버 덱 우수 32판·14명 / 전체 36판·18명.
+      //   제외 REAPER_FORM support: 우수 15%·lift 0.54·4명·부트 0%(전체 17%·lift 0.67·5명·부트 1%), lift 1.0 이상 재표본 2%·10%.
       "cards": {
         "core": [],
         "enabler": ["CARD.LETHALITY", "CARD.FEAR", "CARD.ENFEEBLING_TOUCH"],
         "payoff": ["CARD.SPIRIT_OF_ASH", "CARD.PULL_FROM_BELOW", "CARD.BANSHEES_CRY"],
-        "support": ["CARD.DEBILITATE", "CARD.REAP", "CARD.REAPER_FORM"]
+        "support": ["CARD.DEBILITATE", "CARD.REAP"]
       },
       // onTheme(빌드 밖 감점 면제, 빌드 점수 없음): 빌드 확정 덱(commit ≥ 0.7)에 다른 승리 덱보다 1.5배 이상 자주 있고 5명 이상이 들었으며(부트스트랩 80%) 역할 목록에는 없는 카드. 근거: docs/research/v2-stats/on-theme.md
       "onTheme": ["CARD.SEANCE"],

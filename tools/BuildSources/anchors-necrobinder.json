@@ -1,0 +1,43 @@
+{
+  "necrobinder.osty": {
+    "anchors": [
+      "CALCIFY",
+      "POKE",
+      "FETCH",
+      "SIC_EM",
+      "HIGH_FIVE",
+      "REANIMATE",
+      "PULL_AGGRO",
+      "RIGHT_HAND_HAND",
+      "CLEANSE",
+      "SENTRY_MODE",
+      "SNAP",
+      "FLATTEN",
+      "SQUEEZE",
+      "RATTLE"
+    ]
+  },
+  "necrobinder.doom": {
+    "anchors": [
+      "SLEIGHT_OF_FLESH",
+      "NEGATIVE_PULSE",
+      "DEATHBRINGER",
+      "COUNTDOWN",
+      "OBLIVION",
+      "SHROUD",
+      "NO_ESCAPE",
+      "DEATHS_DOOR",
+      "END_OF_DAYS"
+    ]
+  },
+  "necrobinder.ethereal": {
+    "anchors": [
+      "LETHALITY",
+      "FEAR",
+      "ENFEEBLING_TOUCH",
+      "SPIRIT_OF_ASH",
+      "PULL_FROM_BELOW",
+      "BANSHEES_CRY"
+    ]
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "defect.orb_focus": {
+    "anchors": [
+      "CAPACITOR",
+      "GLACIER",
+      "BARRAGE",
+      "HAILSTORM"
+    ]
+  },
+  "defect.lightning": {
+    "anchors": [
+      "THUNDER",
+      "STORM",
+      "LIGHTNING_ROD",
+      "TEMPEST",
+      "VOLTAIC",
+      "TESLA_COIL"
+    ]
+  },
+  "defect.status": {
+    "anchors": [
+      "COMPACT",
+      "ROCKET_PUNCH",
+      "BOOST_AWAY",
+      "OVERCLOCK",
+      "GUNK_UP",
+      "FIGHT_THROUGH",
+      "SMOKESTACK",
+      "TRASH_TO_TREASURE",
+      "FLAK_CANNON"
+    ]
+  },
+  "defect.zero_cost": {
+    "anchors": [
+      "FERAL",
+      "CLAW",
+      "BEAM_CELL",
+      "ALL_FOR_ONE",
+      "SCRAPE"
+    ]
+  },
+  "defect.dark_orbs": {
+    "anchors": [
+      "DARKNESS",
+      "SHADOW_SHIELD"
+    ],
+    "min": 1
+  },
+  "defect.orb_variety": {
+    "anchors": [
+      "SYNCHRONIZE"
+    ],
+    "min": 1
+  }
+}
