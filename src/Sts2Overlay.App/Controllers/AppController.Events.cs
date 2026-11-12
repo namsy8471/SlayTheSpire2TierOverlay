@@ -78,6 +78,7 @@ public sealed partial class AppController
         _dummyPending = null;
         _eventText = EventTextProvider.ForLocalData();
         _eventScreens = new EventScreenTracker(catalog) { Log = AppLog.Info };
+        _eventUpgrade = new EventUpgradePick(catalog);
         _eventKey = null;
         _pipeline.FrameProbe = OnEventFrame;
     }
