@@ -33,7 +33,7 @@ public class AdvisorCommandTests
         Assert.Equal(@"C:\Program Files\dotnet\dotnet.exe", c.FileName);
         Assert.Equal([@"C:\tools\Helper.dll", "--verbose"], c.LeadingArgs);
         Assert.Equal("setting", c.Source);
-        Assert.Equal([@"C:\tools\Helper.dll", "--verbose", "live", "--save", @"D:\s\current_run.save", "--log", @"D:\l\godot.log"],
+        Assert.Equal([@"C:\tools\Helper.dll", "--verbose", "live", "--save", @"D:\s\current_run.save", "--log", @"D:\l\godot.log", "--exit-on-stdin-eof"],
             c.CommandArgs(AdvisorCommand.LiveArgs(@"D:\s\current_run.save", @"D:\l\godot.log")));
     }
 
@@ -45,7 +45,7 @@ public class AdvisorCommandTests
         Assert.Null(warning);
         Assert.Equal(DefaultExe, c!.FileName);
         Assert.Empty(c.LeadingArgs);
-        Assert.Equal(["live", "--save", "s", "--log", "l"], c.CommandArgs(AdvisorCommand.LiveArgs("s", "l")));
+        Assert.Equal(["live", "--save", "s", "--log", "l", "--exit-on-stdin-eof"], c.CommandArgs(AdvisorCommand.LiveArgs("s", "l")));
     }
 
     [Theory]
