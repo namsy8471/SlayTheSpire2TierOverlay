@@ -1,10 +1,15 @@
 using System.IO;
 using Sts2Overlay.App.Controllers;
+using Sts2Overlay.App.Integration;
 using Sts2Overlay.App.Integration.CombatAdvice;
 using Sts2Overlay.App.Services;
 using Sts2Overlay.App.ViewModels;
 using Sts2Overlay.Core.Data;
 using Sts2Overlay.Core.Localization;
+using Sts2Overlay.Core.Model;
+using Sts2Overlay.GameState.Tracking;
+using ScreenHint = Sts2Overlay.App.Integration.ScreenHint;
+using TrackerScreen = Sts2Overlay.GameState.Tracking.ScreenHint;
 
 namespace Sts2Overlay.App.Tests;
 
@@ -38,7 +43,7 @@ public class CombatAdvicePresenterTests
     public void Shows_the_numbered_order_with_targets_and_the_end_turn_row()
     {
         using var _ = Loc.Use(Lang.Kor);
-        var vm = CombatAdvicePresenter.Build(Advice(CombatEnding.EndTurn, Bash, DefendPlus), inCombat: true, TestNames);
+        var vm = CombatAdvicePresenter.Build(Advice(CombatEnding.EndTurn, Bash, DefendPlus), CombatAdvicePlace.Fight, TestNames);
 
         Assert.True(vm.HasContent);
         Assert.True(vm.ShowSteps);
@@ -55,7 +60,7 @@ public class CombatAdvicePresenterTests
     public void English_rows()
     {
         using var _ = Loc.Use(Lang.Eng);
-        var vm = CombatAdvicePresenter.Build(Advice(CombatEnding.Win, Bash, DefendPlus), inCombat: true, TestNames);
+        var vm = CombatAdvicePresenter.Build(Advice(CombatEnding.Win, Bash, DefendPlus), CombatAdvicePlace.Fight, TestNames);
 
         Assert.Equal("This turn's plays · Turn 2", vm.Title);
         Assert.Equal(["Bash → Jaw Worm", "Defend+", "Finish!"], vm.Steps.Select(s => s.Text));
@@ -71,7 +76,7 @@ public class CombatAdvicePresenterTests
     public void The_closing_row_follows_the_ending(CombatEnding ending, string? last)
     {
         using var _ = Loc.Use(Lang.Kor);
-        var vm = CombatAdvicePresenter.Build(Advice(ending, DefendPlus), inCombat: true, TestNames);
+        var vm = CombatAdvicePresenter.Build(Advice(ending, DefendPlus), CombatAdvicePlace.Fight, TestNames);
 
         Assert.Equal(last is null ? 1 : 2, vm.Steps.Count);
         if (last is not null) Assert.Equal(last, vm.Steps[^1].Name);
@@ -82,7 +87,7 @@ public class CombatAdvicePresenterTests
     public void A_turn_with_nothing_to_play_shows_only_end_turn()
     {
         using var _ = Loc.Use(Lang.Kor);
-        var vm = CombatAdvicePresenter.Build(Advice(CombatEnding.EndTurn), inCombat: true, TestNames);
+        var vm = CombatAdvicePresenter.Build(Advice(CombatEnding.EndTurn), CombatAdvicePlace.Fight, TestNames);
 
         Assert.Equal("턴 종료", Assert.Single(vm.Steps).Name);
     }
@@ -117,7 +122,7 @@ public class CombatAdvicePresenterTests
         var vm = CombatAdvicePresenter.Build(Advice(CombatEnding.None,
             new CombatAdviceStep(CombatStepKind.Potion, "FIRE_POTION", Target: "JAW_WORM", TargetSlot: 0),
             new CombatAdviceStep(CombatStepKind.Potion, "MADE_UP_POTION"),
-            new CombatAdviceStep(CombatStepKind.Unknown, "SOMETHING_NEW")), inCombat: true, TestNames);
+            new CombatAdviceStep(CombatStepKind.Unknown, "SOMETHING_NEW")), CombatAdvicePlace.Fight, TestNames);
 
         Assert.Equal(["화염 포션 → 턱벌레", "Made Up Potion", "SOMETHING_NEW"], vm.Steps.Select(s => s.Text));
         Assert.Equal(new string?[] { "포션", "포션", null }, vm.Steps.Select(s => s.KindTag));
@@ -128,7 +133,7 @@ public class CombatAdvicePresenterTests
     public void Uncertain_advice_has_the_tag_with_the_note_as_tooltip()
     {
         using var _ = Loc.Use(Lang.Kor);
-        var vm = CombatAdvicePresenter.Build(Advice(CombatEnding.EndTurn, Bash) with { Uncertain = true, Note = "made-up note" }, inCombat: true, TestNames);
+        var vm = CombatAdvicePresenter.Build(Advice(CombatEnding.EndTurn, Bash) with { Uncertain = true, Note = "made-up note" }, CombatAdvicePlace.Fight, TestNames);
 
         Assert.True(vm.IsUncertain);
         Assert.Equal("made-up note", vm.UncertainTip);
@@ -140,7 +145,7 @@ public class CombatAdvicePresenterTests
     {
         using var _ = Loc.Use(Lang.Kor);
         var steps = Enumerable.Repeat(DefendPlus, CombatAdvicePresenter.MaxSteps + 3).ToArray();
-        var vm = CombatAdvicePresenter.Build(Advice(CombatEnding.EndTurn, steps), inCombat: true, TestNames);
+        var vm = CombatAdvicePresenter.Build(Advice(CombatEnding.EndTurn, steps), CombatAdvicePlace.Fight, TestNames);
 
         Assert.Equal(CombatAdvicePresenter.MaxSteps + 2, vm.Steps.Count);
         Assert.Equal("… 3개 더", vm.Steps[^2].Name);
@@ -153,7 +158,7 @@ public class CombatAdvicePresenterTests
     public void A_draw_stop_ends_with_a_muted_pause_row_in_korean()
     {
         using var _ = Loc.Use(Lang.Kor);
-        var vm = CombatAdvicePresenter.Build(Advice(CombatEnding.AdviseAfterPlay, Bash, DefendPlus) with { Note = NoteDrawn }, inCombat: true, TestNames);
+        var vm = CombatAdvicePresenter.Build(Advice(CombatEnding.AdviseAfterPlay, Bash, DefendPlus) with { Note = NoteDrawn }, CombatAdvicePlace.Fight, TestNames);
 
         Assert.Equal(["강타 → 턱벌레", "수비+", "… 이 카드를 낸 뒤 다시 추천"], vm.Steps.Select(s => s.Text));
         var pause = vm.Steps[^1];
@@ -169,7 +174,7 @@ public class CombatAdvicePresenterTests
     public void A_draw_stop_in_english()
     {
         using var _ = Loc.Use(Lang.Eng);
-        var vm = CombatAdvicePresenter.Build(Advice(CombatEnding.AdviseAfterPlay, Bash) with { Note = NoteDrawn }, inCombat: true, TestNames);
+        var vm = CombatAdvicePresenter.Build(Advice(CombatEnding.AdviseAfterPlay, Bash) with { Note = NoteDrawn }, CombatAdvicePlace.Fight, TestNames);
 
         Assert.Equal(["Bash → Jaw Worm", "… more after this play"], vm.Steps.Select(s => s.Text));
         Assert.Equal("What comes next depends on the cards this play draws. So that nothing you could not know yet is shown, the rest is advised after this play.",
@@ -186,7 +191,7 @@ public class CombatAdvicePresenterTests
     {
         using var _ = Loc.Use(Lang.Kor);
         Assert.Equal(reason, CombatAdvicePresenter.DrawReasonOf(note));
-        var tip = CombatAdvicePresenter.Build(Advice(CombatEnding.AdviseAfterPlay, Bash) with { Note = note }, inCombat: true, TestNames).Steps[^1].Tip;
+        var tip = CombatAdvicePresenter.Build(Advice(CombatEnding.AdviseAfterPlay, Bash) with { Note = note }, CombatAdvicePlace.Fight, TestNames).Steps[^1].Tip;
 
         Assert.Contains(part, tip);
         Assert.DoesNotContain("depend", tip); // never the helper's English note to a Korean player
@@ -200,7 +205,7 @@ public class CombatAdvicePresenterTests
         var steps = Enumerable.Repeat(DefendPlus, CombatAdvicePresenter.MaxSteps + 3).ToArray();
         using (Loc.Use(Lang.Kor))
         {
-            var vm = CombatAdvicePresenter.Build(Advice(CombatEnding.AdviseAfterPlay, steps), inCombat: true, TestNames);
+            var vm = CombatAdvicePresenter.Build(Advice(CombatEnding.AdviseAfterPlay, steps), CombatAdvicePlace.Fight, TestNames);
             Assert.Equal(CombatAdvicePresenter.MaxSteps + 1, vm.Steps.Count);
             Assert.Equal("… 3개 더 낸 뒤 다시 추천", vm.Steps[^1].Name);
             Assert.True(vm.Steps[^1].IsSoft);
@@ -208,14 +213,14 @@ public class CombatAdvicePresenterTests
         }
         using (Loc.Use(Lang.Eng))
         {
-            var vm = CombatAdvicePresenter.Build(Advice(CombatEnding.AdviseAfterPlay, steps), inCombat: true, TestNames);
+            var vm = CombatAdvicePresenter.Build(Advice(CombatEnding.AdviseAfterPlay, steps), CombatAdvicePlace.Fight, TestNames);
             Assert.Equal("… 3 more, then new advice", vm.Steps[^1].Name);
         }
 
         // Exactly at the cap nothing is hidden: the plain pause row.
         using (Loc.Use(Lang.Kor))
         {
-            var vm = CombatAdvicePresenter.Build(Advice(CombatEnding.AdviseAfterPlay, steps[..CombatAdvicePresenter.MaxSteps]), inCombat: true, TestNames);
+            var vm = CombatAdvicePresenter.Build(Advice(CombatEnding.AdviseAfterPlay, steps[..CombatAdvicePresenter.MaxSteps]), CombatAdvicePlace.Fight, TestNames);
             Assert.Equal(CombatAdvicePresenter.MaxSteps + 1, vm.Steps.Count);
             Assert.Equal("… 이 카드를 낸 뒤 다시 추천", vm.Steps[^1].Name);
         }
@@ -225,11 +230,11 @@ public class CombatAdvicePresenterTests
     public void A_draw_stop_keeps_the_uncertain_tag_but_not_the_english_draw_note()
     {
         using var _ = Loc.Use(Lang.Kor);
-        var vm = CombatAdvicePresenter.Build(Advice(CombatEnding.AdviseAfterPlay, Bash) with { Uncertain = true, Note = NoteDrawn }, inCombat: true, TestNames);
+        var vm = CombatAdvicePresenter.Build(Advice(CombatEnding.AdviseAfterPlay, Bash) with { Uncertain = true, Note = NoteDrawn }, CombatAdvicePlace.Fight, TestNames);
         Assert.True(vm.IsUncertain);
         Assert.Equal("계산한 손패가 실제 손패와 다를 수 있습니다", vm.UncertainTip); // the pause row's tooltip already says why it stops
 
-        vm = CombatAdvicePresenter.Build(Advice(CombatEnding.AdviseAfterPlay, Bash) with { Note = NoteDrawn }, inCombat: true, TestNames);
+        vm = CombatAdvicePresenter.Build(Advice(CombatEnding.AdviseAfterPlay, Bash) with { Note = NoteDrawn }, CombatAdvicePlace.Fight, TestNames);
         Assert.False(vm.IsUncertain);
     }
 
@@ -239,7 +244,7 @@ public class CombatAdvicePresenterTests
     public void Lost_and_unsupported_show_one_muted_line_with_the_reason(CombatAdviceState state, string text)
     {
         using var _ = Loc.Use(Lang.Kor);
-        var vm = CombatAdvicePresenter.Build(new CombatAdviceMessage(state) { Reason = "made-up reason" }, inCombat: true, TestNames);
+        var vm = CombatAdvicePresenter.Build(new CombatAdviceMessage(state) { Reason = "made-up reason" }, CombatAdvicePlace.Fight, TestNames);
 
         Assert.True(vm.HasContent);
         Assert.False(vm.ShowSteps);
@@ -252,21 +257,239 @@ public class CombatAdvicePresenterTests
     public void Lost_and_unsupported_have_english_texts()
     {
         using var _ = Loc.Use(Lang.Eng);
-        Assert.Equal("Lost track of this fight", CombatAdvicePresenter.Build(new CombatAdviceMessage(CombatAdviceState.Lost), true, TestNames).StatusText);
-        Assert.Null(CombatAdvicePresenter.Build(new CombatAdviceMessage(CombatAdviceState.Lost), true, TestNames).StatusTip);
-        Assert.Equal("This fight is not supported yet", CombatAdvicePresenter.Build(new CombatAdviceMessage(CombatAdviceState.Unsupported), true, TestNames).StatusText);
+        Assert.Equal("Lost track of this fight", CombatAdvicePresenter.Build(new CombatAdviceMessage(CombatAdviceState.Lost), CombatAdvicePlace.Fight, TestNames).StatusText);
+        Assert.Null(CombatAdvicePresenter.Build(new CombatAdviceMessage(CombatAdviceState.Lost), CombatAdvicePlace.Fight, TestNames).StatusTip);
+        Assert.Equal("This fight is not supported yet", CombatAdvicePresenter.Build(new CombatAdviceMessage(CombatAdviceState.Unsupported), CombatAdvicePlace.Fight, TestNames).StatusText);
     }
 
     [Fact]
     public void Hidden_when_idle_without_a_line_or_outside_a_fight()
     {
         var advice = Advice(CombatEnding.EndTurn, Bash);
-        Assert.Same(CombatAdviceSectionVm.Empty, CombatAdvicePresenter.Build(CombatAdviceMessage.Idle, inCombat: true, TestNames));
-        Assert.Same(CombatAdviceSectionVm.Empty, CombatAdvicePresenter.Build(null, inCombat: true, TestNames));
+        Assert.Same(CombatAdviceSectionVm.Empty, CombatAdvicePresenter.Build(CombatAdviceMessage.Idle, CombatAdvicePlace.Fight, TestNames));
+        Assert.Same(CombatAdviceSectionVm.Empty, CombatAdvicePresenter.Build(null, CombatAdvicePlace.Fight, TestNames));
         // The tracker says no fight (map, reward, game closed): hidden whatever the helper said last.
-        Assert.Same(CombatAdviceSectionVm.Empty, CombatAdvicePresenter.Build(advice, inCombat: false, TestNames));
-        Assert.Same(CombatAdviceSectionVm.Empty, CombatAdvicePresenter.Build(new CombatAdviceMessage(CombatAdviceState.Lost), inCombat: false, TestNames));
+        Assert.Same(CombatAdviceSectionVm.Empty, CombatAdvicePresenter.Build(advice, CombatAdvicePlace.Elsewhere, TestNames));
+        Assert.Same(CombatAdviceSectionVm.Empty, CombatAdvicePresenter.Build(new CombatAdviceMessage(CombatAdviceState.Lost), CombatAdvicePlace.Elsewhere, TestNames));
         Assert.False(CombatAdviceSectionVm.Empty.HasContent);
+    }
+
+    // ---- where the section shows: fights, and event rooms whose fight the helper follows ---------------------------
+    // An event can start a fight in its own room (Punch Off). The tracker's hint is not Combat there until the first
+    // card is played, so in an event room the helper's own state decides.
+
+    [Theory]
+    // helper running, game window, tracker hint, in an event room → place
+    [InlineData(true, true, ScreenHint.Combat, false, CombatAdvicePlace.Fight)]
+    [InlineData(true, true, ScreenHint.None, true, CombatAdvicePlace.EventRoom)]
+    [InlineData(true, true, ScreenHint.None, false, CombatAdvicePlace.Elsewhere)] // treasure room, unknown screen
+    [InlineData(true, true, ScreenHint.Map, false, CombatAdvicePlace.Elsewhere)]
+    [InlineData(true, true, ScreenHint.RewardLikely, false, CombatAdvicePlace.Elsewhere)]
+    [InlineData(true, true, ScreenHint.ShopLikely, false, CombatAdvicePlace.Elsewhere)]
+    [InlineData(true, true, ScreenHint.RestSite, false, CombatAdvicePlace.Elsewhere)]
+    [InlineData(true, true, ScreenHint.MainMenu, false, CombatAdvicePlace.Elsewhere)]
+    [InlineData(false, true, ScreenHint.Combat, false, CombatAdvicePlace.Elsewhere)] // helper not running (co-op, feature off, restarting)
+    [InlineData(false, true, ScreenHint.None, true, CombatAdvicePlace.Elsewhere)]
+    [InlineData(true, false, ScreenHint.Combat, false, CombatAdvicePlace.Elsewhere)] // the game is gone
+    [InlineData(true, false, ScreenHint.None, true, CombatAdvicePlace.Elsewhere)]
+    public void The_place_comes_from_the_helper_the_game_window_and_the_tracker(bool helper, bool game, ScreenHint hint, bool eventRoom, CombatAdvicePlace place)
+        => Assert.Equal(place, CombatAdvicePresenter.PlaceOf(helper, game, hint, eventRoom));
+
+    [Fact]
+    public void The_snapshot_flags_an_event_room_and_only_that()
+    {
+        static GameStateSnapshot Snap(TrackerScreen screen) => GameStateAdapter.Map(new TrackedRun
+        {
+            State = new RunState { Character = "CHARACTER.IRONCLAD", Hp = 60, MaxHp = 80 },
+            Screen = screen,
+            FromSave = true,
+            UpdatedAt = DateTime.UtcNow,
+        });
+
+        var inEvent = Snap(TrackerScreen.Event);
+        Assert.True(inEvent.InEventRoom);
+        Assert.Equal(ScreenHint.None, inEvent.Hint); // other consumers keep seeing an event room as "no card screen hint"
+        Assert.Equal(CombatAdvicePlace.EventRoom, CombatAdvicePresenter.PlaceOf(true, true, inEvent.Hint, inEvent.InEventRoom));
+
+        // The tracker switches an event's fight to Combat at its first card play: then it is a plain fight.
+        var fighting = Snap(TrackerScreen.Combat);
+        Assert.False(fighting.InEventRoom);
+        Assert.Equal(CombatAdvicePlace.Fight, CombatAdvicePresenter.PlaceOf(true, true, fighting.Hint, fighting.InEventRoom));
+
+        foreach (var screen in new[] { TrackerScreen.Unknown, TrackerScreen.Map, TrackerScreen.RewardScreenLikely, TrackerScreen.ShopLikely, TrackerScreen.RestSite,
+                     TrackerScreen.Treasure, TrackerScreen.MainMenu })
+        {
+            var snap = Snap(screen);
+            Assert.False(snap.InEventRoom);
+            Assert.Equal(CombatAdvicePlace.Elsewhere, CombatAdvicePresenter.PlaceOf(true, true, snap.Hint, snap.InEventRoom));
+        }
+        Assert.False(GameStateSnapshot.Empty.InEventRoom);
+    }
+
+    [Fact]
+    public void Shown_in_a_fight_and_in_an_event_room_unless_the_helper_is_idle()
+    {
+        using var _ = Loc.Use(Lang.Kor);
+        var advice = Advice(CombatEnding.EndTurn, Bash);
+        var lost = new CombatAdviceMessage(CombatAdviceState.Lost) { Encounter = "PUNCH_OFF_EVENT_ENCOUNTER", Reason = "made-up reason" };
+        var unsupported = new CombatAdviceMessage(CombatAdviceState.Unsupported) { Reason = "made-up reason" };
+
+        foreach (var place in new[] { CombatAdvicePlace.Fight, CombatAdvicePlace.EventRoom })
+        {
+            var vm = CombatAdvicePresenter.Build(advice, place, TestNames);
+            Assert.True(vm.HasContent && vm.ShowSteps);
+            Assert.Equal(["강타 → 턱벌레", "턴 종료"], vm.Steps.Select(s => s.Text));
+            Assert.Null(vm.PreviewHint); // exact advice with an action already seen: a fight that is surely on
+            Assert.Equal("이 전투는 추적이 끊겼습니다", CombatAdvicePresenter.Build(lost, place, TestNames).StatusText);
+            Assert.Equal("이 전투는 아직 지원하지 않습니다", CombatAdvicePresenter.Build(unsupported, place, TestNames).StatusText);
+            // No fight followed (the event has none, the fight option was not taken, or the fight is over) or no line yet.
+            Assert.Same(CombatAdviceSectionVm.Empty, CombatAdvicePresenter.Build(CombatAdviceMessage.Idle, place, TestNames));
+            Assert.Same(CombatAdviceSectionVm.Empty, CombatAdvicePresenter.Build(null, place, TestNames));
+        }
+        foreach (var message in new[] { advice, lost, unsupported, CombatAdviceMessage.Idle, null })
+            Assert.Same(CombatAdviceSectionVm.Empty, CombatAdvicePresenter.Build(message, CombatAdvicePlace.Elsewhere, TestNames));
+    }
+
+    // ---- the event page is still open: "전투를 고르면" ----------------------------------------------------------------
+
+    /// <summary>What the helper sends when the event page opens: the fight's first turn, before any option is picked.</summary>
+    private static readonly CombatAdviceMessage EventFirstTurn = new(CombatAdviceState.Advice)
+    {
+        Encounter = "PUNCH_OFF_EVENT_ENCOUNTER",
+        Turn = 1,
+        Energy = 3,
+        Hp = 61,
+        Block = 0,
+        Played = 0,
+        Steps = [Bash, DefendPlus],
+        Ending = CombatEnding.EndTurn,
+        Uncertain = true,
+        Note = "event fight from PUNCH_OFF: assumes the options I_CAN_TAKE_THEM, then FIGHT",
+    };
+
+    [Fact]
+    public void In_an_event_room_the_unsure_first_turn_is_marked_if_you_fight_in_korean()
+    {
+        using var _ = Loc.Use(Lang.Kor);
+        var vm = CombatAdvicePresenter.Build(EventFirstTurn, CombatAdvicePlace.EventRoom, TestNames);
+
+        Assert.True(vm.HasContent && vm.ShowSteps);
+        Assert.Equal("이번 턴 추천 순서 · 1턴", vm.Title);
+        Assert.Equal("전투를 고르면", vm.PreviewHint);
+        Assert.Equal("이벤트에서 전투를 고른다고 가정한 첫 턴 추천입니다. 아직 고르기 전이라면 미리 보기로만 참고하세요. 계산한 손패가 실제 손패와 다를 수 있습니다.", vm.PreviewTip);
+        Assert.False(vm.IsUncertain); // one tag: the preview says why it is unsure
+        Assert.Equal(["강타 → 턱벌레", "수비+", "턴 종료"], vm.Steps.Select(s => s.Text)); // the order itself is shown as usual
+        // Never the helper's English note (with its option ids) to a Korean player.
+        Assert.DoesNotContain("assumes", vm.PreviewTip);
+        Assert.DoesNotContain("assumes", vm.UncertainTip);
+        Assert.DoesNotContain("PUNCH_OFF", vm.PreviewTip + vm.UncertainTip + vm.DetailTip);
+    }
+
+    [Fact]
+    public void In_an_event_room_the_unsure_first_turn_is_marked_if_you_fight_in_english()
+    {
+        using var _ = Loc.Use(Lang.Eng);
+        var vm = CombatAdvicePresenter.Build(EventFirstTurn, CombatAdvicePlace.EventRoom, TestNames);
+
+        Assert.Equal("This turn's plays · Turn 1", vm.Title);
+        Assert.Equal("if you fight", vm.PreviewHint);
+        Assert.Equal("The first turn's order, assuming you pick the event's fight option. If you have not chosen yet, it is only a preview. The simulated hand may differ from the real one.",
+            vm.PreviewTip);
+        Assert.False(vm.IsUncertain);
+        Assert.Equal(["Bash → Jaw Worm", "Defend+", "End turn"], vm.Steps.Select(s => s.Text));
+    }
+
+    [Fact]
+    public void The_if_you_fight_mark_goes_once_the_helper_reports_progress()
+    {
+        using var _ = Loc.Use(Lang.Kor);
+        static CombatAdviceSectionVm InEvent(CombatAdviceMessage m) => CombatAdvicePresenter.Build(m, CombatAdvicePlace.EventRoom, TestNames);
+        Assert.True(CombatAdvicePresenter.IsEventPreview(EventFirstTurn));
+        Assert.True(CombatAdvicePresenter.IsEventPreview(EventFirstTurn with { Played = null })); // not reported = nothing seen
+
+        // An action seen: the fight is on. Still unsure → the normal "불확실" tag, with a localized reason.
+        var played = InEvent(EventFirstTurn with { Played = 1, Steps = [DefendPlus] });
+        Assert.Null(played.PreviewHint);
+        Assert.Null(played.PreviewTip);
+        Assert.True(played.IsUncertain);
+        Assert.Equal("이벤트에서 시작한 전투라서, 이벤트에서 고른 선택지를 가정해 계산했습니다. 계산한 손패가 실제 손패와 다를 수 있습니다.", played.UncertainTip);
+
+        // A later turn.
+        var later = InEvent(EventFirstTurn with { Turn = 2 });
+        Assert.Null(later.PreviewHint);
+        Assert.True(later.IsUncertain);
+
+        // The helper is sure.
+        var exact = InEvent(EventFirstTurn with { Uncertain = false, Note = "" });
+        Assert.Null(exact.PreviewHint);
+        Assert.False(exact.IsUncertain);
+
+        // A turn the helper did not number cannot be called the first one.
+        Assert.Null(InEvent(EventFirstTurn with { Turn = null }).PreviewHint);
+    }
+
+    [Fact]
+    public void A_fight_the_tracker_already_sees_is_never_a_preview()
+    {
+        // Hint = Combat (a combat room, or an event's fight after its first card): the same line is a normal, unsure section.
+        using var _ = Loc.Use(Lang.Kor);
+        var vm = CombatAdvicePresenter.Build(EventFirstTurn, CombatAdvicePlace.Fight, TestNames);
+
+        Assert.Null(vm.PreviewHint);
+        Assert.True(vm.IsUncertain);
+        Assert.StartsWith("이벤트에서 시작한 전투라서", vm.UncertainTip);
+    }
+
+    [Fact]
+    public void The_fake_helpers_sample_script_plays_an_event_fight()
+    {
+        // tests/FakeCombatAdvisor/sample-fight.txt is what a developer sees when trying the section by hand: every line it
+        // prints must be a usable protocol line, and its event-fight part must walk preview → fight → idle.
+        using var _ = Loc.Use(Lang.Kor);
+        var messages = File.ReadAllLines(Path.Combine(RepoRoot(), "tests", "FakeCombatAdvisor", "sample-fight.txt"))
+            .Where(l => l.StartsWith("print ", StringComparison.Ordinal))
+            .Select(l =>
+            {
+                var message = CombatAdviceParser.Parse(l["print ".Length..], out var problem);
+                Assert.True(message is not null, $"unusable sample line ({problem}): {l}");
+                return message!;
+            })
+            .ToList();
+
+        var first = messages.FindIndex(m => CombatAdvicePresenter.IsEventFightNote(m.Note));
+        Assert.True(first > 0, "no event-fight line in the sample script");
+        Assert.Equal(CombatAdviceState.Idle, messages[first - 1].State); // the event has not opened yet
+        var tags = messages.Skip(first).Select(m => CombatAdvicePresenter.Build(m, CombatAdvicePlace.EventRoom, TestNames))
+            .Select(vm => !vm.HasContent ? "-" : vm.PreviewHint ?? (vm.IsUncertain ? "불확실" : "exact")).ToList();
+        Assert.Equal(["전투를 고르면", "불확실", "exact"], tags);
+        // In a fight (any room the tracker calls combat) the same first line is a plain unsure one.
+        Assert.Null(CombatAdvicePresenter.Build(messages[first], CombatAdvicePlace.Fight, TestNames).PreviewHint);
+
+        static string RepoRoot()
+        {
+            for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
+            {
+                if (File.Exists(Path.Combine(dir.FullName, "SlayTheSpire2TierOverlay.sln"))) return dir.FullName;
+            }
+            throw new InvalidOperationException("repo root (SlayTheSpire2TierOverlay.sln) not found above " + AppContext.BaseDirectory);
+        }
+    }
+
+    [Theory]
+    [InlineData("event fight from PUNCH_OFF: assumes the options I_CAN_TAKE_THEM, then FIGHT", true)]
+    [InlineData("Event fight from THE_LANTERN_KEY: assumes the options KEEP_THE_KEY, then FIGHT", true)]
+    [InlineData("a card drawn by a relic is not in the log yet", false)]
+    [InlineData("next steps depend on the cards drawn", false)]
+    [InlineData("", false)]
+    public void The_event_fight_note_is_known_by_its_start(string note, bool known)
+    {
+        Assert.Equal(known, CombatAdvicePresenter.IsEventFightNote(note));
+        using (Loc.Use(Lang.Eng))
+        {
+            var tip = CombatAdvicePresenter.Build(Advice(CombatEnding.EndTurn, Bash) with { Uncertain = true, Note = note }, CombatAdvicePlace.Fight, TestNames).UncertainTip;
+            if (known) Assert.Equal("This fight started from an event, so the options picked in the event are assumed. The simulated hand may differ from the real one.", tip);
+            else Assert.DoesNotContain("started from an event", tip);
+        }
     }
 
     [Fact]

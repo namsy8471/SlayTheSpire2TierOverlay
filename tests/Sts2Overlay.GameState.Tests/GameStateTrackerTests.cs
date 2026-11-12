@@ -215,6 +215,84 @@ public class GameStateTrackerTests
         Assert.Equal(["CARD.BASH", "CARD.STRIKE_IRONCLAD", "CARD.BREAKTHROUGH"], t.Current!.State.Deck.Select(c => c.Id));
     }
 
+    // ------------------------------------------------------------------------------------------
+    // A fight that an event starts in its own room (Punch Off, the Lantern Key's knight): the log has no 'Combat Room'
+    // preload and no ActiveCombat line, only the VisualOnly backdrop room (built when the event page opens) and then
+    // the fight's own lines.
+    // ------------------------------------------------------------------------------------------
+
+    private const string EventRoom = "[INFO] Preloading 'Event Room' assets... count=8 vfx=0";
+    private const string FightBackdrop = "[INFO] Creating NCombatRoom with mode=VisualOnly encounter=PUNCH_OFF_EVENT_ENCOUNTER.";
+    private const string PlayBash = "[INFO] Player 1 playing card BASH (targeting 시험 몬스터 (index 1))";
+
+    [Fact]
+    public void An_event_fight_is_combat_from_its_first_card_until_it_is_won()
+    {
+        var t = NewTracker();
+        t.ProcessLines([Embark, Wrote(100)]);
+        t.OnSave(Save("S1", 100, "CARD.BASH"));
+        t.ProcessLines([
+            "[INFO] Preloading 'Combat Room' assets... count=3 vfx=2",
+            "[INFO] Creating NCombatRoom with mode=ActiveCombat encounter=KNIGHTS_ELITE.",
+            "[INFO] CHARACTER.IRONCLAD has won against encounter ENCOUNTER.KNIGHTS_ELITE. That's 1 wins",
+            "[INFO] Player vote changed for 1: ->MapVote (gen: 1 coord: (2, 6))",
+            EventRoom,
+            FightBackdrop,
+        ]);
+        // The event page is open and nothing is chosen yet: still an event, and the last fight is still the elite.
+        Assert.Equal(ScreenHint.Event, t.Current!.Screen);
+        Assert.Equal(CombatKind.Elite, t.Current!.LastCombatKind);
+
+        t.ProcessLine(PlayBash);
+        TrackedRun run = t.Current!;
+        Assert.Equal(ScreenHint.Combat, run.Screen);
+        Assert.Equal("ENCOUNTER.PUNCH_OFF_EVENT_ENCOUNTER", run.LastEncounterId);
+        Assert.Equal(CombatKind.Normal, run.LastCombatKind); // not the elite before it: its reward is a normal one
+
+        // A hand pick during the fight (a potion's choose-a-card) is not an event card select: the deck is unchanged.
+        t.ProcessLines(["[INFO] Player 1 chose cards [INFLAME]", PlayBash]);
+        Assert.Equal(["CARD.BASH"], t.Current!.State.Deck.Select(c => c.Id));
+        Assert.Equal(ScreenHint.Combat, t.Current!.Screen);
+
+        t.ProcessLine("[INFO] CHARACTER.IRONCLAD has won against encounter ENCOUNTER.PUNCH_OFF_EVENT_ENCOUNTER. That's 2 wins");
+        Assert.Equal(ScreenHint.RewardScreenLikely, t.Current!.Screen);
+        Assert.Equal(OfferContext.CardReward, t.Current!.OfferContext);
+    }
+
+    [Fact]
+    public void An_event_backdrop_without_card_plays_stays_an_event()
+    {
+        // The fight option was not taken (or not yet): card selects in the room keep their event meaning.
+        var t = NewTracker();
+        t.ProcessLines([Embark, Wrote(100)]);
+        t.OnSave(Save("S1", 100, "CARD.BASH"));
+        t.ProcessLines([EventRoom, FightBackdrop, "[INFO] Player 1 chose cards [BREAKTHROUGH]"]);
+        Assert.Equal(ScreenHint.Event, t.Current!.Screen);
+        Assert.Equal(["CARD.BASH", "CARD.BREAKTHROUGH"], t.Current!.State.Deck.Select(c => c.Id));
+
+        // Leaving the room forgets the backdrop: a play line in the next event room (none is expected there) is no fight.
+        t.ProcessLines(["[INFO] Player vote changed for 1: ->MapVote (gen: 1 coord: (2, 7))", EventRoom, PlayBash]);
+        Assert.Equal(ScreenHint.Event, t.Current!.Screen);
+    }
+
+    [Fact]
+    public void Card_plays_outside_an_event_backdrop_change_nothing()
+    {
+        var t = NewTracker();
+        t.ProcessLines([Embark, Wrote(100)]);
+        t.OnSave(Save("S1", 100, "CARD.BASH"));
+        t.ProcessLines([
+            "[INFO] Preloading 'Combat Room' assets... count=3 vfx=2",
+            "[INFO] Creating NCombatRoom with mode=ActiveCombat encounter=NIBBITS_WEAK.",
+            PlayBash,
+        ]);
+        Assert.Equal((ScreenHint.Combat, "ENCOUNTER.NIBBITS_WEAK"), (t.Current!.Screen, t.Current!.LastEncounterId));
+
+        // After the fight is won the reward screen stays, whatever is logged next.
+        t.ProcessLines(["[INFO] CHARACTER.IRONCLAD has won against encounter ENCOUNTER.NIBBITS_WEAK. That's 3 wins", PlayBash]);
+        Assert.Equal(ScreenHint.RewardScreenLikely, t.Current!.Screen);
+    }
+
     [Fact]
     public void Save_delivered_before_its_log_line_self_corrects()
     {

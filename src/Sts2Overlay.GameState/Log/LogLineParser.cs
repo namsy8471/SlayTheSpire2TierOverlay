@@ -65,6 +65,9 @@ public static partial class LogLineParser
     [GeneratedRegex(@"^Player (?<p>\d+) (?<verb>using|discarding) potion (?<id>[A-Z0-9_]+)")]
     private static partial Regex PotionUse();
 
+    [GeneratedRegex(@"^Player (?<p>\d+) playing card (?<card>[A-Z0-9_]+)")]
+    private static partial Regex PlayingCard();
+
     [GeneratedRegex(@"\[RestSiteSynchronizer\] Rest site option index \d+ chosen for player (?<p>\d+) with success (?<ok>True|False)\. Option: (?<opt>\w+)")]
     private static partial Regex RestOption();
 
@@ -143,6 +146,8 @@ public static partial class LogLineParser
                 return null;
 
             case 'P':
+                // The most common 'P' line by far (one per card played): matched first so it skips the patterns below.
+                if ((m = PlayingCard().Match(line)).Success) return new CardPlayLoggedEvent(ULong(m, "p"), "CARD." + m.Groups["card"].Value);
                 if ((m = Obtained().Match(line)).Success) return ParseObtained(m);
                 if ((m = Vote().Match(line)).Success)
                 {

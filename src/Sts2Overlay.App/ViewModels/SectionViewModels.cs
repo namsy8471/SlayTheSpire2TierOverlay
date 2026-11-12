@@ -183,7 +183,8 @@ public sealed record CombatStepVm(string NumberText, string Name, string? Target
 
 /// <summary>
 /// "이번 턴 추천 순서": the cards to play this turn, in order, from the combat advisor helper
-/// (Controllers/AppController.CombatAdvice.cs). Shown above the tabs only during a fight.
+/// (Controllers/AppController.CombatAdvice.cs). Shown above the tabs during a fight, and in an event room while the
+/// helper follows the fight that event can start.
 /// </summary>
 public sealed record CombatAdviceSectionVm
 {
@@ -205,6 +206,15 @@ public sealed record CombatAdviceSectionVm
 
     /// <summary>The uncertain tag's hover (the helper's note).</summary>
     public string? UncertainTip { get; init; }
+
+    /// <summary>
+    /// "전투를 고르면": a small muted tag in place of the uncertain one while the event page may still be open (the helper
+    /// already sends the fight's first turn before an option is picked). Null for a fight that is surely on.
+    /// </summary>
+    public string? PreviewHint { get; init; }
+
+    /// <summary>The preview tag's hover: what the order assumes.</summary>
+    public string? PreviewTip { get; init; }
 
     public IReadOnlyList<CombatStepVm> Steps { get; init; } = [];
 

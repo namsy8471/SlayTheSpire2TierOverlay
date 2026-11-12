@@ -43,6 +43,14 @@ public sealed record GameStateSnapshot(
     /// </summary>
     public bool LogOnly { get; init; }
 
+    /// <summary>
+    /// The tracker's room is an event room and nothing else has happened in it (<see cref="Hint"/> is
+    /// <see cref="ScreenHint.None"/> then). An event can start a fight in its own room without the log saying so until the
+    /// first card is played (then <see cref="Hint"/> turns <see cref="ScreenHint.Combat"/>): the in-fight play order looks
+    /// at this to show that fight's first turn (Controllers/CombatAdvicePresenter.cs).
+    /// </summary>
+    public bool InEventRoom { get; init; }
+
     /// <summary>Run seed string (save <c>rng.seed</c>): the map overlay needs it to place the nodes exactly.</summary>
     public string? Seed { get; init; }
 

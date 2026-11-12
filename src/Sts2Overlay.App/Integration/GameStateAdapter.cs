@@ -115,6 +115,7 @@ public sealed class GameStateAdapter : IGameStateSource, ICardOfferSink
         return new GameStateSnapshot(state, run.Map, hint, rewardContext, run.UpdatedAt.ToLocalTime(), Doubts(run))
         {
             LogOnly = !run.FromSave,
+            InEventRoom = run.Screen == TrackerHint.Event,
             Seed = run.Seed,
             RngScheme = run.RngScheme,
             PartnerVotes = run.PartnerVotes.Select(v => v.Coord).ToList(),

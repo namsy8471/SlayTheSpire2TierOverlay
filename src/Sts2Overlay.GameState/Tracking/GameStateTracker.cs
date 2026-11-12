@@ -116,6 +116,8 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
     private IReadOnlyList<string>? _eventKeys;           // its first-page options from the co-op log
     private readonly List<string> _eventChosen = [];     // my choices in this event room
     private bool _inEventRoom;                           // 'Event Room' preloaded and no other room / map vote since
+    private string? _backdropEncounter;                  // encounter of the VisualOnly combat room built behind this room's event page
+    private bool _eventFight;                            // that event's fight is running (cards were played in the event room)
     private EventGuess? _eventGuess;                     // single player: the event predicted from the room-entry save
     private (EventGuess Guess, int SeenCount)? _eventCheck; // prediction waiting for a later save's events_seen (self-check)
     private long _voteSeq = -1;
@@ -441,6 +443,8 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
                 if (room.Room == RoomKind.Event) { ClearEvent(); _inEventRoom = true; }
                 else if (room.Room != RoomKind.Combat) ClearEvent();
                 if (room.Room == RoomKind.Merchant) _merchantVisited = true;
+                _backdropEncounter = null; // the backdrop line, if any, comes after this one
+                _eventFight = false;
                 _lastRestOption = null;
                 _pendingRemovalReward = false;
                 _pendingSelect = null;
@@ -475,8 +479,26 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
                 _screen = ScreenHint.Combat;
                 return true;
 
+            case CombatStartedEvent backdrop:
+                // VisualOnly: an event that can turn into a fight (Punch Off, the Lantern Key's knight) builds its combat
+                // room when the event page opens, before any option is picked. Not a fight yet; see CardPlayLoggedEvent.
+                _backdropEncounter = backdrop.EncounterId;
+                return false;
+
+            case CardPlayLoggedEvent when _backdropEncounter is { } enc && _room == RoomKind.Event && !_eventFight:
+                // Cards are only played in fights: the event's fight option was taken. The game logs no 'Combat Room' and
+                // no ActiveCombat line for such a fight, so the first card played is the first sign of it. From here the
+                // room is treated like a combat room (screen hint, hand picks) until the fight is won or the room is left.
+                _eventFight = true;
+                _lastEncounter = enc;
+                _lastKind = KindFromMap();
+                _screen = ScreenHint.Combat;
+                return true;
+
             case CombatWonEvent w:
                 FlushCombat();
+                _backdropEncounter = null;
+                _eventFight = false;
                 _lastEncounter = w.EncounterId;
                 if (w.Kind != CombatKind.Unknown) _lastKind = w.Kind;
                 _screen = ScreenHint.RewardScreenLikely; // rewards are rolled right after this line
@@ -586,7 +608,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
     /// (<see cref="DeckEffects"/>); the first pick in a shop → the removal service (one per visit); a rest site →
     /// smith upgrade (co-op logs the chosen option right AFTER the pick, see <see cref="FixRestSitePatches"/>).
     /// Any other pick outside combat names deck cards we can't interpret: they are kept and flagged uncertain.
-    /// Picks in a combat room (hand picks during the fight) are not recorded.
+    /// Picks in a combat room, or during a fight an event started in its own room (hand picks during the fight), are not recorded.
     /// </summary>
     private bool ApplyChosen(CardsChosenEvent ch)
     {
@@ -634,6 +656,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
                 }
                 return true;
             case RoomKind.Combat:
+            case RoomKind.Event when _eventFight: // a hand pick during the event's fight (Power Potion ...), not an event card select
                 return false;
             // Single player logs no event option, but the select screen's scene name, when its load was logged, says
             // what the pick does: NDeckTransformSelectScreen (CardSelectCmd.FromDeckForTransformation) → the card leaves
@@ -807,6 +830,8 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         _logActId = null;
         _moveSinceRoom = false;
         _room = null;
+        _backdropEncounter = null;
+        _eventFight = false;
         _lastKind = null;
         _lastEncounter = null;
         _lastRestOption = null;

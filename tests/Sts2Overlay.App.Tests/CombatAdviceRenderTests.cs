@@ -74,7 +74,7 @@ public class CombatAdviceRenderTests
             Uncertain = true,
             Note = "made-up note",
         };
-        vm.Combat = CombatAdvicePresenter.Build(message, inCombat: true, new Names());
+        vm.Combat = CombatAdvicePresenter.Build(message, CombatAdvicePlace.Fight, new Names());
         Layout(root);
         var texts = Texts(root);
         Assert.Contains("이번 턴 추천 순서 · 2턴", texts);
@@ -101,7 +101,7 @@ public class CombatAdviceRenderTests
         var endTurnRow = Descendants(root).OfType<TextBlock>().First(t => t.Text == "턴 종료");
         Assert.Equal(window.FindResource("Gold"), endTurnRow.Foreground);
         vm.Combat = CombatAdvicePresenter.Build(message with { Ending = CombatEnding.AdviseAfterPlay, Uncertain = false, Note = "next steps depend on a random result" },
-            inCombat: true, new Names());
+            CombatAdvicePlace.Fight, new Names());
         Layout(root);
         texts = Texts(root);
         Assert.Contains("… 이 카드를 낸 뒤 다시 추천", texts);
@@ -112,7 +112,7 @@ public class CombatAdviceRenderTests
         Assert.Equal(FontWeights.Normal, pauseRow.FontWeight);
         Assert.Contains("무작위 결과", Assert.IsType<string>(((FrameworkElement)VisualTreeHelper.GetParent(pauseRow)).ToolTip));
 
-        vm.Combat = CombatAdvicePresenter.Build(new CombatAdviceMessage(CombatAdviceState.Lost) { Reason = "made-up reason" }, inCombat: true, new Names());
+        vm.Combat = CombatAdvicePresenter.Build(new CombatAdviceMessage(CombatAdviceState.Lost) { Reason = "made-up reason" }, CombatAdvicePlace.Fight, new Names());
         Layout(root);
         texts = Texts(root);
         Assert.Contains("이 전투는 추적이 끊겼습니다", texts);
@@ -125,6 +125,98 @@ public class CombatAdviceRenderTests
         PresentationTraceSources.DataBindingSource.Listeners.Remove(errors);
         Assert.True(errors.Errors.Count == 0, "binding errors:\n" + string.Join("\n", errors.Errors));
     }
+
+    /// <summary>
+    /// An event room: the 추천 tab shows the event advisor's ranking, and the helper already sends the first turn of the
+    /// fight the event can start. The section gets the muted "전투를 고르면" tag, and it only adds height above the tab
+    /// strip: the event's rows stay shown, moved down by exactly that height, and the tab is not changed.
+    /// </summary>
+    [Fact]
+    public void An_event_fight_preview_is_tagged_and_leaves_the_event_tab_shown_below_it() => WpfThread.Run(() =>
+    {
+        var errors = new ErrorListener();
+        PresentationTraceSources.Refresh();
+        PresentationTraceSources.DataBindingSource.Listeners.Add(errors);
+        PresentationTraceSources.DataBindingSource.Switch.Level = SourceLevels.Error;
+        using var kor = Loc.Use(Lang.Kor);
+
+        var vm = new PanelViewModel
+        {
+            SelectedTab = PanelTab.Offer,
+            Offer = new OfferSectionVm
+            {
+                Title = "이벤트 · 시험 이벤트",
+                Rows = [new OfferRowVm { Name = "시험 선택지 하나", IsBest = true }, new OfferRowVm { Name = "시험 선택지 둘" }],
+                Footer = "추천: 시험 선택지 하나",
+            },
+        };
+        var window = new PanelWindow(vm, new AppSettings(), new OverlayCaptureVisibility(true));
+        var root = (FrameworkElement)window.Content;
+        Layout(root);
+        var eventOnlyHeight = root.ActualHeight;
+        var optionBefore = TopOf("시험 선택지 둘");
+
+        var firstTurn = new CombatAdviceMessage(CombatAdviceState.Advice)
+        {
+            Encounter = "MADE_UP_EVENT_ENCOUNTER",
+            Turn = 1,
+            Energy = 3,
+            Played = 0,
+            Steps =
+            [
+                new CombatAdviceStep(CombatStepKind.Card, "BASH", Hand: 2, Target: "JAW_WORM", TargetSlot: 0),
+                new CombatAdviceStep(CombatStepKind.Card, "DEFEND_IRONCLAD", Hand: 0),
+            ],
+            Ending = CombatEnding.EndTurn,
+            Uncertain = true,
+            Note = "event fight from MADE_UP: assumes the options FIRST, then FIGHT",
+        };
+        vm.Combat = CombatAdvicePresenter.Build(firstTurn, CombatAdvicePlace.EventRoom, new Names());
+        Layout(root);
+        var texts = Texts(root);
+        Assert.Contains("이번 턴 추천 순서 · 1턴", texts);
+        Assert.Contains("전투를 고르면", texts);
+        Assert.DoesNotContain("불확실", texts); // one tag, not two
+        Assert.Contains("강타", texts);
+        Assert.Contains("턴 종료", texts);
+        // The tag is drawn like the "불확실" tag (the panel's dim text), with the localized explanation as its tooltip.
+        var tag = Descendants(root).OfType<TextBlock>().First(t => t.Text == "전투를 고르면");
+        Assert.Equal(window.FindResource("TextDim"), tag.Foreground);
+        var tip = Assert.IsType<string>(((FrameworkElement)VisualTreeHelper.GetParent(tag)).ToolTip);
+        Assert.Contains("미리 보기", tip);
+        Assert.DoesNotContain("assumes", tip);
+
+        // The event advisor's content is all still there, in the same tab, below the section.
+        Assert.Equal(PanelTab.Offer, vm.SelectedTab);
+        Assert.Contains("이벤트 · 시험 이벤트", texts);
+        Assert.Contains("시험 선택지 하나", texts);
+        Assert.Contains("시험 선택지 둘", texts);
+        Assert.Contains("추천: 시험 선택지 하나", texts);
+        var grown = root.ActualHeight - eventOnlyHeight;
+        Assert.InRange(grown, 40, 110); // header + 3 rows
+        Assert.Equal(optionBefore + grown, TopOf("시험 선택지 둘"), 0.5); // moved down, not covered
+        Assert.True(TopOf("이번 턴 추천 순서 · 1턴") < TopOf("이벤트 · 시험 이벤트"));
+
+        // The first card is played: a normal fight section, with the usual tag.
+        vm.Combat = CombatAdvicePresenter.Build(firstTurn with { Played = 1 }, CombatAdvicePlace.Fight, new Names());
+        Layout(root);
+        texts = Texts(root);
+        Assert.DoesNotContain("전투를 고르면", texts);
+        Assert.Contains("불확실", texts);
+        var uncertain = Descendants(root).OfType<TextBlock>().First(t => t.Text == "불확실");
+        Assert.Contains("이벤트에서 시작한 전투", Assert.IsType<string>(((FrameworkElement)VisualTreeHelper.GetParent(uncertain)).ToolTip));
+
+        // The fight is over (helper idle): the panel is exactly the event tab again.
+        vm.Combat = CombatAdvicePresenter.Build(CombatAdviceMessage.Idle, CombatAdvicePlace.EventRoom, new Names());
+        Layout(root);
+        Assert.Equal(eventOnlyHeight, root.ActualHeight, 0.5);
+
+        PresentationTraceSources.DataBindingSource.Listeners.Remove(errors);
+        Assert.True(errors.Errors.Count == 0, "binding errors:\n" + string.Join("\n", errors.Errors));
+
+        double TopOf(string text) => Descendants(root).OfType<TextBlock>().First(t => t.Text == text && IsShownInLayout(t))
+            .TransformToAncestor(root).Transform(new Point(0, 0)).Y;
+    });
 
     private static void Layout(FrameworkElement root)
     {

@@ -1,4 +1,5 @@
 using System.Globalization;
+using Sts2Overlay.App.Integration;
 using Sts2Overlay.App.Integration.CombatAdvice;
 using Sts2Overlay.App.Services;
 using Sts2Overlay.App.ViewModels;
@@ -32,12 +33,34 @@ public sealed class CombatNames(CardInfoProvider cards, CombatTextProvider text)
     public string? Monster(string id) => text.MonsterName(id);
 }
 
+/// <summary>Where the player is, as far as the play order cares (<see cref="CombatAdvicePresenter.PlaceOf"/>).</summary>
+public enum CombatAdvicePlace
+{
+    /// <summary>No fight can be on screen (map, shop, rest site, rewards, menu; no game window; helper not running).</summary>
+    Elsewhere,
+
+    /// <summary>The tracker says a fight is on.</summary>
+    Fight,
+
+    /// <summary>
+    /// An event room. An event can start a fight in its own room, and the log does not say so until the first card is
+    /// played, so here the helper's own state decides: it is idle unless it follows such a fight.
+    /// </summary>
+    EventRoom,
+}
+
 /// <summary>
 /// Turns the helper's last line into the "이번 턴 추천 순서" section. Pure; unit-tested.
 /// <para>
 /// Hidden (<see cref="CombatAdviceSectionVm.Empty"/>) when there is no line yet, the helper is idle, or the overlay does
-/// not think a fight is on screen (<paramref name="inCombat"/>: game running and the tracker in a combat room), whatever
-/// the last line said: a helper that is slow to say "idle" must not leave old advice on the map screen.
+/// not think a fight can be on screen (<see cref="CombatAdvicePlace.Elsewhere"/>), whatever the last line said: a helper
+/// that is slow to say "idle" must not leave old advice on the map screen.
+/// </para>
+/// <para>
+/// In an event room (<see cref="CombatAdvicePlace.EventRoom"/>) the helper's line is shown as it is. The game builds the
+/// event's combat room when the event page opens, so the helper may already send the fight's first turn while the
+/// player is still reading the event: that line (uncertain, turn 1, nothing played) gets the muted "전투를 고르면" tag
+/// (<see cref="IsEventPreview"/>) until the helper reports progress.
 /// </para>
 /// </summary>
 public static class CombatAdvicePresenter
@@ -45,17 +68,64 @@ public static class CombatAdvicePresenter
     /// <summary>Rows shown at most; the rest is summed up in one "…" row so the panel never grows over the hand.</summary>
     public const int MaxSteps = 10;
 
-    public static CombatAdviceSectionVm Build(CombatAdviceMessage? message, bool inCombat, ICombatNames names)
+    /// <summary>
+    /// The visibility rule's first half: is a fight possible where the player is?
+    /// <code>
+    ///  helper not running, or no game window ─▶ Elsewhere (hidden)
+    ///  tracker hint = Combat                 ─▶ Fight     (shown unless the helper is idle)
+    ///  tracker in an event room              ─▶ EventRoom (shown unless the helper is idle; first turn marked "전투를 고르면")
+    ///  anything else (map, shop, rewards …)  ─▶ Elsewhere (hidden)
+    /// </code>
+    /// </summary>
+    /// <param name="helperRunning">The helper process is started (single-player run in progress, feature on).</param>
+    /// <param name="gameRunning">The game window exists.</param>
+    /// <param name="hint">The tracker's screen hint (<see cref="GameStateSnapshot.Hint"/>).</param>
+    /// <param name="inEventRoom"><see cref="GameStateSnapshot.InEventRoom"/>.</param>
+    public static CombatAdvicePlace PlaceOf(bool helperRunning, bool gameRunning, ScreenHint hint, bool inEventRoom)
     {
-        if (!inCombat || message is null) return CombatAdviceSectionVm.Empty;
+        if (!helperRunning || !gameRunning) return CombatAdvicePlace.Elsewhere;
+        if (hint == ScreenHint.Combat) return CombatAdvicePlace.Fight;
+        return inEventRoom ? CombatAdvicePlace.EventRoom : CombatAdvicePlace.Elsewhere;
+    }
+
+    public static CombatAdviceSectionVm Build(CombatAdviceMessage? message, CombatAdvicePlace place, ICombatNames names)
+    {
+        if (place == CombatAdvicePlace.Elsewhere || message is null) return CombatAdviceSectionVm.Empty;
         return message.State switch
         {
-            CombatAdviceState.Advice => Advice(message, names),
+            CombatAdviceState.Advice => Advice(message, names, preview: place == CombatAdvicePlace.EventRoom && IsEventPreview(message)),
             CombatAdviceState.Lost => Status(LostText, message.Reason),
             CombatAdviceState.Unsupported => Status(UnsupportedText, message.Reason),
             _ => CombatAdviceSectionVm.Empty,
         };
     }
+
+    /// <summary>
+    /// Advice the helper made before it could know the fight is on: unsure, first turn, nothing played yet. In an event
+    /// room that is the state while the event page is still open. Any progress (an action seen, a later turn, an exact
+    /// line) ends it.
+    /// </summary>
+    public static bool IsEventPreview(CombatAdviceMessage m) => m.Uncertain && m.Turn == 1 && (m.Played ?? 0) == 0;
+
+    /// <summary>The muted header tag of a preview: the order holds if the player picks the event's fight option.</summary>
+    public static string PreviewHintText => Loc.T("전투를 고르면", "if you fight");
+
+    /// <summary>The preview tag's tooltip (instead of the helper's English note).</summary>
+    public static string PreviewTipText => Loc.T(
+        "이벤트에서 전투를 고른다고 가정한 첫 턴 추천입니다. 아직 고르기 전이라면 미리 보기로만 참고하세요. 계산한 손패가 실제 손패와 다를 수 있습니다.",
+        "The first turn's order, assuming you pick the event's fight option. If you have not chosen yet, it is only a preview. The simulated hand may differ from the real one.");
+
+    /// <summary>
+    /// The note of a fight that started from an event (docs/COMBAT_ADVISOR.md), e.g.
+    /// "event fight from PUNCH_OFF: assumes the options I_CAN_TAKE_THEM, then FIGHT": the helper cannot see which options
+    /// were picked in single player, so it assumes the ones that lead to the fight.
+    /// </summary>
+    public static bool IsEventFightNote(string note) => note.StartsWith("event fight from", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The uncertain tag's tooltip for <see cref="IsEventFightNote"/> (instead of the English note with its ids).</summary>
+    public static string EventFightTipText => Loc.T(
+        "이벤트에서 시작한 전투라서, 이벤트에서 고른 선택지를 가정해 계산했습니다. 계산한 손패가 실제 손패와 다를 수 있습니다.",
+        "This fight started from an event, so the options picked in the event are assumed. The simulated hand may differ from the real one.");
 
     public static string LostText => Loc.T("이 전투는 추적이 끊겼습니다", "Lost track of this fight");
 
@@ -64,7 +134,7 @@ public static class CombatAdvicePresenter
     private static CombatAdviceSectionVm Status(string text, string reason)
         => new() { StatusText = text, StatusTip = reason.Length > 0 ? reason : null };
 
-    private static CombatAdviceSectionVm Advice(CombatAdviceMessage m, ICombatNames names)
+    private static CombatAdviceSectionVm Advice(CombatAdviceMessage m, ICombatNames names, bool preview)
     {
         var rows = new List<CombatStepVm>();
         var shown = Math.Min(m.Steps.Count, MaxSteps);
@@ -87,11 +157,15 @@ public static class CombatAdvicePresenter
         {
             Title = Title(m.Turn),
             DetailTip = Detail(m),
-            IsUncertain = m.Uncertain,
-            // The helper's note is English; a known draw note is already said (localized) by the closing row's tooltip.
-            UncertainTip = m.Note.Length > 0 && reason is null
-                ? m.Note
+            // A preview says more than "불확실" (why it is unsure, and that the fight may not have started): one tag, not two.
+            IsUncertain = m.Uncertain && !preview,
+            // The helper's note is English; a known draw note is already said (localized) by the closing row's tooltip,
+            // and the event-fight note has its own localized text.
+            UncertainTip = IsEventFightNote(m.Note) ? EventFightTipText
+                : m.Note.Length > 0 && reason is null ? m.Note
                 : Loc.T("계산한 손패가 실제 손패와 다를 수 있습니다", "The simulated hand may differ from the real one"),
+            PreviewHint = preview ? PreviewHintText : null,
+            PreviewTip = preview ? PreviewTipText : null,
             Steps = rows,
         };
     }
