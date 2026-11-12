@@ -5005,13 +5005,13 @@
    "play": [
     {
      "op": "energy",
-     "n": "3*min(1,exhaustedThisTurn)"
+     "n": 3
     }
    ],
    "playUp": [
     {
      "op": "energy",
-     "n": "4*min(1,exhaustedThisTurn)"
+     "n": 4
     }
    ],
    "type": "Skill",

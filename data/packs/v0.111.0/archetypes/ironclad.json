@@ -40,7 +40,8 @@
       "cards": {
         "core": ["CARD.FEEL_NO_PAIN"],
         "enabler": ["CARD.TRUE_GRIT", "CARD.SECOND_WIND", "CARD.STOKE"],
-        "payoff": ["CARD.FORGOTTEN_RITUAL", "CARD.DARK_EMBRACE", "CARD.ASHEN_STRIKE"],
+        // FORGOTTEN_RITUAL 제외(v0.111): "이번 턴에 소멸시켰다면" 조건이 사라져 어느 덱에서나 쓰는 에너지 카드가 됨. v0.111 랭커 보상 화면 선택률은 소멸 카드 2장 미만 덱 53%(77/145), 2장 이상 덱 60%(44/73)로 거의 같음(v0.107.x는 13% 대 24%).
+        "payoff": ["CARD.DARK_EMBRACE", "CARD.ASHEN_STRIKE"],
         "support": ["CARD.STONE_ARMOR"]
       },
       // onTheme(빌드 밖 감점 면제, 빌드 점수 없음): 빌드 확정 덱(commit ≥ 0.7)에 다른 승리 덱보다 1.5배 이상 자주 있고 5명 이상이 들었으며(부트스트랩 80%) 역할 목록에는 없는 카드. 근거: docs/research/v2-stats/on-theme.md

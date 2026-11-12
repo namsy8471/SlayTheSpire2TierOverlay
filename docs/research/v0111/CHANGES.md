@@ -156,3 +156,30 @@
 | 배포 | App csproj가 모든 팩·카탈로그를 포함하므로 새 팩은 자동 포함(크기 증가) |
 | v0.107.1에서 옮긴 게임 규칙 (동작 변경 필요) | `NeowOptions`(새 선택지 2개, `NEOWS_SACRIFICE` 제외 규칙), `AncientOptions`(DARV 묶음, OROBAS `SAND_CASTLE`), `DeckEffects`, `EventPrediction`(`JUNGLE_MAZE_ADVENTURE` 조건, 강화로 소멸이 빠지는 카드), `RelicTrading`, `CardRarities`, `StartingLoadouts`, `RewardRollReplay`, 상점 가격 규칙, `Weights`의 풀 크기 주석 |
 | 테스트 | 약 35개 파일이 v0.107.1 팩·카탈로그에 고정(`RealPackTests`의 버전 상수와 기대값 포함) |
+
+## 10. 후속: 설명 문구만 바뀐 카드 (`FORGOTTEN_RITUAL`)
+
+2~4절의 비교는 카탈로그 필드와 설명 수치만 봤기 때문에, 숫자는 그대로이고 문구만 바뀐 카드를 놓쳤습니다. `FORGOTTEN_RITUAL`(잊힌 의식)이 그 경우입니다.
+
+| | v0.107.1 | v0.111.0 |
+|---|---|---|
+| 설명 | 이번 턴에 카드를 소멸시켰다면 에너지 3 | 에너지 3 (조건 없음) |
+| 게임 문구 키 | `FORGOTTEN_RITUAL.description` | 같은 키, 조건 문장 삭제 |
+
+랭커 코퍼스(A10 아이언클래드, 전투 카드 보상 화면, 단순 비율·재표본 없음):
+
+| | v0.107.x (229판) | v0.111.0 (339판) |
+|---|---|---|
+| 선택률, 전체 플레이어 | 19.4% (20/103), 57/79위 | 60.7% (108/178), 3/80위 |
+| 선택률, 우수 플레이어 | 20.9% (9/43) | 54.2% (45/83), 7/77위 |
+| 소멸 카드 2장 미만 덱에서 | 13% (14/109) | 53% (77/145) |
+| 소멸 카드 2장 이상 덱에서 | 24% (9/37) | 60% (44/73) |
+
+적용(`data/packs/v0.111.0`만, v0.107.1 팩은 그대로):
+
+- `tiers/ironclad.json`: `consumes`·`requires: ["EXHAUST"]` 삭제, 티어 C → A(2단계 차이라 3절의 "명확한 경우" 규칙에 해당), `energy` 0.5 → 0.6, 신뢰도 0.65, `changedIn: "v0.111.0"`, 팁 추가.
+- `archetypes/ironclad.json`: 소멸 빌드 payoff에서 제외(소멸 덱 여부와 선택률이 거의 무관).
+- `combat/cards.json`: 에너지 `3*min(1,exhaustedThisTurn)` → `3`(강화 4).
+- `model/card-policy.json`은 다시 학습하지 않았습니다(두 버전을 섞어 학습한 값 그대로).
+
+같은 방식으로 본 문구 변경 카드는 15장이고, 그중 `HELIX_DRILL`("다른 카드에 쓴 에너지"), `ROCKET_PUNCH`(비용 0 → 1 감소), `SACRIFICE`(2배 → 3배), `TRACKING`(2배 → 50%)은 `combat/cards.json` 항목이 v0.107.1과 같습니다. 이번에는 고치지 않았습니다(확인 필요).
