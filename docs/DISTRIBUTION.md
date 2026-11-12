@@ -34,6 +34,8 @@ release.cmd 0.2.0
               5. dotnet tool restore  (vpk는 .config/dotnet-tools.json의 로컬 도구)
               6. 릴리스 노트 → release-notes.md: 주석 태그의 메시지, 없으면(가벼운 태그, 수동 실행) GitHub 자동 생성 노트,
                  그것도 없으면 커밋 목록 링크. 빈 본문은 만들지 않음
+              6-b. (선택) advisor.lock.json이 있으면 전투 추천 도우미 zip을 받아 SHA-256 확인 → publish/advisor
+                 (tools/advisor-package.ps1 -LockOnly, 아래 "Combat advisor helper". 파일이 없으면 한 줄 안내만)
               7. dotnet vpk [win] download github --channel win  (이전 릴리스를 받아 둠 → 델타 패키지용, 첫 릴리스면 건너뜀)
               8. dotnet vpk [win] pack --packId namsy8471.Sts2Overlay --packVersion 0.2.0 --packDir publish --mainExe Sts2Overlay.exe --channel win --framework net10.0-x64-desktop
                  --releaseNotes release-notes.md ...  (델타를 못 만들면 --delta none으로 다시 묶음: 안전망)
@@ -105,6 +107,50 @@ GitHub의 익명 API는 **IP당 시간당 60회**까지입니다. 같은 공유�
 - **언어 리소스.** UI가 한국어와 영어뿐이라 `SatelliteResourceLanguages=ko;en`으로 다른 언어의 리소스 폴더를 뺍니다.
 - **압축한 단일 실행 파일은 쓰지 않습니다.** 78 MB로 줄지만 켤 때마다 압축을 풀어야 하고, 파일 전체가 매번 달라져 델타 업데이트가 커집니다.
 - **포터블 zip**(`…-win-Portable.zip`)은 런타임을 설치해 주지 않습니다. 런타임이 없으면 Windows가 ".NET 데스크톱 런타임을 설치하라"는 창과 다운로드 링크를 보여 줍니다.
+
+## Combat advisor helper
+
+전투 중 "이번 턴 추천 순서"([COMBAT_ADVISOR.md](COMBAT_ADVISOR.md))는 오버레이와 따로 빌드되는 도우미 프로그램이 계산합니다.
+도우미는 비공개 저장소에서 빌드하며, 지금은 소스를 공개하지 않습니다(소유자는 나중에 공개할 계획입니다).
+이 레포에는 **컴파일된 파일만** 배포물에 넣고, 바이너리도 소스도 커밋하지 않습니다. 도우미가 없는 빌드도 정상이며, 그때는 기능이 조용히 꺼집니다.
+
+**파일.** 세 파일이 오버레이 exe 옆 `advisor\`에 함께 있어야 합니다. 설치판에서는 `current\advisor\`입니다.
+
+| 파일 | 크기(대략) | |
+|---|---|---|
+| `Sts2CombatAdvisor.exe` | 13.0 MB | self-contained 단일 파일. 오버레이가 찾는 파일(`AdvisorCommand.DefaultRelativePath`) |
+| `sts2_search.dll` | 5.8 MB | 네이티브 탐색 라이브러리 |
+| `search-tables.bin` | 10 KB | 탐색 테이블 |
+
+`.pdb`, `runtimeconfig.json` 같은 다른 파일은 있어도 넣지 않습니다.
+
+**가져오는 곳.** 모두 `tools/advisor-package.ps1`이 처리합니다. 위에서부터 처음 있는 것을 씁니다.
+
+1. **`advisor-dist\`** (레포 맨 위, `.gitignore`): 세 파일을 손으로 넣어 두는 폴더입니다. `Sts2CombatAdvisor.exe`가 있으면 씁니다. exe만 있고 dll이나 테이블이 없으면 **빌드를 멈춥니다**.
+   - `build-exe.cmd`: `dist\advisor\`에 넣습니다. 같은 파일은 건너뛰고, 실행 중인 도우미의 파일은 이름을 바꿔 치운 뒤(`*.old-…`, 다음 빌드 때 지움) 넣습니다. lock 파일은 보지 않습니다.
+   - `release.cmd -Local`: `vpk pack` 전에 `publish\advisor\`에 넣습니다.
+2. **`advisor.lock.json`** (레포 맨 위, 추적되는 파일): Actions는 비공개 저장소에 닿지 못하므로, 릴리스에 도우미를 넣으려면 이 파일을 커밋합니다. **기본은 없습니다.**
+
+   ```json
+   { "url": "https://github.com/<owner>/<repo>/releases/download/<tag>/advisor.zip", "sha256": "<zip의 SHA-256, 64자리 hex>", "version": "<표시용 버전>" }
+   ```
+
+   - `url`은 토큰 없이 받을 수 있는 `https://` 주소여야 합니다(시험용으로 `file://`도 받음). zip 안에는 세 파일이 맨 위에 있거나 하위 폴더 하나에 함께 있어야 합니다.
+   - Actions의 pack 잡(`release.yml` "Combat advisor helper")과 `release.cmd -Local`(`advisor-dist\`가 없을 때)이 zip을 받아 **SHA-256이 다르면 릴리스를 실패**시키고, 맞으면 세 파일을 `publish/advisor`에 풉니다. `-Local`은 받은 zip을 `artifacts\advisor-cache\`에 두고 다시 씁니다.
+   - 해시 만들기: `(Get-FileHash advisor.zip -Algorithm SHA256).Hash.ToLower()`.
+3. **둘 다 없음**: "전투 추천 도우미 없음" 한 줄을 출력하고 도우미 없이 빌드합니다. 실패하지 않습니다.
+
+스크립트 시험: `pwsh -File tools/advisor-package.ps1 -SelfTest`. 임시 폴더에 가짜 파일과 `file://` zip을 만들어 위 규칙(세 파일만 복사, exe만 있으면 실패, 해시 불일치 실패, lock 모양 검사, 캐시)을 확인합니다. 네트워크는 쓰지 않습니다. CI가 PowerShell 7(Linux)과 Windows PowerShell 5.1에서 돌립니다.
+
+**크기.** 설치된 폴더가 약 **19 MB**(18.8 MB) 커집니다. 압축된 전체 패키지와 설치 파일은 약 9 MB 커집니다(개발 PC `vpk pack`: `…-full.nupkg` 9.9 → 19.2 MB).
+Velopack 델타 업데이트는 바뀐 파일만 다시 보내므로, 도우미가 그대로인 업데이트에서는 도우미 몫이 거의 늘지 않습니다. 도우미가 바뀐 릴리스에서만 그 파일을 다시 받습니다.
+
+**Velopack과 두 번째 exe.** `vpk pack --mainExe Sts2Overlay.exe`이므로 앱 항목은 오버레이 하나입니다. 도우미를 넣고 묶은 패키지를 열어 확인했습니다.
+- `.nuspec`의 `mainExe`는 `Sts2Overlay.exe`입니다.
+- 실행 스텁은 `STS2 티어 오버레이_ExecutionStub.exe` 하나뿐입니다(포터블 zip 맨 위의 `STS2 티어 오버레이.exe`).
+- 도우미는 `current\advisor\`(nupkg에서는 `lib/app/advisor/`)에 그대로 들어갑니다.
+
+바로 가기도 `mainExe`에만 만들어진다고 보고 있지만, 설치까지 해서 확인하지는 않았습니다.
 
 ## 데이터 위치
 

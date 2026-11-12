@@ -24,7 +24,8 @@
    역슬래시는 그대로 쓰고, 따옴표 안의 `""`는 따옴표 문자 하나입니다.
    예: `"\"C:\\Program Files\\dotnet\\dotnet.exe\" C:\\tools\\Helper.dll"` (JSON 안이라 `\`와 `"`가 이스케이프됨).
    경로가 전체 경로가 아니거나 파일이 없으면 app.log에 경고를 한 번 남기고 2번으로 넘어갑니다.
-2. 오버레이 exe 옆의 `advisor\Sts2CombatAdvisor.exe`.
+2. 오버레이 exe 옆의 `advisor\Sts2CombatAdvisor.exe`. 빌드·릴리스가 이 폴더를 채우는 방법은
+   [DISTRIBUTION.md "Combat advisor helper"](DISTRIBUTION.md#combat-advisor-helper)에 있습니다.
 
 `"combatAdvisorEnabled"`(기본 `true`)와 트레이 메뉴 "전투 추천 순서 표시"로 켜고 끕니다. 설정은 시작할 때 읽습니다.
 
