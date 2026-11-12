@@ -17,6 +17,10 @@
   노트는 주석 태그(git tag -a)의 메시지가 되고, release.yml이 그것을 Velopack 패키지(--releaseNotes)와
   GitHub Release 본문에 넣습니다. '<!--'로 시작하는 줄(안내문)은 빠집니다.
 
+  전투 추천 도우미 (-Local): advisor-dist\에 Sts2CombatAdvisor.exe가 있으면 그 세 파일을, 없고 advisor.lock.json이 있으면
+  그 zip을 받아(SHA-256 확인) publish\advisor\에 넣고 vpk pack 합니다. 둘 다 없으면 도우미 없이 묶습니다.
+  Actions는 advisor.lock.json만 봅니다. 자세한 것은 docs\DISTRIBUTION.md "Combat advisor helper".
+
   버전은 SemVer 2 (예: 0.1.0, 0.2.0-beta.1). 앞에 v는 붙이지 않습니다.
   검사: 추적 중인 파일에 커밋 안 된 변경 없음, HEAD가 upstream과 같음(git fetch 후), 태그 v<버전>이 로컬·원격에 없음,
         이전 최신 태그보다 큰 버전.
@@ -39,6 +43,7 @@ try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
 
 $RepoUrl = 'https://github.com/namsy8471/SlayTheSpire2TierOverlay'
 $repo = Split-Path -Parent $PSScriptRoot
+$advisorScript = Join-Path $PSScriptRoot 'advisor-package.ps1'
 Set-Location -LiteralPath $repo
 
 $script:problems = @()
@@ -223,6 +228,9 @@ if ($Local) {
         Problem "GitHub 토큰이 없습니다. 'gh auth login'으로 로그인하거나 GITHUB_TOKEN 환경 변수를 설정해 주세요."
         $script:token = '<token>'
     }
+    # 전투 추천 도우미: advisor-dist\ → advisor.lock.json → 없음 (docs\DISTRIBUTION.md). 테스트(몇 분) 전에 확인만 합니다.
+    & $advisorScript -Check
+    if ($LASTEXITCODE -ne 0) { Problem '전투 추천 도우미 파일을 고친 뒤 다시 실행해 주세요 (위 메시지).' }
 }
 
 # ---- 3-b. 릴리스 노트 ----
@@ -368,6 +376,12 @@ foreach ($p in @('tests/Sts2Overlay.Core.Tests', 'tests/Sts2Overlay.GameState.Te
 # .NET을 앱에 넣지 않습니다(--self-contained false). 런타임은 vpk pack의 --framework가 설치·업데이트 때 챙깁니다.
 Invoke-Native dotnet @('publish', 'src/Sts2Overlay.App', '-c', 'Release', '-r', 'win-x64', '--self-contained', 'false',
     '-o', 'publish', "-p:Version=$Version", '--nologo') | Out-Null
+# 전투 추천 도우미 세 파일을 vpk pack 전에 publish\advisor\에 넣습니다 (없으면 한 줄 안내만). 받은 zip은 캐시에 남깁니다.
+Write-Host '> tools\advisor-package.ps1 -Destination publish\advisor -CacheDir artifacts\advisor-cache' -ForegroundColor DarkGray
+if (-not $DryRun) {
+    & $advisorScript -Destination (Join-Path $repo 'publish\advisor') -CacheDir (Join-Path $repo 'artifacts\advisor-cache')
+    if ($LASTEXITCODE -ne 0) { Fail '전투 추천 도우미를 넣지 못했습니다 (위 메시지).' }
+}
 Invoke-Native dotnet @('tool', 'restore') | Out-Null
 
 # 이전 릴리스(델타용). 첫 릴리스면 받을 게 없으니 실패해도 계속합니다.

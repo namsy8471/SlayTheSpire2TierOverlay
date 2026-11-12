@@ -14,7 +14,7 @@ public sealed class AdvisorProcessHostTests : IDisposable
 {
     private static readonly TimeSpan Wait = TimeSpan.FromSeconds(20);
     private static readonly IReadOnlyList<TimeSpan> FastBackoff = [TimeSpan.FromMilliseconds(100), TimeSpan.FromMilliseconds(200)];
-    private static readonly IReadOnlyList<string> LiveArgs = ["live", "--save", @"C:\made-up\saves\current_run.save", "--log", @"C:\made-up\logs\godot.log"];
+    private static readonly IReadOnlyList<string> LiveArgs = AdvisorCommand.LiveArgs(@"C:\made-up\saves\current_run.save", @"C:\made-up\logs\godot.log");
 
     private readonly string _dir = Path.Combine(Path.GetTempPath(), "sts2-fake-advisor-" + Guid.NewGuid().ToString("N"));
     private readonly BlockingCollection<string> _lines = [];
@@ -100,7 +100,8 @@ public sealed class AdvisorProcessHostTests : IDisposable
         using (var doc = JsonDocument.Parse(NextLine()))
         {
             var args = doc.RootElement.GetProperty("args").EnumerateArray().Select(a => a.GetString()!).ToArray();
-            Assert.Equal(["--script", Path.Combine(_dir, "script0.txt"), .. LiveArgs], args);
+            Assert.Equal(["--script", Path.Combine(_dir, "script0.txt"), "live", "--save", @"C:\made-up\saves\current_run.save",
+                "--log", @"C:\made-up\logs\godot.log", "--exit-on-stdin-eof"], args);
         }
         Assert.Equal("""{"v":1,"state":"idle"}""", NextLine());
         Assert.Equal("강타 → 턱벌레", NextLine()); // UTF-8 both ways

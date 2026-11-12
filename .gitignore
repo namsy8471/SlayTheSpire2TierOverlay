@@ -42,3 +42,6 @@ lib/
 
 # published overlay app (dotnet publish)
 dist/
+
+# Combat advisor helper binaries dropped in by hand (tools\advisor-package.ps1). Compiled files only, never committed.
+advisor-dist/

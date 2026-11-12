@@ -24,14 +24,15 @@
    역슬래시는 그대로 쓰고, 따옴표 안의 `""`는 따옴표 문자 하나입니다.
    예: `"\"C:\\Program Files\\dotnet\\dotnet.exe\" C:\\tools\\Helper.dll"` (JSON 안이라 `\`와 `"`가 이스케이프됨).
    경로가 전체 경로가 아니거나 파일이 없으면 app.log에 경고를 한 번 남기고 2번으로 넘어갑니다.
-2. 오버레이 exe 옆의 `advisor\Sts2CombatAdvisor.exe`.
+2. 오버레이 exe 옆의 `advisor\Sts2CombatAdvisor.exe`. 빌드·릴리스가 이 폴더를 채우는 방법은
+   [DISTRIBUTION.md "Combat advisor helper"](DISTRIBUTION.md#combat-advisor-helper)에 있습니다.
 
 `"combatAdvisorEnabled"`(기본 `true`)와 트레이 메뉴 "전투 추천 순서 표시"로 켜고 끕니다. 설정은 시작할 때 읽습니다.
 
 ## 실행
 
 ```
-<exe> [앞 인자…] live --save "<current_run.save 전체 경로>" --log "<godot.log 전체 경로>"
+<exe> [앞 인자…] live --save "<current_run.save 전체 경로>" --log "<godot.log 전체 경로>" --exit-on-stdin-eof
 ```
 
 - 경로는 오버레이의 세이브 추적기가 지금 보고 있는 것입니다: `%APPDATA%\SlayTheSpire2\steam\<id>\profile<N>\saves\current_run.save`
@@ -41,7 +42,8 @@
 - 창 없음(CreateNoWindow), 작업 폴더는 exe의 폴더, 우선순위 BelowNormal.
 - stdout: UTF-8(BOM 없음), 줄 단위로 읽습니다. 줄마다 flush 해 주세요.
 - stderr: UTF-8, 오버레이의 app.log에 `combat advisor stderr: …`로 남깁니다(1분에 20줄까지, 넘치면 버린 줄 수만 기록).
-- stdin: 열린 파이프이며 아무것도 쓰지 않습니다. 오버레이가 끝나면 닫히므로 EOF를 "오버레이가 사라짐"으로 써도 됩니다(선택).
+- stdin: 열린 파이프이며 아무것도 쓰지 않습니다. 오버레이가 어떻게 끝나든 파이프가 닫히므로, `--exit-on-stdin-eof`를 받은
+  도우미는 stdin EOF에서 스스로 끝나야 합니다. job object(아래)와 함께 쓰는 두 번째 안전장치입니다.
 - 도우미가 스스로 끝나면 2초, 5초, 15초 뒤, 그다음부터는 60초마다 다시 실행합니다. 60초 넘게 돌다가 끝나면 다시 2초부터 셉니다.
   다시 실행할 때 마지막으로 받은 줄은 버립니다(섹션이 숨겨짐).
 - 오버레이가 끝날 때(정상 종료, `AppDomain.ProcessExit`) 도우미를 프로세스 트리째 끝냅니다. 또 도우미는
