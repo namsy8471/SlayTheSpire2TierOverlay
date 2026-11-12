@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    A FAKE combat advisor helper for the overlay's process tests (AdvisorProcessHostTests) and for trying the panel
+    section by hand. It knows nothing about the game: it replays a script of canned stdout lines (see Program.cs).
+    The real helper is a separate, closed program (docs/COMBAT_ADVISOR.md).
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+</Project>

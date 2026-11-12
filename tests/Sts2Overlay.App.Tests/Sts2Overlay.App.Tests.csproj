@@ -23,5 +23,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Sts2Overlay.App\Sts2Overlay.App.csproj" />
+    <!-- Built and copied next to the tests (FakeCombatAdvisor.exe): the stand-in helper of AdvisorProcessHostTests. -->
+    <ProjectReference Include="..\FakeCombatAdvisor\FakeCombatAdvisor.csproj" />
   </ItemGroup>
 </Project>
