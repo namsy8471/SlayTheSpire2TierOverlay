@@ -18,6 +18,8 @@ jobs:
       - run: dotnet test tests/Sts2Overlay.GameState.Tests -c Release
       - run: dotnet test tests/Sts2Overlay.Resources.Tests -c Release
       - run: dotnet build tools/RunHistoryAnalyzer -c Release
+      # Release packaging of the combat advisor helper (the release pack job runs this script on Linux).
+      - run: pwsh -NoProfile -File tools/advisor-package.ps1 -SelfTest
 
   windows:
     # Screen recognition (SkiaSharp native assets for Windows) and the WPF app.
@@ -31,3 +33,5 @@ jobs:
       - run: dotnet test tests/Sts2Overlay.Vision.Tests -c Release
       - run: dotnet test tests/Sts2Overlay.App.Tests -c Release
       - run: dotnet build src/Sts2Overlay.App -c Release
+      # build-exe.cmd and release.cmd run under Windows PowerShell 5.1.
+      - run: powershell -NoProfile -ExecutionPolicy Bypass -File tools/advisor-package.ps1 -SelfTest
