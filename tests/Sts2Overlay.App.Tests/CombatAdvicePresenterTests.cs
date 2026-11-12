@@ -440,6 +440,41 @@ public class CombatAdvicePresenterTests
         Assert.StartsWith("이벤트에서 시작한 전투라서", vm.UncertainTip);
     }
 
+    [Fact]
+    public void The_fake_helpers_sample_script_plays_an_event_fight()
+    {
+        // tests/FakeCombatAdvisor/sample-fight.txt is what a developer sees when trying the section by hand: every line it
+        // prints must be a usable protocol line, and its event-fight part must walk preview → fight → idle.
+        using var _ = Loc.Use(Lang.Kor);
+        var messages = File.ReadAllLines(Path.Combine(RepoRoot(), "tests", "FakeCombatAdvisor", "sample-fight.txt"))
+            .Where(l => l.StartsWith("print ", StringComparison.Ordinal))
+            .Select(l =>
+            {
+                var message = CombatAdviceParser.Parse(l["print ".Length..], out var problem);
+                Assert.True(message is not null, $"unusable sample line ({problem}): {l}");
+                return message!;
+            })
+            .ToList();
+
+        var first = messages.FindIndex(m => CombatAdvicePresenter.IsEventFightNote(m.Note));
+        Assert.True(first > 0, "no event-fight line in the sample script");
+        Assert.Equal(CombatAdviceState.Idle, messages[first - 1].State); // the event has not opened yet
+        var tags = messages.Skip(first).Select(m => CombatAdvicePresenter.Build(m, CombatAdvicePlace.EventRoom, TestNames))
+            .Select(vm => !vm.HasContent ? "-" : vm.PreviewHint ?? (vm.IsUncertain ? "불확실" : "exact")).ToList();
+        Assert.Equal(["전투를 고르면", "불확실", "exact"], tags);
+        // In a fight (any room the tracker calls combat) the same first line is a plain unsure one.
+        Assert.Null(CombatAdvicePresenter.Build(messages[first], CombatAdvicePlace.Fight, TestNames).PreviewHint);
+
+        static string RepoRoot()
+        {
+            for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
+            {
+                if (File.Exists(Path.Combine(dir.FullName, "SlayTheSpire2TierOverlay.sln"))) return dir.FullName;
+            }
+            throw new InvalidOperationException("repo root (SlayTheSpire2TierOverlay.sln) not found above " + AppContext.BaseDirectory);
+        }
+    }
+
     [Theory]
     [InlineData("event fight from PUNCH_OFF: assumes the options I_CAN_TAKE_THEM, then FIGHT", true)]
     [InlineData("Event fight from THE_LANTERN_KEY: assumes the options KEEP_THE_KEY, then FIGHT", true)]

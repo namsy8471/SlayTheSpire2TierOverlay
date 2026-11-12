@@ -12,4 +12,15 @@ print {"v":1,"state":"lost","encounter":"JAW_WORM_WEAK","reason":"made-up reason
 sleep 3000
 print {"v":1,"state":"unsupported","reason":"made-up reason for the tooltip"}
 sleep 3000
+# A fight an event starts in its own room (made-up event). The first line is what a helper sends when the event page
+# opens, before an option is picked: in an event room it gets the "전투를 고르면" tag, in a fight the plain "불확실" tag.
+# Then an action is seen (the tag goes, still uncertain), then a later exact turn, then the fight ends.
+print {"v":1,"state":"idle"}
+sleep 3000
+print {"v":1,"state":"advice","encounter":"MADE_UP_EVENT_ENCOUNTER","turn":1,"energy":3,"hp":74,"block":0,"played":0,"steps":[{"kind":"card","id":"BASH","upgraded":false,"hand":2,"target":"JAW_WORM","targetSlot":0},{"kind":"card","id":"DEFEND_IRONCLAD","upgraded":false,"hand":0}],"ending":"end_turn","confidence":"uncertain","note":"event fight from MADE_UP: assumes the options FIRST_OPTION, then FIGHT","ms":4.2}
+sleep 6000
+print {"v":1,"state":"advice","encounter":"MADE_UP_EVENT_ENCOUNTER","turn":1,"energy":1,"hp":74,"block":0,"played":1,"steps":[{"kind":"card","id":"DEFEND_IRONCLAD","upgraded":false,"hand":0}],"ending":"end_turn","confidence":"uncertain","note":"event fight from MADE_UP: assumes the options FIRST_OPTION, then FIGHT","ms":1.8}
+sleep 4000
+print {"v":1,"state":"advice","encounter":"MADE_UP_EVENT_ENCOUNTER","turn":2,"energy":3,"hp":68,"block":0,"played":0,"steps":[{"kind":"card","id":"STRIKE_IRONCLAD","upgraded":false,"hand":1,"target":"JAW_WORM","targetSlot":0}],"ending":"win","confidence":"exact","note":"","ms":2.0}
+sleep 4000
 loop
