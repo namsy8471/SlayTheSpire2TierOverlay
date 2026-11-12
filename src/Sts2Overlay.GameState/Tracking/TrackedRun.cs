@@ -74,6 +74,12 @@ public sealed record ActiveEvent(string EventId, IReadOnlyList<string>? OptionKe
 
     /// <summary>With <see cref="OptionsReplayed"/>: every option this run could have drawn (the pool the others came from).</summary>
     public IReadOnlyList<string>? PossibleKeys { get; init; }
+
+    /// <summary>
+    /// Pages the game picks at random, replayed from the seed (<see cref="EventRandomPages"/>): the placeholder an
+    /// option's <c>next</c> names in events.json → the real page of this run. Null when the event has none.
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? RandomPages { get; init; }
 }
 
 /// <summary>A deck card the log-only rebuild is not sure about (see <see cref="TrackedRun.UncertainCards"/>).</summary>

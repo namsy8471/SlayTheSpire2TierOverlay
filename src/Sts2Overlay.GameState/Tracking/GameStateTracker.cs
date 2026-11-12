@@ -861,7 +861,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
             // A log line without option keys (none logged): an ancient's options are replayed from the seed instead.
             if (_eventKeys is not { Count: > 0 } && ReplayOptions(_eventId) is { } replayed)
                 return new ActiveEvent(_eventId, replayed.Keys, _eventChosen.ToArray(), EventSource.Log) { OptionsReplayed = true, PossibleKeys = replayed.Possible };
-            return new ActiveEvent(_eventId, _eventKeys, _eventChosen.ToArray(), EventSource.Log);
+            return new ActiveEvent(_eventId, _eventKeys, _eventChosen.ToArray(), EventSource.Log) { RandomPages = RandomPagesOf(_eventId) };
         }
         // The room-entry save predicts the event; later saves of the room (after an event fight) don't, so keep the guess.
         // The game writes that save just before it logs 'Event Room', but the watcher may deliver the file a moment after
@@ -881,7 +881,21 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
             Alternatives = g.Alternatives,
             OptionsReplayed = draw is not null,
             PossibleKeys = draw?.Possible,
+            RandomPages = RandomPagesOf(g.EventId),
         };
+    }
+
+    private (string EventId, ulong Seed, IReadOnlyDictionary<string, string> Map)? _randomPages; // the last answer
+
+    /// <summary>The event's randomly picked pages, replayed from the run seed (<see cref="EventRandomPages"/>); null when it has none.</summary>
+    private IReadOnlyDictionary<string, string>? RandomPagesOf(string eventId)
+    {
+        if (!EventRandomPages.Handles(eventId) || EventRngSeed(eventId) is not { } seed) return null;
+        if (_randomPages is { } c && c.EventId == eventId && c.Seed == seed) return c.Map;
+        if (EventRandomPages.For(eventId, seed) is not { } map) return null;
+        _randomPages = (eventId, seed, map);
+        Diagnostic?.Invoke(this, $"{eventId} random page (seed replay): {string.Join(", ", map.Select(kv => $"{kv.Key} = {kv.Value}"))}");
+        return map;
     }
 
     private sealed record ReplayedOptions(IReadOnlyList<string> Keys, IReadOnlyList<string> Possible);
