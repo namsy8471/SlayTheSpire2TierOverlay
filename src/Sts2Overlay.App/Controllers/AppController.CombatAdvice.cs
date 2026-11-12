@@ -127,9 +127,15 @@ public sealed partial class AppController
     private void RenderCombatAdvice()
     {
         var inCombat = _advisor?.Arguments is not null && _tracker.Current is not null && _snapshot.Hint == ScreenHint.Combat;
+        // Snapshots come with every log line, many per turn in a fight: rebuild the rows only when something they show changed.
+        var key = (_combatMessage, inCombat, Loc.Current, _cards, _combatText);
+        if (key == _combatRenderKey) return;
+        _combatRenderKey = key;
         var section = CombatAdvicePresenter.Build(_combatMessage, inCombat, new CombatNames(_cards, _combatText));
         if (section != _vm.Combat) _vm.Combat = section;
     }
+
+    private (CombatAdviceMessage?, bool, Lang, CardInfoProvider, CombatTextProvider)? _combatRenderKey;
 
     /// <summary>data/local was regenerated or the language changed: new names.</summary>
     private void ReloadCombatAdvice()
