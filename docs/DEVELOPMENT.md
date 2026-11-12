@@ -15,6 +15,7 @@
 | `src/Sts2Overlay.Resources` | net10.0 | 설치된 게임에서 로컬 리소스 자동 생성 (pck 추출, `sts2.dll` 카탈로그), 게임 버전·지문, 버전 경고 |
 | `src/Sts2Overlay.App` | net10.0-windows | WPF 오버레이: 게임 창 추적, 화면 캡처(Windows.Graphics.Capture, 안 되면 GDI), 카드 위 배지, 맵·휴식처·이벤트 표시, 패널(추천/덱/빌드/경로/리뷰), 트레이, 단축키, 자동 업데이트(Velopack) |
 | `tests/*` | | xUnit 테스트 (게임 파일이 필요한 테스트는 없으면 건너뜀) |
+| `tests/FakeCombatAdvisor` | | 전투 추천 도우미의 가짜(정해진 줄만 출력). 프로세스 테스트와 손으로 확인할 때 씀 ([COMBAT_ADVISOR.md](COMBAT_ADVISOR.md)) |
 | `tools/CatalogBuilder` | | `sts2.dll` 정적 분석 → 카드 카탈로그, 시작 덱 (수동 실행용) |
 | `tools/PckTool` | | `SlayTheSpire2.pck` 읽기 전용 추출 (카드 그림, 현지화, 수동 실행용) |
 | `tools/refresh-local.ps1` | | 로컬 리소스 다시 만들기 (`--prepare` 실행) |
@@ -56,6 +57,7 @@ dotnet run --project src/Sts2Overlay.App
 - 단축키: `Ctrl+F5` 맵·휴식처 위 추천, `Ctrl+F6` 항상 맨 앞, `Ctrl+F7` 패널 클릭 통과, `Ctrl+F8` 모두 숨기기, `Ctrl+F9` 캡처 저장(`debugCaptures` 켰을 때만), `Ctrl+F10` 지금 인식, `Ctrl+F11` 인식 영역 표시(카드·가격 상자, 디버그)
 - 기록: `%LOCALAPPDATA%\Sts2Overlay\app.log`, 설정: 같은 폴더의 `settings.json`, 캡처: `captures\` (`settings.json`의 `"debugCaptures": true`일 때만 남음. 꺼져 있으면 오버레이를 켤 때 폴더를 비우므로, Vision 테스트·VisionBench용 캡처는 이 값을 켜 두거나 다른 폴더에 보관하세요)
 - 캡처 방식: 기본은 Windows.Graphics.Capture(4K 한 장 약 4 ms). 지원되지 않거나 실패하면 GDI(약 50 ms)로 자동 전환합니다. `settings.json`의 `"captureBackend": "gdi"`로 GDI를 강제할 수 있고, 실제로 쓰인 방식은 app.log의 `capture backend` 줄에 남습니다.
+- 전투 추천 순서: 별도 도우미 프로그램(`advisor\Sts2CombatAdvisor.exe` 또는 `settings.json`의 `"combatAdvisorCommand"`)이 있으면 전투 중 탭 위에 "이번 턴 추천 순서"를 보여 줍니다. 없으면 조용히 꺼집니다. 프로토콜과 가짜 도우미로 확인하는 법은 [COMBAT_ADVISOR.md](COMBAT_ADVISOR.md).
 - 한 번에 하나만 실행됩니다(뮤텍스 `Local\Sts2Overlay.App`). `--prepare`, `--bench-capture`, `--verify-capture`는 오버레이가 켜져 있어도 돌릴 수 있습니다.
 
 ### 내 PC용 exe (`build-exe.cmd`)

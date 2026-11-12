@@ -101,6 +101,7 @@ public sealed partial class AppController : IDisposable
         InitEvents(packDir); // event option advice (AppController.Events.cs)
         InitHoverYield(); // step aside for the game's hover tips (AppController.HoverYield.cs)
         InitTiers(); // 티어표 tab (AppController.Tiers.cs)
+        InitCombatAdvice(); // in-fight play order from the helper process (AppController.CombatAdvice.cs)
 
         _tracker.Changed += (_, _) => OnTrackerChanged();
         // The panel moved to a monitor with another DPI: the DPI part of the scale changed, ours must follow.
@@ -209,6 +210,7 @@ public sealed partial class AppController : IDisposable
         if (Demo is null) RunStage("path", () => RefreshPath(snap));
         RunStage("map target", () => UpdateMapTarget(snap)); // AppController.MapOverlay.cs
         RunStage("tiers", () => UpdateTiers(snap)); // AppController.Tiers.cs (owned marks; builds only while the tab shows)
+        RunStage("combat advice", () => UpdateCombatAdvice(snap)); // AppController.CombatAdvice.cs
 
         var likely = IsOfferHint(snap.Hint);
         RunStage("badges", () =>
@@ -1030,6 +1032,7 @@ public sealed partial class AppController : IDisposable
                 $"Game {info.CaptureRect.Width}x{info.CaptureRect.Height} · x{Dpi.ScaleForRect(info.CaptureRect):0.##}{(info.IsForeground ? "" : " (in background)")}"),
         };
         UpdateShellForGame(info); // notices, panel on the game's monitor (AppController.Shell.cs)
+        RenderCombatAdvice(); // the game closed: the play order goes (AppController.CombatAdvice.cs)
         ApplyUiScale();
         UpdateVisibility();
     }
@@ -1228,6 +1231,7 @@ public sealed partial class AppController : IDisposable
         RefreshRunViews(_snapshot.Run);
         ReloadForecastReview(); // AppController.ForecastReview.cs
         ReloadEvents(); // AppController.Events.cs
+        ReloadCombatAdvice(); // new card catalog, monster and potion names (AppController.CombatAdvice.cs)
         if (_lastResult is not null) ApplyRecognition(_lastResult);
         ShowMessage(Loc.T("데이터 팩을 다시 읽었습니다", "Data pack reloaded"));
         PackReloaded?.Invoke();
@@ -1382,5 +1386,6 @@ public sealed partial class AppController : IDisposable
         _source.Dispose();
         DisposeForecastReview(); // AppController.ForecastReview.cs
         DisposeMapOverlay();
+        DisposeCombatAdvice(); // kills the helper (AppController.CombatAdvice.cs)
     }
 }
