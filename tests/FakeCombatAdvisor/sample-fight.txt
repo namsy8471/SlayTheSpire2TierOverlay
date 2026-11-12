@@ -6,6 +6,8 @@ print {"v":1,"state":"advice","encounter":"JAW_WORM_WEAK","turn":1,"energy":3,"h
 sleep 4000
 print {"v":1,"state":"advice","encounter":"JAW_WORM_WEAK","turn":2,"energy":3,"hp":74,"block":0,"played":1,"steps":[{"kind":"potion","id":"FIRE_POTION","target":"JAW_WORM","targetSlot":1,"targetAmbiguous":true},{"kind":"card","id":"DEFEND_IRONCLAD","upgraded":true,"hand":0}],"ending":"win","confidence":"uncertain","note":"a card drawn by a relic is not in the log yet","ms":5.1}
 sleep 4000
+print {"v":1,"state":"advice","encounter":"JAW_WORM_WEAK","turn":3,"energy":3,"hp":74,"block":0,"played":0,"steps":[{"kind":"card","id":"BASH","upgraded":false,"hand":1,"target":"JAW_WORM","targetSlot":0},{"kind":"card","id":"POMMEL_STRIKE","upgraded":false,"hand":3,"target":"JAW_WORM","targetSlot":0}],"ending":"draw","confidence":"exact","note":"next steps depend on the cards drawn","ms":3.0}
+sleep 4000
 print {"v":1,"state":"lost","encounter":"JAW_WORM_WEAK","reason":"made-up reason for the tooltip"}
 sleep 3000
 print {"v":1,"state":"unsupported","reason":"made-up reason for the tooltip"}
