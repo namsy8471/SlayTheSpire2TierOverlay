@@ -70,10 +70,11 @@
       // 불확실(부트스트랩 80% 미만, v1 역할 유지): FURNACE core(73%), WROUGHT_IN_WAR enabler(68%).
       // SWORD_SAGE는 근거는 안정적이지만(95%) 비율이 31%라 core 기준(40%)에 못 미쳐(core 유지 7%) payoff로 옮겼습니다.
       // 예: https://op.gg/slay-the-spire2/history/6751787 https://op.gg/slay-the-spire2/history/5119239 https://op.gg/slay-the-spire2/history/4605613 https://op.gg/slay-the-spire2/history/7177823
+      // 고수 티어(2026-11-12): FURNACE core → payoff. Baalorlord B·Jorbs D(v0.107.1 티어 리스트, 평균 A 미만). 두 사람 모두 그 빌드 카드가 먼저 있을 때 집는 카드로 평가했고, v0.111 랭커 선택과의 일치도 떨어지지 않아 "코어 확보" 가산 대상에서 뺌. 근거: docs/research/build-sources/v0111/EXPERT_TIERS.md
       "cards": {
-        "core": ["CARD.FURNACE"],
+        "core": [],
         "enabler": ["CARD.REFINE_BLADE", "CARD.BULWARK", "CARD.SPOILS_OF_BATTLE", "CARD.SUMMON_FORTH"],
-        "payoff": ["CARD.PARRY", "CARD.SWORD_SAGE", "CARD.CONQUEROR"],
+        "payoff": ["CARD.FURNACE", "CARD.PARRY", "CARD.SWORD_SAGE", "CARD.CONQUEROR"],
         "support": ["CARD.WROUGHT_IN_WAR"]
       },
       "fullWeight": 4.0,

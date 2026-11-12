@@ -17,10 +17,11 @@
       // 예: https://op.gg/slay-the-spire2/history/6495912 https://op.gg/slay-the-spire2/history/6696754 https://op.gg/slay-the-spire2/history/6485302 https://op.gg/slay-the-spire2/history/7052722
       // v0.111(v0.111.0 승리 덱만으로 재판정): 멤버 덱 우수 44판·13명 / 전체 54판·23명.
       //   제외 CLEANSE enabler: 우수 15%·lift 0.51·5명·부트 2%(전체 19%·lift 0.68·8명·부트 0%), lift 1.0 이상 재표본 11%·14%.
+      // 고수 티어(2026-11-12): CALCIFY core → payoff. Baalorlord B·Jorbs D(v0.107.1 티어 리스트, 평균 A 미만). 두 사람 모두 그 빌드 카드가 먼저 있을 때 집는 카드로 평가했고, v0.111 랭커 선택과의 일치도 떨어지지 않아 "코어 확보" 가산 대상에서 뺌. 근거: docs/research/build-sources/v0111/EXPERT_TIERS.md
       "cards": {
-        "core": ["CARD.CALCIFY"],
+        "core": [],
         "enabler": ["CARD.POKE", "CARD.FETCH", "CARD.SIC_EM", "CARD.HIGH_FIVE", "CARD.REANIMATE", "CARD.PULL_AGGRO", "CARD.RIGHT_HAND_HAND", "CARD.SENTRY_MODE", "CARD.SNAP"],
-        "payoff": ["CARD.FLATTEN", "CARD.SQUEEZE", "CARD.RATTLE"],
+        "payoff": ["CARD.CALCIFY", "CARD.FLATTEN", "CARD.SQUEEZE", "CARD.RATTLE"],
         "support": []
       },
       // fullWeight 4.5 유지: 새 목록 기준 멤버 덱 commit 중앙값 1.00, 비멤버 0.23(좋은 플레이어·균형). 조정 조건(멤버 < 0.7 또는 비멤버 > 0.5)에 해당하지 않음.
@@ -47,10 +48,11 @@
       // 예: https://op.gg/slay-the-spire2/history/7052868 https://op.gg/slay-the-spire2/history/5870732 https://op.gg/slay-the-spire2/history/6289844 https://op.gg/slay-the-spire2/history/4245638
       // v0.111(v0.111.0 승리 덱만으로 재판정): 멤버 덱 우수 38판·11명 / 전체 49판·19명.
       //   SHROUD payoff → core: 우수 49%·lift 6.56·10명·부트 100%·core 부트 76%(전체 46%·lift 7.93·14명·부트 100%·core 80%). 고급 파워, 파멸을 걸 때마다 방어도.
+      // 고수 티어(2026-11-12): SHROUD core → payoff. Baalorlord B·Jorbs D(v0.107.1 티어 리스트, 평균 A 미만). 두 사람 모두 그 빌드 카드가 먼저 있을 때 집는 카드로 평가했고, v0.111 랭커 선택과의 일치도 떨어지지 않아 "코어 확보" 가산 대상에서 뺌. 근거: docs/research/build-sources/v0111/EXPERT_TIERS.md
       "cards": {
-        "core": ["CARD.SLEIGHT_OF_FLESH", "CARD.SHROUD"],
+        "core": ["CARD.SLEIGHT_OF_FLESH"],
         "enabler": ["CARD.NEGATIVE_PULSE", "CARD.DEATHBRINGER", "CARD.COUNTDOWN", "CARD.OBLIVION"],
-        "payoff": ["CARD.NO_ESCAPE", "CARD.DEATHS_DOOR", "CARD.END_OF_DAYS"],
+        "payoff": ["CARD.SHROUD", "CARD.NO_ESCAPE", "CARD.DEATHS_DOOR", "CARD.END_OF_DAYS"],
         "support": ["CARD.SCOURGE", "CARD.DREDGE", "CARD.DANSE_MACABRE", "CARD.CAPTURE_SPIRIT", "CARD.NEUROSURGE"]
       },
       // fullWeight 4.0 유지: 새 목록 기준 멤버 덱 commit 중앙값 1.00, 비멤버 0.34(좋은 플레이어·균형). 조정 조건(멤버 < 0.7 또는 비멤버 > 0.5)에 해당하지 않음.

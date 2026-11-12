@@ -78,10 +78,11 @@
       // Baalorlord 보조 출처(core 불가): SHRUG_IT_OFF.
       // v1에서 제외(부트스트랩 80% 이상 기준 미달): BLOOD_WALL, OFFERING, PYRE, TAUNT.
       // 예: https://op.gg/slay-the-spire2/history/6176418 https://op.gg/slay-the-spire2/history/6695107
+      // 고수 티어(2026-11-12): BARRICADE core → payoff. Baalorlord B·Jorbs C(v0.107.1 티어 리스트, 평균 A 미만). 두 사람 모두 그 빌드 카드가 먼저 있을 때 집는 카드로 평가했고, v0.111 랭커 선택과의 일치도 떨어지지 않아 "코어 확보" 가산 대상에서 뺌. 근거: docs/research/build-sources/v0111/EXPERT_TIERS.md
       "cards": {
-        "core": ["CARD.BARRICADE"],
+        "core": [],
         "enabler": ["CARD.SHRUG_IT_OFF", "CARD.IMPERVIOUS"],
-        "payoff": ["CARD.BODY_SLAM"],
+        "payoff": ["CARD.BARRICADE", "CARD.BODY_SLAM"],
         "support": ["CARD.ARMAMENTS"]
       },
       // fullWeight 2.5 유지: 멤버 덱 commit 중앙값 1.00, 비멤버 0.28(보정 조건 아님).
@@ -104,10 +105,11 @@
       // 우수 플레이어만으로는 미결이라 전체 플레이어 결과로 판정: INFERNO.
       // v1에서 제외(부트스트랩 80% 이상 기준 미달): BATTLE_TRANCE, BRAND, CONFLAGRATION, FIEND_FIRE, FLAME_BARRIER, UNMOVABLE, UNRELENTING, UPPERCUT.
       // 예: https://op.gg/slay-the-spire2/history/7045157 https://op.gg/slay-the-spire2/history/4062736
+      // 고수 티어(2026-11-12): RUPTURE core → payoff. Baalorlord B·Jorbs B(v0.107.1 티어 리스트, 평균 A 미만). 두 사람 모두 그 빌드 카드가 먼저 있을 때 집는 카드로 평가했고, v0.111 랭커 선택과의 일치도 떨어지지 않아 "코어 확보" 가산 대상에서 뺌. 근거: docs/research/build-sources/v0111/EXPERT_TIERS.md
       "cards": {
-        "core": ["CARD.RUPTURE"],
+        "core": [],
         "enabler": ["CARD.BLOODLETTING", "CARD.BLOOD_WALL", "CARD.BREAKTHROUGH"],
-        "payoff": ["CARD.INFERNO", "CARD.TEAR_ASUNDER"],
+        "payoff": ["CARD.RUPTURE", "CARD.INFERNO", "CARD.TEAR_ASUNDER"],
         "support": []
       },
       // onTheme(빌드 밖 감점 면제, 빌드 점수 없음): 빌드 확정 덱(commit ≥ 0.7)에 다른 승리 덱보다 1.5배 이상 자주 있고 5명 이상이 들었으며(부트스트랩 80%) 역할 목록에는 없는 카드. 좋은 플레이어 표본이 얇아 전체 플레이어로 판정: HEMOKINESIS. 근거: docs/research/v2-stats/on-theme.md
@@ -220,10 +222,11 @@
       // 우수 플레이어만으로는 미결이라 전체 플레이어 결과로 판정: TWIN_STRIKE.
       // v1에서 제외(부트스트랩 80% 이상 기준 미달): ASHEN_STRIKE, BLOODLETTING, BURNING_PACT, FLAME_BARRIER, PYRE.
       // 예: https://op.gg/slay-the-spire2/history/3724927 https://op.gg/slay-the-spire2/history/6176418
+      // 고수 티어(2026-11-12): HELLRAISER core → payoff. Baalorlord C·Jorbs D(v0.107.1 티어 리스트, 평균 A 미만). 두 사람 모두 그 빌드 카드가 먼저 있을 때 집는 카드로 평가했고, v0.111 랭커 선택과의 일치도 떨어지지 않아 "코어 확보" 가산 대상에서 뺌. 근거: docs/research/build-sources/v0111/EXPERT_TIERS.md
       "cards": {
-        "core": ["CARD.HELLRAISER"],
+        "core": [],
         "enabler": ["CARD.POMMEL_STRIKE", "CARD.TWIN_STRIKE"],
-        "payoff": ["CARD.PERFECTED_STRIKE"],
+        "payoff": ["CARD.HELLRAISER", "CARD.PERFECTED_STRIKE"],
         "support": []
       },
       // onTheme(빌드 밖 감점 면제, 빌드 점수 없음): 빌드 확정 덱(commit ≥ 0.7)에 다른 승리 덱보다 1.5배 이상 자주 있고 5명 이상이 들었으며(부트스트랩 80%) 역할 목록에는 없는 카드. 근거: docs/research/v2-stats/on-theme.md
