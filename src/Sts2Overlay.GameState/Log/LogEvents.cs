@@ -188,6 +188,14 @@ public sealed record EventOptionChosenEvent(ulong PlayerId, string EventId, stri
 public sealed record CardPlayedEvent(ulong OwnerId, string CardId, int CombatIndex) : LogEvent;
 
 /// <summary>
+/// <c>Player 1 playing card BASH (targeting Jaw Worm (index 1))</c> / <c>… (no target)</c>: logged at Info for every card
+/// played, in single player too (<see cref="CardPlayedEvent"/> is co-op Debug only). It carries no combat index, so it
+/// only tells that a fight is running: the one sign of a fight that an event starts in its own room (no
+/// <c>'Combat Room'</c> preload, no <c>mode=ActiveCombat</c> line).
+/// </summary>
+public sealed record CardPlayLoggedEvent(ulong PlayerId, string CardId) : LogEvent;
+
+/// <summary>
 /// Co-op Debug, REMOTE players only: <c>[RunLocationTargetedMessageBuffer] Handling map-targeted message RewardObtainedMessage type: Card ...
 /// skipped: False Card: CARD.X (hash) from P ...</c>. Seen for another player's shop purchase (their own client logs nothing).
 /// </summary>

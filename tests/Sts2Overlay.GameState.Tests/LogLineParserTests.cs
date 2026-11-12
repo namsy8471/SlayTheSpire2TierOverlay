@@ -202,9 +202,19 @@ public class LogLineParserTests
     }
 
     [Fact]
+    public void Card_play_lines_name_the_player_and_the_card()
+    {
+        // The Info line of every card played (single player too). The target's name is in the game's language: not read.
+        var e = Parse<CardPlayLoggedEvent>("[INFO] Player 1 playing card STRIKE_IRONCLAD (no target)");
+        Assert.Equal((1UL, "CARD.STRIKE_IRONCLAD"), (e.PlayerId, e.CardId));
+        var targeted = Parse<CardPlayLoggedEvent>("[INFO] Player 76561190000000002 playing card BASH (targeting 시험 몬스터 (index 1))");
+        Assert.Equal((TestPaths.Friend, "CARD.BASH"), (targeted.PlayerId, targeted.CardId));
+    }
+
+    [Fact]
     public void Noise_is_ignored()
     {
-        Assert.Null(LogLineParser.Parse("[INFO] Player 1 playing card STRIKE_IRONCLAD (no target)"));
+        Assert.Null(LogLineParser.Parse("[INFO] Player 1 selected card reward"));
         Assert.Null(LogLineParser.Parse("[INFO] Monster NIBBIT performing move BUTT_MOVE"));
         Assert.Null(LogLineParser.Parse("   at: pipeline_cache_create (drivers/d3d12/rendering_device_driver_d3d12.cpp:4469)"));
         Assert.Null(LogLineParser.Parse(""));

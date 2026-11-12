@@ -17,6 +17,10 @@ public enum ScreenHint
     /// <summary>Inside a merchant room (shop inventory is rolled right before the room loads).</summary>
     ShopLikely,
     RestSite,
+    /// <summary>
+    /// Inside an event room. A fight the event starts in its own room (no 'Combat Room' is logged for it) is still
+    /// <see cref="Event"/> until its first card is played, then <see cref="Combat"/>.
+    /// </summary>
     Event,
     Treasure,
     RunEnded,
