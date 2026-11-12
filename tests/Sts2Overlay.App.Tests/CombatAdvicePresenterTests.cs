@@ -66,6 +66,7 @@ public class CombatAdvicePresenterTests
     [Theory]
     [InlineData(CombatEnding.EndTurn, "턴 종료")]
     [InlineData(CombatEnding.Win, "마무리!")]
+    [InlineData(CombatEnding.AdviseAfterPlay, "… 이 카드를 낸 뒤 다시 추천")]
     [InlineData(CombatEnding.None, null)]
     public void The_closing_row_follows_the_ending(CombatEnding ending, string? last)
     {
@@ -144,6 +145,92 @@ public class CombatAdvicePresenterTests
         Assert.Equal(CombatAdvicePresenter.MaxSteps + 2, vm.Steps.Count);
         Assert.Equal("… 3개 더", vm.Steps[^2].Name);
         Assert.Equal("턴 종료", vm.Steps[^1].Name);
+    }
+
+    private const string NoteDrawn = "next steps depend on the cards drawn";
+
+    [Fact]
+    public void A_draw_stop_ends_with_a_muted_pause_row_in_korean()
+    {
+        using var _ = Loc.Use(Lang.Kor);
+        var vm = CombatAdvicePresenter.Build(Advice(CombatEnding.AdviseAfterPlay, Bash, DefendPlus) with { Note = NoteDrawn }, inCombat: true, TestNames);
+
+        Assert.Equal(["강타 → 턱벌레", "수비+", "… 이 카드를 낸 뒤 다시 추천"], vm.Steps.Select(s => s.Text));
+        var pause = vm.Steps[^1];
+        Assert.Equal("", pause.NumberText);
+        Assert.True(pause.IsEnding);
+        Assert.True(pause.IsSoft);
+        Assert.Equal("다음 행동은 이 카드로 뽑을 카드에 따라 달라집니다. 아직 모르는 카드나 결과를 미리 보여 주지 않도록, 이 카드를 낸 뒤에 이어서 추천합니다.", pause.Tip);
+        Assert.DoesNotContain(vm.Steps, s => s.Text.Contains("턴 종료", StringComparison.Ordinal));
+        Assert.All(vm.Steps.SkipLast(1), s => Assert.False(s.IsSoft));
+    }
+
+    [Fact]
+    public void A_draw_stop_in_english()
+    {
+        using var _ = Loc.Use(Lang.Eng);
+        var vm = CombatAdvicePresenter.Build(Advice(CombatEnding.AdviseAfterPlay, Bash) with { Note = NoteDrawn }, inCombat: true, TestNames);
+
+        Assert.Equal(["Bash → Jaw Worm", "… more after this play"], vm.Steps.Select(s => s.Text));
+        Assert.Equal("What comes next depends on the cards this play draws. So that nothing you could not know yet is shown, the rest is advised after this play.",
+            vm.Steps[^1].Tip);
+    }
+
+    [Theory]
+    [InlineData("next steps depend on the cards drawn", CombatAdvicePresenter.DrawReason.CardsDrawn, "뽑을 카드에 따라")]
+    [InlineData("next steps depend on the draw pile's new order", CombatAdvicePresenter.DrawReason.PileOrder, "새 순서에 따라")]
+    [InlineData("next steps depend on a random result", CombatAdvicePresenter.DrawReason.Random, "무작위 결과에 따라")]
+    [InlineData("", null, "뽑거나 무작위로 정해질 결과에 따라")]
+    [InlineData("made-up note", null, "뽑거나 무작위로 정해질 결과에 따라")]
+    public void The_pause_tooltip_is_localized_from_the_helpers_note(string note, CombatAdvicePresenter.DrawReason? reason, string part)
+    {
+        using var _ = Loc.Use(Lang.Kor);
+        Assert.Equal(reason, CombatAdvicePresenter.DrawReasonOf(note));
+        var tip = CombatAdvicePresenter.Build(Advice(CombatEnding.AdviseAfterPlay, Bash) with { Note = note }, inCombat: true, TestNames).Steps[^1].Tip;
+
+        Assert.Contains(part, tip);
+        Assert.DoesNotContain("depend", tip); // never the helper's English note to a Korean player
+    }
+
+    [Fact]
+    public void A_draw_stop_cut_by_the_row_cap_merges_the_more_row_and_the_pause()
+    {
+        // The draw card is the last step; with 13 steps it is hidden in the "3개 더". "… 3개 더" followed by "… 이 카드를 낸 뒤"
+        // would point "이 카드" at the 10th row, so the two become one row.
+        var steps = Enumerable.Repeat(DefendPlus, CombatAdvicePresenter.MaxSteps + 3).ToArray();
+        using (Loc.Use(Lang.Kor))
+        {
+            var vm = CombatAdvicePresenter.Build(Advice(CombatEnding.AdviseAfterPlay, steps), inCombat: true, TestNames);
+            Assert.Equal(CombatAdvicePresenter.MaxSteps + 1, vm.Steps.Count);
+            Assert.Equal("… 3개 더 낸 뒤 다시 추천", vm.Steps[^1].Name);
+            Assert.True(vm.Steps[^1].IsSoft);
+            Assert.Equal("수비+", vm.Steps[^2].Name);
+        }
+        using (Loc.Use(Lang.Eng))
+        {
+            var vm = CombatAdvicePresenter.Build(Advice(CombatEnding.AdviseAfterPlay, steps), inCombat: true, TestNames);
+            Assert.Equal("… 3 more, then new advice", vm.Steps[^1].Name);
+        }
+
+        // Exactly at the cap nothing is hidden: the plain pause row.
+        using (Loc.Use(Lang.Kor))
+        {
+            var vm = CombatAdvicePresenter.Build(Advice(CombatEnding.AdviseAfterPlay, steps[..CombatAdvicePresenter.MaxSteps]), inCombat: true, TestNames);
+            Assert.Equal(CombatAdvicePresenter.MaxSteps + 1, vm.Steps.Count);
+            Assert.Equal("… 이 카드를 낸 뒤 다시 추천", vm.Steps[^1].Name);
+        }
+    }
+
+    [Fact]
+    public void A_draw_stop_keeps_the_uncertain_tag_but_not_the_english_draw_note()
+    {
+        using var _ = Loc.Use(Lang.Kor);
+        var vm = CombatAdvicePresenter.Build(Advice(CombatEnding.AdviseAfterPlay, Bash) with { Uncertain = true, Note = NoteDrawn }, inCombat: true, TestNames);
+        Assert.True(vm.IsUncertain);
+        Assert.Equal("계산한 손패가 실제 손패와 다를 수 있습니다", vm.UncertainTip); // the pause row's tooltip already says why it stops
+
+        vm = CombatAdvicePresenter.Build(Advice(CombatEnding.AdviseAfterPlay, Bash) with { Note = NoteDrawn }, inCombat: true, TestNames);
+        Assert.False(vm.IsUncertain);
     }
 
     [Theory]
