@@ -314,7 +314,17 @@ public sealed class RealPackTestsV0107 : RealPackTests
 public sealed class RealPackTestsV0111 : RealPackTests
 {
     protected override string Version => "v0.111.0";
-    protected override string[] IntentionallyCoreless => IntentionallyCorelessV0107;
+    /// <summary>
+    /// v0.111.0: the v0.107.1 list plus the builds whose core moved to payoff after the expert tier check
+    /// (docs/research/build-sources/v0111/EXPERT_TIERS.md): BARRICADE, RUPTURE, HELLRAISER, CALCIFY, FURNACE.
+    /// </summary>
+    protected override string[] IntentionallyCoreless =>
+    [
+        .. IntentionallyCorelessV0107,
+        "ironclad.block", "ironclad.hellraiser", "ironclad.self_damage",
+        "necrobinder.osty",
+        "regent.forge",
+    ];
     // v0.111 has Neow's Sacrifice; the OROBAS ids are still character ids, not OROBAS buttons.
     protected override string[] NewerAncientOptions => ["OROBAS.IRONCLAD", "OROBAS.REGENT", "OROBAS.SILENT"];
     protected override string[] NewerRelics => [];
