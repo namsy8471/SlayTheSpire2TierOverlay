@@ -68,6 +68,16 @@ public class RestMarksTests
     }
 
     [Fact]
+    public void Marks_the_relic_button_if_the_learned_policy_selects_it()
+    {
+        var choice = Choice();
+        var dig = choice.Buttons[1] with { Option = RestOption.Dig };
+        var mark = Assert.Single(RestMarks.Choice(choice with { Buttons = [choice.Buttons[0], dig] },
+            Advice(RestAction.Dig, RestConfidence.Learned), Name).Rects);
+        Assert.Equal(dig.Slot.X, mark.X);
+    }
+
+    [Fact]
     public void Grid_marks_the_top_three_on_their_first_visible_copies_and_pins_the_ranking()
     {
         var advice = Advice(RestAction.Smith, RestConfidence.Sure, Up(Strike, 1, "피해 +3", "콤보", "세번째"), Up(Strike, 2), Up(Bash, 3), Up(Defend, 4));

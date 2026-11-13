@@ -85,7 +85,8 @@ public sealed class UpgradeAdvisor(DataPack pack)
     /// </summary>
     /// <param name="state">The run right now (deck, act, HP).</param>
     /// <param name="profile">The deck analysis if the caller already has one; computed otherwise.</param>
-    public IReadOnlyList<UpgradeCandidate> Rank(RunState state, DeckProfile? profile = null)
+    /// <param name="legalityPack">Current game catalog for eligibility when scores use the evaluation's reference pack.</param>
+    public IReadOnlyList<UpgradeCandidate> Rank(RunState state, DeckProfile? profile = null, DataPack? legalityPack = null)
     {
         ArgumentNullException.ThrowIfNull(state);
         profile ??= DeckAnalyzer.Analyze(state, Pack);
@@ -93,7 +94,7 @@ public sealed class UpgradeAdvisor(DataPack pack)
         // Group copies: upgrading any copy of "Glacier" is the same decision.
         var groups = state.Deck
             .Select((card, index) => (card, index))
-            .Where(x => CanUpgrade(Pack, state.Character, x.card))
+            .Where(x => CanUpgrade(legalityPack ?? Pack, state.Character, x.card))
             .GroupBy(x => (Id: Pack.Canonical(x.card.Id), x.card.Upgrade))
             .Select(g => (Card: new CardRef(g.Key.Id, g.Key.Upgrade), Copies: g.Count(), FirstIndex: g.Min(x => x.index)))
             .ToList();

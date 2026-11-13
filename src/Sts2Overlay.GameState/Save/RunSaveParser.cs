@@ -84,21 +84,29 @@ public static class RunSaveParser
             .Where(p => p.id != null)
             .Select(p => new PotionSlot(p.id!, p.slot))
             .ToList();
+        var potionCapacity = Int(me, "max_potion_slot_count");
 
         // Removal price = 75 + 25 x removals (MerchantCardRemovalEntry.cs:32). The game stores the count in
         // extra_fields; older saves don't, so fall back to counting shop removals in the history.
         int removals = Int(Prop(me, "extra_fields"), "card_shop_removals_used")
                        ?? MapPointHistory.CountShopRemovals(history, myNetId);
 
+        var schema = Int(root, "schema_version") ?? 0;
         var state = new RunState
         {
             Character = Str(me, "character_id") ?? "CHARACTER.UNKNOWN",
             Ascension = Int(root, "ascension") ?? 0,
+            SaveSchemaVersion = schema,
+            IsStandardRun = Str(root, "game_mode") is "standard" or "singleplayer"
+                && Prop(root, "is_custom_game").ValueKind is JsonValueKind.False or JsonValueKind.Undefined
+                && !Array(root, "modifiers").Any(),
             Act = actIndex + 1,
             Floor = Math.Max(floor, 1),
             Hp = Int(me, "current_hp") ?? 0,
             MaxHp = Int(me, "max_hp") ?? 0,
             Gold = Int(me, "gold") ?? 0,
+            EmptyPotionSlots = potionCapacity is int capacity && Prop(me, "potions").ValueKind == JsonValueKind.Array
+                ? Math.Max(0, capacity - potions.Count) : null,
             Deck = deck,
             Relics = relics,
             IsMultiplayer = playerList.Count > 1,
@@ -116,7 +124,7 @@ public static class RunSaveParser
             State = state,
             Map = map,
             Seed = Str(Prop(root, "rng"), "seed"),
-            SchemaVersion = Int(root, "schema_version") ?? 0,
+            SchemaVersion = schema,
             MyNetId = myNetId,
             MyPlayerMatched = matched,
             PlayerNetIds = netIds,
@@ -136,7 +144,7 @@ public static class RunSaveParser
                     p => (IReadOnlyList<string>)Array(bag, p.Name).Select(e => e.ValueKind == JsonValueKind.String ? e.GetString() : null).OfType<string>().ToList(),
                     StringComparer.Ordinal)
                 : null,
-            MaxPotionSlots = Int(me, "max_potion_slot_count") ?? 3,
+            MaxPotionSlots = potionCapacity ?? 3,
             CardRarityOffset = Double(playerOdds, "card_rarity_odds_value"),
             PotionRewardOdds = Double(playerOdds, "potion_reward_odds_value"),
             UnknownMapPointOdds = mapOdds,

@@ -115,6 +115,9 @@ public static class DataPackLoader
     /// <exception cref="FileNotFoundException"><paramref name="catalogPath"/> is given but does not exist.</exception>
     /// <exception cref="InvalidDataException">A file is malformed or two tier files declare the same character.</exception>
     public static DataPack LoadDirectory(string directory, CardCatalog? catalog = null, string? catalogPath = null)
+        => LoadPack(directory, catalog, catalogPath, null);
+
+    private static DataPack LoadPack(string directory, CardCatalog? catalog, string? catalogPath, string? baselineModelDir)
     {
         if (!Directory.Exists(directory))
         {
@@ -173,7 +176,7 @@ public static class DataPackLoader
         {
             catalog = LoadFile(packCatalogPath, LoadCatalog);
         }
-        if (catalog is null && SiblingCatalogPath(directory) is { } sibling && File.Exists(sibling))
+        if (baselineModelDir is null && catalog is null && SiblingCatalogPath(directory) is { } sibling && File.Exists(sibling))
         {
             catalog = LoadFile(sibling, LoadCatalog);
         }
@@ -185,8 +188,16 @@ public static class DataPackLoader
         var relicStats = File.Exists(relicStatsPath) ? LoadFile(relicStatsPath, LoadRelicStats) : null;
         var relicFitPath = Path.Combine(directory, RelicFitFile);
         var relicFit = File.Exists(relicFitPath) ? LoadFile(relicFitPath, LoadRelicFit) : null;
-        var policyPath = Path.Combine(directory, CardPolicyFile);
+        var policyPath = baselineModelDir is null ? Path.Combine(directory, CardPolicyFile) : Path.Combine(baselineModelDir, "card-policy.json");
         var cardPolicy = File.Exists(policyPath) ? LoadFile(policyPath, Learning.CardPolicyModel.Load) : null;
+        // The evaluation used the v0.107.1 tables with a separate card model and no sibling card catalog.
+        var profile = Path.Combine(directory, "model", "run-baseline");
+        var tables = Path.Combine(directory, "..", "v0.107.1");
+        DataPack? baselinePack = null;
+        if (baselineModelDir is null && Path.GetFileName(Path.TrimEndingDirectorySeparator(directory)) == "v0.111.0"
+            && File.Exists(Path.Combine(profile, "adjust.json")) && File.Exists(Path.Combine(profile, "card-policy.json"))
+            && File.Exists(Path.Combine(tables, WeightsFile)))
+            baselinePack = LoadPack(tables, null, null, profile);
 
         return new DataPack
         {
@@ -200,6 +211,8 @@ public static class DataPackLoader
             RelicStats = relicStats,
             RelicFit = relicFit,
             CardPolicy = cardPolicy,
+            BaselinePack = baselinePack,
+            RunBaseline = baselineModelDir is null ? null : LoadFile(Path.Combine(baselineModelDir, "adjust.json"), Learning.RunBaselinePolicy.Load),
         };
     }
 

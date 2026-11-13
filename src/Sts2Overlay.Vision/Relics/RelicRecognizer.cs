@@ -125,14 +125,30 @@ public sealed class RelicRecognizer
     public const int SlotCount = 3;
 
     private readonly RelicIconDatabase _db;
+    private readonly bool _potion;
+    private readonly float _firstX, _rowY;
+    private static readonly RectF PotionPicture = new(-44, -50, 90, 90);
+    private RectF Picture => _potion ? PotionPicture : IconBox;
     private readonly ShopPriceReader? _prices;
 
     public RelicRecognizerOptions Options { get; }
     public RelicIconDatabase Database => _db;
 
     public RelicRecognizer(RelicIconDatabase db, RelicRecognizerOptions? options = null, PriceReaderOptions? priceOptions = null)
+        : this(db, false, SlotX0, SlotY, options, priceOptions) { }
+
+    public static RelicRecognizer ForPotions(RelicIconDatabase db, float firstX = SlotX0, float rowY = 819f) =>
+        new(db, true, firstX, rowY, null, null);
+
+    public static RelicRecognizer ForRelics(RelicIconDatabase db, float firstX, float rowY) =>
+        new(db, false, firstX, rowY, null, null);
+
+    private RelicRecognizer(RelicIconDatabase db, bool potion, float firstX, float rowY, RelicRecognizerOptions? options, PriceReaderOptions? priceOptions)
     {
         _db = db;
+        _potion = potion;
+        _firstX = firstX;
+        _rowY = rowY;
         Options = options ?? new RelicRecognizerOptions();
         _prices = new ShopPriceReader(options: priceOptions ?? new PriceReaderOptions());
     }
@@ -153,7 +169,8 @@ public sealed class RelicRecognizer
         int step = Math.Max(1, (int)MathF.Floor(t.Scale + 1e-3f));
         float r = Options.SearchRadius + 2;
         // Band: every icon square any slot can take within the search (scale up to 0.82).
-        var band = new RectF(SlotX0 - 56 * 0.82f - r, SlotY - 72 * 0.82f - r, SlotStepX * (SlotCount - 1) + 120 * 0.82f + 2 * r, 120 * 0.82f + 2 * r);
+        var band = new RectF(_firstX + Picture.X * 0.86f - r, _rowY + Picture.Y * 0.86f - r,
+            SlotStepX * (SlotCount - 1) + Picture.Width * 0.86f + 2 * r, Picture.Height * 0.86f + 2 * r);
         using IntegralImage img = IntegralImage.Build(frame, t.ToPixelRect(band), step, VisionScratch.Tables);
         var result = new RecognizedRelic[SlotCount];
         ScreenFrame f = frame;
@@ -166,7 +183,7 @@ public sealed class RelicRecognizer
 
     private RecognizedRelic MatchSlot(IntegralImage img, RefTransform t, in ScreenFrame frame, int slot)
     {
-        (float ox0, float oy0) = Origin(slot);
+        float ox0 = _firstX + SlotStepX * slot, oy0 = _rowY;
         RelicTemplates coarse = _db.Coarse, fine = _db.Fine;
         int n = _db.Count;
         float[] q = new float[coarse.Length], q2 = new float[coarse.Length];
@@ -266,20 +283,20 @@ public sealed class RelicRecognizer
 
         // Price: at the found node when the picture matched, else at the resting layout node.
         Box priceAt = looksRight ? win : new Box(ox0, oy0, SmallScale);
-        PriceReading? reading = _prices?.ReadRelic(frame, priceAt.X, priceAt.Y, priceAt.S, looksRight ? pick!.Rarity : null);
+        PriceReading? reading = ReadPrice(frame, priceAt, looksRight ? pick!.Rarity : null);
         bool accepted = looksRight && (!Options.RequirePriceLabel || reading is { Plausible: true });
         if (!accepted) priceAt = new Box(ox0, oy0, SmallScale);
         if (reading == null && !accepted)
             foreach (float s in (float[])[HoverScale])
-                reading ??= _prices?.ReadRelic(frame, ox0, oy0, s);
+                reading ??= ReadPrice(frame, new Box(ox0, oy0, s), null);
 
         CoverShares cover = Cover(img, t, new Box(ox0, oy0, SmallScale));
         RelicSlotState state = accepted ? RelicSlotState.Identified
             : cover.Rug >= Options.EmptyRugShare && reading is not { Plausible: true } ? RelicSlotState.Empty
             : RelicSlotState.Unknown;
-        RectF priceBox = new(priceAt.X + LabelBox.X * priceAt.S, priceAt.Y + LabelBox.Y * priceAt.S, LabelBox.Width * priceAt.S, LabelBox.Height * priceAt.S);
+        RectF priceBox = new(priceAt.X + LabelBox.X * priceAt.S, priceAt.Y + (_potion ? 47.7f : LabelBox.Y) * priceAt.S, LabelBox.Width * priceAt.S, LabelBox.Height * priceAt.S);
         return new RecognizedRelic(slot, state, accepted ? pick!.RelicId : pick?.RelicId, pick?.Rarity, score, margin, win.S,
-            t.ToPixelRect(IconAt(win.X, win.Y, win.S)), t.ToPixelRect(priceBox), accepted ? reading?.Value : null,
+            t.ToPixelRect(PictureAt(win)), t.ToPixelRect(priceBox), accepted ? reading?.Value : null,
             ranked.Select(x => (_db.Entries[x.k].RelicId, x.s)).ToArray())
         {
             PriceReading = reading,
@@ -293,20 +310,25 @@ public sealed class RelicRecognizer
         };
     }
 
-    private static void Sample(IntegralImage img, RefTransform t, Box b, int g, float[] q, float[] q2)
+    private PriceReading? ReadPrice(in ScreenFrame frame, Box b, string? rarity) => _potion
+        ? _prices?.ReadPotion(frame, b.X, b.Y, b.S) : _prices?.ReadRelic(frame, b.X, b.Y, b.S, rarity);
+
+    private RectF PictureAt(Box b) => new(b.X + Picture.X * b.S, b.Y + Picture.Y * b.S, Picture.Width * b.S, Picture.Height * b.S);
+
+    private void Sample(IntegralImage img, RefTransform t, Box b, int g, float[] q, float[] q2)
     {
-        img.SampleGrid(t.ToPixels(IconAt(b.X, b.Y, b.S)), g, g, q);
+        img.SampleGrid(t.ToPixels(PictureAt(b)), g, g, q);
         for (int i = 0; i < q.Length; i++) q2[i] = q[i] * q[i];
     }
 
     private readonly record struct CoverShares(float Tooltip, float Hand, float Overlay, float Rug);
 
     /// <summary>Share of the icon square's cells in tooltip slate, the merchant's hand, dark overlay colours and bare rug.</summary>
-    private static CoverShares Cover(IntegralImage img, RefTransform t, Box b)
+    private CoverShares Cover(IntegralImage img, RefTransform t, Box b)
     {
         const int g = 12;
         float[] c = new float[g * g * 3];
-        img.SampleGrid(t.ToPixels(IconAt(b.X, b.Y, b.S)), g, g, c);
+        img.SampleGrid(t.ToPixels(PictureAt(b)), g, g, c);
         int tip = 0, hand = 0, dark = 0, rug = 0;
         for (int i = 0; i < c.Length; i += 3)
         {

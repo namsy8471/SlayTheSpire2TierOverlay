@@ -29,6 +29,7 @@ namespace Sts2Overlay.App.Controllers;
 public sealed partial class AppController
 {
     private EventScorer? _eventScorer;
+    private readonly BaselineEventChoices _baselineEvents = new();
     private EventTextProvider _eventText = EventTextProvider.Empty;
     private EventScreenTracker? _eventScreens;
     private EventMarkerWindow? _eventMarkers;
@@ -52,6 +53,7 @@ public sealed partial class AppController
 
     private void InitEvents(string packDir)
     {
+        _baselineEvents.Reset();
         EventCatalog catalog;
         try
         {
@@ -96,6 +98,7 @@ public sealed partial class AppController
         _eventScreens?.SetEvent(active?.EventId);
         if (active is null || snap.Run is not { } run || _eventScorer is null)
         {
+            _baselineEvents.Reset();
             if (_lastEvent is not null)
             {
                 _lastEvent = null;
@@ -121,7 +124,8 @@ public sealed partial class AppController
         var keys = match?.Keys ?? (active.ChosenKeys.Count == 0 ? active.OptionKeys : null);
         var tracked = ((GameStateAdapter)_source!).Tracked!;
         var context = EventContextFor(active.EventId, tracked, run);
-        var key = $"{active.EventId}|{page}|{string.Join(",", keys ?? [])}|{run.Hp}/{run.MaxHp}|{run.Gold}|{run.Deck.Count}"
+        var lastChoice = active.ChosenKeys.LastOrDefault() ?? _eventScreens?.LastChoice;
+        var key = $"{active.EventId}|{page}|{string.Join(",", keys ?? [])}|{run.Floor}|{run.Hp}/{run.MaxHp}|{run.Gold}|{run.Deck.Count}|{lastChoice}"
                   + $"|{context.PlayerCount}|{(context.Forecast is null ? "-" : _dummy?.Key)}#{_engineVersion}@{Loc.CurrentCode}";
         if (key == _eventKey)
         {
@@ -134,6 +138,8 @@ public sealed partial class AppController
         try
         {
             eval = _eventScorer.Evaluate(run, active.EventId, keys, page, active.PossibleKeys, context);
+            if (eval is not null && Core.Learning.RunBaselinePolicy.For(_engine.Pack, run) is not null)
+                eval = _baselineEvents.Apply(eval, run.Floor, run.Hp, lastChoice);
         }
         catch (Exception ex)
         {
@@ -340,6 +346,7 @@ public sealed partial class AppController
             Footer = (eval.Best is { } best
                          ? Loc.T($"추천: {_eventText.OptionTitle(best.Option.Key)}", $"Pick: {_eventText.OptionTitle(best.Option.Key)}")
                          : Loc.T("추천 없음", "No pick"))
+                     + (eval.UsedRunBaseline ? Loc.T(" · 비교용 전체 런 정책", " · full-run baseline policy") : "")
                      + Loc.T($" · 인식: {source}{options}", $" · source: {source}{options}"),
             ExtraTitle = extra.Count > 0
                 ? Loc.T($"이번에 안 나온 선택지 {extra.Count}개 · 참고 순위", $"{extra.Count} options not offered this time · ranked for reference")

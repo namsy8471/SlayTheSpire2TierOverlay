@@ -79,5 +79,10 @@ public class OfferMarkersTests
         Assert.Equal("제거 추천: 타격", OfferMarkers.RemovalText(Shop(Item(ShopItemKind.Card), Item(ShopItemKind.CardRemoval, "CARD.STRIKE_DEFECT")), Name));
         Assert.Equal("제거 추천", OfferMarkers.RemovalText(Shop(Item(ShopItemKind.CardRemoval)), Name));
         Assert.Null(OfferMarkers.RemovalText(Shop(Item(ShopItemKind.Card)), Name));
+        var enchanted = Item(ShopItemKind.CardRemoval, "CARD.STRIKE_DEFECT") with
+        {
+            RemovalCopy = new DeckCard(new CardRef("CARD.STRIKE_DEFECT", 1), EnchantmentId: "ENCHANTMENT.SAMPLE", EnchantmentAmount: 2),
+        };
+        Assert.Equal("제거 추천: 타격+ (표본 ×2)", OfferMarkers.RemovalText(Shop(enchanted), Name, _ => "표본"));
     }
 }

@@ -21,7 +21,7 @@ public static class RestMarks
     public static MapMarkPlan Choice(RestSiteResult rest, RestSiteAdvice advice, Func<CardRef, string> name)
     {
         if (advice.Confidence == RestConfidence.Unknown) return MapMarkPlan.Empty;
-        var want = advice.Action == RestAction.Heal ? RestOption.Heal : RestOption.Smith;
+        if (!Enum.TryParse<RestOption>(advice.Action.ToString(), out var want)) return MapMarkPlan.Empty;
         if (rest.Find(want) is not { Enabled: true } button) return MapMarkPlan.Empty;
 
         var ribbon = advice.Confidence == RestConfidence.Close ? Loc.T("추천! (박빙)", "Pick! (close)") : Loc.T("추천!", "Pick!");

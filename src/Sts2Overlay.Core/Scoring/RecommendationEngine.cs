@@ -21,17 +21,26 @@ public sealed class RecommendationEngine(DataPack pack)
     /// <summary>True when card rewards are ranked by the learned model.</summary>
     public bool LearnedModelActive => UseLearnedModel && Pack.CardPolicy is not null;
 
-    public DeckProfile Analyze(RunState state) => DeckAnalyzer.Analyze(state, Pack);
+    public DeckProfile Analyze(RunState state) => DeckAnalyzer.Analyze(state, Pack.ForRun(state));
 
     /// <summary>Card reward (or event card choice): ranks cards, adds Skip as a candidate, sets confidence.</summary>
     public OfferEvaluation EvaluateOffer(RunState state, IReadOnlyList<CardRef> cards, OfferContext context = OfferContext.CardReward)
-        => EvaluateOffer(state, Analyze(state), cards, context);
+        => EvaluateOffer(state, cards, context, allowSkip: true);
+
+    /// <summary>Card choice with an explicit, observed skip permission.</summary>
+    public OfferEvaluation EvaluateOffer(RunState state, IReadOnlyList<CardRef> cards, OfferContext context, bool allowSkip)
+        => EvaluateOffer(state, Analyze(state), cards, context, allowSkip);
 
     /// <summary>Same as <see cref="EvaluateOffer(RunState, IReadOnlyList{CardRef}, OfferContext)"/> with a precomputed profile.</summary>
     public OfferEvaluation EvaluateOffer(RunState state, DeckProfile profile, IReadOnlyList<CardRef> cards, OfferContext context = OfferContext.CardReward)
+        => EvaluateOffer(state, profile, cards, context, allowSkip: true);
+
+    /// <summary>Precomputed profile and explicit skip permission; scores are independent of that permission.</summary>
+    public OfferEvaluation EvaluateOffer(RunState state, DeckProfile profile, IReadOnlyList<CardRef> cards, OfferContext context, bool allowSkip)
     {
-        var w = Pack.Weights;
-        var (evals, skip) = new CardValuer(Pack, UseLearnedModel).Evaluate(state, profile, cards, context);
+        var active = Pack.ForRun(state);
+        var w = active.Weights;
+        var (evals, skip) = new CardValuer(active, UseLearnedModel).Evaluate(state, profile, cards, context);
 
         // Rank: total desc, ties by offer order (OrderBy is stable).
         var order = Enumerable.Range(0, evals.Count).OrderByDescending(i => evals[i].Total).ThenBy(i => i).ToArray();
@@ -57,6 +66,10 @@ public sealed class RecommendationEngine(DataPack pack)
             }
         }
 
+        // The full-run rule must choose a card in mandatory add prompts. Preserve every score and the optional
+        // verdict, but when that verdict would skip, take the highest-scoring rated card in offer order.
+        if (!allowSkip && best is null && !noData && order.Length > 0) best = order[0];
+
         // Winner vs runner-up, Skip counting as a candidate.
         ScoreBreakdown winner;
         ScoreBreakdown? runnerUp;
@@ -66,15 +79,15 @@ public sealed class RecommendationEngine(DataPack pack)
             winner = evals[b].Score;
             winnerIsSkip = false;
             var nextCard = eligible.Where(i => i != b).Select(i => evals[i].Score).FirstOrDefault();
-            if (nextCard is not null && nextCard.Total > skip.Total)
+            if (nextCard is not null && (!allowSkip || nextCard.Total > skip.Total))
             {
                 runnerUp = nextCard;
                 runnerIsSkip = false;
             }
             else
             {
-                runnerUp = skip;
-                runnerIsSkip = true;
+                runnerUp = allowSkip ? skip : null;
+                runnerIsSkip = allowSkip;
             }
         }
         else
@@ -124,7 +137,7 @@ public sealed class RecommendationEngine(DataPack pack)
         {
             Cards = results,
             Skip = skip,
-            SkipRecommended = best is null && !noData,
+            SkipRecommended = allowSkip && best is null && !noData,
             NoData = noData,
             Best = best is int bb ? evals[bb].Card : null,
             Confidence = confidence,
@@ -134,7 +147,7 @@ public sealed class RecommendationEngine(DataPack pack)
     }
 
     public ShopEvaluation EvaluateShop(RunState state, ShopOffer offer)
-        => new ShopScorer(Pack, UseLearnedModel).Evaluate(state, Analyze(state), offer);
+        => new ShopScorer(Pack.ForRun(state), UseLearnedModel, Pack).Evaluate(state, Analyze(state), offer);
 
     /// <summary>Build collection tab: every archetype of the character with commit, completion and probability.</summary>
     public ArchetypeReport Archetypes(RunState state, int remainingRewards)

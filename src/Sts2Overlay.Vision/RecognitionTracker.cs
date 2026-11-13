@@ -9,6 +9,7 @@ public sealed record TrackedScreen(ScreenKind Kind, IReadOnlyList<RecognizedCard
 
     /// <summary>Shop: the merchant relics known to be for sale (identified, by slot).</summary>
     public IReadOnlyList<RecognizedRelic> Relics { get; init; } = [];
+    public IReadOnlyList<RecognizedRelic> Potions { get; init; } = [];
 
     /// <summary>
     /// Slots of the screen's layout, identified or not (a 3-card reward row has 3 even while only 2 cards are read;
@@ -52,6 +53,7 @@ public sealed class RecognitionTracker
     private int _slotCount;
     private readonly SortedDictionary<int, RecognizedCard> _best = [];
     private readonly SortedDictionary<int, RecognizedRelic> _relics = [];
+    private readonly SortedDictionary<int, RecognizedRelic> _potions = [];
     private readonly Dictionary<int, int> _emptySeen = [];
     private int _misses;
     private DateTime _firstMiss;
@@ -75,6 +77,7 @@ public sealed class RecognitionTracker
         : new TrackedScreen(_kind, _best.Values.ToList())
         {
             Relics = _relics.Values.ToList(),
+            Potions = _potions.Values.ToList(),
             SlotCount = _slotCount,
             Generation = Generation,
             Held = _misses > 0,
@@ -123,7 +126,8 @@ public sealed class RecognitionTracker
                 PriceReading = c.Price != null ? c.PriceReading : old.PriceReading ?? c.PriceReading,
             };
         }
-        MergeRelics(frame.Relics);
+        MergeItems(frame.Relics, _relics);
+        MergeItems(frame.Potions, _potions);
         return Current;
     }
 
@@ -150,18 +154,18 @@ public sealed class RecognitionTracker
     /// Merchant relics per slot: an identified relic replaces whatever the slot held (The Courier restocks a bought
     /// slot with a new relic), an empty slot drops it (bought), an unknown one (tooltip, hand, hovered card) keeps it.
     /// </summary>
-    private void MergeRelics(IReadOnlyList<RecognizedRelic> relics)
+    private static void MergeItems(IReadOnlyList<RecognizedRelic> relics, SortedDictionary<int, RecognizedRelic> known)
     {
         foreach (RecognizedRelic r in relics)
             switch (r.State)
             {
                 case RelicSlotState.Identified:
-                    _relics[r.Slot] = _relics.TryGetValue(r.Slot, out RecognizedRelic? old) && old.RelicId == r.RelicId && r.Price == null
-                        ? r with { Price = old.Price, PriceReading = old.PriceReading ?? r.PriceReading } // keep the last clear price
+                    known[r.Slot] = known.TryGetValue(r.Slot, out RecognizedRelic? old) && old.RelicId == r.RelicId && r.Price == null
+                        ? r with { Price = old.Price, PriceReading = r.PriceReading is { Tint: not PriceTint.Unknown } ? r.PriceReading : old.PriceReading ?? r.PriceReading }
                         : r;
                     break;
                 case RelicSlotState.Empty:
-                    _relics.Remove(r.Slot);
+                    known.Remove(r.Slot);
                     break;
             }
     }
@@ -176,6 +180,7 @@ public sealed class RecognitionTracker
         _misses = 0;
         _best.Clear();
         _relics.Clear();
+        _potions.Clear();
         _emptySeen.Clear();
     }
 }

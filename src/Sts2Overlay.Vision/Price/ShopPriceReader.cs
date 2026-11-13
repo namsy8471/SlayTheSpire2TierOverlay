@@ -165,6 +165,16 @@ public sealed class ShopPriceReader
         return ReadAt(frame, ox, oy - RelicLabelShift * scale, scale, v => ShopPriceRules.IsPlausibleRelic(v, rarity, factors));
     }
 
+    public PriceReading? ReadPotion(in ScreenFrame frame, float ox, float oy, float scale)
+    {
+        // MerchantPotion uses the same font and centered coin. Its label center is 74.7 node units down.
+        return ReadAt(frame, ox, oy - (249f - 74.7f) * scale, scale, value =>
+            (Options.PriceFactors ?? ShopPriceRules.AllFactors).Any(f =>
+                PotionBasePrices.Any(p => { var (lo, hi) = ShopPriceRules.Range(p, false, f); return value >= lo && value <= hi; })));
+    }
+
+    private static readonly int[] PotionBasePrices = [50, 75, 100];
+
     private PriceReading? ReadAt(in ScreenFrame frame, float cx, float cy, float scale, Func<int, bool> isPlausible)
     {
         DigitRow? row = Segment(frame, cx, cy, scale);

@@ -47,6 +47,24 @@ public class RecommendationEngineTests
     }
 
     [Fact]
+    public void Mandatory_add_prompt_chooses_the_best_card_without_changing_scores_or_showing_skip()
+    {
+        var engine = new RecommendationEngine(Pack);
+        CardRef[] cards = [Parse(Strike), Parse(Defend), Parse(Filler)];
+        var optional = engine.EvaluateOffer(State(act: 3), cards, OfferContext.Event);
+        var required = engine.EvaluateOffer(State(act: 3), cards, OfferContext.Event, allowSkip: false);
+        Assert.True(optional.SkipRecommended);
+        Assert.False(required.SkipRecommended);
+        Assert.Equal(required.Cards.OrderByDescending(c => c.Total).First().Card, required.Best);
+        Assert.Equal(optional.Cards.Select(c => c.Total), required.Cards.Select(c => c.Total));
+        Assert.Equal(optional.Skip.Total, required.Skip.Total);
+        Assert.DoesNotContain("스킵", required.FlipHint ?? "");
+        var empty = engine.EvaluateOffer(State(act: 3), [], OfferContext.Event, allowSkip: false);
+        Assert.Null(empty.Best);
+        Assert.False(empty.SkipRecommended);
+    }
+
+    [Fact]
     public void BestCard_RankedByTotal()
     {
         var r = Evaluate(1, [Blocker, Star, Filler]);

@@ -50,6 +50,11 @@ public class RelicRecognizerTests
     {
         (float ox, float oy) = RelicRecognizer.Origin(slot);
         RectF box = c.T.ToPixels(RelicRecognizer.IconAt(ox, oy, scale));
+        DrawIcon(c, icon, box);
+    }
+
+    private static void DrawIcon(Canvas c, RgbaImage icon, RectF box)
+    {
         for (int y = (int)box.Y; y < box.Bottom; y++)
             for (int x = (int)box.X; x < box.Right; x++)
             {
@@ -68,6 +73,40 @@ public class RelicRecognizerTests
     {
         (float ox, float oy) = RelicRecognizer.Origin(slot);
         ShopPriceTests.DrawPrice(c, digits, colour, ox, oy - ShopPriceReader.RelicLabelShift * scale, scale);
+    }
+
+    [Fact]
+    public void Relics_follow_the_installed_merchant_scene_when_the_row_moves()
+    {
+        var c = Rug(1920, 1080);
+        const float ox = 957, oy = 683;
+        DrawIcon(c, Icon(5), c.T.ToPixels(RelicRecognizer.IconAt(ox, oy, Rest)));
+        ShopPriceTests.DrawPrice(c, "199", ShopPriceTests.CreamText, ox, oy - ShopPriceReader.RelicLabelShift * Rest, Rest);
+        var slot = Assert.Single(RelicRecognizer.ForRelics(Db, ox, oy).Recognize(c.Frame), s => s.Accepted);
+        Assert.Equal(0, slot.Slot);
+        Assert.Equal(Id(5), slot.RelicId);
+        Assert.Equal(199, slot.Price);
+    }
+
+    [Theory]
+    [InlineData(1920, 1080, 0.65f, false)]
+    [InlineData(1280, 720, 0.8f, true)]
+    public void Potion_shelf_reads_id_slot_current_price_and_affordability(int w, int h, float scale, bool red)
+    {
+        var c = new Canvas(w, h);
+        c.FillRef(new RectF(900, 760, 480, 180), 75, 110, 98);
+        float ox = 989 + 150, oy = 819;
+        DrawIcon(c, Icon(3), c.T.ToPixels(new RectF(ox - 44 * scale, oy - 50 * scale, 90 * scale, 90 * scale)));
+        ShopPriceTests.DrawPrice(c, "75", red ? ShopPriceTests.RedText : ShopPriceTests.CreamText, ox, oy - (249 - 74.7f) * scale, scale);
+        var db = RelicIconDatabase.FromImages(Enumerable.Range(1, 4).Select(i => ($"POTION.TEST{i}", "", Icon(i))).ToArray());
+        var slots = RelicRecognizer.ForPotions(db).Recognize(c.Frame);
+        var potion = Assert.Single(slots, s => s.Accepted);
+        Assert.Equal("POTION.TEST3", potion.RelicId);
+        Assert.Equal(1, potion.Slot);
+        Assert.Equal(75, potion.Price);
+        Assert.Equal(red, potion.Unaffordable);
+        Assert.True(potion.IconBounds.Width > 0);
+        Assert.Equal(RelicSlotState.Empty, slots[0].State);
     }
 
     [Theory]

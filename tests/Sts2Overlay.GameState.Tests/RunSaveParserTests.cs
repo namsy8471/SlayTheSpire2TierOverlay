@@ -8,6 +8,22 @@ public class RunSaveParserTests
 {
     private static string CoopJson => File.ReadAllText(TestPaths.Fixture("coop_save_handmade.json"));
 
+    [Theory]
+    [InlineData("standard", false, true)]
+    [InlineData("singleplayer", false, true)]
+    [InlineData("singleplayer", true, false)]
+    [InlineData("daily", false, false)]
+    public void Schema_21_reports_custom_and_standard_runs(string mode, bool custom, bool standard)
+    {
+        var save = System.Text.Json.Nodes.JsonNode.Parse(SingleJson)!;
+        save["schema_version"] = 21;
+        save["game_mode"] = mode;
+        save["is_custom_game"] = custom;
+        var state = RunSaveParser.Parse(save.ToJsonString(), null).State;
+        Assert.Equal(21, state.SaveSchemaVersion);
+        Assert.Equal(standard, state.IsStandardRun);
+    }
+
     internal const string SingleJson = """
         {"schema_version":16,"ascension":1,"current_act_index":0,"save_time":0,
          "rng":{"seed":"SOLO1"},
@@ -144,6 +160,7 @@ public class RunSaveParserTests
         Assert.Equal(0.03, s.UnknownMapPointOdds["unknown_map_point_shop_odds_value"]);
         Assert.Equal([new PotionSlot("POTION.CLARITY", 1)], s.Potions);
         Assert.Equal(2, s.MaxPotionSlots);
+        Assert.Equal(1, s.State.EmptyPotionSlots);
         Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1794137138), s.SaveTime);
     }
 

@@ -41,6 +41,15 @@ public sealed class RelicInfoProvider
     /// <summary>Languages whose relic text was found.</summary>
     public IReadOnlyCollection<string> LoadedLanguages => _locs.Keys;
 
+    /// <summary>The visible enchantment on a shop removal target.</summary>
+    public string EnchantmentName(string id, string lang)
+    {
+        var entry = id.StartsWith("ENCHANTMENT.", StringComparison.Ordinal) ? id[12..] : id;
+        var key = entry + ".title";
+        return _locs.GetValueOrDefault(lang)?.Enchantments.GetValueOrDefault(key)
+            ?? _locs.GetValueOrDefault("eng")?.Enchantments.GetValueOrDefault(key) ?? Prettify(entry);
+    }
+
     /// <summary>
     /// Reads <c>relic-vars.&lt;version&gt;.json</c> next to the pack's catalog, the relic tables of
     /// <paramref name="localizationDir"/>/&lt;lang&gt;/relics.json and indexes nothing up front (icons are decoded on demand).

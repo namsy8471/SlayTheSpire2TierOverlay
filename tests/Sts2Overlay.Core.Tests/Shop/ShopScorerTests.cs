@@ -1,4 +1,5 @@
 using Sts2Overlay.Core.Data;
+using Sts2Overlay.Core.Learning;
 using Sts2Overlay.Core.Model;
 using Sts2Overlay.Core.Scoring;
 using Sts2Overlay.Core.Shop;
@@ -241,5 +242,76 @@ public class ShopScorerTests
         var one = Evaluate(State(act: 1, deck: [Blocker], gold: 300), offer);
         Assert.Equal(new[] { Star }, one.RecommendedPurchase.Select(i => i.Card!.Value.Id));
         Assert.Equal(new[] { ShopItemKind.Card, ShopItemKind.Relic }, one.Items.Select(i => i.Kind)); // 35/150 > 20/275
+    }
+
+    private static ShopEvaluation BaselineShop(Dictionary<string, double> weights, RunState state, ShopOffer offer, DataPack? legalityPack = null)
+    {
+        var pack = new DataPack { Tiers = Pack.Tiers, Weights = Pack.Weights, Catalog = Pack.Catalog, RunBaseline = new RunBaselinePolicy(weights) };
+        state = state with { Character = "CHARACTER.IRONCLAD" };
+        return new ShopScorer(pack, useLearnedModel: true, legalityPack).Evaluate(state, DeckAnalyzer.AnalyzeDeck(state, pack), offer);
+    }
+
+    [Fact]
+    public void RunPolicy_OnlyTheCurrentShelfActionIsRecommended()
+    {
+        var offer = new ShopOffer([]) { RemovalAvailable = false, Relics = [
+            new("RELIC.FIRST", "common", 50), new("RELIC.SECOND", "rare", 50)] };
+        var state = State(gold: 500);
+        var result = BaselineShop(new() { ["shop:relic|FIRST"] = 100 }, state, offer);
+        Assert.True(result.SingleStep);
+        Assert.Equal("RELIC.FIRST", Assert.Single(result.RecommendedPurchase).RelicId);
+        Assert.Equal(450, result.GoldLeft);
+        Assert.Equal(2, result.Items.Count);
+        Assert.Empty(BaselineShop(new() { ["shop:leave"] = 100 }, state, offer).RecommendedPurchase);
+    }
+
+    [Fact]
+    public void RunPolicy_RankTwoUsesRawValueOfAffordableAlternatives()
+    {
+        var offer = new ShopOffer([]) { RemovalAvailable = false, Relics = [
+            new("RELIC.RULE", "rare", 1), new("RELIC.CHEAP", "common", 2),
+            new("RELIC.RANK_TWO", "rare", 100), new("RELIC.TOO_EXPENSIVE", "rare", 1000)] };
+        var result = BaselineShop(new() { ["shop:rank2"] = 100, ["shop:relic|TOO_EXPENSIVE"] = 200 }, State(gold: 150), offer);
+        Assert.Equal("RELIC.RANK_TWO", Assert.Single(result.RecommendedPurchase).RelicId);
+    }
+
+    [Fact]
+    public void RunPolicy_CanChooseARecognizedRemovalEvenWhenTheRuleHasNoTarget()
+    {
+        var state = State(deck: [Star + "+1", Blocker], gold: 150);
+        var weights = new Dictionary<string, double> { ["shop:remove|" + Star["CARD.".Length..]] = 100 };
+        var result = BaselineShop(weights, state, Offer(75));
+        var pick = Assert.Single(result.RecommendedPurchase);
+        Assert.Same(pick, Assert.Single(result.Items));
+        Assert.Equal(new CardRef(Star, 1), pick.RemovalCopy!.Card);
+        Assert.Empty(BaselineShop(weights, state, new ShopOffer([]) { RemovalAvailable = false }).RecommendedPurchase);
+    }
+
+    [Fact]
+    public void RunPolicy_ExcludesEternalCardsAndCopiesMadeEternalByEnchantment()
+    {
+        var state = State(gold: 150) with { Deck = [new(Parse(Strike), EnchantmentId: "ENCHANTMENT.TEZCATARAS_EMBER"), new(Parse(Curse))] };
+        var legal = new DataPack { Catalog = new CardCatalog { Cards = [new CatalogCard { Id = Curse, Keywords = ["Eternal"] }] } };
+        var result = BaselineShop(new() { ["shop:remove"] = 100 }, state, Offer(75), legal);
+        Assert.Empty(result.RecommendedPurchase);
+        Assert.DoesNotContain(result.Items, i => i.Kind == ShopItemKind.CardRemoval);
+    }
+
+    [Fact]
+    public void RunPolicy_PotionsNeedAnEmptyBeltSlotAKnownAffordablePriceAndPermissionToProcure()
+    {
+        var offer = new ShopOffer([]) { RemovalAvailable = false, Potions = [new("POTION.TEST", 30)] };
+        var weights = new Dictionary<string, double> { ["shop:potion|TEST"] = 100 };
+        var state = State(gold: 70) with { EmptyPotionSlots = 1 };
+        var chosen = Assert.Single(BaselineShop(weights, state, offer).RecommendedPurchase);
+        Assert.Equal("POTION.TEST", chosen.PotionId);
+        Assert.Equal(30, chosen.Price);
+        Assert.Empty(BaselineShop(weights, state with { EmptyPotionSlots = 0 }, offer).RecommendedPurchase);
+        Assert.Empty(BaselineShop(weights, state with { EmptyPotionSlots = null }, offer).RecommendedPurchase);
+        Assert.Empty(BaselineShop(weights, state with { Relics = ["RELIC.SOZU"] }, offer).RecommendedPurchase);
+        Assert.Empty(BaselineShop(weights, state, offer with { Potions = [new("POTION.TEST", null)] }).RecommendedPurchase);
+        Assert.Empty(BaselineShop(weights, state, offer with { Potions = [new("POTION.TEST", 30, false)] }).RecommendedPurchase);
+        Assert.Empty(BaselineShop(weights, state with { Gold = 10 }, offer).RecommendedPurchase);
+        Assert.Empty(BaselineShop(new() { ["shop:rank2"] = 100 }, state, offer).RecommendedPurchase);
     }
 }

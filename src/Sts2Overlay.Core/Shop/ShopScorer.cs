@@ -1,4 +1,5 @@
 using Sts2Overlay.Core.Data;
+using Sts2Overlay.Core.Learning;
 using Sts2Overlay.Core.Localization;
 using Sts2Overlay.Core.Model;
 using Sts2Overlay.Core.Scoring;
@@ -19,7 +20,8 @@ namespace Sts2Overlay.Core.Shop;
 /// <param name="useLearnedModel">
 /// The engine's switch (<see cref="RecommendationEngine.UseLearnedModel"/>). Default false: the hand-tuned engine alone.
 /// </param>
-public sealed class ShopScorer(DataPack pack, bool useLearnedModel = false)
+/// <param name="legalityPack">The current game's catalog, when the policy's scoring tables come from another pack.</param>
+public sealed class ShopScorer(DataPack pack, bool useLearnedModel = false, DataPack? legalityPack = null)
 {
     /// <summary>Largest number of candidate items searched exhaustively for the recommended bundle.</summary>
     public const int MaxBundleCandidates = 12;
@@ -57,15 +59,37 @@ public sealed class ShopScorer(DataPack pack, bool useLearnedModel = false)
 
         foreach (var sale in offer.Relics) items.Add(RelicItem(profile, sale, gold));
 
+        var policy = useLearnedModel ? RunBaselinePolicy.For(Pack, state) : null;
+        if (policy is not null && state.EmptyPotionSlots > 0 && !state.Relics.Contains("RELIC.SOZU"))
+        {
+            foreach (var potion in offer.Potions)
+                if (potion.Price is int price && price >= 0 && price <= gold && potion.AffordableOnScreen != false)
+                    items.Add(new ShopItemEvaluation
+                    {
+                        Kind = ShopItemKind.Potion, PotionId = potion.PotionId, Price = price, Affordable = true,
+                        Value = new ScoreBreakdown([]),
+                    });
+        }
         var removal = RemovalItem(state, offer, gold);
+        if (policy is not null && removal is not null &&
+            !state.Deck.Any(c => IsRemovable(c) && c.Id == removal.RemovalTarget))
+            removal = null; // The bundle rule retries without a removal if its target has no removable copy.
         if (removal is not null) items.Add(removal);
 
         var sorted = items.OrderByDescending(i => i.ValuePerGold).ToArray();
         var bundle = BestBundle(sorted.Where(WorthBuying).ToArray(), gold);
+        if (policy is not null)
+        {
+            var next = NextPurchase(policy, state with { Gold = gold }, offer, items, removal, bundle.FirstOrDefault());
+            bundle = next is null ? [] : [next];
+            if (next?.Kind == ShopItemKind.CardRemoval && !ReferenceEquals(next, removal))
+                sorted = sorted.Where(i => i.Kind != ShopItemKind.CardRemoval).Append(next).OrderByDescending(i => i.ValuePerGold).ToArray();
+        }
         return new ShopEvaluation
         {
             Items = sorted,
             RecommendedPurchase = bundle,
+            SingleStep = policy is not null,
             Gold = gold,
             GoldCorrectedByScreen = goldCorrected,
             GoldKnown = state.VitalsKnown,
@@ -73,6 +97,59 @@ public sealed class ShopScorer(DataPack pack, bool useLearnedModel = false)
             Skip = skip,
         };
     }
+
+    private ShopItemEvaluation? NextPurchase(RunBaselinePolicy policy, RunState state, ShopOffer offer,
+        IReadOnlyList<ShopItemEvaluation> items, ShopItemEvaluation? removal, ShopItemEvaluation? ruleItem)
+    {
+        // The shelf's action order is leave, affordable cards, relics, potions and removable deck copies.
+        // The rule gives potions no rank. Rank 2 uses raw item values, not value per gold.
+        var options = new List<BaselineCandidate> { new("leave") };
+        var purchases = new List<ShopItemEvaluation?> { null };
+        var values = new List<double?> { 0 };
+        var rule = 0;
+        void Add(BaselineCandidate option, ShopItemEvaluation item, double? score, bool isRule)
+        {
+            if (isRule) rule = options.Count;
+            options.Add(option);
+            purchases.Add(item);
+            values.Add(score);
+        }
+        foreach (var item in items.Where(i => i.Affordable && i.Price >= 0 && i.Price <= state.Gold && i.Kind != ShopItemKind.CardRemoval))
+        {
+            var option = item.Card is { } c ? new BaselineCandidate("card", c.Id, c.Upgrade, item.Price)
+                : item.Kind == ShopItemKind.Potion ? new BaselineCandidate("potion", item.PotionId, Price: item.Price)
+                : new BaselineCandidate("relic", item.RelicId, Price: item.Price);
+            Add(option, item, item.Kind == ShopItemKind.Potion ? null : item.Value.Total, ReferenceEquals(item, ruleItem));
+        }
+        var price = offer.RemovalPrice ?? RemovalPrice(state, Pack.Weights);
+        if (offer.RemovalAvailable && price >= 0 && price <= state.Gold)
+        {
+            var copies = state.Deck.Where(IsRemovable)
+                .DistinctBy(c => (c.Card, c.EnchantmentId, c.EnchantmentAmount)).ToArray();
+            var ruleCopy = copies.Where(c => c.Id == removal?.RemovalTarget)
+                .OrderBy(c => c.Upgrade).ThenBy(c => c.EnchantmentId is not null).FirstOrDefault();
+            foreach (var copy in copies)
+            {
+                var scored = ReferenceEquals(copy, ruleCopy);
+                var item = new ShopItemEvaluation
+                {
+                    Kind = ShopItemKind.CardRemoval, Price = price, Affordable = true,
+                    RemovalTarget = copy.Id, RemovalCopy = copy,
+                    Value = scored ? removal!.Value : new ScoreBreakdown([]),
+                };
+                Add(new("remove", copy.Id, copy.Upgrade, price), item, scored ? item.Value.Total : null,
+                    scored && ReferenceEquals(ruleItem, removal));
+            }
+        }
+        var second = Enumerable.Range(0, options.Count).Where(i => i != rule && values[i].HasValue)
+            .OrderByDescending(i => values[i]).FirstOrDefault(-1);
+        var cores = Pack.ArchetypesFor(state.Character).SelectMany(a => a.Cards.Core).Select(Pack.Canonical).ToHashSet(StringComparer.Ordinal);
+        var hasCore = state.Deck.Any(c => cores.Contains(Pack.Canonical(c.Id)));
+        return purchases[policy.Pick("shop", state, options, rule, second, hasCore)];
+    }
+
+    private bool IsRemovable(DeckCard copy) => !(legalityPack ?? Pack).IsEternal(copy.Id)
+        && copy.EnchantmentId is not ("ENCHANTMENT.TEZCATARAS_EMBER" or "TEZCATARAS_EMBER");
 
     /// <summary>75 + 25 × removals so far (ascension ≥ 6: 100 + 50 ×). [코드 확인] SPIKE §5.</summary>
     public static int RemovalPrice(RunState state, Weights weights)

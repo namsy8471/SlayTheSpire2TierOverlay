@@ -80,6 +80,8 @@
     <Content Include="..\..\data\catalog\*.json" Exclude="..\..\data\**\catalog.*.json"
              Link="data\catalog\%(Filename)%(Extension)"
              CopyToOutputDirectory="Never" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\data\advisor\combat-value-R01.json" Link="advisor\combat-value-R01.json"
+             CopyToOutputDirectory="Never" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!-- WinForms adds global usings (System.Windows.Forms, System.Drawing) whose names clash with WPF (Application, Point, Brush...). -->

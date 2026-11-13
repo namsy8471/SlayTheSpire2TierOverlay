@@ -8,6 +8,7 @@ public enum ShopItemKind
     Card,
     CardRemoval,
     Relic,
+    Potion,
 }
 
 /// <summary>One purchasable thing at the merchant, valued relative to skipping.</summary>
@@ -29,11 +30,16 @@ public sealed record ShopItemEvaluation
     /// <summary>For relic items: <c>RELIC.X</c>.</summary>
     public string? RelicId { get; init; }
 
+    public string? PotionId { get; init; }
+
     /// <summary>For relic items: the deck-aware relic valuation (<see cref="ShopScorer.ScoreRelic"/>); <see cref="Value"/> is its breakdown.</summary>
     public RelicEvaluation? RelicEvaluation { get; init; }
 
     /// <summary>For removal: the card id that should be removed.</summary>
     public string? RemovalTarget { get; init; }
+
+    /// <summary>The selected deck copy, including upgrades and enchantment, when applying the run policy.</summary>
+    public DeckCard? RemovalCopy { get; init; }
 
     public bool Affordable { get; init; }
 
@@ -49,8 +55,11 @@ public sealed record ShopEvaluation
     /// <summary>All items, best value per gold first.</summary>
     public required IReadOnlyList<ShopItemEvaluation> Items { get; init; }
 
-    /// <summary>Best affordable combination of positive-value items.</summary>
+    /// <summary>The chosen next purchase with the run policy, otherwise the best affordable bundle.</summary>
     public required IReadOnlyList<ShopItemEvaluation> RecommendedPurchase { get; init; }
+
+    /// <summary>The recommendation is the next action among recognized offers; re-evaluate after a purchase.</summary>
+    public bool SingleStep { get; init; }
 
     /// <summary>The gold planned with: the tracked gold, clamped to what the price colours on screen prove.</summary>
     public int Gold { get; init; }

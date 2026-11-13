@@ -99,6 +99,20 @@ public sealed class RelicIconDatabase
         var images = icons.Select(x => x.Image).ToList();
         return new RelicIconDatabase(entries, RelicTemplates.Build(images, outlines, CoarseGrid), RelicTemplates.Build(images, outlines, FineGrid));
     }
+
+    public static RelicIconDatabase BuildPotions(string iconDir)
+    {
+        var icons = new List<(string Id, string Rarity, RgbaImage Image)>();
+        var outlines = new List<RgbaImage?>();
+        foreach (var file in Directory.EnumerateFiles(iconDir, "*.png").Order(StringComparer.Ordinal))
+        {
+            string name = Path.GetFileNameWithoutExtension(file);
+            icons.Add(("POTION." + name.ToUpperInvariant(), "", RgbaImage.Load(file)));
+            string outline = Path.Combine(iconDir, OutlineDir, Path.GetFileName(file));
+            outlines.Add(File.Exists(outline) ? RgbaImage.Load(outline) : null);
+        }
+        return FromImages(icons, outlines);
+    }
 }
 
 /// <summary>A straight-alpha RGBA8 image (row-major).</summary>

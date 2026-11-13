@@ -54,12 +54,22 @@ public static class OfferMarkers
     /// "제거 추천: 타격" when the recommended purchase includes the card-removal service, else null.
     /// <paramref name="cardName"/> turns the target's card id into its Korean name.
     /// </summary>
-    public static string? RemovalText(ShopEvaluation eval, Func<string, string> cardName)
+    public static string? RemovalText(ShopEvaluation eval, Func<string, string> cardName, Func<string, string>? enchantmentName = null)
     {
         var removal = eval.RecommendedPurchase.FirstOrDefault(i => i.Kind == ShopItemKind.CardRemoval);
         if (removal is null) return null;
-        return removal.RemovalTarget is { } id
-            ? Loc.T($"제거 추천: {cardName(id)}", $"Remove: {cardName(id)}")
-            : Loc.T("제거 추천", "Remove a card");
+        if (removal.RemovalTarget is null) return Loc.T("제거 추천", "Remove a card");
+        var target = RemovalTargetName(removal, cardName, enchantmentName);
+        return Loc.T($"제거 추천: {target}", $"Remove: {target}");
+    }
+
+    internal static string RemovalTargetName(ShopItemEvaluation removal, Func<string, string> cardName, Func<string, string>? enchantmentName = null)
+    {
+        if (removal.RemovalTarget is not { } id) return "?";
+        var name = cardName(id);
+        if (removal.RemovalCopy is not { } copy) return name;
+        if (copy.Upgrade > 0) name += copy.Upgrade == 1 ? "+" : $"+{copy.Upgrade}";
+        if (copy.EnchantmentId is { } enchantment) name += $" ({enchantmentName?.Invoke(enchantment) ?? enchantment} ×{copy.EnchantmentAmount})";
+        return name;
     }
 }

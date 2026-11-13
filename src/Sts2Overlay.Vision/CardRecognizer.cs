@@ -122,6 +122,7 @@ public sealed class CardRecognizer
     /// identified relics also confirm a shop on their own (a frame where every card is covered).
     /// </summary>
     public global::Sts2Overlay.Vision.Relics.RelicRecognizer? Relics { get; init; }
+    public global::Sts2Overlay.Vision.Relics.RelicRecognizer? Potions { get; init; }
 
     public CardRecognizer(CardArtDatabase db, RecognizerOptions? options = null)
     {
@@ -168,8 +169,9 @@ public sealed class CardRecognizer
             // A relic is accepted only with its price label under it (RelicRecognizerOptions.RequirePriceLabel), so
             // one identified relic is as strong a shop signal as one whole-art card match.
             IReadOnlyList<global::Sts2Overlay.Vision.Relics.RecognizedRelic> relics = Relics?.Recognize(frame) ?? [];
-            if (accepted.Count(c => c.Partial == null) >= 1 || relics.Any(r => r.Accepted))
-                return new ScreenRecognition(ScreenKind.Shop, accepted, slots, gate, sw.Elapsed.TotalMilliseconds, "shop") { Relics = relics };
+            var potions = Potions?.Recognize(frame) ?? [];
+            if (accepted.Count(c => c.Partial == null) >= 1 || relics.Any(r => r.Accepted) || potions.Any(r => r.Accepted))
+                return new ScreenRecognition(ScreenKind.Shop, accepted, slots, gate, sw.Elapsed.TotalMilliseconds, "shop") { Relics = relics, Potions = potions };
             notes.Add("shop rug but no cards");
             examined = slots;
         }

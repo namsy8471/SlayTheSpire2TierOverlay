@@ -97,6 +97,10 @@ public sealed class VisionRecognizer : ICardRecognizer
         return new RecognitionResult(kind, cards)
         {
             Relics = relics,
+            Potions = kind == ScreenKind.Shop ? shown.Potions.Where(x => x.Accepted && x.RelicId != null)
+                .Select(x => new RecognizedShopPotion(x.RelicId!, x.Slot,
+                    new PixelRect(x.IconBounds.X, x.IconBounds.Y, x.IconBounds.Width, x.IconBounds.Height).Offset(frame.ScreenRect.X, frame.ScreenRect.Y),
+                    x.Score, x.Price, x.Unaffordable)).ToArray() : [],
             RemovalService = removal is { Available: true, Bounds: var b }
                 ? new PixelRect(b.X, b.Y, b.Width, b.Height).Offset(frame.ScreenRect.X, frame.ScreenRect.Y)
                 : null,
@@ -136,7 +140,8 @@ public sealed class VisionRecognizer : ICardRecognizer
         {
             var db = RelicIconDatabase.Build(iconDir, RelicCatalog.Load(catalog));
             AppLog.Info($"[vision] shop relic reader ready ({db.Count} relics)");
-            return new RelicRecognizer(db);
+            var manifest = Sts2Overlay.Resources.ResourceManifest.TryLoad(new Sts2Overlay.Resources.LocalLayout(local).ManifestPath);
+            return RelicRecognizer.ForRelics(db, manifest?.RelicShelfX ?? RelicRecognizer.SlotX0, manifest?.RelicShelfY ?? RelicRecognizer.SlotY);
         }
         catch (Exception ex)
         {
@@ -171,6 +176,7 @@ public sealed class VisionRecognizer : ICardRecognizer
             _recognizer = new CardRecognizer(db, new RecognizerOptions { Catalog = File.Exists(catalog) ? VisionCatalog.Load(catalog) : null })
             {
                 Relics = LoadRelics(local),
+                Potions = LoadPotions(local),
             };
             AppLog.Info($"[vision] recognizer ready (catalog {Path.GetFileName(catalog)})");
             return _recognizer;
@@ -179,6 +185,25 @@ public sealed class VisionRecognizer : ICardRecognizer
         {
             _unavailable = true;
             AppLog.Error("card art database failed to load; recognition disabled", ex);
+            return null;
+        }
+    }
+
+    private static RelicRecognizer? LoadPotions(string local)
+    {
+        var layout = new Sts2Overlay.Resources.LocalLayout(local);
+        if (!Directory.Exists(layout.PotionIconDir)) return null;
+        try
+        {
+            var db = RelicIconDatabase.BuildPotions(layout.PotionIconDir);
+            if (db.Count == 0) return null;
+            // The merchant moved both rows in v0.113. Read the installed inventory scene geometry.
+            var manifest = Sts2Overlay.Resources.ResourceManifest.TryLoad(layout.ManifestPath);
+            return RelicRecognizer.ForPotions(db, manifest?.PotionShelfX ?? RelicRecognizer.SlotX0, manifest?.PotionShelfY ?? 819f);
+        }
+        catch (Exception ex)
+        {
+            AppLog.Error("potion icons failed to load; shop potions off", ex);
             return null;
         }
     }

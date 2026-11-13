@@ -3,7 +3,7 @@ using Sts2Overlay.Core.Scoring;
 
 namespace Sts2Overlay.Core.Rest;
 
-/// <summary>The two rest-site options the advisor compares. Relic options (dig, cook, …) are not modelled.</summary>
+/// <summary>Rest-site actions offered by the game in a solo run.</summary>
 public enum RestAction
 {
     /// <summary>휴식: heal about 30% of max HP.</summary>
@@ -11,6 +11,8 @@ public enum RestAction
 
     /// <summary>강화: upgrade one card.</summary>
     Smith,
+
+    Hatch, Cook, Clone, Dig, Kindle, Lift,
 }
 
 /// <summary>How clear the call is (UI: 확신 / 박빙).</summary>
@@ -28,6 +30,9 @@ public enum RestConfidence
     /// be shown as advice; <see cref="RestSiteAdvice.Upgrades"/> is still the full ranking.
     /// </summary>
     Unknown,
+
+    /// <summary>The learned policy chose this action. Its scores do not measure confidence.</summary>
+    Learned,
 }
 
 /// <summary>Result of <see cref="RestSiteAdvisor.Advise(Model.RunState, MapGraph?)"/>.</summary>
