@@ -596,8 +596,10 @@ public class GameStateTrackerTests
         var t = NewTracker();
         t.ProcessLines([Embark, Wrote(100), "[INFO] Preloading 'Combat Room' assets... count=3 vfx=2"]);
         t.OnSave(Save("S1", 100, "CARD.BASH"));
+        Assert.True(t.Current!.DeckMatchesSave);
         t.ProcessLine("[INFO] Player 1 obtained CARD.ANGER from card reward");
         Assert.Equal(2, t.Current!.State.Deck.Count);
+        Assert.False(t.Current!.DeckMatchesSave);
 
         t.OnLogRotated();
         TrackedRun run = t.Current!;

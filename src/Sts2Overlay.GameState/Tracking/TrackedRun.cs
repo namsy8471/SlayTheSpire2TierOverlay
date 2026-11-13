@@ -133,6 +133,7 @@ public sealed record TrackedRun
 
     /// <summary>True when the base state came from a save file (single player or co-op host).</summary>
     public bool FromSave { get; init; }
+    public bool DeckMatchesSave { get; init; }
 
     /// <summary>
     /// False for a log-only rebuild (co-op guest): HP is the character's starting HP and gold is starting gold +

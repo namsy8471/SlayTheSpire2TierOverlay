@@ -67,7 +67,7 @@ public sealed class RecommendationEngine(DataPack pack)
         }
 
         // The full-run rule must choose a card in mandatory add prompts. Preserve every score and the optional
-        // verdict, but when that verdict would skip, take the highest-scoring rated card in offer order.
+        // verdict, but when that verdict would skip, take the highest-scoring offered card in offer order.
         if (!allowSkip && best is null && !noData && order.Length > 0) best = order[0];
 
         // Winner vs runner-up, Skip counting as a candidate.

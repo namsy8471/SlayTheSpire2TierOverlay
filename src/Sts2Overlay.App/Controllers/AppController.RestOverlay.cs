@@ -57,8 +57,13 @@ public sealed partial class AppController
                             .Select(c => (c.Card, t.ToRef(new RectF(c.ScreenBounds.X - win.CaptureRect.X, c.ScreenBounds.Y - win.CaptureRect.Y, c.ScreenBounds.Width, c.ScreenBounds.Height))))
                             .ToList();
                     }
-                    var advice = eventPick ? RestAdvice(run, []) : RestAdvice(run);
-                    plan = RestMarks.Grid(cards, advice, _cards.Name);
+                    if (eventPick && Core.Learning.RunBaselinePolicy.For(_engine.Pack, run) != null)
+                    {
+                        var targets = _eventUpgrade.BaselineCards(_eventScreens?.Clicked, run, _engine.Pack, _snapshot.DeckMatchesSave);
+                        plan = RestMarks.EventGrid(cards, targets, run.Deck, _cards.Name, id => _relicInfo.EnchantmentName(id, Loc.CurrentCode));
+                    }
+                    else
+                        plan = RestMarks.Grid(cards, eventPick ? RestAdvice(run, []) : RestAdvice(run), _cards.Name);
                 }
             }
         }

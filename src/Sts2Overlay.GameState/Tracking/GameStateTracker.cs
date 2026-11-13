@@ -1484,6 +1484,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
             Potions = potions.OrderBy(x => x.Slot).ToList(),
             CurrentEvent = CurrentEventOf(save),
             FromSave = fromSave,
+            DeckMatchesSave = save != null && finalDeck.SequenceEqual(save.Save.State.Deck),
             HpGoldReliable = fromSave,
             DeckApproximate = !fromHistory && (!fromSave || applied > 0),
             UncertainCards = fromHistory ? [] : deck.Uncertain,

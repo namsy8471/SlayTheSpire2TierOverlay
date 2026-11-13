@@ -42,6 +42,7 @@ public sealed record GameStateSnapshot(
     /// estimate, there is no map, and HP/gold are unknown (<see cref="RunState.VitalsKnown"/>).
     /// </summary>
     public bool LogOnly { get; init; }
+    public bool DeckMatchesSave { get; init; }
 
     /// <summary>
     /// The tracker's room is an event room and nothing else has happened in it (<see cref="Hint"/> is
