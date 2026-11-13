@@ -101,6 +101,7 @@ public static class RunSaveParser
                 && (schema != 21 || Prop(root, "is_custom_game").ValueKind == JsonValueKind.False)
                 && !Array(root, "modifiers").Any(),
             Act = actIndex + 1,
+            ActBoss = Str(Prop(act, "rooms"), "boss_id"),
             Floor = Math.Max(floor, 1),
             Hp = Int(me, "current_hp") ?? 0,
             MaxHp = Int(me, "max_hp") ?? 0,
