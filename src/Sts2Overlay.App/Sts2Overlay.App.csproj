@@ -50,6 +50,8 @@
     -->
     <SelfContained>false</SelfContained>
     <SatelliteResourceLanguages>ko;en</SatelliteResourceLanguages>
+    <!-- Symbols are development artifacts and can retain dependency build paths. -->
+    <CopyOutputSymbolsToPublishDirectory Condition="'$(Configuration)' == 'Release'">false</CopyOutputSymbolsToPublishDirectory>
   </PropertyGroup>
 
   <ItemGroup>
@@ -98,6 +100,13 @@
     <ProjectReference Include="..\Sts2Overlay.Resources\Sts2Overlay.Resources.csproj" />
     <ProjectReference Include="..\Sts2Overlay.Vision\Sts2Overlay.Vision.csproj" />
   </ItemGroup>
+
+  <!-- Also remove symbols from previously built referenced projects in an incremental publish. -->
+  <Target Name="ExcludeDevelopmentSymbolsFromPublish" AfterTargets="ComputeFilesToPublish" Condition="'$(Configuration)' == 'Release'">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)" Condition="'%(ResolvedFileToPublish.Extension)' == '.pdb'" />
+    </ItemGroup>
+  </Target>
 
   <ItemGroup>
     <InternalsVisibleTo Include="Sts2Overlay.App.Tests" />

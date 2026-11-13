@@ -135,7 +135,8 @@ public sealed partial class AppController
         var context = EventContextFor(active.EventId, tracked, run);
         var lastChoice = active.ChosenKeys.LastOrDefault() ?? _eventScreens?.LastChoice;
         var key = $"{active.EventId}|{page}|{string.Join(",", keys ?? [])}|{run.Floor}|{run.Hp}/{run.MaxHp}|{run.Gold}|{run.Deck.Count}|{lastChoice}"
-                  + $"|{context.PlayerCount}|{(context.Forecast is null ? "-" : _dummy?.Key)}#{_engineVersion}@{Loc.CurrentCode}";
+                  + $"|{context.PlayerCount}|{active.Certain}|{tracked.DeckApproximate}|{tracked.HpGoldReliable}|{run.ActBoss}"
+                  + $"|{(context.Forecast is null ? "-" : _dummy?.Key)}#{_engineVersion}@{Loc.CurrentCode}";
         if (key == _eventKey)
         {
             ShowEventMarkers(); // same options; the buttons may have moved
@@ -150,12 +151,9 @@ public sealed partial class AppController
             if (eval is not null && _engine.UseLearnedModel && Core.Learning.RunBaselinePolicy.For(_engine.Pack, run) is not null)
             {
                 eval = _baselineEvents.Apply(eval, run.Floor, run.Hp, lastChoice);
-                if (active.Certain)
-                {
-                    // A0 ancient entry heals all missing HP before its choice; the room-entry save predates that heal.
-                    var visible = eval.Event.IsAncient ? run with { Hp = run.MaxHp } : run;
-                    eval = _adoptedEvents?.Apply(eval, visible, !tracked.DeckApproximate && tracked.HpGoldReliable, lastChoice is not null) ?? eval;
-                }
+                // A0 ancient entry heals all missing HP before its choice; the room-entry save predates that heal.
+                var visible = eval.Event.IsAncient ? run with { Hp = run.MaxHp } : run;
+                eval = _adoptedEvents?.Apply(eval, visible, active.Certain && !tracked.DeckApproximate && tracked.HpGoldReliable, lastChoice) ?? eval;
             }
         }
         catch (Exception ex)
@@ -189,11 +187,8 @@ public sealed partial class AppController
             if (_engine.UseLearnedModel && Core.Learning.RunBaselinePolicy.For(_engine.Pack, run) is not null)
             {
                 again = _baselineEvents.Apply(again, run.Floor, run.Hp, lastChoice);
-                if (active.Certain)
-                {
-                    var visible = again.Event.IsAncient ? run with { Hp = run.MaxHp } : run;
-                    again = _adoptedEvents?.Apply(again, visible, !tracked.DeckApproximate && tracked.HpGoldReliable, lastChoice is not null) ?? again;
-                }
+                var visible = again.Event.IsAncient ? run with { Hp = run.MaxHp } : run;
+                again = _adoptedEvents?.Apply(again, visible, active.Certain && !tracked.DeckApproximate && tracked.HpGoldReliable, lastChoice) ?? again;
             }
             return EventOffer(again, active, match);
         };

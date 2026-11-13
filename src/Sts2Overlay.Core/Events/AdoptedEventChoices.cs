@@ -13,12 +13,13 @@ public sealed class AdoptedEventChoices
     private readonly PairedChoicePolicy _ancient, _event;
     private readonly HashSet<string> _ordinary;
     private readonly Dictionary<string, string> _relicClasses;
-    private readonly Dictionary<string, (int Floor, string Event, string Page, string Pick)> _used = [];
+    private readonly Dictionary<string, (int Floor, string Event, string Page, string Pick, string? LastChoice)> _used = [];
     private string? _runKey;
     private bool _observedFromAct1;
     private (int Floor, string Event, string Kind)? _pending;
     private bool _resolved;
     private int _floor;
+    private bool _earlierPageIneligible;
 
     private AdoptedEventChoices(string directory)
     {
@@ -41,7 +42,7 @@ public sealed class AdoptedEventChoices
     {
         if (runKey != _runKey || run is null || run.Floor < _floor)
         {
-            _used.Clear(); _pending = null; _resolved = false;
+            _used.Clear(); _pending = null; _resolved = false; _earlierPageIneligible = false;
             _runKey = runKey;
             _observedFromAct1 = runKey is not null && run?.Act == 1;
         }
@@ -50,32 +51,30 @@ public sealed class AdoptedEventChoices
         if (_pending is { } pending && (pending.Floor != run.Floor || pending.Event != eventId))
         {
             // An unseen screen may have been the first eligible opportunity: do not move it to a later room.
-            if (!_resolved) _used.TryAdd(pending.Kind, (pending.Floor, pending.Event, "", ""));
+            if (!_resolved) _used.TryAdd(pending.Kind, (pending.Floor, pending.Event, "", "", null));
             _pending = null;
         }
         if (eventId is null || run.Act is not (2 or 3)) return;
         var kind = IsAncient(eventId) ? "ancient" : "event";
         if ((kind == "ancient" && run.Act != 2) || !EligibleEvent(eventId, kind)) return;
-        if (_pending is null) { _pending = (run.Floor, eventId, kind); _resolved = false; }
+        if (_pending is null) { _pending = (run.Floor, eventId, kind); _resolved = false; _earlierPageIneligible = false; }
     }
 
-    public EventEvaluation Apply(EventEvaluation baseline, RunState run, bool stateExact, bool choiceAlreadyMade = false)
+    public EventEvaluation Apply(EventEvaluation baseline, RunState run, bool stateExact, string? lastChosen = null)
     {
         if (!_observedFromAct1 || !RunBaselinePolicy.Supports(run) || run.Ascension != 0 || run.Act is not (2 or 3)) return baseline;
         var kind = baseline.Event.IsAncient ? "ancient" : "event";
         if ((kind == "ancient" && run.Act != 2) || !EligibleEvent(baseline.Event.Id, kind)) return baseline;
-        if (choiceAlreadyMade)
-        {
-            _used.TryAdd(kind, (run.Floor, baseline.Event.Id, "", ""));
-            return baseline;
-        }
         if (_used.TryGetValue(kind, out var previous))
-            return previous.Floor == run.Floor && previous.Event == baseline.Event.Id && previous.Page == baseline.Page
+            return previous.Floor == run.Floor && previous.Event == baseline.Event.Id && previous.Page == baseline.Page && previous.LastChoice == lastChosen
                 ? SetPick(baseline, previous.Pick) : baseline;
         if (!baseline.OptionsExact) return baseline;
-        if (baseline.Page != baseline.Event.InitialPage?.Page)
+        // The same visible screen can gain a fresh save a moment later. Defer until it is exact;
+        // leaving it unresolved consumes the opportunity in Observe, rather than shifting it later.
+        if (!stateExact || run.ActBoss is null) { _resolved = false; return baseline; }
+        if ((lastChosen is not null || baseline.Page != baseline.Event.InitialPage?.Page) && !_earlierPageIneligible)
         {
-            _used[kind] = (run.Floor, baseline.Event.Id, "", "");
+            _used[kind] = (run.Floor, baseline.Event.Id, "", "", null);
             return baseline;
         }
         _resolved = true;
@@ -83,7 +82,7 @@ public sealed class AdoptedEventChoices
         foreach (var option in baseline.Options)
         {
             var content = "";
-            var id = option.Option.ShortName;
+            var id = NativeOptionId(baseline.Event.Id, baseline.Page, option.Option.ShortName);
             if (kind == "ancient")
             {
                 var relics = option.Option.Effects.Where(e => e.Type == EventEffectTypes.Relic && e.Relic is not null).ToArray();
@@ -96,18 +95,27 @@ public sealed class AdoptedEventChoices
         }
         var rule = baseline.Options.ToList().FindIndex(o => o.IsBest);
         var legal = Enumerable.Range(0, candidates.Count).Where(i => candidates[i].Legal).ToArray();
-        if (rule < 0 || !candidates[rule].Legal || legal.Length < 2 || legal.Select(i => candidates[i].Id).Distinct().Count() != legal.Length) return baseline;
+        if (legal.Length < 2) { _earlierPageIneligible = true; return baseline; }
+        if (rule < 0 || !candidates[rule].Legal || legal.Select(i => candidates[i].Id).Distinct().Count() != legal.Length) return baseline;
         // Larger menus require the research hash cap's full visible-state tuple. Missing context keeps the rule.
-        if (!stateExact || run.ActBoss is null || legal.Length > 3)
+        if (legal.Length > 3)
         {
-            _used[kind] = (run.Floor, baseline.Event.Id, "", "");
+            _used[kind] = (run.Floor, baseline.Event.Id, "", "", null);
             return baseline;
         }
         var pick = (kind == "ancient" ? _ancient : _event).Pick(run, baseline.Event.Id, candidates, rule, legal.Where(i => i != rule).ToArray());
         var key = baseline.Options[pick].Option.Key;
-        _used[kind] = (run.Floor, baseline.Event.Id, baseline.Page, key);
+        _used[kind] = (run.Floor, baseline.Event.Id, baseline.Page, key, lastChosen);
         return SetPick(baseline, key);
     }
+
+    internal static string NativeOptionId(string eventId, string page, string shortName) =>
+        eventId == "EVENT.COLOSSAL_FLOWER" && page == "INITIAL" ? shortName switch
+        {
+            "EXTRACT_CURRENT_PRIZE_1" => "EXTRACT_CURRENT_PRIZE",
+            "REACH_DEEPER_1" => "REACH_DEEPER",
+            _ => shortName,
+        } : shortName;
 
     private static EventEvaluation SetPick(EventEvaluation evaluation, string key)
     {

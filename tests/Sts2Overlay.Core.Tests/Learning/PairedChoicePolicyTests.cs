@@ -105,13 +105,89 @@ public class PairedChoicePolicyTests
         Assert.True(result.UsedAdoptedPolicy);
         Assert.Equal(options[item.GetProperty("picked").GetInt32()].Key, result.Best!.Option.Key);
         Assert.Equal(result.Best.Option.Key, policy.Apply(evaluation, run with { Hp = 1 }, true).Best!.Option.Key);
-        Assert.False(policy.Apply(evaluation, run, true, choiceAlreadyMade: true).UsedAdoptedPolicy);
+        Assert.False(policy.Apply(evaluation, run, true, lastChosen: "X.PICKED").UsedAdoptedPolicy);
         var later = run with { Floor = run.Floor + 1 };
         policy.Observe("fresh", later, eventId);
+        Assert.False(policy.Apply(evaluation, later, true).UsedAdoptedPolicy);
+        policy.Observe("delayed", run with { Act = 1 }, null);
+        policy.Observe("delayed", run, eventId);
+        Assert.False(policy.Apply(evaluation, run, false).UsedAdoptedPolicy);
+        Assert.False(policy.Apply(evaluation, run with { ActBoss = null }, true).UsedAdoptedPolicy);
+        Assert.True(policy.Apply(evaluation, run, true).UsedAdoptedPolicy);
+        policy.Observe("delayed-missed", run with { Act = 1 }, null);
+        policy.Observe("delayed-missed", run, eventId);
+        Assert.False(policy.Apply(evaluation, run, false).UsedAdoptedPolicy);
+        policy.Observe("delayed-missed", later, eventId);
         Assert.False(policy.Apply(evaluation, later, true).UsedAdoptedPolicy);
         policy.Observe("missed", run with { Act = 1 }, null);
         policy.Observe("missed", run, eventId); // no exact options observed before leaving
         policy.Observe("missed", later, eventId);
         Assert.False(policy.Apply(evaluation, later, true).UsedAdoptedPolicy);
     }
+
+    [Fact]
+    public void Every_trained_event_action_maps_to_the_shipped_catalog()
+    {
+        var catalog = EventCatalog.LoadDirectory(PackDirectory);
+        using var model = JsonDocument.Parse(File.ReadAllText(Path.Combine(ModelDirectory, "event-policy.json")));
+        var count = 0;
+        foreach (var entry in model.RootElement.GetProperty("action_support").EnumerateObject())
+        {
+            using var action = JsonDocument.Parse(entry.Name);
+            var eventId = action.RootElement[0].GetString()!;
+            var id = action.RootElement[2].GetString()!;
+            var ev = catalog.Find(eventId)!;
+            Assert.Contains(ev.Pages.SelectMany(p => p.Options.Select(o => AdoptedEventChoices.NativeOptionId(eventId, p.Page, o.ShortName))), key => key == id);
+            count++;
+        }
+        Assert.Equal(66, count);
+    }
+
+    [Fact]
+    public void Real_flower_catalog_uses_the_trained_action_identities()
+    {
+        var ev = EventCatalog.LoadDirectory(PackDirectory).Find("EVENT.COLOSSAL_FLOWER")!;
+        using var fixtures = Fixtures();
+        var policy = AdoptedEventChoices.LoadDirectory(PackDirectory)!;
+        var count = 0;
+        foreach (var item in fixtures.RootElement.GetProperty("cases").EnumerateArray().Where(c => c.GetProperty("screen").GetProperty("event").GetString() == ev.Id))
+        {
+            var screen = item.GetProperty("screen"); var run = Run(screen);
+            var rule = screen.GetProperty("chosen").GetInt32();
+            var options = screen.GetProperty("candidates").EnumerateArray().Select(c => ev.InitialPage!.Options.Single(o =>
+                AdoptedEventChoices.NativeOptionId(ev.Id, "INITIAL", o.ShortName) == c.GetProperty("id").GetString())).ToArray();
+            var evaluation = Evaluation(ev, "INITIAL", options, rule);
+            policy.Observe("flower-" + count, run with { Act = 1 }, null);
+            policy.Observe("flower-" + count, run, ev.Id);
+            var actual = policy.Apply(evaluation, run, true);
+            Assert.True(actual.UsedAdoptedPolicy);
+            Assert.Equal(options[item.GetProperty("picked").GetInt32()].Key, actual.Best!.Option.Key);
+            count++;
+        }
+        Assert.True(count > 0);
+    }
+
+    [Fact]
+    public void Single_button_tinker_intro_does_not_consume_the_first_eligible_page()
+    {
+        var ev = EventCatalog.LoadDirectory(PackDirectory).Find("EVENT.TINKER_TIME")!;
+        var policy = AdoptedEventChoices.LoadDirectory(PackDirectory)!;
+        var run = new RunState { Character = "CHARACTER.IRONCLAD", Act = 2, Floor = 20, Hp = 70, MaxHp = 80, ActBoss = "ENCOUNTER.KAISER_CRAB_BOSS" };
+        policy.Observe("tinker", run with { Act = 1 }, null);
+        policy.Observe("tinker", run, ev.Id);
+        Assert.False(policy.Apply(Evaluation(ev, "INITIAL", ev.InitialPage!.Options, 0), run, true).UsedAdoptedPolicy);
+        var page = ev.FindPage("CHOOSE_CARD_TYPE")!;
+        var evaluation = Evaluation(ev, page.Page, page.Options, 0);
+        var intro = ev.InitialPage.Options[0].Key;
+        var eligible = policy.Apply(evaluation, run, true, intro);
+        Assert.True(eligible.UsedAdoptedPolicy);
+        Assert.True(policy.Apply(evaluation, run, true, intro).UsedAdoptedPolicy); // refresh before clicking
+        Assert.False(policy.Apply(evaluation, run, true, page.Options[0].Key).UsedAdoptedPolicy);
+    }
+
+    private static EventEvaluation Evaluation(EventDef ev, string page, IReadOnlyList<EventOptionDef> options, int rule) => new()
+    {
+        Event = ev, Page = page, OptionsExact = true,
+        Options = options.Select((o, i) => new EventOptionEvaluation { Option = o, Score = new([]), Rank = i + 1, IsBest = i == rule }).ToArray(),
+    };
 }
