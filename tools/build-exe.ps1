@@ -56,6 +56,7 @@ function Update-DistAdvisor {
     if ($LASTEXITCODE -ne 0) { return $false }
     if (Test-Path -LiteralPath (Join-Path $dist 'advisor\Sts2CombatAdvisor.exe')) {
         Copy-Item -LiteralPath (Join-Path $repo 'data\advisor\combat-value-R01.json') -Destination (Join-Path $dist 'advisor') -Force
+        Copy-Item -LiteralPath (Join-Path $repo 'data\advisor\combat-value-a0-boss3.json') -Destination (Join-Path $dist 'advisor') -Force
     }
     return $true
 }

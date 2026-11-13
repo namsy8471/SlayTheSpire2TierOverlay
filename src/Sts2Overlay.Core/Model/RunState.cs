@@ -17,6 +17,9 @@ public sealed record RunState
     /// <summary>Act number, 1-based (1..3).</summary>
     public int Act { get; init; } = 1;
 
+    /// <summary>Current act's publicly visible map boss. No later act or hidden second boss.</summary>
+    public string? ActBoss { get; init; }
+
     /// <summary>Global floor number, 1-based, counted across acts like <c>floor_added_to_deck</c>.</summary>
     public int Floor { get; init; } = 1;
 

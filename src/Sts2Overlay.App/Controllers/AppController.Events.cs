@@ -30,6 +30,7 @@ public sealed partial class AppController
 {
     private EventScorer? _eventScorer;
     private readonly BaselineEventChoices _baselineEvents = new();
+    private AdoptedEventChoices? _adoptedEvents;
     private EventTextProvider _eventText = EventTextProvider.Empty;
     private EventScreenTracker? _eventScreens;
     private EventMarkerWindow? _eventMarkers;
@@ -65,6 +66,13 @@ public sealed partial class AppController
             AppLog.Error("events: load failed", ex);
             catalog = EventCatalog.Empty;
         }
+        try { _adoptedEvents = AdoptedEventChoices.LoadDirectory(packDir); }
+        catch (Exception ex) when (ex is System.IO.IOException or System.IO.InvalidDataException or UnauthorizedAccessException
+            or System.Text.Json.JsonException or InvalidOperationException or KeyNotFoundException)
+        {
+            AppLog.Error("adopted event policy: load failed; keeping baseline", ex);
+            _adoptedEvents = null;
+        }
         _eventScorer = new EventScorer(_engine.Pack, catalog) { UseLearnedModel = _engine.UseLearnedModel };
         try
         {
@@ -92,6 +100,7 @@ public sealed partial class AppController
     private void UpdateEvent(GameStateSnapshot snap)
     {
         var active = (_source as GameStateAdapter)?.Tracked?.CurrentEvent;
+        _adoptedEvents?.Observe(snap.Seed, snap.Run, active?.EventId);
         _eventWatch = active is not null;
         _eventMarkers?.SetLayerReady(_eventWatch); // an event room: its markers come soon, keep the layer full size
         _eventAncient = active is not null && _eventScorer?.Catalog.Find(active.EventId)?.IsAncient == true;
@@ -138,8 +147,16 @@ public sealed partial class AppController
         try
         {
             eval = _eventScorer.Evaluate(run, active.EventId, keys, page, active.PossibleKeys, context);
-            if (eval is not null && Core.Learning.RunBaselinePolicy.For(_engine.Pack, run) is not null)
+            if (eval is not null && _engine.UseLearnedModel && Core.Learning.RunBaselinePolicy.For(_engine.Pack, run) is not null)
+            {
                 eval = _baselineEvents.Apply(eval, run.Floor, run.Hp, lastChoice);
+                if (active.Certain)
+                {
+                    // A0 ancient entry heals all missing HP before its choice; the room-entry save predates that heal.
+                    var visible = eval.Event.IsAncient ? run with { Hp = run.MaxHp } : run;
+                    eval = _adoptedEvents?.Apply(eval, visible, !tracked.DeckApproximate && tracked.HpGoldReliable, lastChoice is not null) ?? eval;
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -165,9 +182,21 @@ public sealed partial class AppController
         _offerSource = null;
         // Core bakes its reason labels in the current language when it scores, so a re-render scores again.
         var scorer = _eventScorer;
-        _eventOfferRebuild = () => scorer.Evaluate(run, active.EventId, keys, page, active.PossibleKeys) is { } again
-            ? EventOffer(again, active, match)
-            : null;
+        _eventOfferRebuild = () =>
+        {
+            var again = scorer.Evaluate(run, active.EventId, keys, page, active.PossibleKeys, context);
+            if (again is null) return null;
+            if (_engine.UseLearnedModel && Core.Learning.RunBaselinePolicy.For(_engine.Pack, run) is not null)
+            {
+                again = _baselineEvents.Apply(again, run.Floor, run.Hp, lastChoice);
+                if (active.Certain)
+                {
+                    var visible = again.Event.IsAncient ? run with { Hp = run.MaxHp } : run;
+                    again = _adoptedEvents?.Apply(again, visible, !tracked.DeckApproximate && tracked.HpGoldReliable, lastChoice is not null) ?? again;
+                }
+            }
+            return EventOffer(again, active, match);
+        };
         if (first) _vm.SelectedTab = PanelTab.Offer;
         AppLog.Info($"event {eval.Event.Id} page {eval.Page} ({active.Source}{(match is null ? "" : $", {match.Keys.Count} buttons on screen")}): best {eval.Best?.Option.Key ?? "-"}");
         if (eval.Forecast is { } fc)
@@ -346,7 +375,8 @@ public sealed partial class AppController
             Footer = (eval.Best is { } best
                          ? Loc.T($"추천: {_eventText.OptionTitle(best.Option.Key)}", $"Pick: {_eventText.OptionTitle(best.Option.Key)}")
                          : Loc.T("추천 없음", "No pick"))
-                     + (eval.UsedRunBaseline ? Loc.T(" · 비교용 전체 런 정책", " · full-run baseline policy") : "")
+                     + (eval.UsedAdoptedPolicy ? Loc.T(" · 승천 0 채택 정책", " · adopted A0 policy")
+                         : eval.UsedRunBaseline ? Loc.T(" · 비교용 전체 런 정책", " · full-run baseline policy") : "")
                      + Loc.T($" · 인식: {source}{options}", $" · source: {source}{options}"),
             ExtraTitle = extra.Count > 0
                 ? Loc.T($"이번에 안 나온 선택지 {extra.Count}개 · 참고 순위", $"{extra.Count} options not offered this time · ranked for reference")

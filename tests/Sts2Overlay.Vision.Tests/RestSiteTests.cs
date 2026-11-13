@@ -299,6 +299,9 @@ public class RestSiteRealFrameTests
         if (Environment.GetEnvironmentVariable("STS2_FRAMES_DIR") is { Length: > 0 } extra) yield return extra;
     }
 
+    internal static bool HasLabelledFrames() => File.Exists(TruthFile)
+        && RestSiteTruth.Parse(File.ReadAllLines(TruthFile)).Any(t => FrameDirs().Any(d => File.Exists(Path.Combine(d, t.File))));
+
     [RestFramesFact]
     public void Every_labelled_frame_that_exists_is_recognised_correctly()
     {
@@ -320,12 +323,12 @@ public class RestSiteRealFrameTests
     }
 }
 
-/// <summary>Skips when none of the frame folders exist (fresh clone, CI).</summary>
+/// <summary>Skips when none of the labelled frames exist, including empty capture folders.</summary>
 internal sealed class RestFramesFactAttribute : FactAttribute
 {
     public RestFramesFactAttribute()
     {
-        if (!RestSiteRealFrameTests.FrameDirs().Any(Directory.Exists))
+        if (!RestSiteRealFrameTests.HasLabelledFrames())
             Skip = "needs real frames (%LOCALAPPDATA%\\Sts2Overlay\\captures or \\frames)";
     }
 }

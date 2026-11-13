@@ -1,0 +1,4 @@
+# Frozen research artifacts retain their original bytes on every platform.
+data/packs/v0.111.0/model/run-baseline/ancient-policy.json -text
+data/packs/v0.111.0/model/run-baseline/event-policy.json -text
+data/advisor/combat-value-a0-boss3.json -text

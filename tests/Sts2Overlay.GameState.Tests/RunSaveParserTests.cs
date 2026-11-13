@@ -8,6 +8,14 @@ public class RunSaveParserTests
 {
     private static string CoopJson => File.ReadAllText(TestPaths.Fixture("coop_save_handmade.json"));
 
+    [Fact]
+    public void Reads_only_the_current_acts_public_boss()
+    {
+        var save = System.Text.Json.Nodes.JsonNode.Parse(SingleJson)!;
+        save["acts"]![0]!["rooms"] = System.Text.Json.Nodes.JsonNode.Parse("""{"boss_id":"ENCOUNTER.PUBLIC_BOSS","second_boss_id":"ENCOUNTER.HIDDEN_BOSS"}""");
+        Assert.Equal("ENCOUNTER.PUBLIC_BOSS", RunSaveParser.Parse(save.ToJsonString(), null).State.ActBoss);
+    }
+
     [Theory]
     [InlineData("standard", false, true)]
     [InlineData("singleplayer", false, false)]

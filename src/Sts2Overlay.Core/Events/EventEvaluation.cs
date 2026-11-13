@@ -65,6 +65,7 @@ public sealed record EventEvaluation
     /// <summary>True when the offered options are exactly known (co-op log); false when they come from the event's data (all page options).</summary>
     public bool OptionsExact { get; init; }
     public bool UsedRunBaseline { get; init; }
+    public bool UsedAdoptedPolicy { get; init; }
 
     /// <summary>
     /// An ancient's options that could have been drawn but weren't offered this time, ranked among themselves (rank 1 =
