@@ -39,7 +39,7 @@ public sealed partial class AppController
         AppLog.Info(_advisorCommand is { } c
             ? $"combat advisor: {c.FileName} ({c.Source}{(c.LeadingArgs.Count > 0 ? $", {c.LeadingArgs.Count} leading args" : "")}), enabled {_settings.CombatAdvisorEnabled}"
             : "combat advisor: no helper found (feature off)");
-        if (_advisorCommand is not null) _combatText = CombatTextProvider.ForLocalData();
+        _combatText = CombatTextProvider.ForLocalData();
     }
 
     /// <summary>A helper was found: the tray shows the on/off item.</summary>
@@ -142,7 +142,7 @@ public sealed partial class AppController
     /// <summary>data/local was regenerated or the language changed: new names.</summary>
     private void ReloadCombatAdvice()
     {
-        if (_advisorCommand is not null) _combatText = CombatTextProvider.ForLocalData();
+        _combatText = CombatTextProvider.ForLocalData();
         RenderCombatAdvice();
     }
 

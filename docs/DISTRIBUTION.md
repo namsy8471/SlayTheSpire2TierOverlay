@@ -114,13 +114,14 @@ GitHub의 익명 API는 **IP당 시간당 60회**까지입니다. 같은 공유�
 도우미는 비공개 저장소에서 빌드하며, 지금은 소스를 공개하지 않습니다(소유자는 나중에 공개할 계획입니다).
 이 레포에는 **컴파일된 파일만** 배포물에 넣고, 바이너리도 소스도 커밋하지 않습니다. 도우미가 없는 빌드도 정상이며, 그때는 기능이 조용히 꺼집니다.
 
-**파일.** 세 파일이 오버레이 exe 옆 `advisor\`에 함께 있어야 합니다. 설치판에서는 `current\advisor\`입니다.
+**파일.** 전투 도우미 실행 파일과 탐색 라이브러리, 테이블은 오버레이 exe 옆 `advisor\`에 둡니다. 비교 정책을 지원하는 도우미는 같은 폴더에서 R01 가중치도 읽습니다. 설치판의 경로는 `current\advisor\`입니다.
 
 | 파일 | 크기(대략) | |
 |---|---|---|
 | `Sts2CombatAdvisor.exe` | 13.0 MB | self-contained 단일 파일. 오버레이가 찾는 파일(`AdvisorCommand.DefaultRelativePath`) |
 | `sts2_search.dll` | 5.8 MB | 네이티브 탐색 라이브러리 |
 | `search-tables.bin` | 10 KB | 탐색 테이블 |
+| `combat-value-R01.json` | 0.4 MB | 아이언클래드 승천 0·10 비교용 전체 런에 쓴 전투 가중치. 앱 게시 단계에서 `data/advisor/`의 파일을 복사합니다. |
 
 `.pdb`, `runtimeconfig.json` 같은 다른 파일은 있어도 넣지 않습니다.
 

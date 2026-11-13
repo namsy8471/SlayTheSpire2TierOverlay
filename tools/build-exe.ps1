@@ -53,7 +53,11 @@ function Fail([string]$message) {
 # advisor-dist\의 도우미 세 파일을 dist\advisor\에 넣고 한 줄로 알립니다 (없으면 도우미 없이). 실패하면 $false.
 function Update-DistAdvisor {
     & $advisorScript -Destination (Join-Path $dist 'advisor') -NoLock
-    return ($LASTEXITCODE -eq 0)
+    if ($LASTEXITCODE -ne 0) { return $false }
+    if (Test-Path -LiteralPath (Join-Path $dist 'advisor\Sts2CombatAdvisor.exe')) {
+        Copy-Item -LiteralPath (Join-Path $repo 'data\advisor\combat-value-R01.json') -Destination (Join-Path $dist 'advisor') -Force
+    }
+    return $true
 }
 
 Write-Host '== STS2 오버레이 exe 다시 만들기 ==' -ForegroundColor Cyan

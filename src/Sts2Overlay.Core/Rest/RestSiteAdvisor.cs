@@ -1,5 +1,6 @@
 using System.Globalization;
 using Sts2Overlay.Core.Data;
+using Sts2Overlay.Core.Learning;
 using Sts2Overlay.Core.Localization;
 using Sts2Overlay.Core.Map;
 using Sts2Overlay.Core.Model;
@@ -25,7 +26,7 @@ namespace Sts2Overlay.Core.Rest;
 /// <para><b>Which path?</b> With a map, the best few paths of <see cref="PathAdvisor"/> from the rest site are scored
 /// for both options and each option takes its best one. Without a usable map the advisor falls back to the HP
 /// threshold measured from the user's own rest-site choices (<see cref="PathWeights.RestHealBelowHp"/>).</para>
-/// <para>Only heal and smith are modelled; relic options (dig, cook, …) are ignored.</para>
+/// <para>The learned policy can also choose visible relic and card actions at the rest site.</para>
 /// <para><b>Measured</b> (243 recorded heal/smith choices, all players, <c>RunHistoryAnalyzer rest-advice</c>; a proxy,
 /// not a target): agrees 62% (69% when 확신). It heals more often than the players did (77% vs 45%), almost all of the
 /// difference at 50–90% HP, where the simulation values the removed boss/fight death risk (+8 to +18 points) above an
@@ -56,6 +57,76 @@ public sealed class RestSiteAdvisor
     /// to the boss) uses the HP-threshold fallback.
     /// </summary>
     public RestSiteAdvice Advise(RunState run, MapGraph? map)
+        => Advise(run, map, [RestAction.Heal, RestAction.Smith]);
+
+    public RestSiteAdvice Advise(RunState run, MapGraph? map, IReadOnlyList<RestAction> available)
+    {
+        ArgumentNullException.ThrowIfNull(run);
+        var pack = _pack.ForRun(run);
+        var advisor = pack == _pack ? this : new RestSiteAdvisor(pack, _path);
+        return advisor.Choose(run, map, available, _pack);
+    }
+
+    private RestSiteAdvice Choose(RunState run, MapGraph? map, IReadOnlyList<RestAction> available, DataPack legalityPack)
+    {
+        var policy = RunBaselinePolicy.For(_pack, run);
+        // The rest model counts visited hallway icons. The live save also counts hidden hallway fights.
+        if (policy != null && map != null) map = map with { NormalFightsDone = null, EasyFights = null };
+        var advice = RuleAdvice(run, map);
+        if (policy == null || available.Count == 0) return advice;
+
+        // The game's catalog determines the actual Smith buttons even when the reference scorer lacks a catalog.
+        var upgrades = _upgrades.Rank(run, legalityPack: legalityPack);
+
+        var options = new List<BaselineCandidate>();
+        if (available.Contains(RestAction.Heal)) options.Add(new("heal"));
+        if (available.Contains(RestAction.Smith))
+        {
+            var eligible = upgrades.Select(u => u.Card).ToHashSet();
+            foreach (var card in run.Deck.DistinctBy(c => (_pack.Canonical(c.Id), c.Upgrade, c.EnchantmentId, c.EnchantmentAmount)))
+                if (eligible.Contains(new CardRef(_pack.Canonical(card.Id), card.Upgrade)))
+                    options.Add(new("smith", _pack.Canonical(card.Id), card.Upgrade));
+        }
+        foreach (var action in available.Distinct().Where(a => a is not (RestAction.Heal or RestAction.Smith)))
+            options.Add(new(action.ToString().ToLowerInvariant()));
+        if (options.Count == 0) return advice;
+
+        int heal = options.FindIndex(c => c.Type == "heal");
+        var ranked = advice.Upgrades.Select(u => options.FindIndex(c => c.Type == "smith" && c.Id == u.Card.Id && c.Upgrades == u.Card.Upgrade))
+            .Where(i => i >= 0).ToArray();
+        int smith = ranked.FirstOrDefault(-1);
+        int rule, second;
+        if (available.Any(a => a is not (RestAction.Heal or RestAction.Smith)))
+        {
+            // Special rest buttons use the simple rule. This rule supplies no second-place score.
+            rule = run.HpRatio < 0.5 && heal >= 0 ? heal : options.FindIndex(c => c.Type == "smith");
+            if (rule < 0) rule = options.FindIndex(c => c.Type == "hatch");
+            if (rule < 0) rule = options.FindIndex(c => c.Type == "cook");
+            if (rule < 0) rule = heal;
+            if (rule < 0) rule = 0;
+            second = -1;
+        }
+        else
+        {
+            rule = advice.Action == RestAction.Heal && heal >= 0 ? heal : smith >= 0 ? smith : heal;
+            second = rule == heal ? smith : heal;
+            if (second < 0 && ranked.Length > 1) second = ranked[1];
+        }
+        var chosen = options[policy.Pick("rest", run, options, rule, second)];
+        var actionPick = Enum.Parse<RestAction>(chosen.Type, ignoreCase: true);
+        if (chosen.Type == "smith")
+            upgrades = upgrades.OrderByDescending(u => u.Card.Id == chosen.Id && u.Card.Upgrade == chosen.Upgrades)
+                .Select((u, i) => u with { Rank = i + 1 }).ToArray();
+        if (actionPick == advice.Action && upgrades.FirstOrDefault()?.Card == advice.BestUpgrade?.Card)
+            return advice with { Upgrades = upgrades };
+        return new RestSiteAdvice
+        {
+            Action = actionPick, Upgrades = upgrades, Confidence = RestConfidence.Learned,
+            Reason = Loc.T("현재 체력과 덱에서 학습 정책이 고른 선택", "The learned policy's pick for this HP and deck"),
+        };
+    }
+
+    private RestSiteAdvice RuleAdvice(RunState run, MapGraph? map)
     {
         ArgumentNullException.ThrowIfNull(run);
         var profile = DeckAnalyzer.Analyze(run, _pack);
@@ -85,7 +156,7 @@ public sealed class RestSiteAdvisor
         }
 
         // Without a current node the map cannot say where we are (Recommend would start at the act start), so fall back.
-        var paths = map?.Current is null ? [] : new PathAdvisor(_pack, _path).Recommend(run, map).Top.Select(o => o.Coords).ToArray();
+        var paths = map?.Current is null ? [] : new PathAdvisor(_pack, _path).RankRoutes(run, map, null).Top.Select(o => o.Coords).ToArray();
         if (map is null || paths.Length == 0) return Fallback(run, upgrades);
 
         // The two futures. Healing: more HP, same deck. Smithing: same HP, the best card upgraded.

@@ -9,6 +9,27 @@ namespace Sts2Overlay.Resources.Tests;
 /// </summary>
 public class RelicIconTests
 {
+    [Fact]
+    public void Potion_atlas_and_installed_shelf_are_read_from_the_local_pack()
+    {
+        using var game = new FakeGame();
+        var writer = new PckWriter();
+        var pixels = Enumerable.Repeat((byte)192, 10 * 8 * 4).ToArray();
+        writer.AddTexture("images/atlases/potion_atlas.png", PngWriter.Encode(pixels, 10, 8));
+        writer.Add("images/atlases/potion_atlas.sprites/test_bottle.tres",
+            "texture = \"res://images/atlases/potion_atlas.png\"\nregion = Rect2(2, 1, 4, 3)\n");
+        writer.Add("scenes/merchant/merchant_inventory.tscn",
+            "[node name=\"Potions\" type=\"Control\" parent=\"SlotsContainer\"]\noffset_left = 839.0\noffset_top = 747.0\n" +
+            "[node name=\"Relics\" type=\"Control\" parent=\"SlotsContainer\"]\noffset_left = 839.0\noffset_top = 603.0\n");
+        writer.Save(game.Install.PckPath);
+        using var pck = new PckReader(game.Install.PckPath);
+        Assert.Equal((957f, 827f), RelicIconExtractor.MerchantShelf(pck, "Potions"));
+        Assert.Equal((957f, 683f), RelicIconExtractor.MerchantShelf(pck, "Relics"));
+        Assert.Equal(1, RelicIconExtractor.ExtractPotions(pck, game.Layout.PotionIconDir));
+        using var image = SkiaSharp.SKBitmap.Decode(Path.Combine(game.Layout.PotionIconDir, "test_bottle.png"));
+        Assert.Equal((4, 3), (image.Width, image.Height));
+    }
+
     /// <summary>Writes <paramref name="count"/> bits of <paramref name="value"/> at <paramref name="pos"/>, LSB first (BC7 bit order).</summary>
     private static void Put(byte[] block, ref int pos, int count, int value)
     {

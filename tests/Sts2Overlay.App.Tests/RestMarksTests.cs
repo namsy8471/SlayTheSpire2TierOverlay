@@ -15,6 +15,19 @@ public class RestMarksTests
 
     private static string Name(CardRef c) => c.Id.Replace("CARD.", "");
 
+    [Fact]
+    public void Event_marks_all_chosen_targets_and_avoids_ambiguous_duplicate_instances()
+    {
+        DeckCard[] deck = [new(Bash), new(Strike), new(Strike, EnchantmentId: "ENCHANTMENT.TEST", EnchantmentAmount: 2)];
+        var plan = RestMarks.EventGrid([(Bash, new RectF(10, 10, 8, 8)), (Strike, new RectF(20, 10, 8, 8))],
+            [deck[0], deck[2]], deck, Name, _ => "Test");
+        var box = Assert.Single(plan.Rects, r => r.Kind == ScreenRectMarkKind.Best);
+        Assert.Equal(10, box.X);
+        var note = Assert.Single(plan.Rects, r => r.Kind == ScreenRectMarkKind.Note);
+        Assert.Equal("BASH\nSTRIKE (Test ×2)", note.Note);
+        Assert.True(RestMarks.EventGrid([], [], deck, Name, _ => "Test").IsEmpty);
+    }
+
     private static UpgradeCandidate Up(CardRef card, int rank, params string[] chips) => new()
     {
         Card = card,
@@ -65,6 +78,16 @@ public class RestMarksTests
         Assert.True(RestMarks.Choice(Choice(smithEnabled: false), Advice(RestAction.Smith, RestConfidence.Sure, Up(Bash, 1)), Name).IsEmpty);
         var healOnly = Choice() with { Buttons = [Choice().Buttons[1]] };
         Assert.True(RestMarks.Choice(healOnly, Advice(RestAction.Heal), Name).IsEmpty);
+    }
+
+    [Fact]
+    public void Marks_the_relic_button_if_the_learned_policy_selects_it()
+    {
+        var choice = Choice();
+        var dig = choice.Buttons[1] with { Option = RestOption.Dig };
+        var mark = Assert.Single(RestMarks.Choice(choice with { Buttons = [choice.Buttons[0], dig] },
+            Advice(RestAction.Dig, RestConfidence.Learned), Name).Rects);
+        Assert.Equal(dig.Slot.X, mark.X);
     }
 
     [Fact]

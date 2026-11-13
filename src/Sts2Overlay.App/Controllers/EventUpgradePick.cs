@@ -1,4 +1,6 @@
 using Sts2Overlay.Core.Events;
+using Sts2Overlay.Core.Data;
+using Sts2Overlay.Core.Model;
 
 namespace Sts2Overlay.App.Controllers;
 
@@ -40,6 +42,25 @@ public sealed class EventUpgradePick(EventCatalog catalog)
     public bool Expects(string? clickedKey)
         => clickedKey is not null && !(clickedKey == _key && _done)
            && catalog.FindOption(clickedKey) is { } hit && OpensUpgradeGrid(hit.Option);
+
+    // Deck upgrade dialogs preserve the save's deck order. The baseline selects the final MaxCount
+    // legal instances, including duplicate copies. It does not score their upgrade values.
+    public IReadOnlyList<DeckCard> BaselineCards(string? key, RunState run, DataPack livePack, bool deckMatchesSave)
+    {
+        if (!deckMatchesSave || key == null || catalog.FindOption(key) is not { } hit || !OpensUpgradeGrid(hit.Option)) return [];
+        var effects = hit.Option.Effects.Where(e => e.How == "choose" && e.Type == EventEffectTypes.CardUpgrade).ToList();
+        if (effects.Count != 1 || effects[0].Filter != null ||
+            effects[0].Count is not { ValueKind: System.Text.Json.JsonValueKind.Number } n || !n.TryGetInt32(out int count) || count < 1) return [];
+        var picks = new List<DeckCard>(Math.Min(count, run.Deck.Count));
+        for (int i = run.Deck.Count - 1; i >= 0 && picks.Count < count; i--)
+        {
+            var card = run.Deck[i];
+            if (livePack.FindCatalog(card.Id)?.MaxUpgrade is not { } max) return [];
+            if (card.Upgrade < max) picks.Add(card);
+        }
+        picks.Reverse();
+        return picks;
+    }
 
     /// <summary>
     /// One recognised frame. <paramref name="clickedKey"/>: the option clicked last in this event room (null: none, or

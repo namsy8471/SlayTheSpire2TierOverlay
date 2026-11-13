@@ -14,6 +14,7 @@ namespace Sts2Overlay.Resources.Pck;
 public static partial class RelicIconExtractor
 {
     public const string AtlasImport = "images/atlases/relic_atlas.png.import";
+    public const string PotionAtlasImport = "images/atlases/potion_atlas.png.import";
     public const string SpritesPrefix = "images/atlases/relic_atlas.sprites/";
     /// <summary>The silhouettes NRelic draws behind a small icon (black at 50 % alpha, same rect as the icon).</summary>
     public const string OutlineAtlasImport = "images/atlases/relic_outline_atlas.png.import";
@@ -33,6 +34,28 @@ public static partial class RelicIconExtractor
         return written;
     }
 
+    public static int ExtractPotions(PckReader pck, string outDir, CancellationToken ct = default)
+    {
+        int n = ExtractAtlas(pck, PotionAtlasImport, "images/atlases/potion_atlas.sprites/", "potion_atlas.png", outDir, ct);
+        const string outline = "images/atlases/potion_outline_atlas.png.import";
+        if (pck.Entries.Any(e => e.Path == outline))
+            ExtractAtlas(pck, outline, "images/atlases/potion_outline_atlas.sprites/", "potion_outline_atlas.png", Path.Combine(outDir, OutlineDir), ct);
+        return n;
+    }
+
+    public static (float? X, float? Y) MerchantShelf(PckReader pck, string shelf)
+    {
+        var scene = pck.Entries.FirstOrDefault(e => e.Path == "scenes/merchant/merchant_inventory.tscn");
+        if (scene == null) return (null, null);
+        string text = System.Text.Encoding.UTF8.GetString(pck.ReadAllBytes(scene));
+        var offsets = ShelfOffsets().Matches(text).FirstOrDefault(m => m.Groups[1].Value == shelf);
+        return offsets != null ? (118 + float.Parse(offsets.Groups[2].Value, CultureInfo.InvariantCulture),
+            80 + float.Parse(offsets.Groups[3].Value, CultureInfo.InvariantCulture)) : (null, null);
+    }
+
+    [GeneratedRegex(@"\[node name=""(Potions|Relics)""[^\]]*parent=""SlotsContainer""[^\]]*\][^\[]*?offset_left = ([-\d.]+)[^\[]*?offset_top = ([-\d.]+)")]
+    private static partial Regex ShelfOffsets();
+
     private static int ExtractAtlas(PckReader pck, string importPath, string spritesPrefix, string atlasFile, string outDir, CancellationToken ct)
     {
         PckEntry import = pck.Entries.FirstOrDefault(e => e.Path == importPath)
@@ -44,8 +67,19 @@ public static partial class RelicIconExtractor
         PckEntry ctexEntry = pck.Entries.FirstOrDefault(e => e.Path == ctexPath)
             ?? throw new InvalidDataException($"{ctexPath} not found in the pack");
         var ctex = new CtexImage(pck.ReadAllBytes(ctexEntry));
-        if (!ctex.CanDecodeRgba) throw new InvalidDataException($"{atlasFile} has an unsupported format {ctex.PixelFormat}");
-        byte[] atlas = ctex.DecodeRgba();
+        byte[] atlas;
+        if (ctex.CanDecodeRgba) atlas = ctex.DecodeRgba();
+        else if (ctex.EmbeddedFile is { } encoded)
+        {
+            var info = new SkiaSharp.SKImageInfo(ctex.Width, ctex.Height, SkiaSharp.SKColorType.Rgba8888, SkiaSharp.SKAlphaType.Unpremul);
+            using var codec = SkiaSharp.SKCodec.Create(new MemoryStream(encoded));
+            using var bitmap = new SkiaSharp.SKBitmap(info);
+            if (codec == null || codec.Info.Width != info.Width || codec.Info.Height != info.Height ||
+                codec.GetPixels(info, bitmap.GetPixels()) != SkiaSharp.SKCodecResult.Success)
+                throw new InvalidDataException($"Cannot decode {atlasFile} ({ctex.Payload})");
+            atlas = bitmap.GetPixelSpan().ToArray();
+        }
+        else throw new InvalidDataException($"{atlasFile} has an unsupported format {ctex.PixelFormat}");
 
         Directory.CreateDirectory(outDir);
         int written = 0;

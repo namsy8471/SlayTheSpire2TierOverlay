@@ -40,7 +40,7 @@ public sealed class DecisionRecorder
     /// </summary>
     /// <param name="kind">Screen kind (Reward / Choice / Grid / Shop).</param>
     /// <param name="cards">The cards read, in slot order.</param>
-    /// <param name="items">Things for sale on a shop screen (cards + relics): a drop means something was bought. Rows: the card count.</param>
+    /// <param name="items">Recognized cards, relics and potions on a shop screen: a drop means something was bought. Rows: the card count.</param>
     /// <param name="verdict">The screen's <see cref="OfferLifecycle.Verdict"/>: a <see cref="PartialVerdict.Hold"/> evaluation showed no recommendation.</param>
     /// <param name="offeredInDeck">Deck cards that share an id with an offered card. It grows when the player takes one, so an
     /// evaluation made after the pick (the deck already has the card) is not the advice that was shown before it.</param>

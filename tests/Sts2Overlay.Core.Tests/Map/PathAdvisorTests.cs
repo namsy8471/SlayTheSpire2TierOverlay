@@ -1,4 +1,5 @@
 using Sts2Overlay.Core.Data;
+using Sts2Overlay.Core.Learning;
 using Sts2Overlay.Core.Map;
 using Sts2Overlay.Core.Model;
 using Sts2Overlay.Core.Tests.Scoring;
@@ -29,6 +30,25 @@ public class PathAdvisorTests
         .Add(1, 1, MapNodeType.Monster, (0, 2))
         .Add(0, 2, MapNodeType.RestSite, (0, 3))
         .Build(current);
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(10)]
+    public void Learned_next_step_also_changes_the_displayed_full_route(int ascension)
+    {
+        var pack = new DataPack { RunBaseline = new RunBaselinePolicy(new Dictionary<string, double> { ["path:E|a1|h0"] = 20 }) };
+        var state = State(0.2) with { Character = "CHARACTER.IRONCLAD", Ascension = ascension };
+        var advisor = new PathAdvisor(pack);
+        var map = EliteOrMonster();
+        var raw = advisor.RankRoutes(state, map, null);
+        var adjusted = advisor.Recommend(state, map);
+
+        Assert.Equal(MapNodeType.Monster, raw.NextSteps[0].Type);
+        Assert.Equal(MapNodeType.Elite, adjusted.NextSteps[0].Type);
+        Assert.Equal(adjusted.NextSteps[0].Coord, adjusted.Top[0].Coords[0]);
+        Assert.Contains("학습", adjusted.Top[0].Chips[0]);
+        Assert.Equal(raw.NextStep, advisor.Recommend(state with { Ascension = 9 }, map).NextStep);
+    }
 
     [Fact]
     public void FullHp_TakesTheElite_LowHp_AvoidsIt()

@@ -13,6 +13,23 @@ namespace Sts2Overlay.App.Tests;
 /// </summary>
 public class EventUpgradePickTests
 {
+    [Theory]
+    [InlineData(1, "B")]
+    [InlineData(2, "A,B")]
+    [InlineData(4, "B,A,A,B")]
+    public void Baseline_takes_the_requested_suffix_of_the_legal_saved_cards(int count, string expected)
+    {
+        var catalog = EventCatalog.Parse(Json.Replace("\"count\": 1, \"how\": \"choose\"", $"\"count\": {count}, \"how\": \"choose\""));
+        var pick = new EventUpgradePick(catalog);
+        var pack = new Core.Data.DataPack { Catalog = new() { Cards =
+            [new() { Id = "A", MaxUpgrade = 1 }, new() { Id = "B", MaxUpgrade = 1 }, new() { Id = "CURSE", MaxUpgrade = 0 }] } };
+        var run = new Core.Model.RunState { Character = "CHARACTER.IRONCLAD",
+            Deck = [new(new("B")), new(new("A")), new(new("A")), new(new("A", 1)), new(new("B")), new(new("CURSE"))] };
+        Assert.Equal(expected, string.Join(",", pick.BaselineCards(Eat, run, pack, true).Select(c => c.Id)));
+        Assert.Empty(pick.BaselineCards(Eat, run, pack, false));
+        Assert.Empty(pick.BaselineCards(Eat, run with { Deck = [.. run.Deck, new(new("UNKNOWN"))] }, pack, true));
+    }
+
     private const string Json = """
     {
       "events": [

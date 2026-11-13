@@ -66,7 +66,8 @@ public static class ShopPricing
     public static int EffectiveGold(int trackedGold, ShopOffer offer, out bool corrected)
         => EffectiveGold(trackedGold,
             offer.Cards.Select(c => (c.Price, c.PriceKnown, c.AffordableOnScreen))
-                .Concat(offer.Relics.Select(r => (r.Price, r.PriceKnown, r.AffordableOnScreen))),
+                .Concat(offer.Relics.Select(r => (r.Price, r.PriceKnown, r.AffordableOnScreen)))
+                .Concat(offer.Potions.Where(p => p.Price.HasValue).Select(p => (p.Price!.Value, true, p.AffordableOnScreen))),
             out corrected);
 
     /// <summary>

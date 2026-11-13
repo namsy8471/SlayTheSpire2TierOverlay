@@ -32,6 +32,11 @@ public sealed class DataPack
     /// <summary>Learned card pick model (<c>model/card-policy.json</c>), null when the pack has none.</summary>
     public Learning.CardPolicyModel? CardPolicy { get; init; }
 
+    public Learning.RunBaselinePolicy? RunBaseline { get; init; }
+    internal DataPack? BaselinePack { get; init; }
+    public DataPack ForRun(RunState state) => BaselinePack is not null && Learning.RunBaselinePolicy.Supports(state)
+        ? BaselinePack : this;
+
     public IReadOnlyDictionary<string, string> IdAliases { get; init; } = new Dictionary<string, string>(StringComparer.Ordinal);
 
     private Dictionary<string, CatalogCard>? _catalogIndex;

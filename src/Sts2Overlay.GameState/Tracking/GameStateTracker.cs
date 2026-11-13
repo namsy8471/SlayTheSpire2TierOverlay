@@ -1438,6 +1438,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
                     break;
                 case PatchKind.AddRelic:
                     relics.Add(p.Id!);
+                    maxPotions += p.Id switch { "RELIC.POTION_BELT" => 2, "RELIC.PHIAL_HOLSTER" => 1, "RELIC.ALCHEMICAL_COFFER" => 4, _ => 0 };
                     break;
                 case PatchKind.AddGold:
                     gold += p.Amount;
@@ -1457,7 +1458,11 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         bool fromHistory = !fromSave && _historyDeck != null;
         IReadOnlyList<DeckCard> finalDeck = fromHistory ? _historyDeck! : deck.Cards;
 
-        state = state with { Deck = finalDeck, Relics = relics, Gold = gold, CardRemovalsBought = removals, VitalsKnown = fromSave };
+        state = state with
+        {
+            Deck = finalDeck, Relics = relics, Gold = gold, CardRemovalsBought = removals, VitalsKnown = fromSave,
+            EmptyPotionSlots = fromSave && state.EmptyPotionSlots.HasValue ? Math.Max(0, maxPotions - potions.Count) : null,
+        };
 
         // Single player: the vote IS the move, so it moves "Current" before the room-entry save lands (the path advice
         // jumps ahead). Co-op: it is only my vote; the party may go where a partner voted (the game draws between
@@ -1479,6 +1484,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
             Potions = potions.OrderBy(x => x.Slot).ToList(),
             CurrentEvent = CurrentEventOf(save),
             FromSave = fromSave,
+            DeckMatchesSave = save != null && finalDeck.SequenceEqual(save.Save.State.Deck),
             HpGoldReliable = fromSave,
             DeckApproximate = !fromHistory && (!fromSave || applied > 0),
             UncertainCards = fromHistory ? [] : deck.Uncertain,

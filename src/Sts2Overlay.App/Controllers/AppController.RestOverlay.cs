@@ -39,7 +39,10 @@ public sealed partial class AppController
             {
                 if (rest.ChoiceScreen)
                 {
-                    plan = RestMarks.Choice(rest, RestAdvice(run), _cards.Name);
+                    var enabled = rest.Buttons.Where(b => b.Enabled).ToArray();
+                    var actions = enabled.All(b => Enum.TryParse<RestAction>(b.Option.ToString(), out _))
+                        ? enabled.Select(b => Enum.Parse<RestAction>(b.Option.ToString())).ToArray() : [];
+                    plan = RestMarks.Choice(rest, RestAdvice(run, actions), _cards.Name);
                 }
                 // The same deck grid is used for removals, transforms and pile views: only trust it at a rest site, or
                 // right after an event option that opens the upgrade pick.
@@ -54,7 +57,13 @@ public sealed partial class AppController
                             .Select(c => (c.Card, t.ToRef(new RectF(c.ScreenBounds.X - win.CaptureRect.X, c.ScreenBounds.Y - win.CaptureRect.Y, c.ScreenBounds.Width, c.ScreenBounds.Height))))
                             .ToList();
                     }
-                    plan = RestMarks.Grid(cards, RestAdvice(run), _cards.Name);
+                    if (eventPick && Core.Learning.RunBaselinePolicy.For(_engine.Pack, run) != null)
+                    {
+                        var targets = _eventUpgrade.BaselineCards(_eventScreens?.Clicked, run, _engine.Pack, _snapshot.DeckMatchesSave);
+                        plan = RestMarks.EventGrid(cards, targets, run.Deck, _cards.Name, id => _relicInfo.EnchantmentName(id, Loc.CurrentCode));
+                    }
+                    else
+                        plan = RestMarks.Grid(cards, eventPick ? RestAdvice(run, []) : RestAdvice(run), _cards.Name);
                 }
             }
         }
@@ -71,13 +80,18 @@ public sealed partial class AppController
     }
 
     /// <summary>Cached per run state: HP, deck and position decide the advice.</summary>
-    private RestSiteAdvice RestAdvice(RunState run)
+    private RestSiteAdvice RestAdvice(RunState run, IReadOnlyList<RestAction>? available = null)
     {
         var map = _snapshot.Map;
-        var key = $"{run.Hp}/{run.MaxHp}{(run.VitalsKnown ? "" : "?")}|{run.Deck.Count}|{string.Join(",", run.Deck.Select(d => d.Card))}|{map?.ActId}|{map?.Current}#{_engineVersion}@{Loc.CurrentCode}";
+        var key = $"{run.Character}/{run.Ascension}/{run.IsMultiplayer}/{run.Act}|{run.Hp}/{run.MaxHp}{(run.VitalsKnown ? "" : "?")}|{run.Gold}|{string.Join(",", run.Deck)}|{map?.ActId}|{map?.Current}#{_engineVersion}@{Loc.CurrentCode}";
+        // Keep the same selected upgrade when the option buttons disappear and the Smith grid opens.
+        if (available == null && _restAdvice != null && _restKey?.StartsWith(key + "|", StringComparison.Ordinal) == true)
+            return _restAdvice;
+        key += "|" + (available == null ? "" : string.Join(",", available));
         if (key != _restKey || _restAdvice is null)
         {
-            _restAdvice = new RestSiteAdvisor(_engine.Pack).Advise(run, map);
+            var advisor = new RestSiteAdvisor(_engine.Pack);
+            _restAdvice = available == null ? advisor.Advise(run, map) : advisor.Advise(run, map, available);
             _restKey = key;
             AppLog.Info($"rest advice: {_restAdvice.Action} ({_restAdvice.Confidence}) {_restAdvice.Reason}");
         }

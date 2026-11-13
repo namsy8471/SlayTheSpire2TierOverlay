@@ -196,6 +196,7 @@ public static class DecisionLog
             {
                 ShopItemKind.Card => new ShopBuyRecord("card", i.Card is { } c ? CardText(c) : null, i.Price, i.PriceEstimated),
                 ShopItemKind.Relic => new ShopBuyRecord("relic", i.RelicId, i.Price, i.PriceEstimated),
+                ShopItemKind.Potion => new ShopBuyRecord("potion", i.PotionId, i.Price, i.PriceEstimated),
                 _ => new ShopBuyRecord("removal", i.RemovalTarget, i.Price, i.PriceEstimated),
             }).ToArray(),
         };

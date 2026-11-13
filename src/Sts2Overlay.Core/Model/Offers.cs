@@ -26,11 +26,15 @@ public sealed record ShopCardOffer(CardRef Card, int Price, bool PriceKnown = tr
 /// <param name="AffordableOnScreen">The label colour: false when the game drew the price red (not enough gold), null when unknown.</param>
 public sealed record ShopRelicOffer(string RelicId, string? Rarity, int Price, bool PriceKnown = true, bool? AffordableOnScreen = null);
 
+/// <summary>A recognized potion and its screen price. An unreadable price is null.</summary>
+public sealed record ShopPotionOffer(string PotionId, int? Price, bool? AffordableOnScreen = null);
+
 /// <summary>The cards, relics and card removal service offered at a merchant.</summary>
 public sealed record ShopOffer(IReadOnlyList<ShopCardOffer> Cards, int? RemovalPrice = null)
 {
     /// <summary>The relics on the rug still for sale (bought ones are gone from the screen).</summary>
     public IReadOnlyList<ShopRelicOffer> Relics { get; init; } = [];
+    public IReadOnlyList<ShopPotionOffer> Potions { get; init; } = [];
 
     /// <summary>
     /// The card-removal service can still be bought. False once it was used this visit (the screen shows it crossed out or

@@ -266,7 +266,7 @@ public sealed partial class AppController : IDisposable
             SetMapRecommendation(null);
             return;
         }
-        var key = $"{map.ActId}|{map.Current}|{run.Hp}/{run.MaxHp}|{run.Gold}|{run.Deck.Count}|{run.Deck.Count(c => c.Upgrade > 0)}#{_engineVersion}@{Loc.CurrentCode}";
+        var key = $"{run.Character}/{run.Ascension}/{run.IsMultiplayer}/{run.Act}/{run.VitalsKnown}|{map.ActId}|{map.Current}|{run.Hp}/{run.MaxHp}|{run.Gold}|{run.Deck.Count}|{run.Deck.Count(c => c.Upgrade > 0)}#{_engineVersion}@{Loc.CurrentCode}";
         if (key == _pathKey) return;
         _pathKey = key;
         try
@@ -446,8 +446,8 @@ public sealed partial class AppController : IDisposable
         // (remove / upgrade / transform screens, deck view), which needs no badges.
         if (r.ScreenKind == ScreenKind.Grid && !CardGridFilter.IsOffer(r.Cards.Select(c => c.Card).ToList(), _snapshot.Run?.Deck.Select(d => d.Card), _snapshot.Hint))
             r = RecognitionResult.Other;
-        // A shop counts with relics alone (every card covered, or all bought).
-        if (r.ScreenKind == ScreenKind.Other || (r.Cards.Count == 0 && (r.ScreenKind != ScreenKind.Shop || r.Relics.Count == 0)))
+        if (r.ScreenKind == ScreenKind.Other || (r.Cards.Count == 0 && (r.ScreenKind != ScreenKind.Shop ||
+            (r.Relics.Count == 0 && r.Potions.Count == 0 && r.RemovalService is null))))
         {
             _lifecycle.ScreenClosed();
             ClearBadges();
@@ -463,8 +463,9 @@ public sealed partial class AppController : IDisposable
         if (verdict == PartialVerdict.Hold && _lifecycle.VerdictDue(r) is { } due)
             RunLater(ref _verdictTimer, due - DateTime.UtcNow, () => { if (_lastResult is { } last) ApplyRecognition(last); });
         var offerKey = r.ScreenKind + ":" + string.Join(",", r.Cards.Select(c => $"{c.Card}${c.Price}{(c.Unaffordable == true ? "r" : "")}{(c.OnSale ? "s" : "")}"))
-                       + (r.Relics.Count > 0 ? "|" + string.Join(",", r.Relics.Select(x => $"{x.RelicId}${x.Price}{(x.Unaffordable == true ? "r" : "")}")) : "");
-        var evalKey = $"{offerKey}{(_removal.Available ? "+rm" : "")}@{_snapshot.UpdatedAt.Ticks}#{_engineVersion}@{Loc.CurrentCode}/{verdict}";
+                       + (r.Relics.Count > 0 ? "|" + string.Join(",", r.Relics.Select(x => $"{x.RelicId}${x.Price}{(x.Unaffordable == true ? "r" : "")}")) : "")
+                       + (r.Potions.Count > 0 ? "|" + string.Join(",", r.Potions.Select(x => $"{x.PotionId}${x.Price}{(x.Unaffordable == true ? "r" : "")}")) : "");
+        var evalKey = $"{offerKey}{(_removal.Available ? "+rm" : "")}@{_snapshot.UpdatedAt.Ticks}#{_engineVersion}@{Loc.CurrentCode}/{verdict}/{r.CanSkip}";
         if (evalKey != _lastEvalKey)
         {
             OfferSectionVm panelOffer;
@@ -509,6 +510,9 @@ public sealed partial class AppController : IDisposable
         }
         // The removal marker needs both: the engine recommends removal AND the probe sees the service still for sale.
         var removalMark = r.RemovalService is { } coin && _lastRemovalText is { } text ? new RemovalSpec(coin, text) : null;
+        if (r.ScreenKind == ScreenKind.Shop && _nextShopPotion is { } selected &&
+            r.Potions.FirstOrDefault(p => p.PotionId == selected.Id && p.Price == selected.Price && p.Unaffordable != true) is { } potion)
+            removalMark = new RemovalSpec(potion.ScreenBounds, Loc.T($"구매 추천: {PotionName(selected.Id)}", $"Buy: {PotionName(selected.Id)}"));
         NoteBadgesShown(r); // perf: frame-to-paint of a newly shown screen (AppController.Perf.cs)
         _badges.ShowBadges(specs, _lastSkip, removalMark, showBounds: Demo is not null || DebugOutlines);
         UpdateCadence();
@@ -545,7 +549,10 @@ public sealed partial class AppController : IDisposable
         var cards = r.Cards.Select(c => c.Card).ToArray();
         // Event grids and "pick 1 of N" rows are not combat rewards: score them as event offers.
         var context = r.ScreenKind == ScreenKind.Reward ? _snapshot.RewardContext : OfferContext.Event;
-        var eval = _engine.EvaluateOffer(run, cards, context);
+        bool? canSkip = CardChoiceAdvice.SkipAvailability(r);
+        var eval = _engine.EvaluateOffer(run, cards, context, allowSkip: canSkip == true);
+        var conditional = CardChoiceAdvice.ConditionNote(canSkip,
+            canSkip is null && _engine.EvaluateOffer(run, cards, context).SkipRecommended);
         NoteOffer(r, context, eval); // play-time decision log (AppController.DecisionLog.cs)
 
         var rows = new List<OfferRowVm>();
@@ -571,14 +578,15 @@ public sealed partial class AppController : IDisposable
                 Chips = e.Chips.Select(c => Chip(c.Label, c.Value)).ToArray(),
             });
         }
-        rows.Add(new OfferRowVm
+        if (canSkip != false) rows.Add(new OfferRowVm
         {
             Name = Loc.T("스킵", "Skip"),
             IsSkip = true,
             ScoreText = Fmt(eval.Skip.Total),
             BarWidth = Bar(eval.Skip.Total),
             IsBest = eval.SkipRecommended,
-            SubText = Loc.T("카드를 받지 않음", "Take no card"),
+            SubText = canSkip is null ? Loc.T("건너뛰기가 가능한 경우에만", "Only if this screen allows skipping")
+                : Loc.T("카드를 받지 않음", "Take no card"),
             Chips = eval.Skip.TopReasons(3).Select(c => Chip(c.Label, c.Value)).ToArray(),
         });
 
@@ -595,7 +603,10 @@ public sealed partial class AppController : IDisposable
             FlipHint = CoopNote(run, eval.FlipHint),
             Rows = rows,
             Footer = eval.NoData ? Loc.T("평가 데이터가 없는 카드입니다", "No rating data for these cards")
-                : eval.Best is { } best ? Loc.T($"추천: {_cards.Name(best)}", $"Pick: {_cards.Name(best)}") : Loc.T("추천: 스킵", "Pick: Skip"),
+                : (eval.Best is { } best ? Loc.T($"추천: {_cards.Name(best)}", $"Pick: {_cards.Name(best)}") : Loc.T("추천: 스킵", "Pick: Skip"))
+                    + (_engine.UseLearnedModel && Core.Learning.RunBaselinePolicy.For(_engine.Pack, run) is not null
+                        ? Loc.T(" · 비교용 전체 런 정책", " · full-run baseline policy") : "")
+                    + (conditional is null ? "" : "\n" + conditional),
         };
 
         var badges = eval.Cards
@@ -607,6 +618,8 @@ public sealed partial class AppController : IDisposable
 
     /// <summary>Whether this merchant visit's card-removal service is still for sale (fed every recognition result).</summary>
     private readonly RemovalAvailability _removal = new();
+    private (string Id, int Price)? _nextShopPotion;
+    private string PotionName(string id) => _combatText.PotionName(id) ?? RelicInfoProvider.Prettify(id.Replace("POTION.", "", StringComparison.Ordinal));
 
     private (OfferSectionVm, IReadOnlyList<BadgeSpec>, SkipSpec?, string?) EvaluateShop(RecognitionResult r)
     {
@@ -615,9 +628,12 @@ public sealed partial class AppController : IDisposable
         var offer = new ShopOffer(r.Cards.Select(c => new ShopCardOffer(c.Card, c.Price ?? 0, c.Price is not null, c.Unaffordable is bool u ? !u : null, c.OnSale)).ToArray())
         {
             Relics = r.Relics.Select(x => new ShopRelicOffer(x.RelicId, x.Rarity, x.Price ?? 0, x.Price is not null, x.Unaffordable is bool u ? !u : null)).ToArray(),
+            Potions = r.Potions.Select(p => new ShopPotionOffer(p.PotionId, p.Price, p.Unaffordable is bool red ? !red : null)).ToArray(),
             RemovalAvailable = _removal.Available, // gone only after evidence it was used, not while the coin is merely covered
         };
         var eval = _engine.EvaluateShop(run, offer);
+        _nextShopPotion = eval.RecommendedPurchase.FirstOrDefault() is { PotionId: { } id, Price: var price } ? (id, price) : null;
+        string EnchantmentName(string id) => _relicInfo.EnchantmentName(id, Loc.CurrentCode);
         NoteShop(r, eval); // play-time decision log (AppController.DecisionLog.cs)
         var recommended = eval.RecommendedPurchase.ToHashSet(ReferenceEqualityComparer.Instance);
 
@@ -626,9 +642,14 @@ public sealed partial class AppController : IDisposable
             var e = item.CardEvaluation;
             var isCard = item.Kind == ShopItemKind.Card && item.Card is not null;
             var isRelic = item.Kind == ShopItemKind.Relic && item.RelicId is not null;
+            var isPotion = item.Kind == ShopItemKind.Potion;
+            var hasRuleValue = item.Value.Components.Count > 0;
             var score = e?.Total ?? item.Value.Total;
             var perGold = item.ValuePerGold.ToString("0.00", CultureInfo.InvariantCulture);
             var sub = Loc.T($"구매 가치 {Fmt(item.Value.Total)} · 골드당 {perGold}", $"Buy value {Fmt(item.Value.Total)} · per Gold {perGold}");
+            if (isPotion) sub = Loc.T("빈 포션 슬롯에 구매 가능", "Available for an empty potion slot");
+            else if (!hasRuleValue && item.Kind == ShopItemKind.CardRemoval)
+                sub = Loc.T("런 정책이 고른 제거 대상", "Removal selected by the run policy");
             if (!item.Affordable) sub += Loc.T(" · 골드 부족", " · not enough Gold");
             if (e is not null && ScoringLabels.BuildRoleText(e.BuildRoles) is { } buildRole) sub = buildRole + "\n" + sub;
             sub = WithCoopOnlyTag(sub, e);
@@ -641,9 +662,10 @@ public sealed partial class AppController : IDisposable
             {
                 Name = isCard ? _cards.Name(item.Card!.Value)
                     : isRelic ? RelicName(item.RelicId!) + Loc.T(" (유물)", " (Relic)")
-                    : $"{RemovalName()} ({(item.RemovalTarget is { } t ? _cards.Name(t) : "?")})",
+                    : isPotion ? PotionName(item.PotionId!) + Loc.T(" (포션)", " (Potion)")
+                    : $"{RemovalName()} ({OfferMarkers.RemovalTargetName(item, _cards.Name, EnchantmentName)})",
                 TierText = e?.TierText ?? "—",
-                ScoreText = Fmt(score),
+                ScoreText = hasRuleValue ? Fmt(score) : "—",
                 BarWidth = Bar(score),
                 IsBest = recommended.Contains(item),
                 IsEstimate = e?.IsEstimate ?? false,
@@ -660,7 +682,8 @@ public sealed partial class AppController : IDisposable
         var names = eval.RecommendedPurchase
             .Select(i => i.Kind == ShopItemKind.Card && i.Card is { } c ? _cards.Name(c)
                 : i.Kind == ShopItemKind.Relic && i.RelicId is { } id ? RelicName(id)
-                : RemovalName())
+                : i.PotionId is { } potionId ? PotionName(potionId)
+                : eval.SingleStep ? $"{RemovalName()} ({OfferMarkers.RemovalTargetName(i, _cards.Name, EnchantmentName)})" : RemovalName())
             .ToArray();
         var section = new OfferSectionVm
         {
@@ -671,7 +694,11 @@ public sealed partial class AppController : IDisposable
             ConfidenceText = "",
             FlipHint = CoopNote(run, null), // shop cards are valued like the reward screen: the same co-op caveat applies
             Rows = rows,
-            Footer = !eval.GoldKnown ? ShopFooterGoldUnknown(names)
+            Footer = eval.SingleStep
+                ? (names.Length == 0 ? Loc.T("지금 선택: 나가기", "Next action: leave")
+                    : Loc.T($"지금 선택: {names[0]} · 남는 골드 {eval.GoldLeft}", $"Next action: {names[0]} · {eval.GoldLeft} Gold left"))
+                  + Loc.T(" · 인식한 상품과 제거 기준", " · recognized stock and removal")
+                : !eval.GoldKnown ? ShopFooterGoldUnknown(names)
                 : names.Length > 0
                 ? Loc.T($"추천 구매: {string.Join(" + ", names)} · 남는 골드 {eval.GoldLeft}", $"Buy: {string.Join(" + ", names)} · {eval.GoldLeft} Gold left")
                 : Loc.T("추천 구매 없음 (골드 아끼기)", "Buy nothing (save Gold)"),
@@ -689,7 +716,7 @@ public sealed partial class AppController : IDisposable
             return new BadgeSpec(rc.ScreenBounds, e?.TierText ?? "?", e is null ? "" : Fmt(e.Total),
                 buy, e?.IsEstimate ?? true, rc.Card.IsUpgraded, Ribbon: buy ? OfferMarkers.BuyRibbon : null);
         }).ToArray();
-        return (section, badges, null, OfferMarkers.RemovalText(eval, _cards.Name));
+        return (section, badges, null, OfferMarkers.RemovalText(eval, _cards.Name, EnchantmentName));
     }
 
     /// <summary>Korean relic title from the local game text (data/local, never committed); the id when it is missing.</summary>
@@ -1296,6 +1323,8 @@ public sealed partial class AppController : IDisposable
             // and statuses look like unrated cards (e.g. a curse offered as the best upgrade), so say so loudly.
             var catalogText = pack.Catalog is { } cat ? $"{cat.Cards.Count} catalog cards" : "NO CATALOG: curse/status detection off";
             AppLog.Info($"pack loaded: {dir} ({pack.Tiers.Sum(t => t.Value.Cards.Count)} rated cards, {pack.Archetypes.Count} archetypes, {catalogText})");
+            if (pack.ForRun(new RunState { Character = "CHARACTER.IRONCLAD" }).RunBaseline is not null)
+                AppLog.Info("full-run policy loaded: solo Ironclad A0/A10 (pack_c05, adj_avg)");
             if (pack.Catalog is null) AppLog.Warn($"pack has no card catalog: expected {DataPackLoader.SiblingCatalogPath(dir)}");
         }
         catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or System.Text.Json.JsonException)

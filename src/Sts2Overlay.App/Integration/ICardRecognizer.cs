@@ -33,13 +33,19 @@ public sealed record RecognizedCard(CardRef Card, PixelRect ScreenBounds, double
 /// <param name="Price">Gold price when the label was read clearly, else null.</param>
 /// <param name="Unaffordable">True when the price is drawn red, false when cream, null when unknown.</param>
 public sealed record RecognizedShopRelic(string RelicId, string? Rarity, PixelRect ScreenBounds, double Confidence, int? Price = null, bool? Unaffordable = null);
+public sealed record RecognizedShopPotion(string PotionId, int Slot, PixelRect ScreenBounds, double Confidence, int? Price = null, bool? Unaffordable = null);
 
 /// <param name="ScreenKind">Reward / Shop / Choice / Grid / Other. Other clears the badges.</param>
 /// <param name="Cards">Cards left to right (shop: row by row). Empty for Other.</param>
 public sealed record RecognitionResult(ScreenKind ScreenKind, IReadOnlyList<RecognizedCard> Cards)
 {
+    /// <summary>Whether this card-choice screen actually offers Skip. Null means it has not been confirmed;
+    /// a missing/covered button is not proof of a mandatory choice. Ordinary combat rewards allow skipping.</summary>
+    public bool? CanSkip { get; init; }
+
     /// <summary>Shop: the relics on the merchant's rug still for sale, left to right. Empty elsewhere.</summary>
     public IReadOnlyList<RecognizedShopRelic> Relics { get; init; } = [];
+    public IReadOnlyList<RecognizedShopPotion> Potions { get; init; } = [];
 
     /// <summary>Shop: the card-removal service coin (physical SCREEN pixels) when it is visible and still for sale, else null.</summary>
     public PixelRect? RemovalService { get; init; }

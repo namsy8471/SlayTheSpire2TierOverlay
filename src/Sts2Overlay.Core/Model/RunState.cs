@@ -10,6 +10,9 @@ public sealed record RunState
     public required string Character { get; init; }
 
     public int Ascension { get; init; }
+    /// <summary>Schema recorded by a live save; offline evaluations can select a pack without a save.</summary>
+    public int? SaveSchemaVersion { get; init; }
+    public bool IsStandardRun { get; init; } = true;
 
     /// <summary>Act number, 1-based (1..3).</summary>
     public int Act { get; init; } = 1;
@@ -20,6 +23,9 @@ public sealed record RunState
     public int Hp { get; init; }
     public int MaxHp { get; init; }
     public int Gold { get; init; }
+
+    /// <summary>Empty slots on the local player's potion belt; null when its capacity or contents are unknown.</summary>
+    public int? EmptyPotionSlots { get; init; }
 
     /// <summary>
     /// False when <see cref="Hp"/>, <see cref="MaxHp"/> and <see cref="Gold"/> are placeholders, not the real values: a run

@@ -53,7 +53,7 @@ public sealed partial class AppController
                 _engine.LearnedModelActive ? "learned" : "engine", DecisionAppVersion, PackName(), DateTime.UtcNow);
             var ids = cards.Select(c => c.Id).ToHashSet(StringComparer.Ordinal);
             var inDeck = run.Deck.Count(d => ids.Contains(d.Id));
-            WriteDecision(_decisionRecorder.Evaluated(r.ScreenKind, cards, cards.Length + r.Relics.Count, verdict, inDeck, make(header, verdict, cards)));
+            WriteDecision(_decisionRecorder.Evaluated(r.ScreenKind, cards, cards.Length + r.Relics.Count + r.Potions.Count, verdict, inDeck, make(header, verdict, cards)));
         }
         catch (Exception ex)
         {

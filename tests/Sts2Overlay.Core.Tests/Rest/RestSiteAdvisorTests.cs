@@ -1,4 +1,6 @@
 using Sts2Overlay.Core.Localization;
+using Sts2Overlay.Core.Data;
+using Sts2Overlay.Core.Learning;
 using Sts2Overlay.Core.Map;
 using Sts2Overlay.Core.Model;
 using Sts2Overlay.Core.Rest;
@@ -14,6 +16,27 @@ public class RestSiteAdvisorTests
     private static readonly RestSiteAdvisor Advisor = new(TestMaps.Pack);
 
     private static RunState State(double hp, int act = 1) => TestMaps.State(hpRatio: hp, act: act);
+
+    [Fact]
+    public void Learned_camp_action_uses_the_visible_buttons_and_selects_a_specific_card()
+    {
+        var weights = new Dictionary<string, double> { ["rest:smith|DEFEND_IRONCLAD"] = 8, ["rest:dig|h0|a3"] = 12 };
+        var advisor = new RestSiteAdvisor(new DataPack { RunBaseline = new RunBaselinePolicy(weights) });
+        var run = State(0.2, 3) with { Character = "CHARACTER.IRONCLAD", Deck =
+            [new(new("CARD.BASH")), new(new("CARD.DEFEND_IRONCLAD")), new(new("CARD.DEFEND_IRONCLAD"))] };
+
+        var smith = advisor.Advise(run, (MapGraph?)null);
+        Assert.Equal(RestAction.Smith, smith.Action);
+        Assert.Equal("CARD.DEFEND_IRONCLAD", smith.BestUpgrade!.Card.Id);
+        Assert.Equal(2, smith.BestUpgrade.Copies);
+        Assert.Equal(1, smith.BestUpgrade.Rank);
+        var special = advisor.Advise(run, null, [RestAction.Heal, RestAction.Smith, RestAction.Dig]);
+        Assert.Equal(RestAction.Dig, special.Action);
+        var disabled = advisor.Advise(run, null, [RestAction.Heal]);
+        Assert.Equal(RestAction.Heal, disabled.Action);
+        var unknown = advisor.Advise(run with { VitalsKnown = false }, (MapGraph?)null);
+        Assert.Equal(RestConfidence.Unknown, unknown.Confidence);
+    }
 
     [Fact]
     public void Right_before_the_boss_low_hp_heals_and_high_hp_smiths()

@@ -1,4 +1,5 @@
 using Sts2Overlay.Core.Data;
+using Sts2Overlay.Core.Learning;
 using Sts2Overlay.Core.Localization;
 using Sts2Overlay.Core.Model;
 using Sts2Overlay.Core.Scoring;
@@ -41,6 +42,15 @@ public sealed class PathAdvisor
     /// Returns an empty result when the current node is the boss, has no way to the boss, or is not on the map.
     /// </summary>
     public PathRecommendation Recommend(RunState state, MapGraph map)
+    {
+        var pack = _pack.ForRun(state);
+        var advisor = pack == _pack ? this : new PathAdvisor(pack, _path);
+        var policy = RunBaselinePolicy.For(pack, state);
+        return advisor.RankRoutes(state, policy != null ? map with { EasyFights = null } : map, policy);
+    }
+
+    // The rest advisor uses the ordinary route ranking for its heal/smith simulation.
+    internal PathRecommendation RankRoutes(RunState state, MapGraph map, RunBaselinePolicy? policy)
     {
         var origin = map.Current ?? map.Start;
         var children = MapPaths.ValidChildren(map, origin);
@@ -94,9 +104,32 @@ public sealed class PathAdvisor
             MaxMonsters: scored.Max(o => o.CountOf(MapNodeType.Monster)),
             CapBinds: scored.Any(o => !InCap(o) && o.Total > ordered[0].Total));
 
+        bool changed = false;
+        if (policy != null && children.Count > 1)
+        {
+            var scores = ordered.GroupBy(o => o.Coords[0]).ToDictionary(g => g.Key, g => g.First().Total);
+            var options = children.Select(c => new BaselineCandidate(MapCode(map.Nodes[c].Type), Legal: scores.ContainsKey(c))).ToArray();
+            var rule = Enumerable.Range(0, children.Count).First(i => children[i] == ordered[0].Coords[0]);
+            var second = Enumerable.Range(0, children.Count).Where(i => i != rule && options[i].Legal)
+                .OrderByDescending(i => scores[children[i]]).FirstOrDefault(-1);
+            var pick = policy.Pick("path", state, options, rule, second);
+            if (pick >= 0 && pick != rule)
+            {
+                // Promote the best complete route through the selected child. Its suffix and diagnostics
+                // still come from the route simulation, including when the child was outside the top K.
+                var at = ordered.FindIndex(o => o.Coords[0] == children[pick]);
+                var promoted = ordered[at];
+                ordered.RemoveAt(at);
+                ordered.Insert(0, promoted);
+                changed = true;
+            }
+        }
+
         var top = ordered.Take(Math.Max(1, p.TopK))
             .Select((o, i) => o with { Chips = BuildChips(o, i == 0, InCap(o), state, scorer.DeckStrength, p, stats) })
             .ToArray();
+        if (changed)
+            top[0] = top[0] with { Chips = [Loc.T("학습 정책의 다음 방 선택", "Next room selected by the learned policy"), .. top[0].Chips] };
 
         // Next steps in the same order as the full ranking: each child appears where its best path first appears.
         var nextSteps = ordered
@@ -110,6 +143,13 @@ public sealed class PathAdvisor
     /// <summary>Scores one given path (origin excluded), e.g. the path the user is hovering in the UI.</summary>
     public PathOption ScorePath(RunState state, MapGraph map, IReadOnlyList<MapCoord> coords)
         => new PathScorer(_pack, state, map, DeckAnalyzer.Analyze(state, _pack), _path).Score(coords);
+
+    private static string MapCode(MapNodeType type) => type switch
+    {
+        MapNodeType.Monster => "M", MapNodeType.Elite => "E", MapNodeType.RestSite => "R",
+        MapNodeType.Shop => "$", MapNodeType.Treasure => "T", MapNodeType.Ancient => "A",
+        MapNodeType.Boss => "B", _ => "?",
+    };
 
     private sealed record Candidate(MapCoord[] Coords, MapNodeType[] Types, int Elites);
 

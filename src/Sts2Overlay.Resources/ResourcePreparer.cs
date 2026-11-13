@@ -37,7 +37,7 @@ public sealed class ResourcePreparer(LocalLayout layout, Func<CatalogOptions, Ca
 {
     /// <summary>Bump when the generated layout/content changes, so existing installs rebuild once.</summary>
     /// <remarks>2: relic icons (pck/relic_icons) added for the shop relic reader.</remarks>
-    public const int FormatVersion = 2;
+    public const int FormatVersion = 3;
 
     public const string CardArtGlob = "images/packed/card_portraits/**/*.png";
     public static readonly string[] LocalizationLanguages = ["kor", "eng"];
@@ -63,6 +63,8 @@ public sealed class ResourcePreparer(LocalLayout layout, Func<CatalogOptions, Ca
             return new PrepareCheck(PrepareNeed.Missing, "localization missing", manifest);
         if (manifest.RelicIconFiles > 0 && !Directory.Exists(Layout.RelicIconDir))
             return new PrepareCheck(PrepareNeed.Missing, "relic icons missing", manifest);
+        if (manifest.PotionIconFiles > 0 && !Directory.Exists(Layout.PotionIconDir))
+            return new PrepareCheck(PrepareNeed.Missing, "potion icons missing", manifest);
         return new PrepareCheck(PrepareNeed.UpToDate, "up to date", manifest);
     }
 
@@ -89,7 +91,10 @@ public sealed class ResourcePreparer(LocalLayout layout, Func<CatalogOptions, Ca
             const double LocEnd = 0.05, ArtEnd = 0.75, CatalogEnd = 0.97;
 
             string stRelics = Path.Combine(staging, "relic_icons");
-            int locFiles = 0, artFiles, relicFiles = 0;
+            string stPotions = Path.Combine(staging, "potion_icons");
+            int locFiles = 0, artFiles, relicFiles = 0, potionFiles = 0;
+            (float? X, float? Y) potionShelf = default;
+            (float? X, float? Y) relicShelf = default;
             progress?.Report(new PrepareProgress(0, Loc.T("리소스 준비: 게임 파일 여는 중", "Preparing resources: opening game files")));
             using (var pck = new PckReader(game.Install.PckPath))
             {
@@ -108,7 +113,15 @@ public sealed class ResourcePreparer(LocalLayout layout, Func<CatalogOptions, Ca
                 // Relic icons for the shop relic reader: one BC7 atlas (~0.3 s to decode). Optional: a pack without the
                 // atlas (older game, test pack) still prepares; the shop then simply reads no relics.
                 if (pck.Entries.Any(e => e.Path == RelicIconExtractor.AtlasImport))
+                {
                     relicFiles = RelicIconExtractor.Extract(pck, stRelics, ct);
+                    relicShelf = RelicIconExtractor.MerchantShelf(pck, "Relics");
+                }
+                if (pck.Entries.Any(e => e.Path == RelicIconExtractor.PotionAtlasImport))
+                {
+                    potionFiles = RelicIconExtractor.ExtractPotions(pck, stPotions, ct);
+                    potionShelf = RelicIconExtractor.MerchantShelf(pck, "Potions");
+                }
             }
 
             ct.ThrowIfCancellationRequested();
@@ -123,6 +136,7 @@ public sealed class ResourcePreparer(LocalLayout layout, Func<CatalogOptions, Ca
             ReplaceDirectory(stLoc, Layout.LocalizationDir);
             ReplaceDirectory(stArt, Layout.CardArtDir);
             if (relicFiles > 0) ReplaceDirectory(stRelics, Layout.RelicIconDir);
+            if (potionFiles > 0) ReplaceDirectory(stPotions, Layout.PotionIconDir);
             File.Move(stCatalog, Path.Combine(Layout.LocalDir, catalogName), overwrite: true);
 
             var manifest = new ResourceManifest
@@ -139,6 +153,11 @@ public sealed class ResourcePreparer(LocalLayout layout, Func<CatalogOptions, Ca
                 CardArtFiles = artFiles,
                 LocalizationFiles = locFiles,
                 RelicIconFiles = relicFiles,
+                PotionIconFiles = potionFiles,
+                PotionShelfX = potionShelf.X,
+                PotionShelfY = potionShelf.Y,
+                RelicShelfX = relicShelf.X,
+                RelicShelfY = relicShelf.Y,
             };
             manifest.Save(Layout.ManifestPath);
             progress?.Report(new PrepareProgress(1, Loc.T($"리소스 준비 완료 ({manifest.DurationSeconds:0.0}초)", $"Resources ready ({manifest.DurationSeconds:0.0}s)")));

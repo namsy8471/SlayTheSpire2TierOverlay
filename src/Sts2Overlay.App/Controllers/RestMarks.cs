@@ -21,7 +21,7 @@ public static class RestMarks
     public static MapMarkPlan Choice(RestSiteResult rest, RestSiteAdvice advice, Func<CardRef, string> name)
     {
         if (advice.Confidence == RestConfidence.Unknown) return MapMarkPlan.Empty;
-        var want = advice.Action == RestAction.Heal ? RestOption.Heal : RestOption.Smith;
+        if (!Enum.TryParse<RestOption>(advice.Action.ToString(), out var want)) return MapMarkPlan.Empty;
         if (rest.Find(want) is not { Enabled: true } button) return MapMarkPlan.Empty;
 
         var ribbon = advice.Confidence == RestConfidence.Close ? Loc.T("추천! (박빙)", "Pick! (close)") : Loc.T("추천!", "Pick!");
@@ -68,6 +68,33 @@ public static class RestMarks
 
     /// <summary>Side panel with the upgrade ranking, design px (left of the Smith grid, below the relic row).</summary>
     public const float NoteX = 15, NoteY = 185, NoteWidth = 220;
+
+    public static MapMarkPlan EventGrid(IReadOnlyList<(CardRef Card, RectF Rect)> visible, IReadOnlyList<DeckCard> picks,
+        IReadOnlyList<DeckCard> deck, Func<CardRef, string> name, Func<string, string> enchantmentName)
+    {
+        if (picks.Count == 0) return MapMarkPlan.Empty;
+        var marks = new List<ScreenRectMark>();
+        var labels = new List<string>();
+        foreach (var group in picks.GroupBy(c => (c.Card, c.EnchantmentId, c.EnchantmentAmount)))
+        {
+            var count = group.Count();
+            var description = name(group.Key.Card);
+            if (group.Key.EnchantmentId is { } enchantment)
+                description += $" ({enchantmentName(enchantment)} ×{group.Key.EnchantmentAmount})";
+            labels.Add(count > 1 ? $"{description} ×{count}" : description);
+        }
+        foreach (var group in picks.GroupBy(c => c.Card))
+        {
+            var count = group.Count();
+            // The visual reader identifies id and upgrade, not a copy's enchantment. Mark only unambiguous instances.
+            if (deck.Count(c => c.Card == group.Key) != count) continue;
+            foreach (var (_, r) in visible.Where(v => v.Card == group.Key).Take(count))
+                marks.Add(new ScreenRectMark(r.X, r.Y, r.Width, r.Height, ScreenRectMarkKind.Best, Loc.T("강화 추천!", "Upgrade!")));
+        }
+        marks.Add(new ScreenRectMark(NoteX, NoteY, NoteWidth, 0, ScreenRectMarkKind.Note,
+            Loc.T("기준 정책의 강화 선택", "Baseline upgrade picks"), string.Join('\n', labels)));
+        return MapMarkPlan.Empty with { Rects = marks };
+    }
 
     private static string? Chips(Core.Scoring.UpgradeCandidate c) =>
         c.Chips.Count == 0 ? null : string.Join(" · ", c.Chips.Take(2).Select(ch => ch.Label));

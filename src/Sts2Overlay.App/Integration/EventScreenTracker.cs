@@ -81,6 +81,8 @@ public sealed class EventScreenTracker(EventCatalog catalog)
     /// the click was not seen, and again once the next page's buttons are lined up.
     /// </summary>
     public string? Clicked { get; private set; }
+    /// <summary>The last observed choice in this room, retained when the next page opens.</summary>
+    public string? LastChoice { get; private set; }
 
     /// <summary>Told each time a page is left: where from, which button, where to (for the app log).</summary>
     public Action<string>? Log { get; set; }
@@ -103,7 +105,7 @@ public sealed class EventScreenTracker(EventCatalog catalog)
         _logChosen = 0;
         Lost = false;
         EndedOn = null;
-        Clicked = null;
+        Clicked = LastChoice = null;
         Unmatch();
     }
 
@@ -117,7 +119,7 @@ public sealed class EventScreenTracker(EventCatalog catalog)
         if (chosen.Count == _logChosen) return;
         _logChosen = chosen.Count;
         _page = catalog.FindOption(chosen[^1]) is { } hit ? hit.Option.Next : null;
-        Clicked = chosen[^1];
+        Clicked = LastChoice = chosen[^1];
         Lost = false;
         Unmatch();
     }
@@ -200,7 +202,7 @@ public sealed class EventScreenTracker(EventCatalog catalog)
         var clicked = _lastHover >= 0 && _matchedKeys is { } keys && _lastHover < keys.Count ? catalog.FindOption(keys[_lastHover]) : null;
         _page = clicked?.Option.Next;
         Lost = clicked is null;
-        Clicked = clicked?.Option.Key;
+        Clicked = LastChoice = clicked?.Option.Key;
         EndedOn = clicked is not null && _page is null ? from : null;
         Log?.Invoke(clicked is { } c
             ? $"event page {from} left by {c.Option.Key}: next {(_page is null ? "none (room ends)" : _page == Page ? _page : $"{_page} = {Page}")}"
