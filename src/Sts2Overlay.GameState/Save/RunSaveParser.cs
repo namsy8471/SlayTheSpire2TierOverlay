@@ -97,8 +97,8 @@ public static class RunSaveParser
             Character = Str(me, "character_id") ?? "CHARACTER.UNKNOWN",
             Ascension = Int(root, "ascension") ?? 0,
             SaveSchemaVersion = schema,
-            IsStandardRun = Str(root, "game_mode") is "standard" or "singleplayer"
-                && Prop(root, "is_custom_game").ValueKind is JsonValueKind.False or JsonValueKind.Undefined
+            IsStandardRun = Str(root, "game_mode") == "standard"
+                && (schema != 21 || Prop(root, "is_custom_game").ValueKind == JsonValueKind.False)
                 && !Array(root, "modifiers").Any(),
             Act = actIndex + 1,
             Floor = Math.Max(floor, 1),

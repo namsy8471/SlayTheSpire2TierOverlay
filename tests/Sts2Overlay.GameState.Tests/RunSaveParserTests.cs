@@ -10,15 +10,16 @@ public class RunSaveParserTests
 
     [Theory]
     [InlineData("standard", false, true)]
-    [InlineData("singleplayer", false, true)]
-    [InlineData("singleplayer", true, false)]
+    [InlineData("singleplayer", false, false)]
+    [InlineData("standard", true, false)]
+    [InlineData("standard", null, false)]
     [InlineData("daily", false, false)]
-    public void Schema_21_reports_custom_and_standard_runs(string mode, bool custom, bool standard)
+    public void Schema_21_reports_custom_and_standard_runs(string mode, bool? custom, bool standard)
     {
         var save = System.Text.Json.Nodes.JsonNode.Parse(SingleJson)!;
         save["schema_version"] = 21;
         save["game_mode"] = mode;
-        save["is_custom_game"] = custom;
+        if (custom is bool flag) save["is_custom_game"] = flag;
         var state = RunSaveParser.Parse(save.ToJsonString(), null).State;
         Assert.Equal(21, state.SaveSchemaVersion);
         Assert.Equal(standard, state.IsStandardRun);
