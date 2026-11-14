@@ -88,6 +88,8 @@ public static class AppPaths
     /// </summary>
     public static string DataVersion { get; private set; } = "v0.107.1";
 
+    public static string CardDataVersion { get; private set; } = DataVersion;
+
     /// <summary>Default data pack, relative to the content root (the repo root, or the exe folder when installed).</summary>
     public static string DefaultPackDir => "data/packs/" + DataVersion;
 
@@ -101,6 +103,10 @@ public static class AppPaths
         var names = Directory.Exists(packs) ? Directory.GetDirectories(packs).Select(Path.GetFileName).OfType<string>() : [];
         var choice = Sts2Overlay.Resources.DataVersionSelector.Select(names, gameVersion);
         if (choice.Version is { } v) DataVersion = v;
+        var catalogs = Path.Combine(ContentRoot, "data", "catalog");
+        var cardVersions = Directory.Exists(catalogs) ? Directory.EnumerateFiles(catalogs, "cards.v*.json")
+            .Select(path => Path.GetFileNameWithoutExtension(path)["cards.".Length..]) : [];
+        CardDataVersion = Sts2Overlay.Resources.DataVersionSelector.Select(cardVersions, gameVersion).Version ?? DataVersion;
         return choice;
     }
 
@@ -128,7 +134,7 @@ public static class AppPaths
     public static string ContentRoot => Layout.ContentRoot;
 
     /// <summary>The committed names-free catalog of <see cref="DataVersion"/> (<c>data/catalog/cards.&lt;v&gt;.json</c>), shipped with installed builds too.</summary>
-    public static string CommittedCatalogFile => Path.Combine(ContentRoot, "data", "catalog", $"cards.{DataVersion}.json");
+    public static string CommittedCatalogFile => Path.Combine(ContentRoot, "data", "catalog", $"cards.{CardDataVersion}.json");
 
     /// <summary>
     /// Resolves the pack directory: an absolute path is used as-is, a relative one is taken from the content root

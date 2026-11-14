@@ -10,7 +10,7 @@ namespace Sts2Overlay.Core.Events;
 /// </summary>
 public sealed class AdoptedEventChoices
 {
-    private readonly PairedChoicePolicy _ancient, _event;
+    private readonly Dictionary<string, PairedChoicePolicy> _policies = [];
     private readonly HashSet<string> _ordinary;
     private readonly Dictionary<string, string> _relicClasses;
     private readonly Dictionary<string, (int Floor, string Event, string Page, string Pick, string? LastChoice)> _used = [];
@@ -23,8 +23,12 @@ public sealed class AdoptedEventChoices
 
     private AdoptedEventChoices(string directory)
     {
-        _ancient = PairedChoicePolicy.Load(File.ReadAllText(Path.Combine(directory, "ancient-policy.json")));
-        _event = PairedChoicePolicy.Load(File.ReadAllText(Path.Combine(directory, "event-policy.json")));
+        foreach (var (slot, file) in new[] { ("ancient", "ancient-policy.json"), ("event", "event-policy.json"),
+            ("ancient3", "ancient-act3-policy.json"), ("neow", "neow-policy.json") })
+        {
+            var path = Path.Combine(directory, file);
+            if (File.Exists(path)) _policies.Add(slot, PairedChoicePolicy.Load(File.ReadAllText(path)));
+        }
         using var doc = JsonDocument.Parse(File.ReadAllText(Path.Combine(directory, "choice-eligibility.json")));
         _ordinary = doc.RootElement.GetProperty("ordinary_events").Deserialize<HashSet<string>>()!;
         _relicClasses = doc.RootElement.GetProperty("relic_classes").Deserialize<Dictionary<string, string>>()!;
@@ -54,17 +58,14 @@ public sealed class AdoptedEventChoices
             if (!_resolved) _used.TryAdd(pending.Kind, (pending.Floor, pending.Event, "", "", null));
             _pending = null;
         }
-        if (eventId is null || run.Act is not (2 or 3)) return;
-        var kind = IsAncient(eventId) ? "ancient" : "event";
-        if ((kind == "ancient" && run.Act != 2) || !EligibleEvent(eventId, kind)) return;
+        if (eventId is null || Slot(run, eventId) is not { } kind) return;
         if (_pending is null) { _pending = (run.Floor, eventId, kind); _resolved = false; _earlierPageIneligible = false; }
     }
 
     public EventEvaluation Apply(EventEvaluation baseline, RunState run, bool stateExact, string? lastChosen = null)
     {
-        if (!_observedFromAct1 || !RunBaselinePolicy.Supports(run) || run.Ascension != 0 || run.Act is not (2 or 3)) return baseline;
-        var kind = baseline.Event.IsAncient ? "ancient" : "event";
-        if ((kind == "ancient" && run.Act != 2) || !EligibleEvent(baseline.Event.Id, kind)) return baseline;
+        if (!_observedFromAct1 || !RunBaselinePolicy.Supports(run) || run.Ascension != 0
+            || Slot(run, baseline.Event.Id) is not { } kind || !_policies.TryGetValue(kind, out var model)) return baseline;
         if (_used.TryGetValue(kind, out var previous))
             return previous.Floor == run.Floor && previous.Event == baseline.Event.Id && previous.Page == baseline.Page && previous.LastChoice == lastChosen
                 ? SetPick(baseline, previous.Pick) : baseline;
@@ -83,7 +84,7 @@ public sealed class AdoptedEventChoices
         {
             var content = "";
             var id = NativeOptionId(baseline.Event.Id, baseline.Page, option.Option.ShortName);
-            if (kind == "ancient")
+            if (model.Kind == "ancient")
             {
                 var relics = option.Option.Effects.Where(e => e.Type == EventEffectTypes.Relic && e.Relic is not null).ToArray();
                 if (relics.Length != 1) return baseline;
@@ -98,12 +99,12 @@ public sealed class AdoptedEventChoices
         if (legal.Length < 2) { _earlierPageIneligible = true; return baseline; }
         if (rule < 0 || !candidates[rule].Legal || legal.Select(i => candidates[i].Id).Distinct().Count() != legal.Length) return baseline;
         // Larger menus require the research hash cap's full visible-state tuple. Missing context keeps the rule.
-        if (legal.Length > 3)
+        if (legal.Length > 3 && kind != "neow")
         {
             _used[kind] = (run.Floor, baseline.Event.Id, "", "", null);
             return baseline;
         }
-        var pick = (kind == "ancient" ? _ancient : _event).Pick(run, baseline.Event.Id, candidates, rule, legal.Where(i => i != rule).ToArray());
+        var pick = model.Pick(run, baseline.Event.Id, candidates, rule, legal.Where(i => i != rule).ToArray());
         var key = baseline.Options[pick].Option.Key;
         _used[kind] = (run.Floor, baseline.Event.Id, baseline.Page, key, lastChosen);
         return SetPick(baseline, key);
@@ -129,8 +130,13 @@ public sealed class AdoptedEventChoices
         };
     }
 
-    private bool EligibleEvent(string eventId, string kind) => kind == "ancient" ? IsAncient(eventId) && eventId != "EVENT.NEOW"
-        : _ordinary.Contains(eventId) && !IsAncient(eventId) && eventId is not ("EVENT.RELIC_TRADER" or "EVENT.THE_FUTURE_OF_POTIONS");
+    private string? Slot(RunState run, string eventId)
+    {
+        if (eventId == "EVENT.NEOW") return run.Act == 1 && run.Floor == 1 ? "neow" : null;
+        if (run.Act is not (2 or 3)) return null;
+        if (IsAncient(eventId)) return run.Act == 2 ? "ancient" : "ancient3";
+        return _ordinary.Contains(eventId) && eventId is not ("EVENT.RELIC_TRADER" or "EVENT.THE_FUTURE_OF_POTIONS") ? "event" : null;
+    }
     private static bool IsAncient(string id) => id is "EVENT.DARV" or "EVENT.NEOW" or "EVENT.NONUPEIPE" or "EVENT.OROBAS"
         or "EVENT.PAEL" or "EVENT.TANX" or "EVENT.TEZCATARA" or "EVENT.VAKUU";
 }

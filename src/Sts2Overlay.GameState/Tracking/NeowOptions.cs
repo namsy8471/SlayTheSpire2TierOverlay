@@ -89,9 +89,10 @@ public static class NeowOptions
     /// <param name="slot">The player's slot index (0 in single player).</param>
     /// <param name="playerCount">Players in the run.</param>
     /// <param name="allCharactersUnlocked">Every character's first epoch revealed (Kaleidoscope's condition).</param>
+    /// <param name="useChildStream">Use the shuffle introduced in v0.113.</param>
     /// <param name="scheme">The run's seed arithmetic (save schema / game version).</param>
     public static IReadOnlyList<string> Relics(string runSeed, int slot, int playerCount, bool allCharactersUnlocked,
-                                               RngScheme scheme = RngSeeds.Default)
+                                               RngScheme scheme = RngSeeds.Default, bool useChildStream = false)
     {
         RngScheme effective = EffectiveScheme(runSeed, scheme);
         // Game seeds are upper-case, so the lower-case prefix only ever comes from the migration (whatever scheme was passed).
@@ -109,14 +110,14 @@ public static class NeowOptions
         positives.Add(NextBool(rng) ? "NUTRITIOUS_OYSTER" : "STONE_HUMIDIFIER");
         positives.Add(NextBool(rng) ? "NEOWS_TALISMAN" : "POMANDER");
         positives.RemoveAll(r => !Allowed(r));
-        rng.Shuffle(positives);
+        rng.Shuffle(positives, useChildStream && effective != RngScheme.Legacy32);
         return [positives[0], positives[1], curse];
     }
 
     /// <summary>The three options as event text keys (<c>NEOW.pages.INITIAL.options.LAVA_ROCK</c>), in button order.</summary>
     public static IReadOnlyList<string> Keys(string runSeed, int slot, int playerCount, bool allCharactersUnlocked,
-                                             RngScheme scheme = RngSeeds.Default)
-        => Relics(runSeed, slot, playerCount, allCharactersUnlocked, scheme).Select(r => KeyPrefix + r).ToArray();
+                                             RngScheme scheme = RngSeeds.Default, bool useChildStream = false)
+        => Relics(runSeed, slot, playerCount, allCharactersUnlocked, scheme, useChildStream).Select(r => KeyPrefix + r).ToArray();
 
     /// <summary>
     /// Every option this run could have drawn (the scheme's pools minus the relics <c>IsAllowedAtNeow</c> rules out), as

@@ -34,6 +34,8 @@ public sealed record AncientInputs
     public bool DeckClearingModifier { get; init; }
 
     /// <summary>The run's seed arithmetic (save schema / game version).</summary>
+    public bool UsesV113Rules { get; init; }
+
     public RngScheme Scheme { get; init; } = RngSeeds.Default;
 }
 
@@ -82,7 +84,7 @@ public static class AncientOptions
     private static readonly (string Character, string? Epoch)[] Characters =
     [
         ("CHARACTER.IRONCLAD", null), ("CHARACTER.SILENT", "SILENT1_EPOCH"), ("CHARACTER.REGENT", "REGENT1_EPOCH"),
-        ("CHARACTER.NECROBINDER", "NECROBINDER1_EPOCH"), ("CHARACTER.DEFECT", "DEFECT1_EPOCH"),
+        ("CHARACTER.NECROBINDER", "NECROBINDER1_EPOCH"), ("CHARACTER.DEFECT", "DEFECT1_EPOCH"), ("CHARACTER.FOOL", "FOOL1_EPOCH"),
     ];
 
     /// <summary>ArchaicTooth.TranscendenceUpgrades keys: the starter cards it can transform.</summary>
@@ -125,7 +127,7 @@ public static class AncientOptions
             "OROBAS" => Orobas(rng, inputs, out seaGlass),
             "NONUPEIPE" => Nonupeipe(rng, inputs),
             "TANX" => Tanx(rng, inputs),
-            "VAKUU" => Vakuu(rng),
+            "VAKUU" => Vakuu(rng, inputs),
             "DARV" => Darv(rng, inputs),
             _ => throw new InvalidOperationException(eventId),
         };
@@ -227,6 +229,7 @@ public static class AncientOptions
     private static string[] Orobas(GameRng rng, AncientInputs p, out string? seaGlass)
     {
         var others = Characters
+            .Where(c => p.UsesV113Rules || c.Character != "CHARACTER.FOOL")
             .Where(c => c.Epoch is null || p.UnlockedEpochs is null || p.UnlockedEpochs.Contains(c.Epoch))
             .Select(c => c.Character)
             .Where(c => c != p.Character)
@@ -262,7 +265,7 @@ public static class AncientOptions
     {
         var list = NonupeipePool.ToList();
         if (BraceletAllowed(p)) list.Add("BEAUTIFUL_BRACELET");
-        rng.Shuffle(list);
+        rng.Shuffle(list, p.UsesV113Rules);
         return [.. list.Take(3)];
     }
 
@@ -275,7 +278,7 @@ public static class AncientOptions
     {
         var list = TanxPool.ToList();
         if (BoomerangAllowed(p)) list.Add("TRI_BOOMERANG");
-        rng.Shuffle(list);
+        rng.Shuffle(list, p.UsesV113Rules);
         return [.. list.Take(3)];
     }
 
@@ -286,10 +289,10 @@ public static class AncientOptions
         ["CHOICES_PARADOX", "MUSIC_BOX", "LORDS_PARASOL", "JEWELED_MASK"],
     ];
 
-    private static string[] Vakuu(GameRng rng)
+    private static string[] Vakuu(GameRng rng, AncientInputs inputs)
     {
         var pools = VakuuPools.Select(p => p.ToList()).ToArray();
-        foreach (var pool in pools) rng.Shuffle(pool); // all three are shuffled before any is read
+        foreach (var pool in pools) rng.Shuffle(pool, inputs.UsesV113Rules); // all three are shuffled before any is read
         return [pools[0][0], pools[1][0], pools[2][0]];
     }
 
@@ -330,7 +333,7 @@ public static class AncientOptions
             .Where(s => DarvGateOpen(s.Gate, p))
             .Select(s => NextItem(rng, s.Relics)!) // one draw per set, single-relic sets included
             .ToList();
-        rng.Shuffle(picks);
+        rng.Shuffle(picks, p.UsesV113Rules);
         return NextBool(rng) ? [.. picks.Take(2), "DUSTY_TOME"] : [.. picks.Take(3)];
     }
 

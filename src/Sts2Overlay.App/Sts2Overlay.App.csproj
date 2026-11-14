@@ -82,9 +82,7 @@
     <Content Include="..\..\data\catalog\*.json" Exclude="..\..\data\**\catalog.*.json"
              Link="data\catalog\%(Filename)%(Extension)"
              CopyToOutputDirectory="Never" CopyToPublishDirectory="PreserveNewest" />
-    <Content Include="..\..\data\advisor\combat-value-R01.json" Link="advisor\combat-value-R01.json"
-             CopyToOutputDirectory="Never" CopyToPublishDirectory="PreserveNewest" />
-    <Content Include="..\..\data\advisor\combat-value-a0-boss3.json" Link="advisor\combat-value-a0-boss3.json"
+    <Content Include="..\..\data\advisor\combat-value-*.json" Link="advisor\%(Filename)%(Extension)"
              CopyToOutputDirectory="Never" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 

@@ -259,7 +259,13 @@ public class TierListPresenterTests
         Assert.NotNull(root);
         var pack = DataPackLoader.LoadDirectory(Path.Combine(root.FullName, "data", "packs", "v0.107.1"));
 
-        foreach (var pool in TierListPresenter.Pools)
+        Assert.DoesNotContain(TierListPresenter.Fool, TierListPresenter.AvailablePools(pack));
+        var beta = DataPackLoader.LoadDirectory(Path.Combine(root.FullName, "data", "packs", "v0.111.0"),
+            catalogPath: Path.Combine(root.FullName, "data", "catalog", "cards.v0.113.0.json"));
+        Assert.Contains(TierListPresenter.Fool, TierListPresenter.AvailablePools(beta));
+        Assert.Equal(90, beta.Catalog!.CardsOf(TierListPresenter.Fool).Count());
+        Assert.NotEmpty(TierListPresenter.Entries(beta, TierListPresenter.Fool));
+        foreach (var pool in TierListPresenter.AvailablePools(pack))
         {
             var entries = TierListPresenter.Entries(pack, pool);
             Assert.True(entries.Count >= 50, $"{pool}: {entries.Count} cards");

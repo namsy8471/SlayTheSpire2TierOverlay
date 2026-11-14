@@ -69,11 +69,13 @@ internal sealed class GameRng
     public int NextInt(int maxExclusive) => ToInt(NextULong(), maxExclusive);
 
     /// <summary>ListExtensions.UnstableShuffle (Fisher-Yates from the end).</summary>
-    public void Shuffle<T>(IList<T> list)
+    public void Shuffle<T>(IList<T> list, bool useChildStream = false)
     {
+        // From v0.113 each shuffle consumes one parent draw, even for an empty list.
+        var stream = useChildStream ? new GameRng(NextULong()) : this;
         for (int n = list.Count - 1; n > 0; n--)
         {
-            int k = NextInt(n + 1);
+            int k = stream.NextInt(n + 1);
             (list[n], list[k]) = (list[k], list[n]);
         }
     }

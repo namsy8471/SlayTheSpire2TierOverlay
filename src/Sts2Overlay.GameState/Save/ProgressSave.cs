@@ -18,7 +18,10 @@ public static class ProgressSave
     /// True when every character is unlocked (UnlockState(ProgressState) keeps only epochs whose state is
     /// <c>revealed</c>); null when the file can't be read or has no epoch list.
     /// </summary>
-    public static bool? AllCharactersUnlocked(string json)
+    public static bool AllCharactersUnlocked(IReadOnlyCollection<string> revealed, bool includeFool) =>
+        CharacterEpochs.All(revealed.Contains) && (!includeFool || revealed.Contains("FOOL1_EPOCH"));
+
+    public static bool? AllCharactersUnlocked(string json, bool includeFool = false)
     {
         try
         {
@@ -35,7 +38,7 @@ public static class ProgressSave
                     revealed.Add(id.GetString()!);
                 }
             }
-            return CharacterEpochs.All(revealed.Contains);
+            return AllCharactersUnlocked(revealed, includeFool);
         }
         catch (JsonException)
         {
@@ -43,12 +46,12 @@ public static class ProgressSave
         }
     }
 
-    /// <summary><see cref="AllCharactersUnlocked(string)"/> for <c>&lt;savesDirectory&gt;/progress.save</c>.</summary>
-    public static bool? AllCharactersUnlockedIn(string savesDirectory)
+    /// <summary><see cref="AllCharactersUnlocked(string,bool)"/> for <c>&lt;savesDirectory&gt;/progress.save</c>.</summary>
+    public static bool? AllCharactersUnlockedIn(string savesDirectory, bool includeFool = false)
     {
         try
         {
-            return IO.SharedFile.ReadAllText(Path.Combine(savesDirectory, FileName)) is { } json ? AllCharactersUnlocked(json) : null;
+            return IO.SharedFile.ReadAllText(Path.Combine(savesDirectory, FileName)) is { } json ? AllCharactersUnlocked(json, includeFool) : null;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

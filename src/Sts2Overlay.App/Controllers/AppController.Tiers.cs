@@ -111,7 +111,7 @@ public sealed partial class AppController
             _tierCacheKey = key;
         }
 
-        t.Characters = TierListPresenter.Pools
+        t.Characters = TierListPresenter.AvailablePools(pack)
             .Select(p => new TierChipVm(TierListPresenter.PoolName(p), p == _tierPool, new RelayCommand(_ => SelectTierPool(p))))
             .ToArray();
         if (!_packLoaded || _tierEntries.Count == 0)

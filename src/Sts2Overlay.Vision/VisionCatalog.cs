@@ -21,7 +21,7 @@ public sealed class VisionCatalog
     public static readonly IReadOnlySet<string> OfferablePools = new HashSet<string>(StringComparer.Ordinal)
     {
         "CARD_POOL.IRONCLAD_CARD_POOL", "CARD_POOL.SILENT_CARD_POOL", "CARD_POOL.DEFECT_CARD_POOL",
-        "CARD_POOL.NECROBINDER_CARD_POOL", "CARD_POOL.REGENT_CARD_POOL", ColorlessPool,
+        "CARD_POOL.NECROBINDER_CARD_POOL", "CARD_POOL.REGENT_CARD_POOL", "CARD_POOL.FOOL_CARD_POOL", ColorlessPool,
     };
 
     public IReadOnlyList<CatalogCard> Cards { get; }

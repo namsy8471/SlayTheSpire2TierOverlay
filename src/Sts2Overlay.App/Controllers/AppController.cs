@@ -1308,7 +1308,11 @@ public sealed partial class AppController : IDisposable
     private string PackText()
     {
         var name = Path.GetFileName(_packDir.TrimEnd('\\', '/'));
-        return _packLoaded ? Loc.T($"팩 {name}", $"Pack {name}") : Loc.T($"팩 {name} 로드 실패", $"Pack {name} failed to load");
+        if (!_packLoaded) return Loc.T($"팩 {name} 로드 실패", $"Pack {name} failed to load");
+        var cards = _engine.Pack.Catalog?.GameVersion;
+        return cards is not null && cards != name
+            ? Loc.T($"카드 {cards} · 티어 {name}", $"Cards {cards} · tiers {name}")
+            : Loc.T($"팩 {name}", $"Pack {name}");
     }
 
     /// <summary>Loads the data pack with <see cref="DataPackLoader.LoadDirectory"/>; an error leaves an empty pack (every card unrated).</summary>
@@ -1318,7 +1322,10 @@ public sealed partial class AppController : IDisposable
         var loaded = true;
         try
         {
-            pack = DataPackLoader.LoadDirectory(dir);
+            var bundledCards = AppPaths.CommittedCatalogFile;
+            bool defaultPack = string.Equals(Path.TrimEndingDirectorySeparator(Path.GetFullPath(dir)),
+                AppPaths.ResolvePackDir(null), StringComparison.OrdinalIgnoreCase);
+            pack = DataPackLoader.LoadDirectory(dir, catalogPath: defaultPack && File.Exists(bundledCards) ? bundledCards : null);
             // The catalog comes from data/catalog next to the packs (DataPackLoader.SiblingCatalogPath). Without it curses
             // and statuses look like unrated cards (e.g. a curse offered as the best upgrade), so say so loudly.
             var catalogText = pack.Catalog is { } cat ? $"{cat.Cards.Count} catalog cards" : "NO CATALOG: curse/status detection off";

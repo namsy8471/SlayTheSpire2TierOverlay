@@ -76,8 +76,28 @@ public class PairedChoicePolicyTests
     }
 
     [Theory]
+    [InlineData("EVENT.NEOW", 1, 1, "BOOMING_CONCH", "SMALL_CAPSULE")]
+    [InlineData("EVENT.DARV", 3, 36, "ASTROLABE", "BLACK_STAR")]
+    public void Adopted_ancient_models_match_research_choices_on_catalog_options(string eventId, int act, int floor, string first, string second)
+    {
+        var policy = AdoptedEventChoices.LoadDirectory(PackDirectory)!;
+        var run = new RunState { Character = "CHARACTER.IRONCLAD", Act = act, Floor = floor, Hp = 80, MaxHp = 80,
+            Gold = 99, ActBoss = "ENCOUNTER.CEREMONIAL_BEAST_BOSS" };
+        var ev = EventCatalog.LoadDirectory(PackDirectory).Find(eventId)!;
+        var options = new[] { first, second }.Select(id => ev.InitialPage!.Options.Single(o => o.ShortName == id)).ToArray();
+        var evaluation = Evaluation(ev, ev.InitialPage!.Page, options, 0);
+        policy.Observe("synthetic", run with { Act = 1, Floor = 1 }, null);
+        policy.Observe("synthetic", run, ev.Id);
+        Assert.False(policy.Apply(evaluation, run with { Ascension = 10 }, true).UsedAdoptedPolicy);
+        Assert.False(policy.Apply(evaluation, run, false).UsedAdoptedPolicy);
+        Assert.Equal(options[1].Key, policy.Apply(evaluation, run, true).Best!.Option.Key);
+    }
+
+    [Theory]
     [InlineData("ancient-policy.json", "ce4b928c923ae474cc3ae422a71eb4e392e11bcb60595f602833807585ae250e")]
     [InlineData("event-policy.json", "7a53c50c9c25c0520798dab5c762a90ed5ee340ddaa4c29ad9536be2cd5d3854")]
+    [InlineData("ancient-act3-policy.json", "c088b716e88a854c9f5d9ae4625acbaef783cf3306ba38638f8475e57405ce5d")]
+    [InlineData("neow-policy.json", "f0532b97ad7563e6a71c7c44be31d02443d6265a662f2bb931cf23f9b1b6021f")]
     public void Published_models_are_the_adopted_frozen_bytes(string file, string sha) =>
         Assert.Equal(sha, Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(Path.Combine(ModelDirectory, file)))));
 
