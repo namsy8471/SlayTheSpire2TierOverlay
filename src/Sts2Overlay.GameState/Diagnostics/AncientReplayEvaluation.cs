@@ -87,6 +87,7 @@ public static class AncientReplayEvaluation
                             Deck = timelines[id].DeckBefore(index).Select(c => new AncientDeckCard(c.Id, c.EnchantmentId)).ToArray(),
                             Relics = RelicsBefore(run, player, index),
                             UnlockedEpochs = epochsOf?.Invoke(id),
+                            UsesV113Rules = System.Version.TryParse(build.TrimStart('v'), out var versionNumber) && versionNumber >= new System.Version(0, 113),
                             Scheme = scheme,
                         };
                         var draw = AncientOptions.Draw(eventId, inputs)!;

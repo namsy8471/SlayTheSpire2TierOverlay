@@ -127,7 +127,7 @@ public class RealFilesTests(ITestOutputHelper output)
             output.WriteLine($"{name}: {s.State.Character} A{s.State.Ascension} act {s.State.Act} floor {s.State.Floor} " +
                              $"deck {s.State.Deck.Count} relics {s.State.Relics.Count} removals {s.State.CardRemovalsBought} pity {s.CardRarityOffset} " +
                              $"map nodes {s.Map?.Nodes.Count} current {s.Map?.Current}");
-            Assert.Contains(s.SchemaVersion, new[] { 16, 20 }); // v0.107.1 or v0.111.0
+            Assert.Contains(s.SchemaVersion, new[] { 16, 20, 21 }); // v0.107.1, v0.111.0 or v0.113.0
             Assert.True(s.MyPlayerMatched);
             Assert.NotEmpty(s.State.Deck);
             Assert.True(s.State.MaxHp > 0);

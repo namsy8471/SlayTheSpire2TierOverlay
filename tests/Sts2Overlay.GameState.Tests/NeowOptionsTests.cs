@@ -58,6 +58,17 @@ public class NeowOptionsTests
     }
 
     [Fact]
+    public void Beta_shuffle_uses_a_child_stream_and_fool_is_part_of_the_unlock_gate()
+    {
+        Assert.Equal(["SCROLL_BOXES", "KALEIDOSCOPE", "NEOWS_BONES"],
+            NeowOptions.Relics("BETA-SHUFFLE", 0, 1, true, RngScheme.Xx64, useChildStream: true));
+        string[] beforeFool = ["SILENT1_EPOCH", "REGENT1_EPOCH", "NECROBINDER1_EPOCH", "DEFECT1_EPOCH"];
+        Assert.True(ProgressSave.AllCharactersUnlocked(beforeFool, includeFool: false));
+        Assert.False(ProgressSave.AllCharactersUnlocked(beforeFool, includeFool: true));
+        Assert.True(ProgressSave.AllCharactersUnlocked([.. beforeFool, "FOOL1_EPOCH"], includeFool: true));
+    }
+
+    [Fact]
     public void Keys_are_the_event_text_keys_in_button_order()
     {
         Assert.Equal(

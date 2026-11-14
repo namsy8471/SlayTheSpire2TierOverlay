@@ -187,6 +187,7 @@ internal static class ForecastReviewPresenter
         "CHARACTER.SILENT" => Loc.T("사일런트", "The Silent"),
         "CHARACTER.DEFECT" => Loc.T("디펙트", "The Defect"),
         "CHARACTER.REGENT" => Loc.T("리젠트", "The Regent"),
+        "CHARACTER.FOOL" => Loc.T("풀", "Fool"),
         "CHARACTER.NECROBINDER" => Loc.T("네크로바인더", "The Necrobinder"),
         _ => id.Replace("CHARACTER.", "", StringComparison.Ordinal),
     };

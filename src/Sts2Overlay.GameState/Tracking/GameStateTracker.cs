@@ -925,7 +925,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
 
     private sealed record ReplayedOptions(IReadOnlyList<string> Keys, IReadOnlyList<string> Possible);
 
-    private (string Seed, int Slot, int Players, RngScheme Scheme, ReplayedOptions? Draw)? _neowDraw; // the last answer, null ones included
+    private (string Seed, int Slot, int Players, RngScheme Scheme, bool V113, ReplayedOptions? Draw)? _neowDraw; // the last answer, null ones included
     private (string Key, ReplayedOptions? Draw)? _ancientDraw; // same for the act-start ancients
 
     /// <summary>An ancient's offered options replayed from the run seed (Neow or an act-start ancient); null for other events.</summary>
@@ -946,7 +946,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         int slot = MySlot();
         if (slot < 0) return null;
         RngScheme scheme = Scheme();
-        string key = $"{seed}|{slot}|{eventId}|{ev.ActIndex}|{scheme}";
+        string key = $"{seed}|{slot}|{eventId}|{ev.ActIndex}|{scheme}|{save.SchemaVersion}";
         if (_ancientDraw is { } c && c.Key == key) return c.Draw;
 
         var inputs = new AncientInputs
@@ -957,6 +957,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
             Character = save.State.Character,
             Deck = save.State.Deck.Select(d => new AncientDeckCard(d.Id, d.EnchantmentId)).ToArray(),
             Relics = save.State.Relics,
+            UsesV113Rules = save.SchemaVersion >= 21,
             UnlockedEpochs = save.UnlockedEpochs,
             Scheme = scheme,
         };
@@ -980,24 +981,27 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
     private ReplayedOptions? NeowDraw(string eventId)
     {
         if (eventId != NeowOptions.EventId) return null;
-        if (ChooseSave()?.Save is not { ModifierCount: 0 } || RunSeed() is not { } seed) return null;
+        if (ChooseSave()?.Save is not { ModifierCount: 0 } save || RunSeed() is not { } seed) return null;
         int slot = MySlot();
         if (slot < 0) return null;
         int players = IsMultiplayer() ? PlayerOrder().Count : 1;
         RngScheme scheme = Scheme();
-        if (_neowDraw is { } c && c.Seed == seed && c.Slot == slot && c.Players == players && c.Scheme == scheme) return c.Draw;
+        if (save.SchemaVersion >= 21 && !save.State.IsStandardRun) return null;
+        bool v113 = save.SchemaVersion >= 21 && !RngSeeds.IsMigrated(seed);
+        if (_neowDraw is { } c && c.Seed == seed && c.Slot == slot && c.Players == players && c.Scheme == scheme && c.V113 == v113) return c.Draw;
 
-        bool? unlocked = _options.Paths?.SavesDirectory is { } dir ? ProgressSave.AllCharactersUnlockedIn(dir) : null;
+        bool? unlocked = save.UnlockedEpochs.Count > 0 ? ProgressSave.AllCharactersUnlocked(save.UnlockedEpochs, v113)
+            : _options.Paths?.SavesDirectory is { } dir ? ProgressSave.AllCharactersUnlockedIn(dir, v113) : null;
         RngScheme pools = NeowOptions.EffectiveScheme(seed, scheme); // a migrated "old..." seed had its Neow on the old game
         ReplayedOptions? draw;
-        if (unlocked is { } u) draw = new(NeowOptions.Keys(seed, slot, players, u, scheme), NeowOptions.PossibleKeys(players, u, pools));
+        if (unlocked is { } u) draw = new(NeowOptions.Keys(seed, slot, players, u, scheme, v113), NeowOptions.PossibleKeys(players, u, pools));
         else
         {
             // Unlocks unknown: usable only when Kaleidoscope's condition doesn't change the draw.
-            var a = NeowOptions.Keys(seed, slot, players, true, scheme);
-            draw = a.SequenceEqual(NeowOptions.Keys(seed, slot, players, false, scheme)) ? new(a, NeowOptions.PossibleKeys(players, true, pools)) : null;
+            var a = NeowOptions.Keys(seed, slot, players, true, scheme, v113);
+            draw = a.SequenceEqual(NeowOptions.Keys(seed, slot, players, false, scheme, v113)) ? new(a, NeowOptions.PossibleKeys(players, true, pools)) : null;
         }
-        _neowDraw = (seed, slot, players, scheme, draw);
+        _neowDraw = (seed, slot, players, scheme, v113, draw);
         Diagnostic?.Invoke(this, draw is null
             ? "neow options: progress.save unreadable and the unlocks decide the draw; showing every option"
             : $"neow options (seed replay): {string.Join(", ", draw.Keys.Select(k => k[(k.LastIndexOf('.') + 1)..]))}");

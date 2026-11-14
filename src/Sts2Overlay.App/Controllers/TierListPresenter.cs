@@ -47,8 +47,10 @@ internal static class TierListPresenter
     public const string Necrobinder = "CHARACTER.NECROBINDER";
     public const string Regent = "CHARACTER.REGENT";
 
-    /// <summary>The selector chips, in order: the five characters, then the colourless pool.</summary>
-    public static readonly IReadOnlyList<string> Pools = [Ironclad, Silent, Defect, Necrobinder, Regent, DataPack.Colorless];
+    public const string Fool = "CHARACTER.FOOL";
+
+    /// <summary>The selector chips, in order: the characters, then the colourless pool.</summary>
+    public static readonly IReadOnlyList<string> Pools = [Ironclad, Silent, Defect, Necrobinder, Regent, Fool, DataPack.Colorless];
 
     private static readonly Tier[] TierOrder = [Tier.S, Tier.A, Tier.B, Tier.C, Tier.D];
     private static readonly string[] TypeOrder = [CardTypes.Attack, CardTypes.Skill, CardTypes.Power];
@@ -56,6 +58,9 @@ internal static class TierListPresenter
 
     /// <summary>Key of a card whose type or rarity is unknown.</summary>
     public const string OtherKey = "other";
+
+    public static IEnumerable<string> AvailablePools(DataPack pack) =>
+        Pools.Where(pool => pool != Fool || pack.Tiers.ContainsKey(Fool) || pack.Catalog?.CardsOf(Fool).Any() == true);
 
     public static bool IsPool(string? key) => key is not null && Pools.Contains(key, StringComparer.Ordinal);
 
@@ -69,6 +74,7 @@ internal static class TierListPresenter
         Silent => Loc.T("사일런트", "Silent"),
         Defect => Loc.T("디펙트", "Defect"),
         Necrobinder => Loc.T("네크로바인더", "Necrobinder"),
+        Fool => Loc.T("풀", "Fool"),
         Regent => Loc.T("리젠트", "Regent"),
         DataPack.Colorless => Loc.T("무색", "Colorless"),
         _ => key.Replace("CHARACTER.", "", StringComparison.Ordinal),
