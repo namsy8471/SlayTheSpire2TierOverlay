@@ -75,7 +75,7 @@ public static class CardTextRenderer
 {
     private static readonly HashSet<string> Formatters = new(StringComparer.Ordinal)
     {
-        "diff", "inverseDiff", "energyIcons", "starIcons", "plural", "show", "choose", "cond",
+        "diff", "inverseDiff", "percentMore", "percentLess", "energyIcons", "starIcons", "plural", "show", "choose", "cond",
     };
 
     public static IReadOnlyList<CardTextRun> Render(string template, CardTextContext ctx, ICollection<string>? missing = null)
@@ -375,6 +375,15 @@ public static class CardTextRenderer
                 case "inverseDiff":
                     Emit(FormatNumber(value!.Value), NumberStyle(name, value.Value));
                     return;
+
+                case "percentMore":
+                case "percentLess":
+                {
+                    var multiplier = value!.Value;
+                    var difference = p.Formatter == "percentMore" ? multiplier - 1 : 1 - multiplier;
+                    Emit(Convert.ToInt32(difference * 100).ToString(CultureInfo.InvariantCulture), NumberStyle(name, multiplier));
+                    return;
+                }
 
                 case "energyIcons":
                 case "starIcons":

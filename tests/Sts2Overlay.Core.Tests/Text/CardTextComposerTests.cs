@@ -62,12 +62,74 @@ public class CardTextComposerTests
     }
 
     [Fact]
+    public void Upgrade_applies_star_cost_delta_and_preserves_unknown_base_values()
+    {
+        var vars = CardVarsFile.Parse("""{"cards":[{"id":"CARD.BASH_IT","upgrade":{"starCostDelta":-1,"vars":{"Damage":2}}}]}""").Cards.Single();
+        var t = CardTextComposer.Compose(vars.Id, new CardTextFacts(0, false, 3, [], 1), vars, Loc)!;
+        Assert.Equal("3", t.Base.StarCost);
+        Assert.Equal("2", t.Upgraded!.StarCost);
+        Assert.Equal("Deal ? damage.", Plain(t.Upgraded));
+    }
+
+    [Fact]
     public void Card_without_description_or_upgrade()
     {
         var t = CardTextComposer.Compose("CARD.CURSED", new CardTextFacts(-1, false, -1, ["Unplayable"], 0), null, Loc)!;
         Assert.Null(t.Base.Cost);
         Assert.Null(t.Upgraded);
         Assert.Equal("Unplayable.", Plain(t.Base));
+    }
+
+    [Fact]
+    public void Deck_copy_uses_its_saved_value_and_compares_to_its_next_level()
+    {
+        var vars = Vars(5, 2);
+        vars.SavedProperties["Damage"] = "CurrentDamage";
+        var facts = new CardTextFacts(1, false, -1, [], 1);
+        var saved = new Dictionary<string, decimal> { ["CurrentDamage"] = 19 };
+        var t = CardTextComposer.Compose(vars.Id, facts, vars, Loc, savedProperties: saved)!;
+        Assert.True(t.IsDeckCopy);
+        Assert.Equal("Deal 19 damage.", Plain(t.Base));
+        Assert.Equal("Deal 19 damage.", Plain(t.Upgraded!));
+        Assert.Null(CardTextComposer.Compose(vars.Id, facts, vars, Loc, level: 1, savedProperties: saved)!.Upgraded);
+        saved.Clear();
+        Assert.Equal("Deal ? damage.", Plain(CardTextComposer.Compose(vars.Id, facts, vars, Loc, savedProperties: saved)!.Base));
+        Assert.Equal("Deal 5 damage.", Plain(CardTextComposer.Compose(vars.Id, facts, vars, Loc)!.Base));
+    }
+
+    [Theory]
+    [InlineData(0, "Stage A", "7", "Stage A+1", "11")]
+    [InlineData(2, "Stage A+2", "16", "Stage B+3", "22")]
+    [InlineData(5, "Stage B+5", "37", "Stage C+6", "46")]
+    public void Repeated_upgrade_uses_correct_name_and_increment(int level, string title, string damage, string nextTitle, string nextDamage)
+    {
+        var loc = Loc with { Cards = new Dictionary<string, string>
+        {
+            ["DINGY_DAGGER.title.dingy"] = "Stage A", ["DINGY_DAGGER.title.fine"] = "Stage B",
+            ["DINGY_DAGGER.title.pristine"] = "Stage C", ["DINGY_DAGGER.description"] = "{Damage:diff()}",
+        } };
+        var t = CardTextComposer.Compose("CARD.DINGY_DAGGER", new CardTextFacts(0, false, -1, [], 999),
+            Vars(7, 4), loc, level: level)!;
+        Assert.Equal((title, damage), (t.Base.Title, Plain(t.Base)));
+        Assert.Equal((nextTitle, nextDamage), (t.Upgraded!.Title, Plain(t.Upgraded)));
+    }
+
+    [Theory]
+    [InlineData(1, 2, "A V")]
+    [InlineData(2, 1, "S S")]
+    [InlineData(3, 0, "P")]
+    public void Customized_card_uses_type_and_rider_on_that_copy(int type, int rider, string expected)
+    {
+        var loc = Loc with { Cards = new Dictionary<string, string>
+        {
+            ["MAD_SCIENCE.title"] = "Test",
+            ["MAD_SCIENCE.description"] = "{CardType:choose(Attack|Skill|Power):A|S|P|?}{HasRider:{Violence: V|}{Sapping: S|}|}",
+        } };
+        var saved = new Dictionary<string, decimal> { ["TinkerTimeType"] = type };
+        if (rider > 0) saved["TinkerTimeRider"] = rider;
+        var t = CardTextComposer.Compose("CARD.MAD_SCIENCE", new CardTextFacts(1, false, -1, [], 0), new CardVars(),
+            loc, savedProperties: saved)!;
+        Assert.Equal(expected, Plain(t.Base));
     }
 
     [Fact]

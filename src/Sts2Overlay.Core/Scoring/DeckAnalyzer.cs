@@ -50,7 +50,7 @@ public static class DeckAnalyzer
                 foreach (var axis in entry.Consumes.Distinct(StringComparer.Ordinal)) consumes[axis] = consumes.GetValueOrDefault(axis) + 1;
             }
 
-            var type = pack.CardType(state.Character, id);
+            var type = pack.CardType(state.Character, dc);
             if (type == CardTypes.Power) powers++;
             if (IsCurse(pack, state.Character, id)) curses++;
             if (CardIdHeuristics.IsBasicStrike(id)) strikes++;

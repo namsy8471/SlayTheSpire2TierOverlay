@@ -2,6 +2,7 @@ using System.IO;
 using System.Text.Json;
 using Sts2Overlay.App.Infrastructure;
 using Sts2Overlay.Core.Data;
+using Sts2Overlay.Core.Model;
 using Sts2Overlay.Core.Text;
 
 namespace Sts2Overlay.App.Services;
@@ -42,19 +43,25 @@ public sealed class CardTextProvider
     public IReadOnlyCollection<string> LoadedLanguages => _locs.Keys;
 
     /// <summary>
-    /// Reads the card-vars file next to the pack's catalog (<c>data/packs/v0.107.1</c> → <c>data/catalog/card-vars.v0.107.1.json</c>)
+    /// Reads the card-vars file for the loaded catalog version, which can differ from the tier pack version,
     /// and <paramref name="localizationDir"/>/&lt;lang&gt;/{cards,card_keywords}.json for each of <see cref="Languages"/>.
     /// Missing files are fine.
     /// </summary>
     public static CardTextProvider Load(DataPack pack, string packDir, string localizationDir)
     {
         var vars = new Dictionary<string, CardVars>(StringComparer.Ordinal);
-        var varsPath = CardVarsPath(packDir);
+        var catalogVersion = pack.Catalog?.GameVersion;
+        var varsPath = CardVarsPath(packDir, catalogVersion);
         if (varsPath is not null && File.Exists(varsPath))
         {
             try
             {
-                foreach (var c in CardVarsFile.Parse(File.ReadAllText(varsPath)).Cards) vars[c.Id] = c;
+                var file = CardVarsFile.Parse(File.ReadAllText(varsPath));
+                if (catalogVersion is null || file.GameVersion is null || file.GameVersion == catalogVersion)
+                {
+                    foreach (var c in file.Cards) vars[c.Id] = c;
+                }
+                else AppLog.Warn($"card text: {varsPath} declares {file.GameVersion}, expected {catalogVersion}");
             }
             catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
             {
@@ -76,12 +83,9 @@ public sealed class CardTextProvider
     public static CardTextProvider ForLocalData(DataPack pack, string packDir)
         => Load(pack, packDir, Path.Combine(AppPaths.LocalDataDir, "pck", "localization"));
 
-    /// <summary><c>…/data/packs/v0.107.1</c> → <c>…/data/catalog/card-vars.v0.107.1.json</c>.</summary>
-    internal static string? CardVarsPath(string packDir)
-    {
-        var catalog = DataPackLoader.SiblingCatalogPath(packDir);
-        return catalog is null ? null : Path.Combine(Path.GetDirectoryName(catalog)!, "card-vars." + Path.GetFileName(catalog)["cards.".Length..]);
-    }
+    /// <summary>Legacy catalogs with no version use the pack directory's name.</summary>
+    internal static string? CardVarsPath(string packDir, string? catalogVersion = null)
+        => AppPaths.CatalogTablePath(packDir, "card-vars", catalogVersion);
 
     /// <summary>
     /// Base and upgraded text of <paramref name="cardId"/> in <paramref name="lang"/> (a game code such as <c>kor</c>/<c>eng</c>;
@@ -89,23 +93,32 @@ public sealed class CardTextProvider
     /// </summary>
     public CardText? For(string cardId, string lang = DefaultLanguage)
     {
-        var loc = _locs.GetValueOrDefault(lang) ?? _locs.GetValueOrDefault("eng") ?? _locs.GetValueOrDefault("kor");
+        var loc = Localization(lang);
         if (loc is null) return null;
         var id = _pack.Canonical(cardId);
         if (_cache.TryGetValue((loc.Lang, id), out var cached)) return cached;
 
-        CardText? text = null;
-        if (_pack.FindCatalog(id) is { } card)
-        {
-            var facts = new CardTextFacts(card.Cost ?? -1, card.CostX, card.StarCost, card.Keywords, card.MaxUpgrade ?? 0)
-            {
-                GainsBlock = card.GainsBlock,
-                Target = card.Target,
-            };
-            text = CardTextComposer.Compose(id, facts, _vars.GetValueOrDefault(id), loc);
-        }
+        var text = Compose(id, loc, 0, null);
         _cache[(loc.Lang, id)] = text;
         return text;
+    }
+
+    public CardText? ForDeck(DeckCard copy, string lang)
+        => Localization(lang) is { } loc ? Compose(_pack.Canonical(copy.Id), loc, copy.Upgrade, copy.SavedProperties) : null;
+
+    private CardLocalization? Localization(string lang)
+        => _locs.GetValueOrDefault(lang) ?? _locs.GetValueOrDefault("eng") ?? _locs.GetValueOrDefault("kor");
+
+    private CardText? Compose(string id, CardLocalization loc, int level, IReadOnlyDictionary<string, decimal>? saved)
+    {
+        if (_pack.FindCatalog(id) is not { } card) return null;
+        var facts = new CardTextFacts(card.Cost ?? -1, card.CostX, card.StarCost, card.Keywords, card.MaxUpgrade ?? 0)
+        {
+            StarCostX = card.StarCostX,
+            GainsBlock = card.GainsBlock,
+            Target = card.Target,
+        };
+        return CardTextComposer.Compose(id, facts, _vars.GetValueOrDefault(id), loc, level: level, savedProperties: saved);
     }
 
     private static Dictionary<string, string> ReadTable(string path)

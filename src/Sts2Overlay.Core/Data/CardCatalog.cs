@@ -8,7 +8,7 @@ namespace Sts2Overlay.Core.Data;
 /// </summary>
 /// <remarks>
 /// Values are kept as written in the file (the real catalog uses PascalCase such as <c>Attack</c> / <c>Rare</c>);
-/// every consumer compares type and rarity case-insensitively (<see cref="DataPack.CardType"/> and
+/// every consumer compares type and rarity case-insensitively (<see cref="DataPack.CardType(string,string)"/> and
 /// <see cref="DataPack.CardRarity"/> return lower case).
 /// </remarks>
 public sealed class CardCatalog
@@ -99,6 +99,10 @@ public sealed class CatalogCard
 
     /// <summary>Star cost (Regent); -1 when the card has none.</summary>
     public int StarCost { get; set; } = -1;
+
+    /// <summary>Whether playing the card spends X stars.</summary>
+    [JsonConverter(typeof(NullAsFalseConverter))]
+    public bool StarCostX { get; set; }
 
     /// <summary>Self | AnyEnemy | AllEnemies | None | RandomEnemy | AnyAlly | AllAllies.</summary>
     public string? Target { get; set; }

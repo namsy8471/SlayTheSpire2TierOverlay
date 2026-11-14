@@ -1,4 +1,5 @@
 using Sts2Overlay.Core.Data;
+using Sts2Overlay.Core.Model;
 using Sts2Overlay.Core.Scoring;
 using static Sts2Overlay.Core.Tests.Scoring.TestPacks;
 
@@ -63,6 +64,17 @@ public class DeckAnalyzerTests
         Assert.Equal(1, p.BasicDefends);
         Assert.Equal(2, p.Curses);
         Assert.Empty(p.Archetypes);
+    }
+
+    [Fact]
+    public void Power_count_uses_the_saved_type_of_each_customized_copy()
+    {
+        DeckCard Copy(int type) => new(new CardRef("CARD.MAD_SCIENCE"))
+        {
+            SavedProperties = new SavedCardProperties(new Dictionary<string, decimal> { ["TinkerTimeType"] = type }),
+        };
+        var state = State() with { Deck = [Copy(1), Copy(2), Copy(3), Copy(3), new DeckCard(new CardRef("CARD.MAD_SCIENCE"))] };
+        Assert.Equal(2, DeckAnalyzer.AnalyzeDeck(state, Pack).PowerCount);
     }
 
     [Fact]

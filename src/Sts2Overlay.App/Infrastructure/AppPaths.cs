@@ -136,6 +136,16 @@ public static class AppPaths
     /// <summary>The committed names-free catalog of <see cref="DataVersion"/> (<c>data/catalog/cards.&lt;v&gt;.json</c>), shipped with installed builds too.</summary>
     public static string CommittedCatalogFile => Path.Combine(ContentRoot, "data", "catalog", $"cards.{CardDataVersion}.json");
 
+    /// <summary>Resolves a companion table using the loaded catalog version; legacy catalogs inherit the pack version.</summary>
+    internal static string? CatalogTablePath(string packDir, string table, string? catalogVersion)
+    {
+        var catalog = Sts2Overlay.Core.Data.DataPackLoader.SiblingCatalogPath(packDir);
+        if (catalog is null) return null;
+        var version = catalogVersion ?? Path.GetFileNameWithoutExtension(catalog)["cards.".Length..];
+        if (version.Length == 0 || version.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0) return null;
+        return Path.Combine(Path.GetDirectoryName(catalog)!, $"{table}.{version}.json");
+    }
+
     /// <summary>
     /// Resolves the pack directory: an absolute path is used as-is, a relative one is taken from the content root
     /// (repo root, or the exe folder when installed). Null means <see cref="DefaultPackDir"/>.

@@ -212,7 +212,10 @@ public static class RunHistoryReader
             new CardRef(Json.Str(c, "id") ?? "", Math.Max(0, Json.Int(c, "current_upgrade_level"))),
             Json.Int(c, "floor_added_to_deck"),
             enchantmentId,
-            amount);
+            amount)
+        {
+            SavedProperties = SavedCardProperties.Read(c),
+        };
     }
 
     /// <summary>Reads <c>enchantment</c> given either as <c>{id, amount}</c> or as a bare id string.</summary>

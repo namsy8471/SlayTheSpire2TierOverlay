@@ -36,8 +36,8 @@ public sealed record PrepareProgress(double Fraction, string Text);
 public sealed class ResourcePreparer(LocalLayout layout, Func<CatalogOptions, CatalogFile>? buildCatalog = null)
 {
     /// <summary>Bump when the generated layout/content changes, so existing installs rebuild once.</summary>
-    /// <remarks>2: relic icons (pck/relic_icons) added for the shop relic reader.</remarks>
-    public const int FormatVersion = 3;
+    /// <remarks>Version 4 includes standalone relic icons and the base title of cards with multiple named forms.</remarks>
+    public const int FormatVersion = 4;
 
     public const string CardArtGlob = "images/packed/card_portraits/**/*.png";
     public static readonly string[] LocalizationLanguages = ["kor", "eng"];

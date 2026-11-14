@@ -96,6 +96,29 @@ public class RunSaveParserTests
     }
 
     [Fact]
+    public void Saved_card_values_match_run_history_and_distinguish_copies()
+    {
+        const string json = """
+            {"players":[{"deck":[
+              {"id":"CARD.SHOW_OFF","props":{"ints":[{"name":"CurrentAim","value":9},{"name":"IncreasedAim","value":4}]}},
+              {"id":"CARD.SHOW_OFF","props":{"ints":[{"name":"IncreasedAim","value":4},{"name":"CurrentAim","value":9}]}},
+              {"id":"CARD.SHOW_OFF","props":{"ints":[{"name":"CurrentAim","value":5}]}},
+              {"id":"CARD.SHOW_OFF"},
+              {"id":"CARD.SHOW_OFF","props":{"ints":[null,{"name":"CurrentAim","value":"unknown"}]}}
+            ]}]}
+            """;
+        var live = RunSaveParser.Parse(json, null).State.Deck;
+        var finished = Sts2Overlay.Core.History.RunHistoryReader.Parse(json).Players[0].Deck;
+
+        Assert.Equal(live.ToArray(), finished.ToArray());
+        Assert.Equal(9m, live[0].SavedProperties["CurrentAim"]);
+        Assert.Equal(5m, live[2].SavedProperties["CurrentAim"]);
+        Assert.Empty(live[3].SavedProperties);
+        Assert.Empty(live[4].SavedProperties);
+        Assert.Equal(3, live.Distinct().Count());
+    }
+
+    [Fact]
     public void Act_floor_and_map()
     {
         ParsedSave s = RunSaveParser.Parse(CoopJson, TestPaths.Me);

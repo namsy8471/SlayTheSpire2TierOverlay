@@ -48,8 +48,8 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
     private const string UpgradeRollArg = "upgrade-roll";
     private const string TransformScreen = "deck_transform_select_screen", UpgradeScreen = "deck_upgrade_select_screen";
 
-    private static bool MayRollUpgrade(string cardId, RngScheme scheme) =>
-        CardRarities.Of(cardId, scheme) is not ("Rare" or null) && CardRarities.MaxUpgrade(cardId, scheme) > 0;
+    private static bool MayRollUpgrade(string cardId, GameDataVersion version) =>
+        CardRarities.Of(cardId, version) is not ("Rare" or null) && CardRarities.MaxUpgrade(cardId, version) > 0;
     /// <summary>Card type each egg relic upgrades when a card of that type joins the deck.</summary>
     private static readonly (string Relic, string Type)[] s_eggs =
         [("RELIC.FROZEN_EGG", "Power"), ("RELIC.MOLTEN_EGG", "Attack"), ("RELIC.TOXIC_EGG", "Skill")];
@@ -709,7 +709,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         }
         else if (relic != null && DeckEffects.ForRelic(relic, Scheme()) != null)
             _relicsThisRoom.Add(relic);
-        ApplyEffect(DeckEffects.ForChoice(eo.EventId, eo.ChoiceKey, Scheme()), eo.EventId);
+        ApplyEffect(DeckEffects.ForChoice(eo.EventId, eo.ChoiceKey, CardVersion()), eo.EventId);
     }
 
     /// <summary>A relic was obtained: apply its pickup effect once per room (an ancient option may have applied it already).</summary>
@@ -750,7 +750,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         if (effect.Transcend) AddPatch(PatchKind.Transcend, null, 0);
         if (effect.UpgradeAll) AddPatch(PatchKind.UpgradeAll, null, 0);
         if (effect.AddBasicStrikeAndDefend && MyCharacter() is { } character
-            && StartingLoadouts.EmbeddedFor(Scheme()).For(character)?.Deck is { } starter)
+            && StartingLoadouts.EmbeddedFor(CardVersion()).For(character)?.Deck is { } starter)
         {
             // LargeCapsule.GetStrikeForCharacter / GetDefendForCharacter: the pool's Basic card tagged Strike / Defend.
             foreach (string? card in new[] { starter.FirstOrDefault(DeckEffects.IsBasicStrike), starter.FirstOrDefault(DeckEffects.IsBasicDefend) })
@@ -892,7 +892,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         // The game writes that save just before it logs 'Event Room', but the watcher may deliver the file a moment after
         // the tailer reads the log line: until then the save in hand is the PREVIOUS room's entry save (an event room
         // writes no save when you leave it) and would predict the previous room's event. Wait for the logged save.
-        if (_eventGuess == null && snapshot is { Save: { } entry } && !IsBehindLog(snapshot) && EventPrediction.Predict(entry, Scheme()) is { } guess)
+        if (_eventGuess == null && snapshot is { Save: { } entry } && !IsBehindLog(snapshot) && EventPrediction.Predict(entry, CardVersion()) is { } guess)
         {
             _eventGuess = guess;
             _eventCheck = (guess, entry.Events!.EventsSeen.Count);
@@ -946,7 +946,8 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         int slot = MySlot();
         if (slot < 0) return null;
         RngScheme scheme = Scheme();
-        string key = $"{seed}|{slot}|{eventId}|{ev.ActIndex}|{scheme}|{save.SchemaVersion}";
+        bool v113 = UsesV113Rules(save);
+        string key = $"{seed}|{slot}|{eventId}|{ev.ActIndex}|{scheme}|{v113}";
         if (_ancientDraw is { } c && c.Key == key) return c.Draw;
 
         var inputs = new AncientInputs
@@ -957,7 +958,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
             Character = save.State.Character,
             Deck = save.State.Deck.Select(d => new AncientDeckCard(d.Id, d.EnchantmentId)).ToArray(),
             Relics = save.State.Relics,
-            UsesV113Rules = save.SchemaVersion >= 21,
+            UsesV113Rules = v113,
             UnlockedEpochs = save.UnlockedEpochs,
             Scheme = scheme,
         };
@@ -986,8 +987,9 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         if (slot < 0) return null;
         int players = IsMultiplayer() ? PlayerOrder().Count : 1;
         RngScheme scheme = Scheme();
-        if (save.SchemaVersion >= 21 && !save.State.IsStandardRun) return null;
-        bool v113 = save.SchemaVersion >= 21 && !RngSeeds.IsMigrated(seed);
+        bool v113Rules = UsesV113Rules(save);
+        if (v113Rules && !save.State.IsStandardRun) return null;
+        bool v113 = v113Rules && !RngSeeds.IsMigrated(seed);
         if (_neowDraw is { } c && c.Seed == seed && c.Slot == slot && c.Players == players && c.Scheme == scheme && c.V113 == v113) return c.Draw;
 
         bool? unlocked = save.UnlockedEpochs.Count > 0 ? ProgressSave.AllCharactersUnlocked(save.UnlockedEpochs, v113)
@@ -1161,12 +1163,17 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         ?? _logRun?.Character
         ?? ChooseSave()?.Save.State.Character;
 
+    private bool UsesV113Rules(ParsedSave save) =>
+        GameDataVersion.Detect(save.SchemaVersion, _logGameVersion) == GameDataVersion.Latest;
+
+    private GameDataVersion CardVersion() => GameDataVersion.ForRun(ChooseSave()?.Save.SchemaVersion ?? 0, _logGameVersion);
+
     private RewardCardPool? Pool()
     {
-        RngScheme scheme = Scheme();
-        if (_pool == null || _pool.Scheme != scheme)
+        GameDataVersion version = CardVersion();
+        if (_pool == null || _pool.Version != version)
         {
-            _pool = RewardCardPool.For(MyCharacter(), IsMultiplayer(), scheme);
+            _pool = RewardCardPool.For(MyCharacter(), IsMultiplayer(), version);
             _liveEpochs = ulong.MaxValue;
         }
         return _pool;
@@ -1211,9 +1218,9 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
     {
         List<OfferSlot>? picked = PickedSlots(cardId); // also narrows the epoch hypotheses, so run it for every pick
         int actIndex = CurrentAct() - 1;
-        RngScheme scheme = Scheme();
-        if (!MayRollUpgrade(cardId, scheme) || actIndex <= 0) return 0;
-        string rarity = CardRarities.Of(cardId, scheme)!;
+        GameDataVersion version = CardVersion();
+        if (!MayRollUpgrade(cardId, version) || actIndex <= 0) return 0;
+        string rarity = CardRarities.Of(cardId, version)!;
         int ascension = Ascension();
         List<bool> Outcomes(IEnumerable<OfferSlot> slots) =>
             slots.Select(s => RewardRollReplay.Upgrades(s.UpgradeRoll, rarity, actIndex, ascension)).Distinct().ToList();
@@ -1378,7 +1385,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         }
 
         // ---- apply log patches newer than the save -------------------------------------------------
-        var deck = new DeckReplay(state.Deck, Scheme());
+        var deck = new DeckReplay(state.Deck, CardVersion());
         var relics = state.Relics.ToList();
         int gold = state.Gold, removals = state.CardRemovalsBought, applied = 0;
         int rodFights = 0;
@@ -1533,7 +1540,7 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
                             ?? run.Players.FirstOrDefault(p => p.NetId == me)?.Character
                             ?? run.Players.FirstOrDefault()?.Character;
         if (character == null) return null;
-        StartingLoadout? loadout = (_options.Loadouts ?? StartingLoadouts.EmbeddedFor(Scheme())).For(character);
+        StartingLoadout? loadout = (_options.Loadouts ?? StartingLoadouts.EmbeddedFor(CardVersion())).For(character);
         int ascension = run.Ascension ?? 0;
 
         var deck = (loadout?.Deck ?? []).Select(id => new DeckCard(new CardRef(id), FloorAdded: 1)).ToList();

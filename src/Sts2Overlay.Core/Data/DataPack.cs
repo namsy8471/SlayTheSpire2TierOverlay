@@ -77,6 +77,13 @@ public sealed class DataPack
             : null;
     }
 
+    /// <summary>A customized Mad Science copy has its own type. A missing save property leaves it unknown.</summary>
+    public string? CardType(string character, DeckCard copy)
+        => Canonical(copy.Id) == "CARD.MAD_SCIENCE" ? MadScienceType(copy.SavedProperties)?.ToLowerInvariant() : CardType(character, copy.Id);
+
+    internal static string? MadScienceType(IReadOnlyDictionary<string, decimal> saved)
+        => saved.GetValueOrDefault("TinkerTimeType") switch { 1 => "Attack", 2 => "Skill", 3 => "Power", _ => null };
+
     /// <summary>
     /// True when the catalog gives the card the <c>Eternal</c> keyword: "cannot be removed or transformed from your deck"
     /// (Ascender's Bane, Greed, Folly, …). False when the catalog does not know the card.

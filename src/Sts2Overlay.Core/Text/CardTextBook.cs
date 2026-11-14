@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Sts2Overlay.Core.Data;
 
 namespace Sts2Overlay.Core.Text;
 
@@ -28,6 +29,8 @@ public sealed class CardVars
     public string Id { get; set; } = "";
     public Dictionary<string, decimal> Vars { get; set; } = new(StringComparer.Ordinal);
     public CardUpgrade? Upgrade { get; set; }
+    /// <summary>Variable name to the game's per-copy save property containing its current value.</summary>
+    public Dictionary<string, string> SavedProperties { get; set; } = new(StringComparer.Ordinal);
     public List<string> Unresolved { get; set; } = [];
 }
 
@@ -37,6 +40,9 @@ public sealed class CardUpgrade
     public Dictionary<string, decimal> Vars { get; set; } = new(StringComparer.Ordinal);
 
     public int CostDelta { get; set; }
+
+    /// <summary>Change to a non-X star cost on the first upgrade.</summary>
+    public int? StarCostDelta { get; set; }
 
     /// <summary>Cost after the upgrade when the game sets it outright instead of adding a delta.</summary>
     public int? SetCost { get; set; }
@@ -57,7 +63,7 @@ public sealed class CardUpgrade
 public sealed record CardFace(string Title, string? Cost, bool CostChanged, IReadOnlyList<CardTextRun> Body, string? StarCost = null);
 
 /// <summary>A card's text in one language: base face and, when the card can be upgraded, the upgraded face.</summary>
-public sealed record CardText(CardFace Base, CardFace? Upgraded);
+public sealed record CardText(CardFace Base, CardFace? Upgraded, bool IsDeckCopy = false);
 
 /// <summary>
 /// Card facts the composer needs that are not text: cost, keywords and whether the card upgrades.
@@ -89,45 +95,97 @@ public sealed record CardLocalization(string Lang, IReadOnlyDictionary<string, s
 /// </summary>
 public static class CardTextComposer
 {
+    /// <summary>Localization key for a card entry (without the CARD. prefix) at the given upgrade level.</summary>
+    public static string TitleKey(string entry, int level)
+        => entry == "DINGY_DAGGER" ? entry + (level < 3 ? ".title.dingy" : level < 6 ? ".title.fine" : ".title.pristine") : entry + ".title";
+
     // CardKeywordOrder.beforeDescription is inserted at index 0 one by one, so the shown order is reversed.
     private static readonly string[] BeforeDescription = ["UNPLAYABLE", "INNATE", "RETAIN", "SLY", "ETHEREAL"];
     private static readonly string[] AfterDescription = ["EXHAUST", "ETERNAL"];
 
-    /// <summary>Builds both faces; <paramref name="missing"/> collects template variables that had no value.</summary>
-    public static CardText? Compose(string cardId, CardTextFacts facts, CardVars? vars, CardLocalization loc, ICollection<string>? missing = null)
+    /// <summary>Builds a library card or a saved deck copy, followed by its next available upgrade.</summary>
+    public static CardText? Compose(string cardId, CardTextFacts facts, CardVars? vars, CardLocalization loc,
+        ICollection<string>? missing = null, int level = 0, IReadOnlyDictionary<string, decimal>? savedProperties = null)
     {
         string entry = cardId.StartsWith("CARD.", StringComparison.Ordinal) ? cardId[5..] : cardId;
-        if (!loc.Cards.TryGetValue(entry + ".title", out var title) || string.IsNullOrEmpty(title)) return null;
         loc.Cards.TryGetValue(entry + ".description", out var template);
-
-        var baseVars = vars?.Vars ?? new Dictionary<string, decimal>(StringComparer.Ordinal);
-        var keywords = facts.Keywords.Select(Normalize).ToHashSet(StringComparer.Ordinal);
+        var values = vars is null ? new Dictionary<string, decimal>(StringComparer.Ordinal) : new(vars.Vars, StringComparer.Ordinal);
         IReadOnlyCollection<string> unresolved = vars?.Unresolved ?? [];
-
-        var baseFace = Face(title, template, facts, cost: facts.Cost, costChanged: false, baseVars, null, false, keywords, loc, unresolved, missing);
-        if (facts.MaxUpgrade <= 0) return new CardText(baseFace, null);
-
-        var up = vars?.Upgrade;
-        var upVars = new Dictionary<string, decimal>(baseVars, StringComparer.Ordinal);
-        if (up != null)
+        Dictionary<string, string>? strings = null;
+        if (savedProperties is not null && vars is not null)
         {
-            foreach (var (k, d) in up.Vars) upVars[k] = upVars.TryGetValue(k, out var b) ? b + d : d;
+            foreach (var (variable, property) in vars.SavedProperties)
+            {
+                if (savedProperties.TryGetValue(property, out var value)) values[variable] = value;
+                else values.Remove(variable);
+            }
+            if (entry == "MAD_SCIENCE") strings = MadScienceProperties(savedProperties, values);
         }
-        int upCost = up?.SetCost ?? facts.Cost + (up?.CostDelta ?? 0);
-        if (facts.Cost >= 0 && upCost < 0) upCost = 0;
-        var upKeywords = new HashSet<string>(keywords, StringComparer.Ordinal);
-        if (up != null)
+        var currentValues = ValuesAtLevel(level);
+        var current = AtLevel(level, currentValues, null);
+        if (current is null) return null;
+        var next = vars is not null && level < facts.MaxUpgrade ? AtLevel(level + 1, ValuesAtLevel(level + 1), currentValues) : null;
+        return new CardText(current, next, savedProperties is not null);
+
+        Dictionary<string, decimal> ValuesAtLevel(int upgradeLevel)
         {
-            foreach (var k in up.AddKeywords) upKeywords.Add(Normalize(k));
-            foreach (var k in up.RemoveKeywords) upKeywords.Remove(Normalize(k));
+            var result = new Dictionary<string, decimal>(values, StringComparer.Ordinal);
+            if (upgradeLevel <= 0 || vars?.Upgrade is not { } change) return result;
+            foreach (var (name, delta) in change.Vars)
+            {
+                if (savedProperties is not null && vars.SavedProperties.ContainsKey(name)) continue;
+                if (!values.TryGetValue(name, out var initial)) continue;
+                // Dingy Dagger gains one more damage on each successive upgrade than on the one before it.
+                if (entry == "DINGY_DAGGER" && name == "Damage")
+                    result[name] = initial + delta * upgradeLevel + (decimal)upgradeLevel * (upgradeLevel - 1) / 2;
+                else if (upgradeLevel == 1) result[name] = initial + delta;
+                else result.Remove(name); // later upgrade rules for an unknown multi-upgrade card are unavailable
+            }
+            return result;
         }
-        var upFace = Face(title + "+", template, facts, upCost, upCost != facts.Cost, upVars, baseVars, true, upKeywords, loc, unresolved, missing);
-        return new CardText(baseFace, upFace);
+
+        CardFace? AtLevel(int upgradeLevel, IReadOnlyDictionary<string, decimal> levelValues, IReadOnlyDictionary<string, decimal>? previousValues)
+        {
+            if (!loc.Cards.TryGetValue(TitleKey(entry, upgradeLevel), out var title) || string.IsNullOrEmpty(title)) return null;
+            var keywords = facts.Keywords.Select(Normalize).ToHashSet(StringComparer.Ordinal);
+            var costs = facts;
+            if (upgradeLevel > 0)
+            {
+                title += facts.MaxUpgrade > 1 ? "+" + upgradeLevel : "+";
+                if (vars?.Upgrade is { } change)
+                {
+                    foreach (var k in change.AddKeywords) keywords.Add(Normalize(k));
+                    foreach (var k in change.RemoveKeywords) keywords.Remove(Normalize(k));
+                    costs = facts with
+                    {
+                        Cost = change.SetCost ?? (facts.Cost < 0 ? facts.Cost : Math.Max(0, facts.Cost + change.CostDelta)),
+                        StarCost = facts.StarCost < 0 ? facts.StarCost : Math.Max(0, facts.StarCost + (change.StarCostDelta ?? 0)),
+                    };
+                }
+            }
+            return Face(title, template, costs, previousValues is not null && upgradeLevel == 1 && costs.Cost != facts.Cost,
+                levelValues, previousValues, upgradeLevel > 0, keywords, loc, unresolved, strings, missing);
+        }
     }
 
-    private static CardFace Face(string title, string? template, CardTextFacts facts, int cost, bool costChanged,
+    private static Dictionary<string, string>? MadScienceProperties(IReadOnlyDictionary<string, decimal> saved, Dictionary<string, decimal> values)
+    {
+        var type = DataPack.MadScienceType(saved);
+        if (type is null) return null;
+        string[] riders = ["None", "Sapping", "Violence", "Choking", "Energized", "Wisdom", "Chaos", "Expertise", "Curious", "Improvement"];
+        var rider = saved.GetValueOrDefault("TinkerTimeRider");
+        if (rider == decimal.Truncate(rider) && rider >= 0 && rider < riders.Length)
+        {
+            values["HasRider"] = rider == 0 ? 0 : 1;
+            for (int i = 0; i < riders.Length; i++) values[riders[i]] = i == rider ? 1 : 0;
+        }
+        return new(StringComparer.Ordinal) { ["CardType"] = type };
+    }
+
+    private static CardFace Face(string title, string? template, CardTextFacts facts, bool costChanged,
         IReadOnlyDictionary<string, decimal> vars, IReadOnlyDictionary<string, decimal>? baseVars, bool upgraded,
-        HashSet<string> keywords, CardLocalization loc, IReadOnlyCollection<string> unresolved, ICollection<string>? missing)
+        HashSet<string> keywords, CardLocalization loc, IReadOnlyCollection<string> unresolved,
+        IReadOnlyDictionary<string, string>? strings, ICollection<string>? missing)
     {
         var lines = new List<IReadOnlyList<CardTextRun>>();
         foreach (var k in BeforeDescription)
@@ -141,6 +199,7 @@ public static class CardTextComposer
                 GainsBlock = facts.GainsBlock,
                 TargetType = facts.Target,
             };
+            if (strings is not null) ctx = ctx with { Strings = strings };
             var body = CardTextRenderer.Render(template, ctx, missing);
             if (body.Count > 0) lines.Add(body);
         }
@@ -154,7 +213,7 @@ public static class CardTextComposer
             runs.AddRange(lines[i]);
         }
 
-        string? costText = facts.CostX ? "X" : cost < 0 ? null : cost.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        string? costText = facts.CostX ? "X" : facts.Cost < 0 ? null : facts.Cost.ToString(System.Globalization.CultureInfo.InvariantCulture);
         string? starText = facts.StarCostX ? "X" : facts.StarCost < 0 ? null : facts.StarCost.ToString(System.Globalization.CultureInfo.InvariantCulture);
         return new CardFace(title, costText, costChanged, Merge(runs), starText);
     }

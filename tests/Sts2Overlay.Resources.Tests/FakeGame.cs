@@ -46,7 +46,7 @@ internal sealed class FakeGame : IDisposable
     {
         var w = new PckWriter();
         w.Add("localization/kor/cards.json", """{"BASH.title":"가나다","BASH.description":"설명"}""");
-        w.Add("localization/eng/cards.json", """{"BASH.title":"Abc"}""");
+        w.Add("localization/eng/cards.json", """{"BASH.title":"Abc","DINGY_DAGGER.title.dingy":"First form","DINGY_DAGGER.title.fine":"Next form"}""");
         w.Add("localization/kor/relics.json", "{}");
         w.AddTexture("images/packed/card_portraits/ironclad/bash.png", FakeWebp(1));
         w.AddTexture("images/packed/card_portraits/ironclad/beta/anger.png", FakeWebp(2));

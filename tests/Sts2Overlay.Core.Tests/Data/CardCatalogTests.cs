@@ -7,6 +7,19 @@ public class CardCatalogTests
     private const string Defect = "CHARACTER.DEFECT";
 
     [Fact]
+    public void Variable_star_cost_is_distinct_from_energy_cost_and_no_star_cost()
+    {
+        var path = Path.Combine(TestPaths.RepoRoot, DataPackLoader.CatalogRelativePath("v0.113.0"));
+        var catalog = DataPackLoader.LoadCatalogFile(path);
+        var stardust = Assert.Single(catalog.Cards, card => card.StarCostX);
+        Assert.Equal("CARD.STARDUST", stardust.Id);
+        Assert.Equal(-1, stardust.StarCost);
+        Assert.False(stardust.CostX);
+        Assert.Contains(catalog.Cards, card => !card.StarCostX && card.StarCost >= 0);
+        Assert.Contains(catalog.Cards, card => !card.StarCostX && card.StarCost == -1);
+    }
+
+    [Fact]
     public void RealCatalog_LoadsAsIs()
     {
         var c = RealCatalog.Instance;

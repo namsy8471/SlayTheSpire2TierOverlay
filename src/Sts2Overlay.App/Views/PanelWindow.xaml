@@ -237,6 +237,26 @@
       </DataTemplate.Triggers>
     </DataTemplate>
 
+    <DataTemplate x:Key="CardEffectsTemplate" DataType="{x:Type ctext:CardText}">
+      <StackPanel>
+        <TextBlock x:Name="BaseLabel" Text="{Binding BaseCard, Source={x:Static vm:UiText.Instance}}" FontSize="11.5" Foreground="{StaticResource TextDim}" Margin="0,0,0,3" />
+        <ContentControl Content="{Binding Base}" ContentTemplate="{StaticResource CardFaceTemplate}" Focusable="False" />
+        <StackPanel Visibility="{Binding Upgraded, Converter={StaticResource BoolVis}}">
+          <Border Height="1" Margin="0,6,0,5" Background="#33FFFFFF" />
+          <TextBlock FontSize="11.5" Foreground="{StaticResource UpgradeFg}" Margin="0,0,0,3">
+            <Run x:Name="UpgradeLabel" Text="{Binding AfterUpgrade, Source={x:Static vm:UiText.Instance}, Mode=OneWay}" /> <Run Text="{Binding Upgraded.Title, Mode=OneWay}" FontWeight="SemiBold" />
+          </TextBlock>
+          <ContentControl Content="{Binding Upgraded}" ContentTemplate="{StaticResource CardFaceTemplate}" Focusable="False" />
+        </StackPanel>
+      </StackPanel>
+      <DataTemplate.Triggers>
+        <DataTrigger Binding="{Binding IsDeckCopy}" Value="True">
+          <Setter TargetName="BaseLabel" Property="Text" Value="{Binding DeckCopy, Source={x:Static vm:UiText.Instance}}" />
+          <Setter TargetName="UpgradeLabel" Property="Text" Value="{Binding NextUpgrade, Source={x:Static vm:UiText.Instance}, Mode=OneWay}" />
+        </DataTrigger>
+      </DataTemplate.Triggers>
+    </DataTemplate>
+
     <!--
       빌드 tab card tile: portrait + name. Owned = gold frame and check; not owned = dimmed, so what is still needed stands out.
       Hover: name, role/rarity/tier, owned or not, the card's effect text (base and upgraded), and the large portrait
@@ -282,16 +302,7 @@
               <!-- Effect text (game localization + extracted numbers); hidden when the localization isn't extracted. -->
               <Border Padding="7,6" Margin="0,0,0,6" CornerRadius="3" Background="#26FFFFFF"
                       Visibility="{Binding Text, Converter={StaticResource BoolVis}}">
-                <StackPanel>
-                  <ContentControl Content="{Binding Text.Base}" ContentTemplate="{StaticResource CardFaceTemplate}" Focusable="False" />
-                  <StackPanel Visibility="{Binding Text.Upgraded, Converter={StaticResource BoolVis}}">
-                    <Border Height="1" Margin="0,6,0,5" Background="#33FFFFFF" />
-                    <TextBlock FontSize="11.5" Foreground="{StaticResource UpgradeFg}" Margin="0,0,0,3">
-                      <Run Text="{Binding AfterUpgrade, Source={x:Static vm:UiText.Instance}, Mode=OneWay}" /> <Run Text="{Binding Text.Upgraded.Title, Mode=OneWay}" FontWeight="SemiBold" />
-                    </TextBlock>
-                    <ContentControl Content="{Binding Text.Upgraded}" ContentTemplate="{StaticResource CardFaceTemplate}" Focusable="False" />
-                  </StackPanel>
-                </StackPanel>
+                <ContentControl Content="{Binding Text}" ContentTemplate="{StaticResource CardEffectsTemplate}" Focusable="False" />
               </Border>
               <Image Source="{Binding Art.Large}" Width="380" Height="289" RenderOptions.BitmapScalingMode="HighQuality"
                      Visibility="{Binding Art, Converter={StaticResource BoolVis}}" />
@@ -486,16 +497,7 @@
               <!-- Effect text (game localization + extracted numbers); hidden when the localization isn't extracted. -->
               <Border Padding="7,6" Margin="0,5,0,6" CornerRadius="3" Background="#26FFFFFF"
                       Visibility="{Binding Text, Converter={StaticResource BoolVis}}">
-                <StackPanel>
-                  <ContentControl Content="{Binding Text.Base}" ContentTemplate="{StaticResource CardFaceTemplate}" Focusable="False" />
-                  <StackPanel Visibility="{Binding Text.Upgraded, Converter={StaticResource BoolVis}}">
-                    <Border Height="1" Margin="0,6,0,5" Background="#33FFFFFF" />
-                    <TextBlock FontSize="11.5" Foreground="{StaticResource UpgradeFg}" Margin="0,0,0,3">
-                      <Run Text="{Binding AfterUpgrade, Source={x:Static vm:UiText.Instance}, Mode=OneWay}" /> <Run Text="{Binding Text.Upgraded.Title, Mode=OneWay}" FontWeight="SemiBold" />
-                    </TextBlock>
-                    <ContentControl Content="{Binding Text.Upgraded}" ContentTemplate="{StaticResource CardFaceTemplate}" Focusable="False" />
-                  </StackPanel>
-                </StackPanel>
+                <ContentControl Content="{Binding Text}" ContentTemplate="{StaticResource CardEffectsTemplate}" Focusable="False" />
               </Border>
               <Image Source="{Binding Art.Large}" Width="380" Height="289" RenderOptions.BitmapScalingMode="HighQuality"
                      Visibility="{Binding Art, Converter={StaticResource BoolVis}}" />
@@ -743,7 +745,19 @@
                           <ItemsControl ItemsSource="{Binding Cards}">
                             <ItemsControl.ItemTemplate>
                               <DataTemplate DataType="{x:Type vm:DeckCardVm}">
-                                <Grid Margin="0,1,0,1">
+                                <Grid Margin="0,1,0,1" Background="Transparent"
+                                      ToolTipService.InitialShowDelay="120" ToolTipService.ShowDuration="60000" ToolTipService.Placement="Left">
+                                  <Grid.ToolTip>
+                                    <ToolTip Padding="6" Background="#F0101318" BorderBrush="{StaticResource Gold}" BorderThickness="1.5" Foreground="{StaticResource TextMain}">
+                                      <StackPanel MaxWidth="380">
+                                        <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="Bold" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding Enchantment}" Foreground="{StaticResource Gold}"
+                                                   Visibility="{Binding Enchantment, Converter={StaticResource BoolVis}}" />
+                                        <ContentControl Content="{Binding Text}" ContentTemplate="{StaticResource CardEffectsTemplate}"
+                                                        Margin="0,4,0,0" Focusable="False" Visibility="{Binding Text, Converter={StaticResource BoolVis}}" />
+                                      </StackPanel>
+                                    </ToolTip>
+                                  </Grid.ToolTip>
                                   <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
@@ -760,14 +774,20 @@
                                                     Visibility="{Binding Art, Converter={StaticResource BoolVis}}" />
                                   </StackPanel>
                                   <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                                    <TextBlock x:Name="DeckCardName" Text="{Binding Name}" VerticalAlignment="Center" />
                                     <!-- log-only rebuild: this card's copy / upgrade is a guess; the tooltip says why -->
                                     <TextBlock Text=" ?" FontWeight="Bold" Foreground="#F1C40F" VerticalAlignment="Center" ToolTip="{Binding Doubt}"
                                                Visibility="{Binding Doubt, Converter={StaticResource BoolVis}}" />
                                   </StackPanel>
-                                  <TextBlock Grid.Column="2" Text="{Binding UpgradeText}" Foreground="{StaticResource UpgradeFg}" FontSize="12" Margin="6,0,0,0" VerticalAlignment="Center" />
+                                  <TextBlock Grid.Column="2" Text="{Binding Enchantment}" Foreground="{StaticResource Gold}" FontSize="11" Margin="4,0,0,0" VerticalAlignment="Center"
+                                             Visibility="{Binding Enchantment, Converter={StaticResource BoolVis}}" />
                                   <TextBlock Grid.Column="3" Text="{Binding CountText}" FontWeight="Bold" Margin="8,0,2,0" VerticalAlignment="Center" />
                                 </Grid>
+                                <DataTemplate.Triggers>
+                                  <DataTrigger Binding="{Binding IsUpgraded}" Value="True">
+                                    <Setter TargetName="DeckCardName" Property="Foreground" Value="{StaticResource UpgradeFg}" />
+                                  </DataTrigger>
+                                </DataTemplate.Triggers>
                               </DataTemplate>
                             </ItemsControl.ItemTemplate>
                           </ItemsControl>

@@ -183,7 +183,10 @@ public static class RunSaveParser
             new CardRef(Str(c, "id") ?? "?", Int(c, "current_upgrade_level") ?? 0),
             FloorAdded: Int(c, "floor_added_to_deck") ?? 0,
             EnchantmentId: Str(ench, "id"),
-            EnchantmentAmount: Int(ench, "amount") ?? 0);
+            EnchantmentAmount: Int(ench, "amount") ?? 0)
+        {
+            SavedProperties = SavedCardProperties.Read(c),
+        };
     }
 
     private static EventRoomState? ParseEvents(JsonElement root, JsonElement act, int actIndex, JsonElement history, int visitedCount, JsonElement me)

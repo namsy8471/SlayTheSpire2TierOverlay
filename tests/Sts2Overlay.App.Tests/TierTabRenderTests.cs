@@ -8,6 +8,7 @@ using Sts2Overlay.App.Services;
 using Sts2Overlay.App.ViewModels;
 using Sts2Overlay.App.Views;
 using Sts2Overlay.Core.Localization;
+using Sts2Overlay.Core.Text;
 
 namespace Sts2Overlay.App.Tests;
 
@@ -17,6 +18,32 @@ namespace Sts2Overlay.App.Tests;
 /// </summary>
 public class TierTabRenderTests
 {
+    [Fact]
+    public void Deck_row_tooltip_shows_copy_and_next_upgrade() => WpfThread.Run(() =>
+    {
+        using var language = Loc.Use(Lang.Eng);
+        var text = new CardText(new CardFace("Sample+2", "1", false, [new("16", CardTextStyle.Plain)]),
+            new CardFace("Sample+3", "1", false, [new("22", CardTextStyle.Changed)]), IsDeckCopy: true);
+        var row = new DeckCardVm("?", "Sample+2", "×1", true, Text: text);
+        var vm = new PanelViewModel
+        {
+            SelectedTab = PanelTab.Deck,
+            Deck = new DeckSectionVm { Groups = [new DeckGroupVm("Test", [row])] },
+        };
+        var window = new PanelWindow(vm, new AppSettings(), new OverlayCaptureVisibility(true));
+        var root = (FrameworkElement)window.Content;
+        Layout(root);
+        var owner = Descendants(root).OfType<Grid>().Single(g => ReferenceEquals(g.DataContext, row) && g.ToolTip is ToolTip);
+        var tip = (ToolTip)owner.ToolTip;
+        tip.DataContext = owner.DataContext;
+        Layout(tip);
+        var labels = Texts(tip);
+        Assert.Contains("Owned card", labels);
+        Assert.Contains("16", labels);
+        Assert.Contains(labels, s => s.Contains("Next upgrade") && s.Contains("Sample+3"));
+        Assert.Contains("22", labels);
+    });
+
     [Fact]
     public void Tier_tab_lays_out_five_tiles_per_row_binds_cleanly_and_switches_language() => WpfThread.Run(Run);
 

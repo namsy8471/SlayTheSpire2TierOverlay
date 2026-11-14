@@ -146,7 +146,7 @@ public static class RngSeeds
     }
 
     /// <summary>"v0.109.0" / "0.109" / "v0.110.1-beta" → (0, 109, 0) style tuple for comparison; null when unreadable.</summary>
-    private static (int, int, int)? ParseVersion(string? text)
+    internal static (int, int, int)? ParseVersion(string? text)
     {
         if (string.IsNullOrWhiteSpace(text)) return null;
         string s = text.Trim().TrimStart('v', 'V');

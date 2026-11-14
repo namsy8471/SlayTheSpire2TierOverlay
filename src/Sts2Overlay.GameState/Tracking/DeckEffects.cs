@@ -262,16 +262,23 @@ public static class DeckEffects
         [C + "UNLEASH"] = C + "PROTECTOR",
         [C + "FALLING_STAR"] = C + "METEOR_SHOWER",
         [C + "DUALCAST"] = C + "QUADCAST",
+        [C + "FOOLISH_SHOT"] = C + "DIVINE_SHOT",
+    };
+
+    private static readonly Dictionary<string, DeckEffect> s_eventsV0113 = new(StringComparer.Ordinal)
+    {
+        ["DOORS_OF_LIGHT_AND_DARK.pages.INITIAL.options.LIGHT"] = Sel(SelectMeaning.Upgrade),
+        ["WUPPY_IN_TROUBLE.pages.INITIAL.options.HELP_IMMEDIATELY"] = Add("INJURY"),
     };
 
     /// <summary>Effect of an event option, or of the relic an ancient option grants (key ends with the relic id).</summary>
-    /// <param name="scheme">The run's seed arithmetic, which says the game generation (<see cref="GameDataVersion"/>).</param>
-    public static DeckEffect? ForChoice(string eventId, string choiceKey, RngScheme scheme = RngSeeds.Default)
+    public static DeckEffect? ForChoice(string eventId, string choiceKey, GameDataVersion version = default)
     {
+        if (version == GameDataVersion.Latest && s_eventsV0113.TryGetValue(choiceKey, out var changed)) return changed;
         if (s_events.TryGetValue(choiceKey, out DeckEffect? e)) return e;
         // Ancients (Neow, Pael, Vakuu, Orobas, Tanx, Darv, ...): "NEOW.pages.INITIAL.options.PRECARIOUS_SHEARS".
         int dot = choiceKey.LastIndexOf('.');
-        return dot >= 0 ? ForRelic("RELIC." + choiceKey[(dot + 1)..], scheme) : null;
+        return dot >= 0 ? ForRelic("RELIC." + choiceKey[(dot + 1)..], version.Scheme) : null;
     }
 
     /// <summary>A relic's pickup effect in the run's game generation.</summary>

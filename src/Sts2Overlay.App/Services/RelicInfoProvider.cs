@@ -3,7 +3,6 @@ using System.IO;
 using System.Text.Json;
 using System.Windows.Media;
 using Sts2Overlay.App.Infrastructure;
-using Sts2Overlay.Core.Data;
 using Sts2Overlay.Core.Text;
 
 namespace Sts2Overlay.App.Services;
@@ -54,15 +53,20 @@ public sealed class RelicInfoProvider
     /// Reads <c>relic-vars.&lt;version&gt;.json</c> next to the pack's catalog, the relic tables of
     /// <paramref name="localizationDir"/>/&lt;lang&gt;/relics.json and indexes nothing up front (icons are decoded on demand).
     /// </summary>
-    public static RelicInfoProvider Load(string packDir, string localizationDir, string iconDir)
+    public static RelicInfoProvider Load(string packDir, string localizationDir, string iconDir, string? catalogVersion = null)
     {
         var vars = new Dictionary<string, RelicVars>(StringComparer.Ordinal);
-        var varsPath = RelicVarsPath(packDir);
+        var varsPath = RelicVarsPath(packDir, catalogVersion);
         if (varsPath is not null && File.Exists(varsPath))
         {
             try
             {
-                foreach (var r in RelicVarsFile.Parse(File.ReadAllText(varsPath)).Relics) vars[RelicTextComposer.Entry(r.Id)] = r;
+                var file = RelicVarsFile.Parse(File.ReadAllText(varsPath));
+                if (catalogVersion is null || file.GameVersion is null || file.GameVersion == catalogVersion)
+                {
+                    foreach (var r in file.Relics) vars[RelicTextComposer.Entry(r.Id)] = r;
+                }
+                else AppLog.Warn($"relic text: {varsPath} declares {file.GameVersion}, expected {catalogVersion}");
             }
             catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
             {
@@ -82,18 +86,15 @@ public sealed class RelicInfoProvider
     }
 
     /// <summary>The default locations under <see cref="AppPaths.LocalDataDir"/>.</summary>
-    public static RelicInfoProvider ForLocalData(string packDir)
+    public static RelicInfoProvider ForLocalData(string packDir, string? catalogVersion = null)
     {
         var local = AppPaths.LocalDataDir;
-        return Load(packDir, Path.Combine(local, "pck", "localization"), new Sts2Overlay.Resources.LocalLayout(local).RelicIconDir);
+        return Load(packDir, Path.Combine(local, "pck", "localization"), new Sts2Overlay.Resources.LocalLayout(local).RelicIconDir, catalogVersion);
     }
 
     /// <summary><c>…/data/packs/v0.107.1</c> → <c>…/data/catalog/relic-vars.v0.107.1.json</c>.</summary>
-    internal static string? RelicVarsPath(string packDir)
-    {
-        var catalog = DataPackLoader.SiblingCatalogPath(packDir);
-        return catalog is null ? null : Path.Combine(Path.GetDirectoryName(catalog)!, "relic-vars." + Path.GetFileName(catalog)["cards.".Length..]);
-    }
+    internal static string? RelicVarsPath(string packDir, string? catalogVersion = null)
+        => AppPaths.CatalogTablePath(packDir, "relic-vars", catalogVersion);
 
     /// <summary>
     /// Icon + text of <paramref name="relicId"/> (<c>RELIC.ANCHOR</c> or <c>ANCHOR</c>) in <paramref name="lang"/>
