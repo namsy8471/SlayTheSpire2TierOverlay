@@ -103,6 +103,13 @@ public class CardTextRendererTests
         => Assert.Equal("2", Plain("{X:diff()}", Ctx(vars: ("X", 2.75m))));
 
     [Fact]
+    public void Percentage_formatters_show_the_rounded_change_from_one()
+    {
+        var ctx = Ctx(vars: [("Rise", 1.125m), ("Fall", 0.765m)]);
+        Assert.Equal("12% / 24%", Plain("{Rise:percentMore()}% / {Fall:percentLess()}%", ctx));
+    }
+
+    [Fact]
     public void Upgraded_show_branch_is_marked_in_the_upgrade_preview()
     {
         var ctx = new CardTextContext(new Dictionary<string, decimal>(), new Dictionary<string, decimal>(), true, "eng");

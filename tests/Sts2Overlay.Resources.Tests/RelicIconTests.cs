@@ -10,6 +10,29 @@ namespace Sts2Overlay.Resources.Tests;
 public class RelicIconTests
 {
     [Fact]
+    public void Missing_atlas_icons_use_the_standalone_then_beta_texture()
+    {
+        using var game = new FakeGame();
+        var writer = new PckWriter();
+        byte[] Icon(byte value) => PngWriter.Encode(Enumerable.Repeat(value, 10 * 8 * 4).ToArray(), 10, 8);
+        writer.AddTexture("images/atlases/relic_atlas.png", Icon(200));
+        writer.Add("images/atlases/relic_atlas.sprites/known.tres",
+            "texture = \"res://images/atlases/relic_atlas.png\"\nregion = Rect2(0, 0, 2, 2)\n");
+        writer.AddTexture("images/relics/known.png", Icon(100));
+        writer.AddTexture("images/relics/standalone.png", Icon(64));
+        writer.AddTexture("images/relics/beta/standalone.png", Icon(32));
+        writer.AddTexture("images/relics/beta/preview.png", Icon(16));
+        writer.Save(game.Install.PckPath);
+
+        using var pck = new PckReader(game.Install.PckPath);
+        Assert.Equal(3, RelicIconExtractor.Extract(pck, game.Layout.RelicIconDir));
+        byte[] Read(string id) => File.ReadAllBytes(Path.Combine(game.Layout.RelicIconDir, id + ".png"));
+        Assert.Equal(PngWriter.Encode(Enumerable.Repeat((byte)200, 2 * 2 * 4).ToArray(), 2, 2), Read("known"));
+        Assert.Equal(Icon(64), Read("standalone"));
+        Assert.Equal(Icon(16), Read("preview"));
+    }
+
+    [Fact]
     public void Potion_atlas_and_installed_shelf_are_read_from_the_local_pack()
     {
         using var game = new FakeGame();
@@ -94,6 +117,21 @@ public class RelicIconTests
         Assert.Equal(0, R(0, 4));
         Assert.Equal(255, R(7, 7));
         Assert.Equal(254, img[(0 * 8 + 4) * 4 + 3]);
+    }
+
+    [Theory]
+    [InlineData(210, 0, 180, 30)] // six interpolated alphas
+    [InlineData(0, 200, 40, 255)] // four interpolated alphas followed by transparent and opaque
+    public void Bc3_decodes_colour_and_alpha_indices_and_partial_blocks(byte alpha0, byte alpha1, byte alphaAt2, byte alphaAt7)
+    {
+        // Two blocks across. Pixel 0 takes alpha index 2 and red, pixel 1 takes alpha index 7
+        // and the blue-rich colour. Repeat the block to check clipping and stride at width 5.
+        byte[] block = [alpha0, alpha1, 0x3A, 0, 0, 0, 0, 0, 0x00, 0xF8, 0x1F, 0x00, 0x0C, 0, 0, 0];
+        byte[] pixels = Bc3Decoder.DecodeImage([.. block, .. block], 5, 1);
+        Assert.Equal(new byte[] { 255, 0, 0, alphaAt2 }, pixels[..4]);
+        Assert.Equal(new byte[] { 85, 0, 170, alphaAt7 }, pixels[4..8]);
+        Assert.Equal(20, pixels.Length);
+        Assert.Equal(pixels[..4], pixels[16..]);
     }
 
     [Fact]

@@ -3,7 +3,7 @@ using System.Text.Json;
 namespace Sts2Overlay.Resources.Tests;
 
 /// <summary>
-/// Sanity checks on the committed data/catalog/card-vars.v0.107.1.json (written by tools/CatalogBuilder --card-vars).
+/// Checks on the committed card-vars catalogs (written by tools/CatalogBuilder --card-vars).
 /// Expected numbers were checked by hand against the game's card classes (CanonicalVars / OnUpgrade).
 /// </summary>
 public class CardVarsFileTests
@@ -27,16 +27,29 @@ public class CardVarsFileTests
     private static decimal UpgradeVar(JsonElement card, string name) =>
         card.GetProperty("upgrade").GetProperty("vars").GetProperty(name).GetDecimal();
 
-    [Fact]
-    public void File_CoversEveryCatalogCard()
+    [Theory]
+    [InlineData("v0.107.1", 578)]
+    [InlineData("v0.113.0", 717)]
+    public void File_CoversEveryCatalogCard(string version, int count)
     {
-        using var catalog = JsonDocument.Parse(File.ReadAllText(Path.Combine(RepoRoot(), "data", "catalog", "cards.v0.107.1.json")));
+        var directory = Path.Combine(RepoRoot(), "data", "catalog");
+        using var catalog = JsonDocument.Parse(File.ReadAllText(Path.Combine(directory, $"cards.{version}.json")));
+        using var vars = JsonDocument.Parse(File.ReadAllText(Path.Combine(directory, $"card-vars.{version}.json")));
         var catalogIds = catalog.RootElement.GetProperty("cards").EnumerateArray().Select(c => c.GetProperty("id").GetString()).ToHashSet();
-        var varIds = Doc.Value.RootElement.GetProperty("cards").EnumerateArray().Select(c => c.GetProperty("id").GetString()).ToList();
+        var varIds = vars.RootElement.GetProperty("cards").EnumerateArray().Select(c => c.GetProperty("id").GetString()).ToList();
 
-        Assert.Equal("v0.107.1", Doc.Value.RootElement.GetProperty("gameVersion").GetString());
-        Assert.Equal(578, varIds.Count);
+        Assert.Equal(version, vars.RootElement.GetProperty("gameVersion").GetString());
+        Assert.Equal(count, varIds.Count);
         Assert.True(catalogIds.SetEquals(varIds));
+    }
+
+    [Fact]
+    public void RepeatableDaggerUpgradeReadsTheLevelAfterIncrement()
+    {
+        using var vars = JsonDocument.Parse(File.ReadAllText(Path.Combine(RepoRoot(), "data", "catalog", "card-vars.v0.113.0.json")));
+        var dagger = vars.RootElement.GetProperty("cards").EnumerateArray().Single(c => c.GetProperty("id").GetString() == "CARD.DINGY_DAGGER");
+        Assert.Equal(7m, Var(dagger, "Damage"));
+        Assert.Equal(4m, UpgradeVar(dagger, "Damage"));
     }
 
     [Fact]

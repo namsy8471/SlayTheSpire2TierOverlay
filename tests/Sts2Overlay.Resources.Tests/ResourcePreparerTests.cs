@@ -28,6 +28,10 @@ public sealed class ResourcePreparerTests : IDisposable
         Assert.False(File.Exists(Path.Combine(layout.CardArtDir, "other.webp")));
         Assert.Contains("가나다", File.ReadAllText(layout.CatalogPath("v0.107.1")), StringComparison.Ordinal);
 
+        var localization = Catalog.Localization.Load(layout.LocalizationDir, ["eng"]);
+        Assert.Equal("Abc", localization.Get("eng", "BASH", "title"));
+        Assert.Equal("First form", localization.Get("eng", "DINGY_DAGGER", "title"));
+
         Assert.Equal("catalog.v0.107.1.json", manifest.CatalogFile);
         Assert.Equal(2, manifest.CardArtFiles);
         Assert.Equal(3, manifest.LocalizationFiles);

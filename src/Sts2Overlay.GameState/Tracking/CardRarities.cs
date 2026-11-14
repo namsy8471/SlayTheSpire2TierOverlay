@@ -8,24 +8,22 @@ namespace Sts2Overlay.GameState.Tracking;
 /// cards are created during a fight and never live in a deck, and which cards leave a fight when played (powers,
 /// Exhaust) for the Thieving Hopper rule.
 /// <para>
-/// Every lookup takes the run's <see cref="RngScheme"/>, which picks the table: v0.111 moved the rarity of 12 cards (10 of
-/// them in reward pools), added 19 and reworked Scare into Sidestep. Without one the default is <see cref="RngSeeds.Default"/> (the newest tables).
+/// The run save or log version selects the table, including the Fool cards introduced in v0.113.
 /// </para>
 /// </summary>
 public static class CardRarities
 {
     private sealed record Info(string Rarity, string Type, bool Exhaust, int MaxUpgrade, string Multiplayer, IReadOnlySet<string> Keywords, IReadOnlySet<string> Tags);
 
-    private static readonly Lazy<Dictionary<string, Info>> s_v0107 = new(() => Load(RngScheme.Legacy32));
-    private static readonly Lazy<Dictionary<string, Info>> s_v0111 = new(() => Load(RngScheme.Xx64));
+    private static readonly EmbeddedCatalog<Dictionary<string, Info>> s_tables = new(Load);
 
-    private static Dictionary<string, Info> Table(RngScheme scheme) => (scheme == RngScheme.Legacy32 ? s_v0107 : s_v0111).Value;
+    private static Dictionary<string, Info> Table(GameDataVersion version) => s_tables.For(version);
 
-    private static Info? Find(string cardId, RngScheme scheme) => Table(scheme).GetValueOrDefault(cardId);
+    private static Info? Find(string cardId, GameDataVersion version) => Table(version).GetValueOrDefault(cardId);
 
-    private static Dictionary<string, Info> Load(RngScheme scheme)
+    private static Dictionary<string, Info> Load(GameDataVersion version)
     {
-        using Stream? s = typeof(CardRarities).Assembly.GetManifestResourceStream(GameDataVersion.Resource("cards", scheme));
+        using Stream? s = typeof(CardRarities).Assembly.GetManifestResourceStream(version.Resource("cards"));
         var map = new Dictionary<string, Info>(StringComparer.Ordinal);
         if (s == null) return map;
         using JsonDocument doc = JsonDocument.Parse(s);
@@ -47,36 +45,36 @@ public static class CardRarities
             map[i] = new Info(rarity, type, exhaust, max, mp, keywords, tags);
         }
         // A renamed id (an old log line or history file) reads as the card the game migrated it to.
-        foreach (var (old, now) in GameDataVersion.Renames(scheme))
+        foreach (var (old, now) in GameDataVersion.Renames(version.Scheme))
             if (!map.ContainsKey(old) && map.TryGetValue(now, out Info? info)) map[old] = info;
         return map;
     }
 
-    public static string? Of(string cardId, RngScheme scheme = RngSeeds.Default) => Find(cardId, scheme)?.Rarity;
+    public static string? Of(string cardId, GameDataVersion version = default) => Find(cardId, version)?.Rarity;
 
     /// <summary>True when the card id is in the catalog.</summary>
-    public static bool Knows(string cardId, RngScheme scheme = RngSeeds.Default) => Table(scheme).ContainsKey(cardId);
+    public static bool Knows(string cardId, GameDataVersion version = default) => Table(version).ContainsKey(cardId);
 
     /// <summary>The card's canonical keyword (CardKeyword name, e.g. <c>Eternal</c>, <c>Exhaust</c>), before upgrades and enchantments.</summary>
-    public static bool HasCanonicalKeyword(string cardId, string keyword, RngScheme scheme = RngSeeds.Default) =>
-        Find(cardId, scheme)?.Keywords.Contains(keyword) ?? false;
+    public static bool HasCanonicalKeyword(string cardId, string keyword, GameDataVersion version = default) =>
+        Find(cardId, version)?.Keywords.Contains(keyword) ?? false;
 
     /// <summary>The card's CardTag (<c>Strike</c>, <c>Defend</c>, <c>Shiv</c> ...), from the catalog.</summary>
-    public static bool HasTag(string cardId, string tag, RngScheme scheme = RngSeeds.Default) =>
-        Find(cardId, scheme)?.Tags.Contains(tag) ?? false;
+    public static bool HasTag(string cardId, string tag, GameDataVersion version = default) =>
+        Find(cardId, version)?.Tags.Contains(tag) ?? false;
 
     /// <summary>Attack / Skill / Power / Status / Curse, or null for an unknown id.</summary>
-    public static string? TypeOf(string cardId, RngScheme scheme = RngSeeds.Default) => Find(cardId, scheme)?.Type;
+    public static string? TypeOf(string cardId, GameDataVersion version = default) => Find(cardId, version)?.Type;
 
     /// <summary>How many times the card can be upgraded (0 for curses ...; 1 if the id is unknown).</summary>
-    public static int MaxUpgrade(string cardId, RngScheme scheme = RngSeeds.Default) => Find(cardId, scheme)?.MaxUpgrade ?? 1;
+    public static int MaxUpgrade(string cardId, GameDataVersion version = default) => Find(cardId, version)?.MaxUpgrade ?? 1;
 
     /// <summary>
     /// Whether the card can show up in a run with this many players (CardMultiplayerConstraint: some cards exist only in
     /// single player, some only in co-op).
     /// </summary>
-    public static bool AllowedWithPlayers(string cardId, bool multiplayer, RngScheme scheme = RngSeeds.Default) =>
-        Find(cardId, scheme)?.Multiplayer switch
+    public static bool AllowedWithPlayers(string cardId, bool multiplayer, GameDataVersion version = default) =>
+        Find(cardId, version)?.Multiplayer switch
         {
             "SingleplayerOnly" => !multiplayer,
             "MultiplayerOnly" => multiplayer,
@@ -84,19 +82,19 @@ public static class CardRarities
         };
 
     /// <summary>Tokens (Shiv, Soul ...) and statuses (Slimed, Wound ...) are made during a fight; a deck never holds them.</summary>
-    public static bool IsCombatOnly(string cardId, RngScheme scheme = RngSeeds.Default) => Of(cardId, scheme) is "Token" or "Status";
+    public static bool IsCombatOnly(string cardId, GameDataVersion version = default) => Of(cardId, version) is "Token" or "Status";
 
     /// <summary>Played, this card leaves the fight (a power, or an Exhaust card) instead of going to the discard pile.</summary>
-    public static bool LeavesCombatWhenPlayed(string cardId, RngScheme scheme = RngSeeds.Default) =>
-        Find(cardId, scheme) is { } c && (c.Type == "Power" || c.Exhaust);
+    public static bool LeavesCombatWhenPlayed(string cardId, GameDataVersion version = default) =>
+        Find(cardId, version) is { } c && (c.Type == "Power" || c.Exhaust);
 
     /// <summary>
     /// Thieving Hopper's steal order (ThievingHopper._stealPriorities): 0 Uncommon, 1 Common/Rare/Event, 2 Basic/Quest,
     /// 3 Ancient or Imbued-enchanted; null = never stolen (curses ...). Lower wins.
     /// </summary>
-    public static int? StealPriority(string cardId, string? enchantmentId, RngScheme scheme = RngSeeds.Default)
+    public static int? StealPriority(string cardId, string? enchantmentId, GameDataVersion version = default)
     {
-        string? rarity = Of(cardId, scheme);
+        string? rarity = Of(cardId, version);
         if (rarity == "Ancient" || enchantmentId == "ENCHANTMENT.IMBUED") return 3;
         return rarity switch
         {

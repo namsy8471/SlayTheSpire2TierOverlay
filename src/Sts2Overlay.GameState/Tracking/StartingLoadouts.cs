@@ -24,22 +24,21 @@ public sealed class StartingLoadouts
     private StartingLoadouts(IEnumerable<StartingLoadout> loadouts) =>
         _byCharacter = loadouts.ToDictionary(l => l.Character, StringComparer.Ordinal);
 
-    private static readonly Lazy<StartingLoadouts> s_v0107 = new(() => LoadEmbedded(RngScheme.Legacy32));
-    private static readonly Lazy<StartingLoadouts> s_v0111 = new(() => LoadEmbedded(RngScheme.Xx64));
+    private static readonly EmbeddedCatalog<StartingLoadouts> s_tables = new(LoadEmbedded);
 
-    private static StartingLoadouts LoadEmbedded(RngScheme scheme)
+    private static StartingLoadouts LoadEmbedded(GameDataVersion version)
     {
-        string name = GameDataVersion.Resource("starting-decks", scheme);
+        string name = version.Resource("starting-decks");
         using Stream s = typeof(StartingLoadouts).Assembly.GetManifestResourceStream(name)
                          ?? throw new InvalidOperationException($"embedded {name} missing");
         return Load(s);
     }
 
-    /// <summary>The loadouts compiled into this assembly for the newest game data (<see cref="RngSeeds.Default"/>).</summary>
-    public static StartingLoadouts Embedded => EmbeddedFor(RngSeeds.Default);
+    /// <summary>The loadouts compiled into this assembly for the newest game data.</summary>
+    public static StartingLoadouts Embedded => EmbeddedFor(GameDataVersion.Latest);
 
-    /// <summary>The loadouts compiled into this assembly for a run with this seed arithmetic (<see cref="GameDataVersion"/>).</summary>
-    public static StartingLoadouts EmbeddedFor(RngScheme scheme) => (scheme == RngScheme.Legacy32 ? s_v0107 : s_v0111).Value;
+    /// <summary>The loadouts compiled into this assembly for a run with this card catalog (<see cref="GameDataVersion"/>).</summary>
+    public static StartingLoadouts EmbeddedFor(GameDataVersion version) => s_tables.For(version);
 
     public static StartingLoadouts Load(Stream json)
     {

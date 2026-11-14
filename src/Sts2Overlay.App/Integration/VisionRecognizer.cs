@@ -130,7 +130,7 @@ public sealed class VisionRecognizer : ICardRecognizer
     private static RelicRecognizer? LoadRelics(string local)
     {
         var iconDir = new Sts2Overlay.Resources.LocalLayout(local).RelicIconDir;
-        var catalog = Path.Combine(Path.GetDirectoryName(AppPaths.CommittedCatalogFile)!, RelicCatalogFile);
+        var catalog = Path.Combine(Path.GetDirectoryName(AppPaths.CommittedCatalogFile)!, $"relics.{AppPaths.CardDataVersion}.json");
         if (!Directory.Exists(iconDir) || !File.Exists(catalog))
         {
             AppLog.Info($"[vision] shop relics off (icons {(Directory.Exists(iconDir) ? "ok" : "missing")}, catalog {(File.Exists(catalog) ? "ok" : "missing")})");
@@ -149,9 +149,6 @@ public sealed class VisionRecognizer : ICardRecognizer
             return null;
         }
     }
-
-    /// <summary>The committed relic catalog of the selected data version, next to the card catalog (data/catalog).</summary>
-    private static string RelicCatalogFile => $"relics.{AppPaths.DataVersion}.json";
 
     private CardRecognizer? LoadLocked()
     {

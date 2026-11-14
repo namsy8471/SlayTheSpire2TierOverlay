@@ -3,8 +3,7 @@ using Sts2Overlay.GameState.Tracking;
 namespace Sts2Overlay.GameState.Tests;
 
 /// <summary>
-/// <see cref="GameDataVersion"/>: the embedded tables follow the run's <see cref="RngScheme"/> (Legacy32 → v0.107.1,
-/// Xx64 → v0.111.0), so a v0.107.1 run keeps its own rarities and a v0.111 run sees the moved ones and the new cards.
+/// Card and relic lookups use the catalogs for the run that produced the save or log.
 /// </summary>
 public class GameDataVersionTests
 {
@@ -14,6 +13,71 @@ public class GameDataVersionTests
         Assert.Equal("v0.107.1", GameDataVersion.For(RngScheme.Legacy32));
         Assert.Equal("v0.111.0", GameDataVersion.For(RngScheme.Xx64));
         Assert.Equal("v0.111.0", GameDataVersion.For(RngSeeds.Default));
+    }
+
+    [Theory]
+    [InlineData(0, "v0.108.0", GameDataVersion.V0107)]
+    [InlineData(0, "v0.111.0", GameDataVersion.V0111)]
+    [InlineData(0, "v0.113.0-beta", GameDataVersion.V0113)]
+    [InlineData(20, "v0.113.0", GameDataVersion.V0111)]
+    [InlineData(21, "v0.111.0", GameDataVersion.V0113)]
+    public void Save_schema_precedes_log_version(int schema, string release, string expected)
+        => Assert.Equal(expected, GameDataVersion.ForRun(schema, release).Version);
+
+    [Fact]
+    public void Event_deck_effects_follow_the_game_version()
+    {
+        const string doors = "DOORS_OF_LIGHT_AND_DARK.pages.INITIAL.options.LIGHT";
+        var oldLight = DeckEffects.ForChoice("EVENT.DOORS_OF_LIGHT_AND_DARK", doors, RngScheme.Xx64)!;
+        var light = DeckEffects.ForChoice("EVENT.DOORS_OF_LIGHT_AND_DARK", doors, GameDataVersion.Latest)!;
+        Assert.Equal(2, oldLight.RandomUpgrades);
+        Assert.Equal(SelectMeaning.Upgrade, light.Select);
+        Assert.Equal(0, light.RandomUpgrades);
+
+        const string help = "WUPPY_IN_TROUBLE.pages.INITIAL.options.HELP_IMMEDIATELY";
+        Assert.Null(DeckEffects.ForChoice("EVENT.WUPPY_IN_TROUBLE", help, RngScheme.Xx64));
+        Assert.Equal(["CARD.INJURY"], DeckEffects.ForChoice("EVENT.WUPPY_IN_TROUBLE", help, GameDataVersion.Latest)!.Adds);
+    }
+
+    [Fact]
+    public void Fool_rewards_follow_pool_order_and_epoch_locks()
+    {
+        var pool = Assert.IsType<RewardCardPool>(RewardCardPool.For("CHARACTER.FOOL", false, GameDataVersion.Latest));
+        Assert.Equal(8, pool.Hypotheses);
+        OfferSlot[] offer = [new(0, "Common", 0, 0), new(3, "Rare", 0, 0)];
+        Assert.Equal(["CARD.ARROW_STAB", "CARD.BOUNCE"], pool.Predict(offer, lockedMask: 0)!);
+        Assert.Equal(["CARD.BOW_SMACK", "CARD.BOUNCE"], pool.Predict(offer, lockedMask: 1)!);
+        Assert.Null(RewardCardPool.For("CHARACTER.FOOL", false, RngScheme.Xx64));
+    }
+
+    [Fact]
+    public void Log_only_Fool_run_starts_with_its_v113_loadout()
+    {
+        using var tracker = new GameStateTracker();
+        tracker.ProcessLines([
+            "Release Version: v0.113.0",
+            "[INFO] Embarking on a singleplayer FOOL run. Ascension: 0 Seed: TESTSEED",
+        ]);
+        var state = Assert.IsType<TrackedRun>(tracker.Current).State;
+        Assert.Equal((77, 77, 99), (state.Hp, state.MaxHp, state.Gold));
+        Assert.Equal(10, state.Deck.Count);
+        Assert.Equal(5, state.Deck.Count(c => c.Id == "CARD.STRIKE_FOOL"));
+        Assert.Equal(4, state.Deck.Count(c => c.Id == "CARD.DEFEND_FOOL"));
+        Assert.Single(state.Deck, c => c.Id == "CARD.FOOLISH_SHOT");
+        Assert.Equal(["RELIC.SONG_BOW"], state.Relics);
+        var inputs = new AncientInputs
+        {
+            RunSeed = "TESTSEED",
+            UsesV113Rules = true,
+            Deck = state.Deck.Select(c => new AncientDeckCard(c.Id)).ToList(),
+            Relics = state.Relics,
+        };
+        var options = AncientOptions.PossibleKeys("EVENT.OROBAS", inputs)!;
+        Assert.Contains("OROBAS.pages.INITIAL.options.TOUCH_OF_OROBAS", options);
+        Assert.Contains("OROBAS.pages.INITIAL.options.ARCHAIC_TOOTH", options);
+        var deck = new DeckReplay(state.Deck, GameDataVersion.Latest);
+        deck.Transcend();
+        Assert.Equal("CARD.DIVINE_SHOT", deck.Cards[^1].Id);
     }
 
     [Theory]

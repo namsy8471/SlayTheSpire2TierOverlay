@@ -24,13 +24,13 @@ public class RelicInfoProviderTests
     }
 
     [Fact]
-    public void Loads_text_and_icon_from_folders()
+    public void Loads_text_and_icon_with_numbers_from_the_game_catalog_version()
     {
         var root = Path.Combine(Path.GetTempPath(), "relic-info-" + Guid.NewGuid().ToString("N"));
         try
         {
             var catalogDir = Path.Combine(root, "data", "catalog");
-            var packDir = Path.Combine(root, "data", "packs", "v9.9.9");
+            var packDir = Path.Combine(root, "data", "packs", "v9.9.8");
             var locDir = Path.Combine(root, "loc");
             var iconDir = Path.Combine(root, "icons");
             Directory.CreateDirectory(catalogDir);
@@ -38,6 +38,7 @@ public class RelicInfoProviderTests
             Directory.CreateDirectory(Path.Combine(locDir, "eng"));
             Directory.CreateDirectory(iconDir);
             File.WriteAllText(Path.Combine(catalogDir, "cards.v9.9.9.json"), "{\"cards\":[]}");
+            File.WriteAllText(Path.Combine(catalogDir, "relic-vars.v9.9.8.json"), "{\"relics\":[{\"id\":\"RELIC.TEST_STONE\",\"vars\":{\"Block\":3}}]}");
             File.WriteAllText(Path.Combine(catalogDir, "relic-vars.v9.9.9.json"), "{\"relics\":[{\"id\":\"RELIC.TEST_STONE\",\"vars\":{\"Block\":7}}]}");
             // Made-up text in the game's format (the real strings stay in the extracted localization).
             File.WriteAllText(Path.Combine(locDir, "eng", "relics.json"),
@@ -46,7 +47,7 @@ public class RelicInfoProviderTests
             File.WriteAllBytes(Path.Combine(iconDir, "test_stone.png"), Convert.FromBase64String(
                 "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg=="));
 
-            var p = RelicInfoProvider.Load(packDir, locDir, iconDir);
+            var p = RelicInfoProvider.Load(packDir, locDir, iconDir, "v9.9.9");
             var tip = p.For("RELIC.TEST_STONE", "kor"); // no Korean table → English
             Assert.Equal("Test Stone", tip.Title);
             Assert.Equal("Gain 7 Block.", CardTextRenderer.ToPlainText(tip.Body));

@@ -159,6 +159,10 @@ internal sealed class CardVarsExtractor
             object? self = a.Length > 0 ? a[0] : null;
             switch (m.Name)
             {
+                // UpgradeInternal increments the level before running OnUpgrade. The catalog
+                // records a fresh card and its first upgrade (including repeatable upgrades).
+                case "get_CurrentUpgradeLevel" when self is ThisRef && m.DeclaringType.FullName == _cardModel.FullName:
+                    res = 1; return HookAction.Handled;
                 case "get_DynamicVars" when self is ThisRef:
                     res = VarSetRef.Value; return HookAction.Handled;
                 case "get_Item" when self is VarSetRef:

@@ -42,7 +42,7 @@ internal static class CardVarsCommand
         var file = new CardVarsFile(
             gameVersion,
             "static-il",
-            "Game facts only (numbers and variable names, no text). vars = CanonicalVars base values; upgrade.vars = amount added by one "
+            "Game facts only (numbers and variable names, no text). vars = CanonicalVars base values; upgrade.vars = amount added by the first "
             + "upgrade (OnUpgrade), costDelta = energy cost change, add/removeKeywords = keyword changes. calculated: value shown out of combat "
             + "= vars[base]; in combat it is vars[base] + vars[extra] x a runtime count. unresolved = variables only known at runtime. "
             + "contextVars = variables CardModel.GetDescriptionForPile adds to every card description. Regenerate: dotnet run --project "

@@ -81,7 +81,7 @@ public sealed class IoTests : IDisposable
     public void Embedded_starting_loadouts()
     {
         StartingLoadouts all = StartingLoadouts.Embedded;
-        Assert.Equal(5, all.All.Count);
+        Assert.Equal(6, all.All.Count);
         StartingLoadout ironclad = Assert.IsType<StartingLoadout>(all.For("IRONCLAD"));
         Assert.Equal(10, ironclad.Deck.Count);
         Assert.Equal(5, ironclad.Deck.Count(c => c == "CARD.STRIKE_IRONCLAD"));

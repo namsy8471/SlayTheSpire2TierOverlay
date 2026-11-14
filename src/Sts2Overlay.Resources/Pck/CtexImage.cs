@@ -63,21 +63,23 @@ public sealed class CtexImage
     public byte[]? RawData { get; }
 
     private readonly int _imageFormat = -1;
-    private const int FormatRgba8 = 5, FormatBptcRgba = 22;
+    private const int FormatRgba8 = 5, FormatDxt5 = 19, FormatBptcRgba = 22;
 
-    /// <summary>The image can be turned into RGBA8 pixels by <see cref="DecodeRgba"/> (RGBA8 or BC7 raw data).</summary>
-    public bool CanDecodeRgba => RawData != null && _imageFormat is FormatRgba8 or FormatBptcRgba;
+    /// <summary>The image can be turned into RGBA8 pixels by <see cref="DecodeRgba"/> (RGBA8, BC3 or BC7 raw data).</summary>
+    public bool CanDecodeRgba => RawData != null && _imageFormat is FormatRgba8 or FormatDxt5 or FormatBptcRgba;
 
     /// <summary>
-    /// Full-size level as straight RGBA8 (<see cref="Width"/> x <see cref="Height"/>): RGBA8 is copied, BC7 decoded
-    /// with <see cref="Bc7Decoder"/>. Used for the relic atlas, which the game ships only as a BC7 VRAM texture.
+    /// Full-size level as straight RGBA8 (<see cref="Width"/> x <see cref="Height"/>) for atlas and standalone icons.
     /// </summary>
     public byte[] DecodeRgba()
     {
         if (!CanDecodeRgba) throw new NotSupportedException($"Cannot decode {PixelFormat} ({Payload}).");
-        return _imageFormat == FormatRgba8
-            ? RawData.AsSpan(0, Width * Height * 4).ToArray()
-            : Bc7Decoder.DecodeImage(RawData, Width, Height);
+        return _imageFormat switch
+        {
+            FormatDxt5 => Bc3Decoder.DecodeImage(RawData, Width, Height),
+            FormatBptcRgba => Bc7Decoder.DecodeImage(RawData, Width, Height),
+            _ => RawData.AsSpan(0, checked(Width * Height * 4)).ToArray(),
+        };
     }
 
     public string? FileExtension => Payload switch

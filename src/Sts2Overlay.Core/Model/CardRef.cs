@@ -13,6 +13,9 @@ public readonly record struct CardRef(string Id, int Upgrade = 0)
 /// <summary>One card instance in a deck.</summary>
 public sealed record DeckCard(CardRef Card, int FloorAdded = 0, string? EnchantmentId = null, int EnchantmentAmount = 0)
 {
+    /// <summary>Per-copy numeric properties present in the most recent save or history snapshot.</summary>
+    public SavedCardProperties SavedProperties { get; init; } = SavedCardProperties.Empty;
+
     public string Id => Card.Id;
     public int Upgrade => Card.Upgrade;
 }

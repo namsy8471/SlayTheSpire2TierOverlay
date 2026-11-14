@@ -4526,6 +4526,7 @@
       "cost": 0,
       "costX": false,
       "starCost": -1,
+      "starCostX": true,
       "target": "RandomEnemy",
       "gainsBlock": false,
       "maxUpgrade": 1,

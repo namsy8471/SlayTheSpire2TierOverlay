@@ -95,7 +95,7 @@ public sealed partial class AppController : IDisposable
         AppLog.Info(_engine.LearnedModelActive ? "card rewards: learned model" : $"card rewards: engine rules (cardModel={settings.CardModel}, model in pack: {_engine.Pack.CardPolicy is not null})");
         vm.PackText = PackText();
         _cardText = CardTextProvider.ForLocalData(_engine.Pack, packDir);
-        _relicInfo = RelicInfoProvider.ForLocalData(packDir);
+        _relicInfo = RelicInfoProvider.ForLocalData(packDir, _engine.Pack.Catalog?.GameVersion);
         InitForecastReview(packDir, catalogPath); // forecast + run review (AppController.ForecastReview.cs)
         InitMapOverlay(); // marks on the game's map (AppController.MapOverlay.cs)
         InitEvents(packDir); // event option advice (AppController.Events.cs)
@@ -812,10 +812,13 @@ public sealed partial class AppController : IDisposable
             $"{CharacterName(run.Character)} · Act {run.Act} Floor {run.Floor} · HP {run.Hp}/{run.MaxHp} · {run.Gold} Gold{asc}");
     }
 
+    internal static IEnumerable<IGrouping<(CardRef Card, SavedCardProperties Properties, string? Enchantment, int Amount), DeckCard>>
+        StackDeckCopies(IEnumerable<DeckCard> cards) => cards.GroupBy(c => (c.Card, c.SavedProperties, c.EnchantmentId, c.EnchantmentAmount));
+
     private DeckSectionVm BuildDeck(RunState run, DeckProfile profile)
     {
         // Grouped by a kind (not by its label), so the order and grouping don't depend on the display language.
-        DeckGroup GroupOf(string id) => _cards.Type(run.Character, id) switch
+        DeckGroup GroupOf(DeckCard copy) => _cards.Type(run.Character, copy) switch
         {
             CardTypes.Attack => DeckGroup.Attack,
             CardTypes.Skill => DeckGroup.Skill,
@@ -825,19 +828,21 @@ public sealed partial class AppController : IDisposable
         };
 
         var groups = run.Deck
-            .GroupBy(c => GroupOf(c.Id))
+            .GroupBy(GroupOf)
             .OrderBy(g => g.Key)
             .Select(g =>
             {
-                var cards = g.GroupBy(c => c.Id)
-                    .Select(byId =>
+                var cards = StackDeckCopies(g)
+                    .Select(copies =>
                     {
-                        var tier = TierOf(run, byId.Key);
-                        var count = byId.Count();
-                        var upgraded = byId.Count(c => c.Upgrade > 0);
-                        var upText = upgraded == 0 ? null : count == 1 ? Loc.T("강화", "Upgraded") : Loc.T($"강화 {upgraded}", $"Upgraded {upgraded}");
-                        string? doubt = _snapshot.Doubts?.ReasonText(byId.Key);
-                        return (Tier: tier, Vm: new DeckCardVm(tier?.ToString() ?? "?", _cards.Name(byId.Key), $"×{count}", upText, doubt, ArtOf(byId.Key)));
+                        var copy = copies.First();
+                        var tier = TierOf(run, copy.Id);
+                        var text = _cardText.ForDeck(copy, Loc.CurrentCode);
+                        var name = text?.Base.Title ?? _cards.Name(copy.Card);
+                        string? enchantment = copy.EnchantmentId is { } ench
+                            ? $"{_relicInfo.EnchantmentName(ench, Loc.CurrentCode)} ×{copy.EnchantmentAmount}" : null;
+                        return (Tier: tier, Vm: new DeckCardVm(tier?.ToString() ?? "?", name, $"×{copies.Count()}",
+                            copy.Card.IsUpgraded, _snapshot.Doubts?.ReasonText(copy.Id), ArtOf(copy.Id), text, enchantment));
                     })
                     .OrderBy(x => x.Tier is null ? 99 : (int)x.Tier)
                     .ThenBy(x => x.Vm.Name, StringComparer.CurrentCulture)
@@ -1253,7 +1258,7 @@ public sealed partial class AppController : IDisposable
         _engine.UseLearnedModel = !string.Equals(_settings.CardModel, "engine", StringComparison.OrdinalIgnoreCase); // keep cardModel after a reload
         _vm.PackText = PackText();
         _cardText = CardTextProvider.ForLocalData(_engine.Pack, _packDir);
-        _relicInfo = RelicInfoProvider.ForLocalData(_packDir); // new icons / localization after a resource prepare
+        _relicInfo = RelicInfoProvider.ForLocalData(_packDir, _engine.Pack.Catalog?.GameVersion);
         _engineVersion++;
         RefreshRunViews(_snapshot.Run);
         ReloadForecastReview(); // AppController.ForecastReview.cs

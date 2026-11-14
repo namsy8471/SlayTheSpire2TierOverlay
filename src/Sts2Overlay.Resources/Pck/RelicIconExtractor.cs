@@ -28,9 +28,31 @@ public static partial class RelicIconExtractor
     /// </summary>
     public static int Extract(PckReader pck, string outDir, CancellationToken ct = default)
     {
-        int written = ExtractAtlas(pck, AtlasImport, SpritesPrefix, "relic_atlas.png", outDir, ct);
+        var iconNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        int written = ExtractAtlas(pck, AtlasImport, SpritesPrefix, "relic_atlas.png", outDir, ct, iconNames);
         if (pck.Entries.Any(e => e.Path == OutlineAtlasImport))
             ExtractAtlas(pck, OutlineAtlasImport, OutlineSpritesPrefix, "relic_outline_atlas.png", Path.Combine(outDir, OutlineDir), ct);
+        // The game falls back to the standalone image, then beta art, for a missing atlas sprite.
+        var textures = pck.Entries.Where(e => e.Path.EndsWith(".ctex", StringComparison.Ordinal)).ToDictionary(e => e.Path);
+        foreach (var pattern in new[] { "images/relics/*.png.import", "images/relics/beta/*.png.import" })
+        {
+            var glob = new Glob(pattern);
+            foreach (var import in pck.Entries.Where(e => glob.IsMatch(e.Path)))
+            {
+                ct.ThrowIfCancellationRequested();
+                string name = Path.GetFileNameWithoutExtension(import.Path); // strips .import, keeps .png
+                if (iconNames.Contains(name)) continue;
+                var path = PckExtractor.FindCtexPath(System.Text.Encoding.UTF8.GetString(pck.ReadAllBytes(import)));
+                if (path is null || !textures.TryGetValue(path, out var texture)) continue;
+                var image = new CtexImage(pck.ReadAllBytes(texture));
+                if (image.EmbeddedFile is null && !image.CanDecodeRgba) continue;
+                byte[] png = image.Payload == CtexPayload.Png ? image.EmbeddedFile!
+                    : PngWriter.Encode(ReadRgba(image, name), image.Width, image.Height);
+                File.WriteAllBytes(Path.Combine(outDir, name), png);
+                iconNames.Add(name);
+                written++;
+            }
+        }
         return written;
     }
 
@@ -56,30 +78,17 @@ public static partial class RelicIconExtractor
     [GeneratedRegex(@"\[node name=""(Potions|Relics)""[^\]]*parent=""SlotsContainer""[^\]]*\][^\[]*?offset_left = ([-\d.]+)[^\[]*?offset_top = ([-\d.]+)")]
     private static partial Regex ShelfOffsets();
 
-    private static int ExtractAtlas(PckReader pck, string importPath, string spritesPrefix, string atlasFile, string outDir, CancellationToken ct)
+    private static int ExtractAtlas(PckReader pck, string importPath, string spritesPrefix, string atlasFile, string outDir, CancellationToken ct, HashSet<string>? iconNames = null)
     {
         PckEntry import = pck.Entries.FirstOrDefault(e => e.Path == importPath)
             ?? throw new InvalidDataException($"{importPath} not found in the pack");
         string importText = System.Text.Encoding.UTF8.GetString(pck.ReadAllBytes(import));
-        Match pathMatch = ImportPathRegex().Match(importText);
-        if (!pathMatch.Success) throw new InvalidDataException($"no texture path in {importPath}");
-        string ctexPath = pathMatch.Groups[1].Value;
+        string ctexPath = PckExtractor.FindCtexPath(importText)
+            ?? throw new InvalidDataException($"no texture path in {importPath}");
         PckEntry ctexEntry = pck.Entries.FirstOrDefault(e => e.Path == ctexPath)
             ?? throw new InvalidDataException($"{ctexPath} not found in the pack");
         var ctex = new CtexImage(pck.ReadAllBytes(ctexEntry));
-        byte[] atlas;
-        if (ctex.CanDecodeRgba) atlas = ctex.DecodeRgba();
-        else if (ctex.EmbeddedFile is { } encoded)
-        {
-            var info = new SkiaSharp.SKImageInfo(ctex.Width, ctex.Height, SkiaSharp.SKColorType.Rgba8888, SkiaSharp.SKAlphaType.Unpremul);
-            using var codec = SkiaSharp.SKCodec.Create(new MemoryStream(encoded));
-            using var bitmap = new SkiaSharp.SKBitmap(info);
-            if (codec == null || codec.Info.Width != info.Width || codec.Info.Height != info.Height ||
-                codec.GetPixels(info, bitmap.GetPixels()) != SkiaSharp.SKCodecResult.Success)
-                throw new InvalidDataException($"Cannot decode {atlasFile} ({ctex.Payload})");
-            atlas = bitmap.GetPixelSpan().ToArray();
-        }
-        else throw new InvalidDataException($"{atlasFile} has an unsupported format {ctex.PixelFormat}");
+        byte[] atlas = ReadRgba(ctex, atlasFile);
 
         Directory.CreateDirectory(outDir);
         int written = 0;
@@ -92,11 +101,26 @@ public static partial class RelicIconExtractor
             var margin = ParseRect(tres, "margin") ?? (0, 0, 0, 0);
             byte[]? icon = Cut(atlas, ctex.Width, ctex.Height, region, margin, out int w, out int h);
             if (icon == null) continue;
-            string name = Path.GetFileNameWithoutExtension(e.Path);
-            File.WriteAllBytes(Path.Combine(outDir, name + ".png"), PngWriter.Encode(icon, w, h));
+            string name = Path.GetFileNameWithoutExtension(e.Path) + ".png";
+            File.WriteAllBytes(Path.Combine(outDir, name), PngWriter.Encode(icon, w, h));
+            iconNames?.Add(name);
             written++;
         }
         return written;
+    }
+
+    private static byte[] ReadRgba(CtexImage ctex, string name)
+    {
+        if (ctex.CanDecodeRgba) return ctex.DecodeRgba();
+        if (ctex.EmbeddedFile is not { } encoded)
+            throw new InvalidDataException($"{name} has an unsupported format {ctex.PixelFormat}");
+        var info = new SkiaSharp.SKImageInfo(ctex.Width, ctex.Height, SkiaSharp.SKColorType.Rgba8888, SkiaSharp.SKAlphaType.Unpremul);
+        using var codec = SkiaSharp.SKCodec.Create(new MemoryStream(encoded));
+        using var bitmap = new SkiaSharp.SKBitmap(info);
+        if (codec == null || codec.Info.Width != info.Width || codec.Info.Height != info.Height ||
+            codec.GetPixels(info, bitmap.GetPixels()) != SkiaSharp.SKCodecResult.Success)
+            throw new InvalidDataException($"Cannot decode {name} ({ctex.Payload})");
+        return bitmap.GetPixelSpan().ToArray();
     }
 
     /// <summary>The sprite at its original size: the region placed at the margin offset in a transparent canvas.</summary>
@@ -120,6 +144,4 @@ public static partial class RelicIconExtractor
         return (P(1), P(2), P(3), P(4));
     }
 
-    [GeneratedRegex("path(?:\\.bptc|\\.s3tc)?=\"res://([^\"]+)\"")]
-    private static partial Regex ImportPathRegex();
 }

@@ -1,21 +1,21 @@
 """Local CatalogBuilder card catalog (with game text) -> names-free committed card catalog.
 
 The local catalog (data/local/catalog.<version>.json, never committed) carries card names and
-description templates. The committed data/catalog/cards.<version>.json keeps only ids and numbers,
-with the same fields and order as cards.v0.107.1.json.
+description templates. The committed data/catalog/cards.<version>.json keeps only game facts.
+An omitted starCostX means the card has no variable star cost.
 
 Usage: python -I tools/CatalogBuilder/strip_cards.py data/local/catalog.<version>.json data/catalog/cards.<version>.json
 """
 import json
 import sys
 
-FIELDS = ['id', 'pool', 'character', 'type', 'rarity', 'cost', 'costX', 'starCost', 'target', 'gainsBlock',
+FIELDS = ['id', 'pool', 'character', 'type', 'rarity', 'cost', 'costX', 'starCost', 'starCostX', 'target', 'gainsBlock',
           'maxUpgrade', 'multiplayer', 'keywords', 'tags', 'showInLibrary']
 TEXT_FIELDS = {'class', 'names', 'descriptionTemplate', 'unresolved', 'dynamic'}
 
 src, out = sys.argv[1:3]
 cat = json.load(open(src, encoding='utf-8'))
-cards = [{k: c.get(k) for k in FIELDS} for c in cat['cards']]
+cards = [{k: c.get(k) for k in FIELDS if k != 'starCostX' or c.get(k)} for c in cat['cards']]
 
 res = {
     'gameVersion': cat['gameVersion'],

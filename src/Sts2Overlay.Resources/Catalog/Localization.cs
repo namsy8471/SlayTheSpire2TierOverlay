@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Sts2Overlay.Core.Text;
 
 namespace Sts2Overlay.Resources.Catalog;
 
@@ -35,6 +36,9 @@ public sealed class Localization
 
     /// <param name="entry">ModelId entry, e.g. "STRIKE_DEFECT" (the part after "CARD.").</param>
     /// <param name="suffix">"title" or "description".</param>
-    public string? Get(string lang, string entry, string suffix) =>
-        _byLang.TryGetValue(lang, out var t) && t.TryGetValue($"{entry}.{suffix}", out var v) ? v : null;
+    public string? Get(string lang, string entry, string suffix)
+    {
+        string key = suffix == "title" ? CardTextComposer.TitleKey(entry, 0) : $"{entry}.{suffix}";
+        return _byLang.TryGetValue(lang, out var table) && table.TryGetValue(key, out var value) ? value : null;
+    }
 }

@@ -118,27 +118,27 @@ internal sealed class RewardRollReplay
 /// </summary>
 internal sealed class RewardCardPool
 {
-    private static readonly Lazy<Dictionary<string, (List<string> Cards, List<List<string>> Epochs)>> s_v0107 = new(() => Load(RngScheme.Legacy32));
-    private static readonly Lazy<Dictionary<string, (List<string> Cards, List<List<string>> Epochs)>> s_v0111 = new(() => Load(RngScheme.Xx64));
+    private static readonly EmbeddedCatalog<Dictionary<string, (List<string> Cards, List<List<string>> Epochs)>> s_tables = new(Load);
 
     private readonly List<string> _cards;
     private readonly List<List<string>> _epochs;
     private readonly bool _multiplayer;
 
-    private RewardCardPool(List<string> cards, List<List<string>> epochs, bool multiplayer, RngScheme scheme)
+    private RewardCardPool(List<string> cards, List<List<string>> epochs, bool multiplayer, GameDataVersion version)
     {
         _cards = cards;
         _epochs = epochs;
         _multiplayer = multiplayer;
-        Scheme = scheme;
+        Version = version;
     }
 
     /// <summary>The game generation whose pool and rarities this is.</summary>
-    public RngScheme Scheme { get; }
+    public GameDataVersion Version { get; }
+    public RngScheme Scheme => Version.Scheme;
 
-    public static RewardCardPool? For(string? character, bool multiplayer, RngScheme scheme = RngSeeds.Default) =>
-        character != null && (scheme == RngScheme.Legacy32 ? s_v0107 : s_v0111).Value.TryGetValue(character, out var p)
-            ? new RewardCardPool(p.Cards, p.Epochs, multiplayer, scheme)
+    public static RewardCardPool? For(string? character, bool multiplayer, GameDataVersion version = default) =>
+        character != null && s_tables.For(version).TryGetValue(character, out var p)
+            ? new RewardCardPool(p.Cards, p.Epochs, multiplayer, version)
             : null;
 
     /// <summary>Number of hypotheses: one per subset of still-locked epochs (bit i set = epoch i locked).</summary>
@@ -152,7 +152,7 @@ internal sealed class RewardCardPool
         var locked = new HashSet<string>(StringComparer.Ordinal);
         for (int i = 0; i < _epochs.Count; i++)
             if ((lockedMask >> i & 1) != 0) locked.UnionWith(_epochs[i]);
-        return _cards.Where(c => !locked.Contains(c) && CardRarities.AllowedWithPlayers(c, _multiplayer, Scheme)).ToList();
+        return _cards.Where(c => !locked.Contains(c) && CardRarities.AllowedWithPlayers(c, _multiplayer, Version)).ToList();
     }
 
     private static readonly string[] s_transformable = ["Basic", "Common", "Uncommon", "Rare"];
@@ -164,12 +164,12 @@ internal sealed class RewardCardPool
     /// </summary>
     public string? TransformTarget(string original, ulong raw, ulong liveMask)
     {
-        if (!_cards.Contains(original) || !s_transformable.Contains(CardRarities.Of(original, Scheme))) return null;
+        if (!_cards.Contains(original) || !s_transformable.Contains(CardRarities.Of(original, Version))) return null;
         string? result = null;
         for (int h = 0; h < Hypotheses && h < 64; h++)
         {
             if ((liveMask >> h & 1) == 0) continue;
-            var options = Unlocked(h).Where(c => c != original && s_order.Contains(CardRarities.Of(c, Scheme))).ToList();
+            var options = Unlocked(h).Where(c => c != original && s_order.Contains(CardRarities.Of(c, Version))).ToList();
             if (options.Count == 0) return null;
             string card = options[GameRng.ToInt(raw, options.Count)];
             if (result != null && result != card) return null;
@@ -188,19 +188,19 @@ internal sealed class RewardCardPool
             var options = pool.Where(c => !shown.Contains(c)).ToList();
             // CardFactory.GetNextAllowedRarity: a rarity with no card left moves up (Rare wraps to Common).
             string rarity = offer[s].Rarity;
-            for (int k = 0; k < 3 && !options.Any(c => CardRarities.Of(c, Scheme) == rarity); k++)
+            for (int k = 0; k < 3 && !options.Any(c => CardRarities.Of(c, Version) == rarity); k++)
                 rarity = s_order[(Array.IndexOf(s_order, rarity) + 1) % 3];
-            var items = options.Where(c => CardRarities.Of(c, Scheme) == rarity).ToList();
+            var items = options.Where(c => CardRarities.Of(c, Version) == rarity).ToList();
             if (items.Count == 0) return null;
             shown[s] = items[Math.Min((int)(offer[s].Pick * items.Count), items.Count - 1)];
         }
         return shown;
     }
 
-    private static Dictionary<string, (List<string>, List<List<string>>)> Load(RngScheme scheme)
+    private static Dictionary<string, (List<string>, List<List<string>>)> Load(GameDataVersion version)
     {
         var map = new Dictionary<string, (List<string>, List<List<string>>)>(StringComparer.Ordinal);
-        using Stream? s = typeof(RewardCardPool).Assembly.GetManifestResourceStream(GameDataVersion.Resource("card-pools", scheme));
+        using Stream? s = typeof(RewardCardPool).Assembly.GetManifestResourceStream(version.Resource("card-pools"));
         if (s == null) return map;
         using JsonDocument doc = JsonDocument.Parse(s);
         if (!doc.RootElement.TryGetProperty("pools", out JsonElement pools)) return map;

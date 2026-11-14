@@ -94,6 +94,9 @@ public sealed class CardInfoProvider
     public string? Type(string character, string id)
         => _pack.CardType(character, id) ?? (_local.TryGetValue(_pack.Canonical(id), out var info) ? info.Type : null);
 
+    public string? Type(string character, DeckCard copy)
+        => _pack.Canonical(copy.Id) == "CARD.MAD_SCIENCE" ? _pack.CardType(character, copy) : Type(character, copy.Id);
+
     public string? Rarity(string character, string id)
         => _pack.CardRarity(character, id) ?? (_local.TryGetValue(_pack.Canonical(id), out var info) ? info.Rarity : null);
 

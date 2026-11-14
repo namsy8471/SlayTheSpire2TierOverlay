@@ -74,7 +74,8 @@ A small panel that sits to the right of the game. It starts on the monitor the g
 <sub>The screenshots are the demo-mode (`--demo`) panel in English, rendered off-screen. Card names are placeholders such as "Attack card A" and card art is left out (the "No art" tiles in the Tiers tab). In real use you see card names and small card images built on your own PC. The path tab shows fixed demo data.</sub>
 
 - **Build tab**: hover a card image to see its cost, effect text and upgraded text, with the numbers that change on upgrade in green as in the game. Build conditions are shown in game terms rather than internal tags.
-- **Tiers tab**: pick one of the five characters or colourless and see every card's tier as image tiles in S, A, B, C, D and unrated sections. It follows your character when a run starts.
+- In the **Deck tab**, hover over a card name to read its cost and effects.
+- In the **Tiers tab**, choose a character or colourless to see cards grouped into S, A, B, C, D and unrated sections. The Fool is available in game v0.113.0. The tab follows your character when a run starts.
   - Filter by type (attack, skill, power) and rarity, and search by name (Korean initial-consonant search works too).
   - Cards in your deck get a gold ✓ (✓2 for two or more), and a card whose tier in the current act differs from its base tier shows it, for example "Act 1: A".
   - Co-op-only cards are tagged and hidden in solo runs (a chip brings them back).

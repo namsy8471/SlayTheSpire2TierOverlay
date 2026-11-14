@@ -87,7 +87,7 @@ public static class AncientReplayEvaluation
                             Deck = timelines[id].DeckBefore(index).Select(c => new AncientDeckCard(c.Id, c.EnchantmentId)).ToArray(),
                             Relics = RelicsBefore(run, player, index),
                             UnlockedEpochs = epochsOf?.Invoke(id),
-                            UsesV113Rules = System.Version.TryParse(build.TrimStart('v'), out var versionNumber) && versionNumber >= new System.Version(0, 113),
+                            UsesV113Rules = GameDataVersion.Detect(0, build) == GameDataVersion.Latest,
                             Scheme = scheme,
                         };
                         var draw = AncientOptions.Draw(eventId, inputs)!;
@@ -96,7 +96,7 @@ public static class AncientReplayEvaluation
                         visits.Add(new AncientVisit(Path.GetFileName(file), eventId, inputs.Slot, players.Count, inputs, truth, replay)
                         {
                             BuildId = build,
-                            Modded = truth.Length != replay.Length || !truth.All(t => Known(eventId, t, scheme)),
+                            Modded = truth.Length != replay.Length || !truth.All(t => Known(eventId, t, inputs)),
                         });
                     }
                 }
@@ -130,6 +130,7 @@ public static class AncientReplayEvaluation
     private static readonly HashSet<string> CharacterEntries = new(StringComparer.Ordinal) { "IRONCLAD", "SILENT", "REGENT", "NECROBINDER", "DEFECT" };
 
     /// <summary>An option history can list for this ancient: one of its options, Orobas's locked slot, or Sea Glass's character.</summary>
-    private static bool Known(string eventId, string option, RngScheme scheme) =>
-        AncientOptions.AllOptions(eventId, scheme).Contains(option) || option == AncientOptions.OrobasLocked || CharacterEntries.Contains(option);
+    private static bool Known(string eventId, string option, AncientInputs inputs) =>
+        AncientOptions.AllOptions(eventId, inputs.Scheme).Contains(option) || option == AncientOptions.OrobasLocked
+        || CharacterEntries.Contains(option) || (inputs.UsesV113Rules && option == "FOOL");
 }

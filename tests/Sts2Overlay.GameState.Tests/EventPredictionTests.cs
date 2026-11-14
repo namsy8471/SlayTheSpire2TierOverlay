@@ -127,6 +127,11 @@ public class EventPredictionTests(ITestOutputHelper output)
         // Byrdonis Nest: a pet relic blocks it.
         Assert.Equal(EventPrediction.Allowed.No, Check("EVENT.BYRDONIS_NEST", Facts(1, state: Empty with { Relics = ["RELIC.BYRDPIP"] })));
         Assert.Equal(EventPrediction.Allowed.Yes, Check("EVENT.BYRDONIS_NEST", Facts(1)));
+        Assert.Equal(EventPrediction.Allowed.Yes, Check("EVENT.WUPPY_IN_TROUBLE", Facts(1, hp: 1)));
+        Assert.Equal(EventPrediction.Allowed.No, Check("EVENT.WUPPY_IN_TROUBLE", Facts(1, hp: 0)));
+        Assert.Equal(EventPrediction.Allowed.No, Check("EVENT.WUPPY_IN_TROUBLE", Facts(1, state: Empty with { Relics = ["RELIC.WUPPY"] })));
+        Assert.Equal(EventPrediction.Allowed.No, Check("EVENT.WUPPY_IN_TROUBLE", Facts(1, state: WithDeck("CARD.BYRDONIS_EGG"))));
+        Assert.Equal(EventPrediction.Allowed.No, Check("EVENT.COLORFUL_PHILOSOPHERS", Facts(1) with { UnlockedEpochs = ["FOOL1_EPOCH"] }));
 
         // Colorful Philosophers: a second character's epoch.
         Assert.Equal(EventPrediction.Allowed.No, Check("EVENT.COLORFUL_PHILOSOPHERS", Facts(1) with { UnlockedEpochs = ["IRONCLAD2_EPOCH"] }));
