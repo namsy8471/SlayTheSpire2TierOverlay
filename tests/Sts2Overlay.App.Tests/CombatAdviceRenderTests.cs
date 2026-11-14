@@ -112,6 +112,14 @@ public class CombatAdviceRenderTests
         Assert.Equal(FontWeights.Normal, pauseRow.FontWeight);
         Assert.Contains("무작위 결과", Assert.IsType<string>(((FrameworkElement)VisualTreeHelper.GetParent(pauseRow)).ToolTip));
 
+        var pending = CombatAdviceParser.Parse("""{"v":1,"state":"advice","policy":"fool_rust","turn":2,"steps":[],"ending":"choice","confidence":"uncertain"}""", out _);
+        vm.Combat = CombatAdvicePresenter.Build(pending, CombatAdvicePlace.Fight, new Names());
+        Layout(root);
+        Assert.Contains("… 선택을 마치면 다시 추천", Texts(root));
+        Assert.DoesNotContain("강타", Texts(root));
+        var foolHeader = Descendants(root).OfType<TextBlock>().First(t => t.Text == "이번 턴 추천 순서 · 2턴");
+        Assert.Equal("풀 전투 탐색 (Rust)", foolHeader.ToolTip);
+
         vm.Combat = CombatAdvicePresenter.Build(new CombatAdviceMessage(CombatAdviceState.Lost) { Reason = "made-up reason" }, CombatAdvicePlace.Fight, new Names());
         Layout(root);
         texts = Texts(root);

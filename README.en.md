@@ -73,6 +73,7 @@ A small panel that sits to the right of the game. It starts on the monitor the g
 
 <sub>The screenshots are the demo-mode (`--demo`) panel in English, rendered off-screen. Card names are placeholders such as "Attack card A" and card art is left out (the "No art" tiles in the Tiers tab). In real use you see card names and small card images built on your own PC. The path tab shows fixed demo data.</sub>
 
+- **Fool combat advice** appears above the tabs in monster, elite and boss rooms in standard single-player runs on game v0.113. It shows which cards to play and which enemies to target. When a play opens a card or tarot choice, the next recommendation follows your selection.
 - **Build tab**: hover a card image to see its cost, effect text and upgraded text, with the numbers that change on upgrade in green as in the game. Build conditions are shown in game terms rather than internal tags.
 - In the **Deck tab**, hover over a card name to read its cost and effects.
 - In the **Tiers tab**, choose a character or colourless to see cards grouped into S, A, B, C, D and unrated sections. The Fool is available in game v0.113.0. The tab follows your character when a run starts.
