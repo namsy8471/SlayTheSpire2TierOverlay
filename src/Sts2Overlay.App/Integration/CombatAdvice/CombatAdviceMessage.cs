@@ -47,6 +47,12 @@ public enum CombatEnding
     /// information nobody has yet. The helper stops the line there and advises again once that play has resolved.
     /// </summary>
     AdviseAfterPlay,
+
+    /// <summary><c>choice</c>: wait for the player's selection before recommending the next play.</summary>
+    AdviseAfterChoice,
+
+    /// <summary><c>observe</c>: the log could describe different hands. Wait for another observed action.</summary>
+    AwaitObservedAction,
 }
 
 /// <summary>One action of the advised order.</summary>
@@ -85,6 +91,9 @@ public sealed record CombatAdviceMessage(CombatAdviceState State)
     public IReadOnlyList<CombatAdviceStep> Steps { get; init; } = [];
 
     public CombatEnding Ending { get; init; }
+
+    /// <summary>The advice came from the Fool's Rust combat search.</summary>
+    public bool IsFoolSearch { get; init; }
 
     /// <summary><c>confidence</c> was not <c>exact</c>: the simulated hand may differ from the real one.</summary>
     public bool Uncertain { get; init; }
@@ -182,11 +191,14 @@ public static class CombatAdviceParser
             Block = Int(root, "block"),
             Played = Int(root, "played"),
             Steps = steps,
+            IsFoolSearch = Str(root, "policy") == "fool_rust",
             Ending = Str(root, "ending") switch
             {
                 "end_turn" => CombatEnding.EndTurn,
                 "win" => CombatEnding.Win,
                 "draw" => CombatEnding.AdviseAfterPlay,
+                "choice" => CombatEnding.AdviseAfterChoice,
+                "observe" => CombatEnding.AwaitObservedAction,
                 _ => CombatEnding.None,
             },
             // Only an explicit "exact" is trusted; a missing or unknown value shows the uncertain tag.

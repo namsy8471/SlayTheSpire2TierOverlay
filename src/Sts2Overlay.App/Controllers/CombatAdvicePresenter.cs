@@ -151,7 +151,8 @@ public static class CombatAdvicePresenter
         else
         {
             if (more > 0) rows.Add(new CombatStepVm("", Loc.T($"… {more}개 더", $"… {more} more"), IsEnding: true));
-            if (EndingText(m.Ending) is { } ending) rows.Add(new CombatStepVm("", ending, IsEnding: true));
+            if (EndingText(m.Ending) is { } ending)
+                rows.Add(new CombatStepVm("", ending, IsEnding: true, IsSoft: m.Ending is CombatEnding.AdviseAfterChoice or CombatEnding.AwaitObservedAction));
         }
         return new CombatAdviceSectionVm
         {
@@ -161,9 +162,16 @@ public static class CombatAdvicePresenter
             IsUncertain = m.Uncertain && !preview,
             // The helper's note is English; a known draw note is already said (localized) by the closing row's tooltip,
             // and the event-fight note has its own localized text.
-            UncertainTip = IsEventFightNote(m.Note) ? EventFightTipText
-                : m.Note.Length > 0 && reason is null ? m.Note
-                : Loc.T("계산한 손패가 실제 손패와 다를 수 있습니다", "The simulated hand may differ from the real one"),
+            UncertainTip = m switch
+            {
+                { Ending: CombatEnding.AwaitObservedAction } =>
+                    Loc.T("같은 카드 중 어느 장을 냈는지 전투 기록으로 구별할 수 없습니다.", "The combat log does not say which copy you played."),
+                { Ending: CombatEnding.AdviseAfterChoice, Steps.Count: 0, Note: "" } =>
+                    Loc.T("선택 전의 마지막 전투 상태입니다.", "Showing the last combat state before your selection."),
+                _ when IsEventFightNote(m.Note) => EventFightTipText,
+                _ when m.Note.Length > 0 && reason is null => m.Note,
+                _ => Loc.T("계산한 손패가 실제 손패와 다를 수 있습니다", "The simulated hand may differ from the real one"),
+            },
             PreviewHint = preview ? PreviewHintText : null,
             PreviewTip = preview ? PreviewTipText : null,
             Steps = rows,
@@ -222,6 +230,8 @@ public static class CombatAdvicePresenter
     {
         CombatEnding.EndTurn => Loc.T("턴 종료", "End turn"),
         CombatEnding.Win => Loc.T("마무리!", "Finish!"),
+        CombatEnding.AdviseAfterChoice => Loc.T("… 선택을 마치면 다시 추천", "… more after you choose"),
+        CombatEnding.AwaitObservedAction => Loc.T("… 다음 행동을 확인하면 다시 추천", "… more after your next action"),
         _ => null,
     };
 
@@ -262,6 +272,7 @@ public static class CombatAdvicePresenter
     private static string? Detail(CombatAdviceMessage m)
     {
         var parts = new List<string>();
+        if (m.IsFoolSearch) parts.Add(Loc.T("풀 전투 탐색 (Rust)", "Fool combat search (Rust)"));
         if (m.Energy is { } e) parts.Add(Loc.T($"에너지 {e}", $"Energy {e}"));
         if (m.Hp is { } hp) parts.Add(Loc.T($"체력 {hp}", $"HP {hp}"));
         if (m.Block is { } b) parts.Add(Loc.T($"방어도 {b}", $"Block {b}"));

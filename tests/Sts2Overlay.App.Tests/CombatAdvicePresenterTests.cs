@@ -92,6 +92,36 @@ public class CombatAdvicePresenterTests
         Assert.Equal("턴 종료", Assert.Single(vm.Steps).Name);
     }
 
+    [Theory]
+    [InlineData(Lang.Kor, "풀 전투 탐색 (Rust)", "시험 카드+", "2번째 적", "… 선택을 마치면 다시 추천")]
+    [InlineData(Lang.Eng, "Fool combat search (Rust)", "Test card+", "enemy 2", "… more after you choose")]
+    public void Fool_advice_uses_the_catalog_and_waits_for_the_player_choice(
+        Lang language, string policyLabel, string cardName, string target, string pause)
+    {
+        using var _ = Loc.Use(language);
+        var pack = new DataPack
+        {
+            Catalog = new CardCatalog
+            {
+                Cards = [new CatalogCard { Id = "CARD.TRICK_SHOT", Names = new() { ["kor"] = "시험 카드", ["eng"] = "Test card" } }],
+            },
+        };
+        var names = new CombatNames(CardInfoProvider.Load(null, pack), CombatTextProvider.Empty);
+        var line = """{"v":1,"state":"advice","policy":"fool_rust","steps":[{"kind":"card","id":"TRICK_SHOT","upgraded":true,"targetSlot":1}],"ending":"choice","confidence":"exact"}""";
+        var vm = CombatAdvicePresenter.Build(CombatAdviceParser.Parse(line, out var problem), CombatAdvicePlace.Fight, names);
+        Assert.Null(problem);
+        Assert.Equal(policyLabel, vm.DetailTip);
+        Assert.Equal([cardName + " → " + target, pause], vm.Steps.Select(s => s.Text));
+        Assert.True(vm.Steps[^1].IsSoft);
+
+        var waiting = """{"v":1,"state":"advice","policy":"fool_rust","steps":[],"ending":"choice","confidence":"uncertain"}""";
+        vm = CombatAdvicePresenter.Build(CombatAdviceParser.Parse(waiting, out problem), CombatAdvicePlace.Fight, names);
+        Assert.Null(problem);
+        Assert.Equal(pause, Assert.Single(vm.Steps).Name);
+        Assert.True(vm.IsUncertain);
+        Assert.Contains(language == Lang.Kor ? "선택 전" : "before your selection", vm.UncertainTip);
+    }
+
     [Fact]
     public void Target_position_is_added_only_when_the_helper_says_the_name_is_ambiguous()
     {
@@ -103,6 +133,23 @@ public class CombatAdvicePresenterTests
 
         using var en = Loc.Use(Lang.Eng);
         Assert.Equal("Jaw Worm (#2)", CombatAdvicePresenter.TargetText(Bash with { TargetSlot = 1, TargetAmbiguous = true }, TestNames));
+    }
+
+    [Fact]
+    public void An_ambiguous_copy_shows_only_the_confirmed_play_or_just_the_wait_row()
+    {
+        using var en = Loc.Use(Lang.Eng);
+        var confirmed = """{"v":1,"state":"advice","policy":"fool_rust","steps":[{"kind":"card","id":"STRIKE_FOOL","targetSlot":0}],"ending":"observe","confidence":"uncertain"}""";
+        var section = CombatAdvicePresenter.Build(CombatAdviceParser.Parse(confirmed, out _), CombatAdvicePlace.Fight, TestNames);
+        Assert.Equal(["STRIKE_FOOL → enemy 1", "… more after your next action"], section.Steps.Select(s => s.Text));
+        Assert.Null(section.Steps[0].Tip);
+        Assert.True(section.Steps[^1].IsSoft);
+        Assert.Equal("The combat log does not say which copy you played.", section.UncertainTip);
+
+        using var ko = Loc.Use(Lang.Kor);
+        var waiting = """{"v":1,"state":"advice","policy":"fool_rust","steps":[],"ending":"observe","confidence":"uncertain"}""";
+        section = CombatAdvicePresenter.Build(CombatAdviceParser.Parse(waiting, out _), CombatAdvicePlace.Fight, TestNames);
+        Assert.Equal("… 다음 행동을 확인하면 다시 추천", Assert.Single(section.Steps).Name);
     }
 
     [Fact]
