@@ -136,6 +136,23 @@ public class CombatAdvicePresenterTests
     }
 
     [Fact]
+    public void An_ambiguous_copy_shows_only_the_confirmed_play_or_just_the_wait_row()
+    {
+        using var en = Loc.Use(Lang.Eng);
+        var confirmed = """{"v":1,"state":"advice","policy":"fool_rust","steps":[{"kind":"card","id":"STRIKE_FOOL","targetSlot":0}],"ending":"observe","confidence":"uncertain"}""";
+        var section = CombatAdvicePresenter.Build(CombatAdviceParser.Parse(confirmed, out _), CombatAdvicePlace.Fight, TestNames);
+        Assert.Equal(["STRIKE_FOOL → enemy 1", "… more after your next action"], section.Steps.Select(s => s.Text));
+        Assert.Null(section.Steps[0].Tip);
+        Assert.True(section.Steps[^1].IsSoft);
+        Assert.Equal("The combat log does not say which copy you played.", section.UncertainTip);
+
+        using var ko = Loc.Use(Lang.Kor);
+        var waiting = """{"v":1,"state":"advice","policy":"fool_rust","steps":[],"ending":"observe","confidence":"uncertain"}""";
+        section = CombatAdvicePresenter.Build(CombatAdviceParser.Parse(waiting, out _), CombatAdvicePlace.Fight, TestNames);
+        Assert.Equal("… 다음 행동을 확인하면 다시 추천", Assert.Single(section.Steps).Name);
+    }
+
+    [Fact]
     public void A_monster_without_a_name_is_shown_by_its_position_or_its_id()
     {
         var unknown = new CombatAdviceStep(CombatStepKind.Card, "BASH", Target: "MADE_UP_SLIME", TargetSlot: 2);

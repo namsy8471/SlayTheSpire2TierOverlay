@@ -152,7 +152,7 @@ public static class CombatAdvicePresenter
         {
             if (more > 0) rows.Add(new CombatStepVm("", Loc.T($"… {more}개 더", $"… {more} more"), IsEnding: true));
             if (EndingText(m.Ending) is { } ending)
-                rows.Add(new CombatStepVm("", ending, IsEnding: true, IsSoft: m.Ending == CombatEnding.AdviseAfterChoice));
+                rows.Add(new CombatStepVm("", ending, IsEnding: true, IsSoft: m.Ending is CombatEnding.AdviseAfterChoice or CombatEnding.AwaitObservedAction));
         }
         return new CombatAdviceSectionVm
         {
@@ -164,6 +164,8 @@ public static class CombatAdvicePresenter
             // and the event-fight note has its own localized text.
             UncertainTip = m switch
             {
+                { Ending: CombatEnding.AwaitObservedAction } =>
+                    Loc.T("같은 카드 중 어느 장을 냈는지 전투 기록으로 구별할 수 없습니다.", "The combat log does not say which copy you played."),
                 { Ending: CombatEnding.AdviseAfterChoice, Steps.Count: 0, Note: "" } =>
                     Loc.T("선택 전의 마지막 전투 상태입니다.", "Showing the last combat state before your selection."),
                 _ when IsEventFightNote(m.Note) => EventFightTipText,
@@ -229,6 +231,7 @@ public static class CombatAdvicePresenter
         CombatEnding.EndTurn => Loc.T("턴 종료", "End turn"),
         CombatEnding.Win => Loc.T("마무리!", "Finish!"),
         CombatEnding.AdviseAfterChoice => Loc.T("… 선택을 마치면 다시 추천", "… more after you choose"),
+        CombatEnding.AwaitObservedAction => Loc.T("… 다음 행동을 확인하면 다시 추천", "… more after your next action"),
         _ => null,
     };
 

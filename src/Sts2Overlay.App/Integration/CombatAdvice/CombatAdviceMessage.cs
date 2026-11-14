@@ -50,6 +50,9 @@ public enum CombatEnding
 
     /// <summary><c>choice</c>: wait for the player's selection before recommending the next play.</summary>
     AdviseAfterChoice,
+
+    /// <summary><c>observe</c>: the log could describe different hands. Wait for another observed action.</summary>
+    AwaitObservedAction,
 }
 
 /// <summary>One action of the advised order.</summary>
@@ -195,6 +198,7 @@ public static class CombatAdviceParser
                 "win" => CombatEnding.Win,
                 "draw" => CombatEnding.AdviseAfterPlay,
                 "choice" => CombatEnding.AdviseAfterChoice,
+                "observe" => CombatEnding.AwaitObservedAction,
                 _ => CombatEnding.None,
             },
             // Only an explicit "exact" is trusted; a missing or unknown value shows the uncertain tag.
