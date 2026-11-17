@@ -105,6 +105,7 @@ public sealed partial class AppController : IDisposable
         InitHoverYield(); // step aside for the game's hover tips (AppController.HoverYield.cs)
         InitTiers(); // 티어표 tab (AppController.Tiers.cs)
         InitCombatAdvice(); // in-fight play order from the helper process (AppController.CombatAdvice.cs)
+        InitPlayRecord(); // opt-in local copies of saves and godot.log (AppController.PlayRecord.cs)
 
         _tracker.Changed += (_, _) => OnTrackerChanged();
         // The panel moved to a monitor with another DPI: the DPI part of the scale changed, ours must follow.
@@ -1431,5 +1432,6 @@ public sealed partial class AppController : IDisposable
         DisposeForecastReview(); // AppController.ForecastReview.cs
         DisposeMapOverlay();
         DisposeCombatAdvice(); // kills the helper (AppController.CombatAdvice.cs)
+        DisposePlayRecord();
     }
 }

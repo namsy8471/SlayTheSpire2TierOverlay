@@ -125,6 +125,19 @@ public sealed class AppSettings
     /// </summary>
     public string? UpdateUrl { get; set; }
 
+    /// <summary>
+    /// "플레이 기록 보관" (settings.json only): keep local copies of the game's run saves and godot.log while the overlay
+    /// runs (<see cref="Services.PlayRecorder"/>), for replaying a fight or screen that went wrong. Off by default: these
+    /// files hold the player's Steam ID and play history. They never leave the PC.
+    /// </summary>
+    public bool PlayRecord { get; set; }
+
+    /// <summary>Folder for <see cref="PlayRecord"/>. Null = <c>%LOCALAPPDATA%\Sts2Overlay\play-records</c>.</summary>
+    public string? PlayRecordDir { get; set; }
+
+    /// <summary>Size cap of <see cref="PlayRecord"/> in MB; the oldest records are deleted beyond it. 0 = no cap.</summary>
+    public int PlayRecordMaxMb { get; set; } = 2048;
+
     /// <summary>티어표 tab: the last card pool picked (<c>CHARACTER.X</c> or <c>COLORLESS</c>), shown when there is no run.</summary>
     public string? TierCharacter { get; set; }
 
