@@ -60,7 +60,10 @@ public static class RunSaveParser
         {
             var (fightsDone, easyFights) = ReadHallwayFights(Prop(act, "rooms"), map, visited,
                 MapPointHistory.FloorsInAct(history, actIndex));
-            map = map with { Visited = visited, NormalFightsDone = fightsDone, EasyFights = easyFights };
+            map = map with { Visited = visited, NormalFightsDone = fightsDone, EasyFights = easyFights,
+                IsBlitz = Str(root, "game_mode") == "blitz",
+                // Schema 21 is game v0.113, which lays the map rows out differently (MapScreenGeometry).
+                CenteredRows = (Int(root, "schema_version") ?? 0) >= 21 };
         }
         int floorsBeforeAct = Enumerable.Range(0, actIndex).Sum(i => MapPointHistory.FloorsInAct(history, i));
         // The room-entry save is written BEFORE that room's history entry is appended (RunManager.cs

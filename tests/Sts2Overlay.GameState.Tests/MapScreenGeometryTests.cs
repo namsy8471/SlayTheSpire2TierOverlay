@@ -109,6 +109,43 @@ public class MapScreenGeometryTests
         Assert.True(jy.Min() < -12 && jy.Max() > 12, $"y jitter {jy.Min()}..{jy.Max()}");
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public void Centered_layout_reserves_height_for_populated_rows_and_centres_the_icons(bool secondBoss, bool blitz)
+    {
+        // A missing interior row must reserve no icon height. Use the old layout to isolate
+        // the identical jitter stream from the new positions.
+        var full = Map(secondBoss);
+        var map = full with { IsBlitz = blitz, Nodes = full.Nodes.Where(kv => kv.Key.Row != 2).ToDictionary() };
+        var legacy = MapScreenGeometry.Compute(map, Seed)!;
+        var updated = MapScreenGeometry.Compute(map, Seed, centeredRows: true)!;
+        float height = secondBoss ? 2092.5f : 2325f;
+        float gap = (height - 13 * 56f) / 15;
+        foreach (MapCoord c in GridNodes(map))
+        {
+            float jitterX = legacy.Centers[c].X - (GridX0 + c.Col * 150);
+            float jitterY = legacy.Centers[c].Y - (GridY0 - c.Row * height / 15);
+            int prior = Math.Max(0, c.Row - 1) - (c.Row > 2 ? 1 : 0);
+            Assert.Equal((blitz ? 530f : 460f) + c.Col * 150 + jitterX, updated.Centers[c].X, 2);
+            Assert.InRange(Math.Abs(1252f - c.Row * gap - prior * 56f + (blitz ? jitterY / 2 : jitterY)
+                                    - updated.Centers[c].Y), 0, 0.001f);
+        }
+    }
+
+    [Fact]
+    public void A_v0113_save_map_selects_the_centered_layout_by_itself()
+    {
+        // The overlay may not know the game version (game folder not found); the schema-21 save still carries it.
+        var map = Map(false) with { CenteredRows = true };
+        var bySave = MapScreenGeometry.Compute(map, Seed)!;
+        var byCaller = MapScreenGeometry.Compute(map with { CenteredRows = false }, Seed, centeredRows: true)!;
+        var legacy = MapScreenGeometry.Compute(map with { CenteredRows = false }, Seed)!;
+        Assert.Equal(byCaller.Centers, bySave.Centers);
+        Assert.NotEqual(legacy.Centers.Values, bySave.Centers.Values);
+    }
+
     [Fact]
     public void Same_seed_gives_the_same_layout_and_another_seed_a_different_one()
     {

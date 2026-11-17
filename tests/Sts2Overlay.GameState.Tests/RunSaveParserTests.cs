@@ -118,6 +118,17 @@ public class RunSaveParserTests
         Assert.Equal(3, live.Distinct().Count());
     }
 
+    [Theory]
+    [InlineData(20, false)]
+    [InlineData(21, true)]
+    public void Schema_21_maps_use_the_v0113_screen_layout(int schema, bool centered)
+    {
+        var save = System.Text.Json.Nodes.JsonNode.Parse(CoopJson)!;
+        save["schema_version"] = schema;
+        MapGraph map = Assert.IsType<MapGraph>(RunSaveParser.Parse(save.ToJsonString(), TestPaths.Me).Map);
+        Assert.Equal(centered, map.CenteredRows);
+    }
+
     [Fact]
     public void Act_floor_and_map()
     {
