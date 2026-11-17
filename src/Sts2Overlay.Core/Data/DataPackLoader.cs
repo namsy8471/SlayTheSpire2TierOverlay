@@ -41,6 +41,9 @@ public static class DataPackLoader
     public const string RelicStatsFile = "relics.json";
     public const string RelicFitFile = "relic-fit.json";
     public const string CardPolicyFile = "model/card-policy.json";
+
+    /// <summary>Per-character card models (<c>model/characters/&lt;character&gt;.json</c>, same format as the shared one).</summary>
+    public const string CharacterCardPolicyDir = "model/characters";
     public const string TiersDir = "tiers";
     public const string ArchetypesDir = "archetypes";
     public const string CombosDir = "combos";
@@ -190,6 +193,16 @@ public static class DataPackLoader
         var relicFit = File.Exists(relicFitPath) ? LoadFile(relicFitPath, LoadRelicFit) : null;
         var policyPath = baselineModelDir is null ? Path.Combine(directory, CardPolicyFile) : Path.Combine(baselineModelDir, "card-policy.json");
         var cardPolicy = File.Exists(policyPath) ? LoadFile(policyPath, Learning.CardPolicyModel.Load) : null;
+        var characterPolicies = new Dictionary<string, Learning.CardPolicyModel>(StringComparer.Ordinal);
+        var characterDir = Path.Combine(directory, CharacterCardPolicyDir);
+        if (baselineModelDir is null && Directory.Exists(characterDir))
+        {
+            foreach (var file in Directory.GetFiles(characterDir, "*.json").Order(StringComparer.Ordinal))
+            {
+                var character = "CHARACTER." + Path.GetFileNameWithoutExtension(file).ToUpperInvariant();
+                characterPolicies[character] = LoadFile(file, Learning.CardPolicyModel.Load);
+            }
+        }
         // The evaluation used the v0.107.1 tables with a separate card model and no sibling card catalog.
         var profile = Path.Combine(directory, "model", "run-baseline");
         var tables = Path.Combine(directory, "..", "v0.107.1");
@@ -211,6 +224,7 @@ public static class DataPackLoader
             RelicStats = relicStats,
             RelicFit = relicFit,
             CardPolicy = cardPolicy,
+            CharacterCardPolicies = characterPolicies,
             BaselinePack = baselinePack,
             RunBaseline = baselineModelDir is null ? null : LoadFile(Path.Combine(baselineModelDir, "adjust.json"), Learning.RunBaselinePolicy.Load),
         };

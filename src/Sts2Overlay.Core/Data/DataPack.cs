@@ -32,6 +32,17 @@ public sealed class DataPack
     /// <summary>Learned card pick model (<c>model/card-policy.json</c>), null when the pack has none.</summary>
     public Learning.CardPolicyModel? CardPolicy { get; init; }
 
+    /// <summary>
+    /// Card models trained for one character (key <c>CHARACTER.DEFECT</c> etc.); they replace <see cref="CardPolicy"/> for
+    /// that character's runs. Empty when the pack has none.
+    /// </summary>
+    public IReadOnlyDictionary<string, Learning.CardPolicyModel> CharacterCardPolicies { get; init; } =
+        new Dictionary<string, Learning.CardPolicyModel>(StringComparer.Ordinal);
+
+    /// <summary>The card model for a run's character: its own model when the pack has one, else the shared model.</summary>
+    public Learning.CardPolicyModel? CardPolicyFor(string? character) =>
+        character is not null && CharacterCardPolicies.TryGetValue(character, out var own) ? own : CardPolicy;
+
     public Learning.RunBaselinePolicy? RunBaseline { get; init; }
     internal DataPack? BaselinePack { get; init; }
     public DataPack ForRun(RunState state) => BaselinePack is not null && Learning.RunBaselinePolicy.Supports(state)

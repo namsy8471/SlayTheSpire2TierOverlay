@@ -39,7 +39,7 @@ public sealed class CardValuer(DataPack pack, bool useLearnedModel)
         var scorer = new CardScorer(Pack);
         var evals = cards.Select(c => scorer.Score(state, profile, c, context)).ToList();
         var skip = new SkipScorer(Pack).Score(state, profile);
-        if (UseLearnedModel && Pack.CardPolicy is { } policy && evals.Count > 0)
+        if (UseLearnedModel && Pack.CardPolicyFor(state.Character) is { } policy && evals.Count > 0)
         {
             (evals, skip) = LearnedRescore.Apply(policy, Pack, state, profile, evals, skip);
         }
