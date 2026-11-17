@@ -16,10 +16,10 @@ public sealed record MapScreenLayout
     /// <summary>Node centres at scroll 0 (design px), every node of <see cref="MapGraph.Nodes"/> included.</summary>
     public required IReadOnlyDictionary<MapCoord, DesignPoint> Centers { get; init; }
 
-    /// <summary>Vertical distance between rows (design px): 2325 / (height − 1), × 0.9 with a second boss.</summary>
+    /// <summary>Nominal row spacing in design pixels. In v0.113 individual gaps also depend on row occupancy.</summary>
     public float RowSpacing { get; init; }
 
-    /// <summary>Scroll the game sets when the map opens mid-act: −600 + current row × <see cref="RowSpacing"/>, clamped.</summary>
+    /// <summary>Scroll the game sets when the map opens mid-act, clamped to its scroll limits.</summary>
     public float DefaultScroll { get; init; }
 
     /// <summary>The game's scroll limits (it springs back inside them when a drag ends).</summary>

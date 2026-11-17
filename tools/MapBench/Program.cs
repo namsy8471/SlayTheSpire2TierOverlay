@@ -18,17 +18,19 @@ using Sts2Overlay.Vision.Map;
 CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
 if (args.Length == 0 || args[0] != "fit")
 {
-    Console.WriteLine("usage: MapBench fit <frames|dirs...> --saves <dir> [--render <dir>] [--truth <file>]");
+    Console.WriteLine("usage: MapBench fit <frames|dirs...> --saves <dir> [--centered-rows] [--render <dir>] [--truth <file>]");
     return 2;
 }
 
 var inputs = new List<string>();
+bool centeredRows = false; // recordings from v0.113 onwards
 string? savesDir = null, renderDir = null, truthFile = null, previewDir = null, packDir = null;
 for (int i = 1; i < args.Length; i++)
 {
     switch (args[i])
     {
         case "--saves": savesDir = args[++i]; break;
+        case "--centered-rows": centeredRows = true; break;
         case "--render": renderDir = args[++i]; break;
         case "--truth": truthFile = args[++i]; break;
         case "--preview": previewDir = args[++i]; break;
@@ -46,7 +48,7 @@ if (savesDir != null)
     {
         ParsedSave? s = RunSaveParser.ParseFile(f, null);
         if (s != null && MarkPreview.TimeOf(Path.GetFileName(f)) is { } savedAt) saves.Add((savedAt, s));
-        if (s?.Map is not { } map || MapScreenGeometry.Compute(map, s.Seed, s.RngScheme ?? RngSeeds.Default) is not { } layout) continue;
+        if (s?.Map is not { } map || MapScreenGeometry.Compute(map, s.Seed, s.RngScheme ?? RngSeeds.Default, centeredRows) is not { } layout) continue;
         if (layouts.Any(l => l.Layout.Seed == layout.Seed && l.Layout.ActIndex == layout.ActIndex)) continue;
         layouts.Add(($"{s.Seed}/act{layout.ActIndex + 1}", layout, map));
     }

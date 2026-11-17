@@ -18,9 +18,9 @@ namespace Sts2Overlay.App.Services;
 public sealed record MapTarget(string Key, MapGraph Map, MapScreenLayout Layout, IReadOnlyList<MapMark> Marks)
 {
     /// <summary>Null when the map or seed is unknown (the node jitter can't be reproduced without the seed).</summary>
-    public static MapTarget? For(MapGraph? map, string? seed, RngScheme scheme = RngSeeds.Default)
+    public static MapTarget? For(MapGraph? map, string? seed, RngScheme scheme = RngSeeds.Default, bool centeredRows = false)
     {
-        if (map is null || MapScreenGeometry.Compute(map, seed, scheme) is not { } layout) return null;
+        if (map is null || MapScreenGeometry.Compute(map, seed, scheme, centeredRows) is not { } layout) return null;
         var marks = layout.Centers
             .Where(kv => kv.Key != map.Start && kv.Key != map.Boss && kv.Key != map.SecondBoss)
             .Select(kv => new MapMark(kv.Value.X, kv.Value.Y))

@@ -23,6 +23,7 @@ namespace Sts2Overlay.App.Controllers;
 public sealed partial class AppController
 {
     private readonly MapScreenWatcher _mapWatcher = new();
+    private readonly bool _centeredMapRows;
     private MapOverlayWindow? _mapLayer;
     private PathRecommendation? _mapRec;
     private MapSighting? _lastSighting;
@@ -70,7 +71,7 @@ public sealed partial class AppController
             // Same act map: keep the layout (positions don't depend on where we are), just take the newer graph.
             target = _mapWatcher.Target is { } cur && cur.Key == MapTarget.KeyFor(map, seed, snap.RngScheme)
                 ? cur with { Map = map }
-                : MapTarget.For(map, seed, snap.RngScheme);
+                : MapTarget.For(map, seed, snap.RngScheme, _centeredMapRows);
             if (target is not null && target.Key != _mapWatcher.Target?.Key) AppLog.Info($"map overlay: act {map.Act} layout, {target.Marks.Count} nodes");
         }
         _mapWatcher.Target = target;

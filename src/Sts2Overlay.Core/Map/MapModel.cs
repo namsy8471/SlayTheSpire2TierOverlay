@@ -37,6 +37,15 @@ public sealed record MapGraph
     public int Width { get; init; }
     public int Height { get; init; }
 
+    /// <summary>The Blitz map uses a shifted grid and less vertical jitter.</summary>
+    public bool IsBlitz { get; init; }
+
+    /// <summary>
+    /// Game v0.113 or later (save schema 21+): the map screen reserves height for every occupied row
+    /// (<c>MapScreenGeometry</c>). Older games jitter the nodes around a plain grid.
+    /// </summary>
+    public bool CenteredRows { get; init; }
+
     /// <summary>All nodes including start and boss, keyed by coordinate.</summary>
     public required IReadOnlyDictionary<MapCoord, MapNode> Nodes { get; init; }
 

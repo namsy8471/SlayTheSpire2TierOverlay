@@ -79,10 +79,13 @@ public sealed partial class AppController : IDisposable
         BadgeWindow badges,
         PanelViewModel vm,
         string packDir,
-        string? catalogPath)
+        string? catalogPath,
+        string? gameVersion)
     {
         _ui = Dispatcher.CurrentDispatcher;
         _settings = settings;
+        _centeredMapRows = Resources.GameVersion.TryParse(gameVersion, out var version)
+            && version >= Resources.GameVersion.Parse("v0.113.0");
         _tracker = tracker;
         _pipeline = pipeline;
         _panel = panel;

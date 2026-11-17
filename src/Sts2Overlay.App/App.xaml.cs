@@ -202,7 +202,7 @@ public partial class App : Application
         new WindowInteropHelper(badges).EnsureHandle();
         new WindowInteropHelper(_panel).EnsureHandle();
 
-        _controller = new AppController(_settings, _tracker, _pipeline, _panel, badges, _vm, packDir, catalog);
+        _controller = new AppController(_settings, _tracker, _pipeline, _panel, badges, _vm, packDir, catalog, gameVersion);
         var (state, recognizer) = options.Demo is { } demo ? IntegrationFactory.CreateDemo(demo) : IntegrationFactory.CreateReal();
         _controller.Attach(state, recognizer, options.Demo);
 
