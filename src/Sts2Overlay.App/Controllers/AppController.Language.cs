@@ -38,9 +38,7 @@ public sealed partial class AppController
             _vm.PackText = PackText();
             OnTrackerChanged(); // status line + UI scale text
 
-            RefreshRunViews(_snapshot.Run); // run line, 덱 and 빌드 tabs (re-analyses the deck)
-            _vm.Build = ForecastReviewPresenter.WithForecast(_vm.Build, _snapshot.Run is null ? null : _lastForecast);
-            _vm.Forecast = ForecastReviewPresenter.Forecast(_lastForecast);
+            RefreshRunViews(_snapshot.Run); // run line and 덱 tab (re-analyses the deck)
             if (_lastReview is { } review) _vm.Review = ForecastReviewPresenter.Review(review, _cards, _vm.Review.ShowBanner);
             _reviews?.Refresh(); // re-scores the last run's review against the pack
 

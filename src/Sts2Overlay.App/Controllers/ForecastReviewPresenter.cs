@@ -9,76 +9,11 @@ using Sts2Overlay.Core.Replay;
 
 namespace Sts2Overlay.App.Controllers;
 
-/// <summary>Turns forecast and review results from Core into view models in the current language. Pure formatting, no state.</summary>
+/// <summary>Turns review results from Core into view models in the current language. Pure formatting, no state.</summary>
 internal static class ForecastReviewPresenter
 {
     private const double BarMax = 356;
-    private const int MaxRows = 4;
     private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
-
-    public static ForecastSectionVm Forecast(ForecastResult? result)
-    {
-        if (result is null || result.Archetypes.Count == 0) return ForecastSectionVm.Empty;
-
-        // Most likely first; archetypes with no chance at all are noise unless nothing else is left.
-        var shown = result.Archetypes.Where(a => a.IsCompleteNow || a.EndOfRun.PComplete >= 0.005 || a.EndOfRun.PPrimary >= 0.05).Take(MaxRows).ToList();
-        if (shown.Count == 0) shown = result.Archetypes.Take(2).ToList();
-
-        var rows = shown.Select(a => new ForecastRowVm
-        {
-            Name = a.Archetype.DisplayName,
-            Color = ParseColor(a.Archetype.Color),
-            IsCompleteNow = a.IsCompleteNow,
-            EndText = a.IsCompleteNow ? Loc.T("완성", "Complete") : Pct(a.CalibratedIfSurvive),
-            BarWidth = (a.IsCompleteNow ? 1 : a.CalibratedIfSurvive) * BarMax,
-            DetailText = a.IsCompleteNow
-                ? Loc.T($"이미 방향 확정 (몰입 {Pct(a.CurrentCommit)}) · 3막 끝 완성도 평균 {a.EndOfRun.MeanCompletionPercent:0}%",
-                        $"Already locked in (commit {Pct(a.CurrentCommit)}) · avg completion at Act 3 end {a.EndOfRun.MeanCompletionPercent:0}%")
-                : Loc.T($"사망 포함 {Pct(a.CalibratedAll)} · 보정 전 {Pct(a.EndOfRun.PComplete)} · 지금 몰입 {Pct(a.CurrentCommit)} · 완성도 {a.CurrentCompletionPercent:0}%",
-                        $"incl. death {Pct(a.CalibratedAll)} · uncalibrated {Pct(a.EndOfRun.PComplete)} · commit now {Pct(a.CurrentCommit)} · completion {a.CurrentCompletionPercent:0}%"),
-        }).ToArray();
-
-        var e = result.ExpectedUntilEnd;
-        var source = result.UsedMap ? Loc.T("이번 막은 지도 기준", "this act from the Map") : Loc.T("이번 막은 보통 길이 기준", "this act at a typical length");
-        var note = result.PoolSize == 0
-            ? Loc.T("카드 풀 데이터가 없어 지금 덱 기준으로만 표시합니다.", "No card pool data: based on the current deck only.")
-            : Loc.T(
-                $"큰 숫자 = 3막 보스까지 살아남는다면, 지난 런 기록으로 보정한 값 · 남은 카드 기회 약 {e.Total:0}번 (일반 {e.Normal:0.#} · 엘리트 {e.Elite:0.#} · 보스 {e.Boss:0} · 상점 {e.Shop:0.#}), {source} · 시뮬레이션 {result.Simulations}회 [추정]",
-                $"Big number = if you survive to the Act 3 Boss, calibrated on past runs · ~{e.Total:0} card chances left (Enemy {e.Normal:0.#} · Elite {e.Elite:0.#} · Boss {e.Boss:0} · Shop {e.Shop:0.#}), {source} · {result.Simulations} simulations [est.]");
-        return new ForecastSectionVm
-        {
-            Title = Loc.T("빌드 완성 확률 (살아남는다면 · 사망 포함)", "Build completion odds (if you survive · incl. death)"),
-            Rows = rows,
-            Note = note,
-        };
-    }
-
-    /// <summary>
-    /// Puts the forecast line under each matching archetype of the 빌드 list (it replaced the old "핵심 카드가 나올
-    /// 확률" line, which could say 80% while the build block said 10%). Archetypes without a forecast get no line.
-    /// </summary>
-    public static BuildSectionVm WithForecast(BuildSectionVm build, ForecastResult? result)
-    {
-        if (!build.HasContent || build.Archetypes.Count == 0) return build;
-        // Matched by archetype id: the display name depends on the language (and two packs could share a name).
-        var byId = new Dictionary<string, ArchetypeForecast>(StringComparer.Ordinal);
-        foreach (var f in result?.Archetypes ?? []) byId.TryAdd(f.Archetype.Id, f);
-
-        var changed = false;
-        var items = build.Archetypes.Select(a =>
-        {
-            var text = byId.TryGetValue(a.Id, out var f) ? ForecastLine(f) : null;
-            if (text == a.ProbabilityText) return a;
-            changed = true;
-            return a with { ProbabilityText = text };
-        }).ToArray();
-        return changed ? build with { Archetypes = items } : build;
-    }
-
-    internal static string? ForecastLine(ArchetypeForecast f) => f.IsCompleteNow
-        ? null
-        : Loc.T($"3막 끝 완성 확률: 살아남는다면 {Pct(f.CalibratedIfSurvive)} · 사망 포함 {Pct(f.CalibratedAll)} [추정]",
-                $"Complete by Act 3 end: {Pct(f.CalibratedIfSurvive)} if you survive · {Pct(f.CalibratedAll)} incl. death [est.]");
 
     public static ReviewSectionVm Review(RunReview review, CardInfoProvider cards, bool showBanner)
     {

@@ -138,9 +138,6 @@ public sealed class AppSettings
     /// <summary>Size cap of <see cref="PlayRecord"/> in MB; the oldest records are deleted beyond it. 0 = no cap.</summary>
     public int PlayRecordMaxMb { get; set; } = 2048;
 
-    /// <summary>티어표 tab: the last card pool picked (<c>CHARACTER.X</c> or <c>COLORLESS</c>), shown when there is no run.</summary>
-    public string? TierCharacter { get; set; }
-
     /// <summary>
     /// settings.json exists but could not be read, so this run uses defaults. <see cref="SettingsStore.Save"/> then
     /// leaves the file alone until the user really changes a setting (the original is also copied to settings.json.bad).

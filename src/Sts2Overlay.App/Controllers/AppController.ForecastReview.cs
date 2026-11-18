@@ -8,22 +8,17 @@ using Sts2Overlay.GameState;
 namespace Sts2Overlay.App.Controllers;
 
 /// <summary>
-/// Build-completion forecast (빌드 tab) and end-of-run review (리뷰 tab). Kept in its own partial file so the main
+/// End-of-run review (리뷰 tab). Kept in its own partial file so the main
 /// controller only carries four one-line hooks: init, snapshot, pack reload and dispose.
 /// </summary>
 public sealed partial class AppController
 {
-    private ArchetypeForecastService? _forecast;
     private RunReviewService? _reviews;
     private RunReview? _lastReview;
-    private ForecastResult? _lastForecast;
     private bool _hadRun;
 
     private void InitForecastReview(string packDir, string? catalogPath)
     {
-        _forecast = new ArchetypeForecastService(_ui, OnForecast);
-        _forecast.SetPack(_engine.Pack, packDir, catalogPath);
-
         var paths = GamePaths.Discover();
         var history = paths.SavesDirectory is { } saves ? System.IO.Path.Combine(saves, "history") : null;
         InitDecisionLog(); // play-time advice the review judges against (AppController.DecisionLog.cs)
@@ -39,10 +34,6 @@ public sealed partial class AppController
     private void UpdateForecastReview(GameStateSnapshot snap)
     {
         TickDecisionLog(snap); // finish a card screen's record when the floor / run moved on (AppController.DecisionLog.cs)
-        var offset = (_source as GameStateAdapter)?.Tracked?.RarityPityOffset;
-        // RefreshRunViews just rebuilt the archetype list: put the last forecast line back until the new one arrives.
-        _vm.Build = ForecastReviewPresenter.WithForecast(_vm.Build, snap.Run is null ? null : _lastForecast);
-        _forecast?.Request(snap.Run, snap.Map, offset);
 
         var hasRun = snap.Run is not null;
         if (_hadRun && !hasRun) _reviews?.Poke(); // run ended (or main menu): its .run file is about to appear
@@ -51,28 +42,14 @@ public sealed partial class AppController
 
     private void ReloadForecastReview()
     {
-        _forecast?.SetPack(_engine.Pack, _packDir, CatalogPath);
-        _forecast?.Request(_snapshot.Run, _snapshot.Map, (_source as GameStateAdapter)?.Tracked?.RarityPityOffset);
         _reviews?.SetPack(_engine.Pack);
         _reviews?.Refresh();
     }
 
     private void DisposeForecastReview()
     {
-        _forecast?.Dispose();
         DisposeDecisionLog();
         _reviews?.Dispose();
-    }
-
-    private void OnForecast(ForecastResult? result)
-    {
-        _lastForecast = result;
-        _vm.Forecast = ForecastReviewPresenter.Forecast(result);
-        _vm.Build = ForecastReviewPresenter.WithForecast(_vm.Build, result);
-        if (result is { FromCache: false })
-        {
-            AppLog.Info($"forecast: {result.Simulations} sims in {result.ElapsedMs:0.0} ms, map {result.UsedMap}, offset {result.RarityOffsetUsed:0.###}");
-        }
     }
 
     private void OnReview(RunReview review, bool isNew)

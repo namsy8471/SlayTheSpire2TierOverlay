@@ -3,45 +3,8 @@ using Sts2Overlay.Core.Localization;
 
 namespace Sts2Overlay.App.ViewModels;
 
-// View models for the build forecast block (빌드 tab) and the end-of-run review (리뷰 tab).
+// View models for the end-of-run review (리뷰 tab).
 // Immutable records like the other sections: the presenter builds a new one and the controller swaps it in.
-
-/// <summary>One archetype line: "냉기 구체 · 3막 끝 62% · 다음 보스 전 18%".</summary>
-public sealed record ForecastRowVm
-{
-    public required string Name { get; init; }
-    public Brush Color { get; init; } = Brushes.SteelBlue;
-
-    /// <summary>Big number on the right, e.g. "62%" (or "완성").</summary>
-    public string EndText { get; init; } = "";
-
-    /// <summary>Probability bar width in DIPs (0..356).</summary>
-    public double BarWidth { get; init; }
-
-    /// <summary>"다음 보스 전 18% · 주 빌드가 될 확률 40% · 핵심 카드 전부 9%".</summary>
-    public string DetailText { get; init; } = "";
-
-    public bool IsCompleteNow { get; init; }
-}
-
-public sealed record ForecastSectionVm
-{
-    public static ForecastSectionVm Empty { get; } = new() { HasContent = false };
-
-    public bool HasContent { get; init; } = true;
-    private readonly string? _title;
-
-    /// <summary>Set by the presenter; the default follows the current language.</summary>
-    public string Title
-    {
-        get => _title ?? Loc.T("빌드 완성 확률", "Build completion odds");
-        init => _title = value;
-    }
-    public IReadOnlyList<ForecastRowVm> Rows { get; init; } = [];
-
-    /// <summary>Assumptions and cost: remaining rewards, policy, simulation count.</summary>
-    public string Note { get; init; } = "";
-}
 
 /// <summary>One of the biggest disagreements between the player and the engine.</summary>
 public sealed record ReviewDisagreementVm

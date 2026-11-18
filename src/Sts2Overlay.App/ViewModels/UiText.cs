@@ -59,7 +59,6 @@ public sealed class UiText : INotifyPropertyChanged
     // ---- tabs ----
     public string TabOffer => Loc.T("추천", "Picks");
     public string TabDeck => Loc.T("덱", "Deck");
-    public string TabBuild => Loc.T("빌드", "Build");
     public string TabPath => Loc.T("경로", "Path");
     public string TabReview => Loc.T("리뷰", "Review");
 
@@ -81,23 +80,6 @@ public sealed class UiText : INotifyPropertyChanged
     // ---- 덱 tab ----
     public string DeckEmpty => Loc.T("런 정보 없음\n세이브 파일을 읽으면 표시됩니다.", "No run info\nShown once the save file is read.");
     public string RoleSupplyHeading => Loc.T("역할 공급 / 목표", "Role supply / target");
-
-    // ---- 빌드 tab ----
-    public string BuildEmpty => Loc.T("런 정보 없음 또는 이 캐릭터의 아키타입 데이터가 없습니다.",
-        "No run info, or no archetype data for this character.");
-    public string CurrentDirectionTag => Loc.T("현재 방향", "Current");
-    public string BuildCardsToolTip => Loc.T("빌드 카드 보기/접기", "Show/hide build cards");
-    public string ShowBuildCards => Loc.T("▸ 빌드 카드 보기", "▸ Show build cards");
-    public string HideBuildCards => Loc.T("▾ 빌드 카드 접기", "▾ Hide build cards");
-    public string BuildRelics => Loc.T("어울리는 유물", "Relics for this build");
-
-    // ---- 티어표 tab ----
-    public string TabTiers => Loc.T("티어표", "Tiers");
-    public string TierNote => Controllers.TierListPresenter.Note;
-    public string TierSearchHint => Loc.T("카드 이름 검색 (초성 가능: ㅂㅂ)", "Search card names");
-    public string TierSearchToolTip => Loc.T("클릭하면 입력할 수 있습니다. Enter(검색어 유지)·Esc(검색어 지움)·바깥 클릭으로 키보드가 게임에 돌아갑니다.",
-        "Click to type. Enter (keeps the search), Esc (clears it) or a click outside gives the keyboard back to the game.");
-    public string CoopTag => Loc.T("협동", "Co-op");
 
     // ---- 경로 tab ----
     public string PathEmpty => Loc.T("경로 추천 준비 중\n지도 정보가 연결되면 표시됩니다.", "Path advice not ready\nShown once map info is available.");

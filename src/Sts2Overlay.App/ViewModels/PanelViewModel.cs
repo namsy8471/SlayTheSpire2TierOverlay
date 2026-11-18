@@ -8,12 +8,8 @@ public enum PanelTab
 {
     Offer,
     Deck,
-    Build,
     Path,
     Review,
-
-    /// <summary>티어표: the whole tier list (shown after 빌드; never selected automatically).</summary>
-    Tiers,
 }
 
 /// <summary>Root view model of the panel window. Sections are replaced wholesale by <see cref="Controllers.AppController"/>.</summary>
@@ -31,13 +27,12 @@ public sealed class PanelViewModel : ObservableObject
     private bool _isDemo;
     private OfferSectionVm _offer = OfferSectionVm.Empty;
     private DeckSectionVm _deck = DeckSectionVm.Empty;
-    private BuildSectionVm _build = BuildSectionVm.Empty;
     private PathSectionVm _path = PathSectionVm.Empty;
 
     public PanelViewModel()
     {
         ToggleCollapseCommand = new RelayCommand(_ => IsCollapsed = !IsCollapsed);
-        // ---- forecast / run review (m2/forecast-review) ----
+        // ---- run review (m2/forecast-review) ----
         ShowReviewCommand = new RelayCommand(_ =>
         {
             Review = Review with { ShowBanner = false };
@@ -166,12 +161,6 @@ public sealed class PanelViewModel : ObservableObject
         set => Set(ref _deck, value);
     }
 
-    public BuildSectionVm Build
-    {
-        get => _build;
-        set => Set(ref _build, value);
-    }
-
     public PathSectionVm Path
     {
         get => _path;
@@ -187,17 +176,9 @@ public sealed class PanelViewModel : ObservableObject
         set => Set(ref _combat, value);
     }
 
-    // ---- forecast / run review (m2/forecast-review) ----------------------------------------------------
+    // ---- run review (m2/forecast-review) ----------------------------------------------------
 
-    private ForecastSectionVm _forecast = ForecastSectionVm.Empty;
     private ReviewSectionVm _review = ReviewSectionVm.Empty;
-
-    /// <summary>Monte Carlo build-completion block at the top of the 빌드 tab.</summary>
-    public ForecastSectionVm Forecast
-    {
-        get => _forecast;
-        set => Set(ref _forecast, value);
-    }
 
     /// <summary>Last finished run's review (리뷰 tab) and its "new review" banner.</summary>
     public ReviewSectionVm Review
@@ -211,7 +192,4 @@ public sealed class PanelViewModel : ObservableObject
 
     /// <summary>Banner "닫기": hide the banner; the review stays in the 리뷰 tab.</summary>
     public ICommand DismissReviewCommand { get; }
-
-    /// <summary>티어표 tab (Controllers/AppController.Tiers.cs). One long-lived object: its search box binds to it.</summary>
-    public TierListVm Tiers { get; } = new();
 }

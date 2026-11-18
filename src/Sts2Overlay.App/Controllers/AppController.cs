@@ -103,7 +103,6 @@ public sealed partial class AppController : IDisposable
         InitMapOverlay(); // marks on the game's map (AppController.MapOverlay.cs)
         InitEvents(packDir); // event option advice (AppController.Events.cs)
         InitHoverYield(); // step aside for the game's hover tips (AppController.HoverYield.cs)
-        InitTiers(); // 티어표 tab (AppController.Tiers.cs)
         InitCombatAdvice(); // in-fight play order from the helper process (AppController.CombatAdvice.cs)
         InitPlayRecord(); // opt-in local copies of saves and godot.log (AppController.PlayRecord.cs)
 
@@ -213,7 +212,6 @@ public sealed partial class AppController : IDisposable
         RunStage("event", () => UpdateEvent(snap)); // AppController.Events.cs
         if (Demo is null) RunStage("path", () => RefreshPath(snap));
         RunStage("map target", () => UpdateMapTarget(snap)); // AppController.MapOverlay.cs
-        RunStage("tiers", () => UpdateTiers(snap)); // AppController.Tiers.cs (owned marks; builds only while the tab shows)
         RunStage("combat advice", () => UpdateCombatAdvice(snap)); // AppController.CombatAdvice.cs
 
         var likely = IsOfferHint(snap.Hint);
@@ -772,7 +770,7 @@ public sealed partial class AppController : IDisposable
         _eventOfferRebuild = null;
     }
 
-    // ---- deck / build tabs ------------------------------------------------------------------------------------
+    // ---- deck tab ------------------------------------------------------------------------------------------
 
     private void RefreshRunViews(RunState? run)
     {
@@ -780,7 +778,6 @@ public sealed partial class AppController : IDisposable
         {
             _vm.RunText = Loc.T("런 정보 없음", "No run info");
             _vm.Deck = DeckSectionVm.Empty;
-            _vm.Build = BuildSectionVm.Empty;
             return;
         }
 
@@ -789,7 +786,6 @@ public sealed partial class AppController : IDisposable
         {
             var profile = _engine.Analyze(run);
             _vm.Deck = BuildDeck(run, profile);
-            _vm.Build = BuildArchetypes(run, _engine.Archetypes(run, EstimateRemainingRewards(run)));
         }
         catch (Exception ex)
         {
@@ -916,142 +912,6 @@ public sealed partial class AppController : IDisposable
         return entry.ActTier is not null && entry.ActTier.TryGetValue(run.Act, out var t) ? t : entry.Tier;
     }
 
-    /// <summary>
-    /// Archetype id → card tiles shown, for archetypes the user opened or closed. The build section is rebuilt on
-    /// every snapshot, so the choice lives here; archetypes not in it follow the default (only the primary is open).
-    /// </summary>
-    private readonly Dictionary<string, bool> _buildCardsExpanded = new(StringComparer.Ordinal);
-
-    private void ToggleBuildCards(string archetypeId)
-    {
-        var items = _vm.Build.Archetypes.Select(a =>
-        {
-            if (a.Id != archetypeId) return a;
-            _buildCardsExpanded[archetypeId] = !a.IsExpanded;
-            return a with { IsExpanded = !a.IsExpanded };
-        }).ToArray();
-        _vm.Build = _vm.Build with { Archetypes = items };
-    }
-
-    /// <summary>Most relics a build lists: its key relics first, then the ranker favourites by lift.</summary>
-    private const int MaxBuildRelics = 6;
-
-    /// <summary>Lift above which a measured relic counts as one top players favour in a build (relic-fit.json fitRatio).</summary>
-    private const double FavouredRelicLift = 1.5;
-
-    /// <summary>
-    /// Relics that suit <paramref name="a"/>: the pack's key relics (the build's own relics), then relics top players take clearly
-    /// more often in this build (relic-fit.json, use = true, fitRatio ≥ 1.5), strongest first.
-    /// </summary>
-    private IReadOnlyList<BuildRelicVm> BuildRelics(RunState run, Archetype a)
-    {
-        var owned = run.Relics.ToHashSet(StringComparer.Ordinal);
-        var list = new List<BuildRelicVm>();
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var k in a.KeyRelics)
-        {
-            if (list.Count >= MaxBuildRelics || !seen.Add(k.Id)) continue;
-            list.Add(new BuildRelicVm(RelicTip(k.Id), owned.Contains(k.Id), Loc.T("빌드 핵심 유물", "Key relic of this build")));
-        }
-        if (_engine.Pack.RelicFit?.Archetypes.TryGetValue(a.Id, out var fits) == true)
-        {
-            foreach (var (id, f) in fits.Where(p => p.Value.Use == true && FitLift(p.Value) >= FavouredRelicLift).OrderByDescending(p => FitLift(p.Value)))
-            {
-                if (list.Count >= MaxBuildRelics) break;
-                if (!seen.Add(id)) continue;
-                var lift = FitLift(f).ToString("0.0", CultureInfo.InvariantCulture);
-                list.Add(new BuildRelicVm(RelicTip(id), owned.Contains(id),
-                    Loc.T($"상위 플레이어가 이 빌드에서 ×{lift} 더 자주 고름", $"Top players take it ×{lift} more often in this build")));
-            }
-        }
-        return list;
-    }
-
-    private static double FitLift(RelicFitStat f) => f.FitRatio ?? (f.PickRateOut > 0 ? f.PickRateIn / f.PickRateOut : 0);
-
-    private BuildSectionVm BuildArchetypes(RunState run, ArchetypeReport report)
-    {
-        if (report.Statuses.Count == 0) return BuildSectionVm.Empty;
-
-        static string RoleName(string role) => BuildCardsPresenter.RoleName(role);
-
-        BuildCardVm Card(string id, string role, bool owned)
-        {
-            var rarity = _cards.Rarity(run.Character, id);
-            return new BuildCardVm(_cards.Name(id), role, rarity is null ? null : CardInfoProvider.RarityName(rarity),
-                TierOf(run, id)?.ToString() ?? "?", owned, ArtOf(id), _cardText.For(id, Loc.CurrentCode));
-        }
-
-        // Every build of the character, highest commit first. No cap: Ironclad has 8 builds and Defect 6, and a top-5 cut
-        // hid whole builds (자해 sorts 5th by id at zero commit, so one card for any build after it pushed it out).
-        // The panel scrolls and only the primary build's card tiles start open, so the extra rows stay short.
-        var items = report.Statuses.Select(st =>
-        {
-            var a = st.Archetype;
-            var groups = BuildCardsPresenter.Groups(st, _engine.Pack.Canonical, Card);
-            var isPrimary = ReferenceEquals(st, report.Primary);
-            // m2/forecast-calib: the old "핵심 카드가 나올 확률" line is replaced by the calibrated forecast line,
-            // filled in by ForecastReviewPresenter.WithForecast (AppController.ForecastReview.cs).
-            string? prob = null;
-            var missing = st.MissingCards.Count == 0
-                ? null
-                : Loc.T("필요: ", "Needs: ") + string.Join(", ", st.MissingCards.Take(5).Select(m =>
-                    Loc.T($"{_cards.Name(m.CardId)}({RoleName(m.Role)}, {CardInfoProvider.RarityName(m.Rarity)})",
-                          $"{_cards.Name(m.CardId)} ({RoleName(m.Role)}, {CardInfoProvider.RarityName(m.Rarity)})")));
-            // 코어 먼저: before a core the scorer locks this build's synergy; after it, essentials (payoff + enabler) before support.
-            var cores = string.Join(", ", st.MissingCore.Take(3).Select(m => _cards.Name(m.CardId)));
-            var stage = st.CoreTarget == 0 || st.Commit <= 0 ? null
-                : st.OwnedCore == 0 ? Loc.T($"코어 전: 시너지 점수 잠김 · 먼저 노릴 코어 {cores}", $"No Core yet: synergy locked · go for {cores}")
-                : (st.EssentialTarget > 0
-                      ? Loc.T($"필수 시너지 {Math.Min(st.OwnedEssential, st.EssentialTarget)}/{st.EssentialTarget}", $"Key synergy {Math.Min(st.OwnedEssential, st.EssentialTarget)}/{st.EssentialTarget}")
-                      : "")
-                  + (st.CoreSecured ? "" : Loc.T($" · 코어 {st.OwnedCore}/{st.CoreTarget}, 다음 코어 {cores}", $" · Core {st.OwnedCore}/{st.CoreTarget}, next Core {cores}"));
-            if (!string.IsNullOrWhiteSpace(stage)) missing = stage.TrimStart(' ', '·') + (missing is null ? "" : "\n" + missing);
-            var needs = st.UnmetNeeds.Count == 0
-                ? null
-                : Loc.T("조건 미충족: ", "Unmet: ") + string.Join(", ", st.UnmetNeeds.Select(n =>
-                    $"{(n.Role is { } r ? ScoringLabels.Role(r) : n.Tag is { } tag ? ScoringLabels.Tag(tag) : "?")} {Fmt1(n.Min)}+"));
-            return new ArchetypeVm
-            {
-                Id = a.Id,
-                Name = a.DisplayName,
-                Color = ParseColor(a.Color),
-                IsPrimary = isPrimary,
-                CardGroups = groups,
-                Relics = BuildRelics(run, a),
-                CardsSummaryText = BuildCardsPresenter.Summary(groups),
-                IsExpanded = _buildCardsExpanded.TryGetValue(a.Id, out var open) ? open : isPrimary,
-                ToggleCardsCommand = new RelayCommand(_ => ToggleBuildCards(a.Id)),
-                CommitText = Loc.T(
-                    $"몰입 {st.Commit:P0} · 완성도 {st.CompletionPercent:0}%{(st.IsCommitted ? " · 방향 확정" : "")}",
-                    $"Commit {st.Commit:P0} · Completion {st.CompletionPercent:0}%{(st.IsCommitted ? " · locked in" : "")}"),
-                CompletionBarWidth = Math.Clamp(st.CompletionPercent, 0, 100) / 100 * 356,
-                StageText = new string('●', st.Stage) + new string('○', Math.Max(0, 5 - st.Stage)),
-                ProbabilityText = prob,
-                MissingText = missing,
-                NeedsText = needs,
-            };
-        }).ToArray();
-
-        var summary = report.Primary is not { } primary
-            ? Loc.T("아직 정해진 빌드 방향이 없습니다", "No build direction yet")
-            : report.IsHybrid && report.Statuses.Count > 1
-                ? Loc.T($"현재 방향: {primary.Archetype.DisplayName} + {report.Statuses[1].Archetype.DisplayName} (하이브리드)",
-                        $"Direction: {primary.Archetype.DisplayName} + {report.Statuses[1].Archetype.DisplayName} (hybrid)")
-                : Loc.T($"현재 방향: {primary.Archetype.DisplayName}", $"Direction: {primary.Archetype.DisplayName}");
-        return new BuildSectionVm { Summary = summary, Archetypes = items };
-    }
-
-    /// <summary>
-    /// [추정] Card rewards left in the current act: ~15 floors per act, about half of them fights with a card reward.
-    /// The lead can replace this with a count from the map / PathAdvisor.
-    /// </summary>
-    private static int EstimateRemainingRewards(RunState run)
-    {
-        const int floorsPerAct = 15;
-        var floorsLeft = Math.Max(0, floorsPerAct * run.Act - run.Floor);
-        return Math.Max(1, (int)Math.Round(floorsLeft * 0.5));
-    }
 
     // ---- visibility / windows ----------------------------------------------------------------------------------
 
