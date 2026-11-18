@@ -168,7 +168,8 @@ public sealed partial class AppController
             eval = _eventScorer.Evaluate(run, active.EventId, keys, page, active.PossibleKeys, context);
             if (eval is not null && _engine.UseLearnedModel && Core.Learning.RunBaselinePolicy.For(_engine.Pack, run) is { } runPolicy)
             {
-                eval = _baselineEvents.Apply(eval, run.Floor, run.Hp, lastChoice, runPolicy, AtQuestion(run, eval.Event));
+                var at = AtQuestion(run, eval.Event);
+                eval = _baselineEvents.Apply(eval, run.Floor, at.Hp, lastChoice, runPolicy, at, run.VitalsKnown ? at.MaxHp : 0);
                 // A0 ancient entry heals all missing HP before its choice; the room-entry save predates that heal.
                 var visible = eval.Event.IsAncient ? run with { Hp = run.MaxHp } : run;
                 eval = _adoptedEvents?.Apply(eval, visible, active.Certain && !tracked.DeckApproximate && tracked.HpGoldReliable, lastChoice) ?? eval;
@@ -204,7 +205,8 @@ public sealed partial class AppController
             if (again is null) return null;
             if (_engine.UseLearnedModel && Core.Learning.RunBaselinePolicy.For(_engine.Pack, run) is { } againPolicy)
             {
-                again = _baselineEvents.Apply(again, run.Floor, run.Hp, lastChoice, againPolicy, AtQuestion(run, again.Event));
+                var at = AtQuestion(run, again.Event);
+                again = _baselineEvents.Apply(again, run.Floor, at.Hp, lastChoice, againPolicy, at, run.VitalsKnown ? at.MaxHp : 0);
                 var visible = again.Event.IsAncient ? run with { Hp = run.MaxHp } : run;
                 again = _adoptedEvents?.Apply(again, visible, active.Certain && !tracked.DeckApproximate && tracked.HpGoldReliable, lastChoice) ?? again;
             }
