@@ -14,6 +14,9 @@ public abstract class EventCatalogTests
     /// <summary>The pack version under test.</summary>
     protected abstract string Version { get; }
 
+    /// <summary>Events in that pack.</summary>
+    protected virtual int EventCount => 66;
+
     /// <summary>Events whose <c>EventModel.IsShared</c> is true in that game version (all players see one event).</summary>
     protected abstract string[] SharedEvents { get; }
 
@@ -25,7 +28,7 @@ public abstract class EventCatalogTests
     [Fact]
     public void HasEveryEventOfTheBuild()
     {
-        Assert.Equal(66, Catalog.Events.Count);
+        Assert.Equal(EventCount, Catalog.Events.Count);
         Assert.Equal(Version, Catalog.GameVersion);
         Assert.Equal(Catalog.Events.Count, Catalog.Events.Select(e => e.Id).Distinct().Count());
         Assert.All(Catalog.Events, e => Assert.StartsWith("EVENT.", e.Id));
@@ -120,6 +123,10 @@ public sealed class EventCatalogTestsV0107 : EventCatalogTests
 public sealed class EventCatalogTestsV0111 : EventCatalogTests
 {
     protected override string Version => "v0.111.0";
+
+    // The pack also serves v0.113 runs: Museum of Torture, Shrine of the Warlord, Thermae Nonupeipe, Waterfall of Obvious
+    // Secrets and Wuppy in Trouble are that build's new events.
+    protected override int EventCount => 71;
 
     // v0.111.0 adds Dense Vegetation and Jungle Maze Adventure (their IsShared overrides).
     protected override string[] SharedEvents =>
