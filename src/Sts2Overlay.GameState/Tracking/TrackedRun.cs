@@ -84,6 +84,12 @@ public sealed record ActiveEvent(string EventId, IReadOnlyList<string>? OptionKe
     /// option's <c>next</c> names in events.json → the real page of this run. Null when the event has none.
     /// </summary>
     public IReadOnlyDictionary<string, string>? RandomPages { get; init; }
+
+    /// <summary>
+    /// Pages that show a random few of their options, replayed from the seed (<see cref="EventOfferedOptions"/>): the
+    /// option clicked to open such a page → that page's option keys in button order. Null when the event has none.
+    /// </summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<string>>? OfferedAfter { get; init; }
 }
 
 /// <summary>A deck card the log-only rebuild is not sure about (see <see cref="TrackedRun.UncertainCards"/>).</summary>

@@ -886,7 +886,11 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
             // A log line without option keys (none logged): an ancient's options are replayed from the seed instead.
             if (_eventKeys is not { Count: > 0 } && ReplayOptions(_eventId) is { } replayed)
                 return new ActiveEvent(_eventId, replayed.Keys, _eventChosen.ToArray(), EventSource.Log) { OptionsReplayed = true, PossibleKeys = replayed.Possible };
-            return new ActiveEvent(_eventId, _eventKeys, _eventChosen.ToArray(), EventSource.Log) { RandomPages = RandomPagesOf(_eventId) };
+            return new ActiveEvent(_eventId, _eventKeys, _eventChosen.ToArray(), EventSource.Log)
+            {
+                RandomPages = RandomPagesOf(_eventId),
+                OfferedAfter = OfferedAfterOf(_eventId),
+            };
         }
         // The room-entry save predicts the event; later saves of the room (after an event fight) don't, so keep the guess.
         // The game writes that save just before it logs 'Event Room', but the watcher may deliver the file a moment after
@@ -907,7 +911,24 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
             OptionsReplayed = draw is not null,
             PossibleKeys = draw?.Possible,
             RandomPages = RandomPagesOf(g.EventId),
+            OfferedAfter = OfferedAfterOf(g.EventId),
         };
+    }
+
+    private (string EventId, ulong Seed, bool Child, IReadOnlyDictionary<string, IReadOnlyList<string>> Map)? _offeredAfter; // the last answer
+
+    /// <summary>The offered options of the event's random-subset pages, replayed from the run seed (<see cref="EventOfferedOptions"/>); null when it has none.</summary>
+    private IReadOnlyDictionary<string, IReadOnlyList<string>>? OfferedAfterOf(string eventId)
+    {
+        if (!EventOfferedOptions.Handles(eventId) || EventRngSeed(eventId) is not { } seed || ChooseSave()?.Save is not { } save) return null;
+        bool child = UsesV113Rules(save);
+        if (_offeredAfter is { } c && c.EventId == eventId && c.Seed == seed && c.Child == child) return c.Map;
+        if (EventOfferedOptions.For(eventId, seed, child) is not { } map) return null;
+        _offeredAfter = (eventId, seed, child, map);
+        Diagnostic?.Invoke(this, $"{eventId} options (seed replay): {string.Join("; ", map.Select(kv => $"{Short(kv.Key)} -> {string.Join(", ", kv.Value.Select(Short))}"))}");
+        return map;
+
+        static string Short(string key) => key[(key.LastIndexOf('.') + 1)..];
     }
 
     private (string EventId, ulong Seed, IReadOnlyDictionary<string, string> Map)? _randomPages; // the last answer

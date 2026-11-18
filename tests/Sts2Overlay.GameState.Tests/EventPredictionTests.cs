@@ -49,6 +49,22 @@ public class EventPredictionTests(ITestOutputHelper output)
         Assert.Equal(6, next);
     }
 
+    [Theory]
+    // MuseumOfTorture: act 2 only.
+    [InlineData("EVENT.MUSEUM_OF_TORTURE", 1, 99, 80, null, true)]
+    [InlineData("EVENT.MUSEUM_OF_TORTURE", 2, 99, 80, null, false)]
+    // ShrineOfTheWarlord: not in an act whose ancient is Tanx (the 11-18 miss: guessed it, the game pulled Tinker Time).
+    [InlineData("EVENT.SHRINE_OF_THE_WARLORD", 2, 99, 80, "EVENT.TANX", false)]
+    [InlineData("EVENT.SHRINE_OF_THE_WARLORD", 2, 99, 80, "EVENT.VAKUU", true)]
+    // ThermaeNonupeipe: gold above 175, HP at most 75 %, and not under Nonupeipe.
+    [InlineData("EVENT.THERMAE_NONUPEIPE", 1, 176, 60, null, true)]
+    [InlineData("EVENT.THERMAE_NONUPEIPE", 1, 175, 60, null, false)]
+    [InlineData("EVENT.THERMAE_NONUPEIPE", 1, 176, 61, null, false)]
+    [InlineData("EVENT.THERMAE_NONUPEIPE", 1, 176, 60, "EVENT.NONUPEIPE", false)]
+    public void V113_event_conditions(string eventId, int act, int gold, int hp, string? ancient, bool allowed)
+        => Assert.Equal(allowed ? EventPrediction.Allowed.Yes : EventPrediction.Allowed.No,
+            Check(eventId, Facts(act, gold: gold, hp: hp) with { AncientId = ancient }));
+
     [Fact]
     public void Gold_and_hp_conditions_decide_exactly()
     {

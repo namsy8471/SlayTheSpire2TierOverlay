@@ -92,6 +92,17 @@ public sealed class EventScreenTracker(EventCatalog catalog)
     /// <summary>Placeholder page → the real page of this run (null: the event has no random pages).</summary>
     public void SetRandomPages(IReadOnlyDictionary<string, string>? pages) => _randomPages = pages;
 
+    private IReadOnlyDictionary<string, IReadOnlyList<string>>? _offeredAfter;
+
+    /// <summary>
+    /// Option clicked → the keys of the page it opens, for pages that show a random few of their options (Tinker Time,
+    /// seed replay); null: the event has none. Without it such a page can't be lined up with its buttons.
+    /// </summary>
+    public void SetOfferedAfter(IReadOnlyDictionary<string, IReadOnlyList<string>>? offered) => _offeredAfter = offered;
+
+    /// <summary>The keys the page opened by the last choice shows, when they were replayed; null otherwise.</summary>
+    public IReadOnlyList<string>? OfferedNow => LastChoice is { } c && _offeredAfter is { } map && map.TryGetValue(c, out var keys) ? keys : null;
+
     private string? Resolve(string? page) => page is not null && _randomPages is { } map && map.TryGetValue(page, out var real) ? real : page;
 
     /// <summary>The event the tracker follows; a new id starts over at its first page.</summary>
@@ -102,6 +113,7 @@ public sealed class EventScreenTracker(EventCatalog catalog)
         _page = eventId is null ? null : catalog.Find(eventId)?.InitialPage?.Page;
         _offered = null; // the last room's offered keys (log or seed replay) must not line up this room's buttons
         _randomPages = null;
+        _offeredAfter = null;
         _logChosen = 0;
         Lost = false;
         EndedOn = null;
@@ -177,6 +189,11 @@ public sealed class EventScreenTracker(EventCatalog catalog)
                 keys = offered;
                 exact = true;
             }
+        }
+        else if (page is not null && OfferedNow is { } replayed)
+        {
+            // A random few of the page's options, replayed from the seed: exactly those, when the count agrees.
+            if (replayed.Count == screen.Buttons.Count && replayed.All(k => page.Options.Any(o => o.Key == k))) keys = replayed;
         }
         else if (page is not null)
         {
