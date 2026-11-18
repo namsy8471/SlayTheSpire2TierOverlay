@@ -10,6 +10,7 @@ using Sts2Overlay.App.Interop;
 using Sts2Overlay.App.Services;
 using Sts2Overlay.App.ViewModels;
 using Sts2Overlay.App.Views;
+using Sts2Overlay.Core.Learning;
 using Sts2Overlay.Core.Archetypes;
 using Sts2Overlay.Core.Data;
 using Sts2Overlay.Core.Localization;
@@ -1227,17 +1228,17 @@ public sealed partial class AppController : IDisposable
         _ => Loc.T("보통", "Moderate"),
     };
 
-    /// <summary>The card panel's top line: the flip hint, plus the co-op caveat when a multiplayer run is ranked by the learned model.</summary>
-    private string? CoopNote(RunState run, string? flipHint) => WithCoopNote(flipHint, run.IsMultiplayer && _engine.LearnedModelActive);
+    /// <summary>The card panel's top line: the flip hint, plus the "1인 기준" line on a co-op run (the simulator has no co-op mode yet).</summary>
+    private string? CoopNote(RunState run, string? flipHint) => WithCoopNote(flipHint, run.IsMultiplayer);
 
     /// <summary>
-    /// The learned model was trained on solo Ascension 10 top players' picks; in co-op it is used as is, so the panel says so
+    /// The simulator has no co-op mode yet: a co-op run is advised by the AI learned on solo runs, so the panel says so
     /// (one standing line; the confidence numbers are left alone).
     /// </summary>
     internal static string? WithCoopNote(string? flipHint, bool coop)
     {
         if (!coop) return flipHint;
-        var note = Loc.T("솔로 승천 10 랭커 기록 기준입니다 (협동 보정 없음)", "Based on solo Ascension 10 top-player picks (no co-op adjustment)");
+        var note = AiCoverage.SoloBasisNote;
         return flipHint is null ? note : note + Environment.NewLine + flipHint;
     }
 

@@ -13,7 +13,6 @@ Slay the Spire 2 **v0.111.0** 기준 데이터 팩입니다. v0.107.1 팩을 복
 | `combos/*.json` | 2장 콤보 58개 (캐릭터당 9~13개) |
 | `weights.json` | 랭커 통계 v2로 바꾼 `idealDeckSize` 21/27/31, `path.targetElites` 2/2/2와, 카드 점수 보정(2026-11)으로 바꾼 `urgency` 다섯 칸. 나머지는 코드 기본값 (이유는 파일 주석) |
 | `events.json` | 이벤트 66개의 선택지 효과(ID·수치만). v0.111.0 클래스로 다시 확인 |
-| `events.stats.json` | (선택) 랭커가 이벤트 선택지 115개·고대 선택지 79개를 고른 비율. 이벤트 점수에 섞습니다 ([`docs/research/v2-stats/events.md`](../../../docs/research/v2-stats/events.md)) |
 | `relics.json` | (선택) 유물 231개의 상점 구매율·고대 선택률. 안정한 82개(`use: true`)만 유물 값에 곱합니다 |
 | `combat/` | 전투 시뮬레이터 데이터: 카드 596, 유물 130 + 무관 169, 포션 65 ([`combat/README.md`](combat/README.md)) |
 

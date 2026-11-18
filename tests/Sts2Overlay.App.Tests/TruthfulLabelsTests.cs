@@ -13,15 +13,15 @@ public class TruthfulLabelsTests
     {
         using (Loc.Use(Lang.Kor))
         {
-            Assert.Equal("솔로 승천 10 랭커 기록 기준입니다 (협동 보정 없음)", AppController.WithCoopNote(null, coop: true));
+            Assert.Equal("1인 기준 AI 추천입니다 (협동은 아직 학습 전)", AppController.WithCoopNote(null, coop: true));
             var both = AppController.WithCoopNote("박빙 힌트", coop: true)!;
-            Assert.StartsWith("솔로 승천 10", both);
+            Assert.StartsWith("1인 기준", both);
             Assert.EndsWith("박빙 힌트", both);
         }
 
         using (Loc.Use(Lang.Eng))
         {
-            Assert.Equal("Based on solo Ascension 10 top-player picks (no co-op adjustment)", AppController.WithCoopNote(null, coop: true));
+            Assert.Equal("Solo-trained AI advice (co-op not learned yet)", AppController.WithCoopNote(null, coop: true));
         }
 
         Assert.Null(AppController.WithCoopNote(null, coop: false));

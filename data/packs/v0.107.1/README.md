@@ -11,7 +11,6 @@ Slay the Spire 2 **v0.107.1** 기준 첫 실제 데이터 팩입니다. **초안
 | `archetypes/*.json` | 아이언클래드 8, 사일런트 3, 디펙트 6, 네크로바인더 3, 리젠트 4 (랭커 실제 빌드 근거, [`docs/research/build-sources/`](../../../docs/research/build-sources/README.md)) |
 | `combos/*.json` | 2장 콤보 58개 (캐릭터당 9~13개) |
 | `weights.json` | 랭커 통계 v2로 바꾼 `idealDeckSize` 21/27/31, `path.targetElites` 2/2/2와, 카드 점수 보정(2026-11)으로 바꾼 `urgency` 다섯 칸. 나머지는 코드 기본값 (이유는 파일 주석) |
-| `events.stats.json` | (선택) 랭커가 이벤트 선택지 115개·고대 선택지 79개를 고른 비율. 이벤트 점수에 섞습니다 ([`docs/research/v2-stats/events.md`](../../../docs/research/v2-stats/events.md)) |
 | `relics.json` | (선택) 유물 231개의 상점 구매율·고대 선택률. 안정한 82개(`use: true`)만 유물 값에 곱합니다 |
 
 - 캐릭터 풀과 무색 풀의 **모든 카드**(기본 타격·수비 포함)에 항목이 있습니다. 저주·상태이상·토큰·이벤트 카드는 보상에 나오지 않으므로 넣지 않았습니다.

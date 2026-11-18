@@ -15,7 +15,7 @@ public class RunBaselinePolicyTests
     [InlineData(0, false, true, true)]
     [InlineData(10, false, true, true)]
     [InlineData(9, false, true, false)]
-    [InlineData(0, true, true, false)]
+    [InlineData(0, true, true, true)] // co-op: the solo layers ("1인 기준") until a co-op mode is measured
     [InlineData(10, false, false, false)]
     public void Scopes_reference_data_to_the_measured_runs(int ascension, bool coop, bool vitals, bool expected)
     {

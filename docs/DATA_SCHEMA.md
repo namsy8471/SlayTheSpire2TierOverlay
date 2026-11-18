@@ -20,7 +20,6 @@ data/packs/<팩 이름 또는 게임 버전>/
 ├─ combos/*.json         콤보 목록
 ├─ aliases.json          (선택) 옛 ID → 현재 ID
 ├─ catalog.json          (선택) 카드 카탈로그. 보통 넘겨받음 (아래 참고)
-├─ events.stats.json     (선택) 이벤트·고대 선택지를 상위 플레이어가 고른 비율 (§9)
 ├─ relics.json           (선택) 유물을 상위 플레이어가 사거나 고른 비율 (§10)
 └─ relic-fit.json        (선택) 빌드별로 상위 플레이어가 유물을 사거나 고른 비율 (§10.1)
 
@@ -30,7 +29,7 @@ data/catalog/cards.v0.107.1.json   커밋된 이름 없는 카드 카탈로그 (
 - 모든 부분이 선택입니다. 없는 파일은 기본값(`weights.json`) 또는 빈 목록이 됩니다.
 - 하위 폴더에서는 `*.json` 파일만 읽고, 파일 이름의 사전순으로 읽습니다. 파일 이름 자체에는 의미가 없습니다(캐릭터는 파일 내용으로 정합니다).
 - 카탈로그 우선순위: `LoadDirectory(dir, catalog)`로 넘긴 객체 → `LoadDirectory(dir, catalogPath: "data/catalog/cards.v0.107.1.json")`로 넘긴 파일 → 폴더의 `catalog.json`. 파일 하나만 읽을 때는 `DataPackLoader.LoadCatalogFile(path)`를 씁니다(레포 기준 경로는 `DataPackLoader.DefaultCatalogRelativePath`).
-- `events.stats.json`·`relics.json`이 없으면 `DataPack.EventStats`·`RelicStats`가 null이고, 이벤트·유물 점수는 파일이 없던 때와 똑같습니다.
+- `relics.json`이 없으면 `DataPack.RelicStats`가 null이고, 유물 점수는 파일이 없던 때와 똑같습니다.
 - 계획만 있고 아직 로더가 읽지 않는 파일: `manifest.json`(PLAN §6.6), `user_overrides.json`, `data/schema/*.schema.json`.
 
 ## 2. 공통 규칙
@@ -173,8 +172,6 @@ ID는 게임 모델 ID 그대로입니다. 게임이 ID를 바꾼 경우(예: `R
 | `completion.supportWeight` | 숫자 | 56 | 완성도 %에서 enabler·support 카드 가중치(참고 사이트 `rec`) | §7.5 |
 | `completion.poolSize` | `{희귀도: 정수}` | common20 uncommon35 rare25 | 카탈로그가 없을 때 캐릭터 풀 크기 (v0.107.1 카탈로그의 캐릭터별 싱글플레이 수) | §7.5 |
 | `completion.cardsPerReward` | 정수 | 3 | 카드 보상 한 번의 카드 수 | §7.5 |
-| `events.measuredBlend` | 0..1 | 0.5 | `events.stats.json`의 측정 선택률을 이벤트 점수에 섞는 비율. 0이면 효과 공식만 씀(파일이 없을 때와 같음). 식은 §9 | 이벤트 |
-| `events.measuredScale` | 숫자 ≥ 0 | 20 | 선택률이 무작위보다 1.0 높을 때의 점수. 지금 공식 값의 폭(변화 16~28, 유물 13~24)과 비슷하게 둠 | 이벤트 |
 | `relicFit.keyRelicBonus` | 숫자 ≥ 0 | 0.5 | `relic-fit.json` 항목이 없을 때, 빌드의 `keyRelics`(랭커 승리 덱 근거) 유물 가치를 `1 + 값 × w`배로 봄. 배율 자체는 [추정] | §10.1 |
 | `relicFit.minMultiplier` / `maxMultiplier` | 숫자 | 0.5 / 1.5 | 빌드 적합 배율의 범위 | §10.1 |
 | `relicFit.fitExponent` | 숫자 ≥ 0 | 0.5 | `relic-fit.json`의 배율 L을 L^값으로 완만하게 씀 [추정] | §10.1 |
@@ -380,27 +377,9 @@ ID는 게임 모델 ID 그대로입니다. 게임이 ID를 바꾼 경우(예: `R
 
 v0.107.1 캐릭터 풀 크기 (싱글플레이): 모든 캐릭터가 일반 20 / 고급 35 / 희귀 25 / 고대 2, 기본은 아이언클래드 3·나머지 4. 멀티플레이는 고급 36 / 희귀 26 (사일런트는 싱글 전용 고급 1장이 빠지고 멀티 전용 1장이 들어와 고급 35). 무색: 싱글 고급 32 / 희귀 21, 멀티 39 / 25. 디펙트 카드는 모두 88장.
 
-## 9. `events.stats.json` (측정 선택률, 선택)
+## 9. (삭제됨) `events.stats.json`
 
-상위 플레이어가 이벤트·고대에서 각 선택지를 고른 비율입니다(v2: OP.GG 랭커 A10 바닐라 솔로, 근거 [`docs/research/v2-stats/events.md`](research/v2-stats/events.md)). `EventScorer`가 효과 공식 점수에 섞습니다. 파일이 없으면 점수는 공식 그대로입니다.
-
-```jsonc
-{ "version": 1, "source": "opgg-top-a10-2026-11",
-  "events":   { "ABYSSAL_BATHS": { "INITIAL": { "k": 2, "options": { "ABSTAIN": { "choiceRate": 0.648, "byAct": { "3": 0.7 } } } } } },
-  "ancients": { "NEOW": { "LEAD_PAPERWEIGHT": { "pickRate": 0.62 } } } }
-```
-
-| 필드 | 타입 | 의미 |
-|---|---|---|
-| `events.<이벤트>.<페이지>.k` | 정수 ≥ 1 | 표본에서 그 페이지에 보인 선택지 수. 무작위로 고르면 `1/k` |
-| `events.<이벤트>.<페이지>.options.<선택지>.choiceRate` | 0..1 | 그 페이지에서 이 선택지를 고른 비율 |
-| `…options.<선택지>.byAct` | `{막: 0..1}` | 그 막의 비율이 전체와 안정적으로 다를 때만 적음. 그 막에서만 `choiceRate` 대신 씀 |
-| `ancients.<고대>.<선택지>.pickRate` | 0..1 | 이 선택지가 제시됐을 때 고른 비율 |
-| 그 밖 (`n`, `players`, `dirBoot`, `bandBoot`, `basis` …) | | 근거 자료. 실행 중에는 읽지 않음 |
-
-- 키는 `events.json`의 선택지 키 `<이벤트>.pages.<페이지>.options.<선택지>`를 세 단계로 나눈 것입니다. 고대 선택지는 `<고대>.pages.INITIAL.options.<선택지>`(`NeowOptions`와 같은 이름, 유물 ID에서 `RELIC.`을 뺀 것)로 찾습니다.
-- 점수: 보이는 페이지의 선택지마다 `점수 = 공식 + events.measuredBlend × events.measuredScale × (비율 − 무작위 비율)`. 무작위 비율은 이벤트 `1/k`, 고대 `1/제시된 선택지 수`(모르면 3). 항목이 없는 선택지는 공식 값 그대로이고, 다음 페이지 미리보기에는 섞지 않습니다. 설명에 "상위 플레이어 72% 선택"이 붙습니다.
-- 검증 오류(`DataPackValidator`): 선택률·`byAct` 값이 0..1 밖, `k` < 1, `byAct` 막 < 1. `weights.json`의 `events.measuredBlend`가 0..1 밖이거나 `events.measuredScale`이 음수여도 오류입니다.
+상위 플레이어의 이벤트·고대 선택 비율이었습니다. 2026-11에 "랭커 기준 추천을 모두 지운다"는 결정으로 파일과 로더를 지웠습니다. 시뮬레이터의 이벤트 규칙은 이 파일을 읽은 적이 없어, AI 추천에는 영향이 없습니다.
 
 ## 10. `relics.json` (측정 유물 선택률, 선택)
 
@@ -422,7 +401,6 @@ v0.107.1 캐릭터 풀 크기 (싱글플레이): 모든 캐릭터가 일반 20 /
 | 그 밖 (`n`, `eff_n`, `players`, `bandBoot`, `presenceLift` …) | | 근거 자료 |
 
 - 유물 값 = 희귀도 값 × `clamp(pickRate / 기준, 0.5, 1.5)` (`use: true`일 때만). 기준은 `signal: "shop"`이면 `shopMedianPickRate`, 아니면 `ancientNeutralPickRate`.
-- 고대 선택지에 `events.stats.json`의 `pickRate`가 있어 선택률 블렌드(§9)가 붙으면, 그 선택지의 유물에는 이 배수를 곱하지 않습니다. 두 숫자가 같은 고대 선택에서 잰 값이라 두 번 세게 되기 때문입니다. 배수는 선택지 단위 통계가 없는 유물(선택률 항목이 없는 고대 선택지, 이벤트의 `relic` 효과)에만 씁니다.
 - 쓰는 곳: `EventScorer`가 ID를 아는 유물을 줄 때(`relic` 효과, 고대 선택지), `ShopScorer.RelicValue`. 상점 화면 인식기가 아직 유물을 읽지 않아 상점 추천 목록에는 유물 항목이 없습니다. `RelicValue`는 그 항목이 생기면 쓸 값입니다.
 - 검증 오류(`DataPackValidator`): 유물 ID가 `RELIC.X`가 아님, `use` 없음(참/거짓 필수), `pickRate`가 0..1 밖, `tier`가 S..D나 null이 아님, `signal`이 `shop`이나 `ancient:<ID>`가 아님, `shopMedianPickRate`·`ancientNeutralPickRate`가 (0, 1] 밖.
 

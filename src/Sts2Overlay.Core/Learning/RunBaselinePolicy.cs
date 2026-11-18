@@ -15,12 +15,10 @@ public sealed class RunBaselinePolicy(IReadOnlyDictionary<string, double> weight
 {
     internal const string Ironclad = "CHARACTER.IRONCLAD";
 
-    /// <summary>Solo standard runs at the measured ascensions: Ironclad's adopted policy A0 and A10; the other characters'
-    /// adjustments (learned at A8) A0, A8 and A10. Which characters have a policy is the pack's
-    /// <see cref="DataPack.ForRun"/>.</summary>
+    /// <summary>The runs the AI covers (<see cref="AiCoverage.Covers"/>: standard runs at the measured ascensions; co-op uses
+    /// the solo policy) with HP and gold read. Which characters have a policy is the pack's <see cref="DataPack.ForRun"/>.</summary>
     internal static bool Supports(RunState state) =>
-        state.IsStandardRun && !state.IsMultiplayer && state.VitalsKnown && state.SaveSchemaVersion is null or 20 or 21
-        && (state.Character == Ironclad ? state.Ascension is 0 or 10 : state.Ascension is 0 or 8 or 10);
+        AiCoverage.Covers(state) && state.VitalsKnown && state.SaveSchemaVersion is null or 20 or 21;
 
     public static RunBaselinePolicy? For(DataPack pack, RunState state) =>
         Supports(state) ? pack.ForRun(state).RunBaseline : null;

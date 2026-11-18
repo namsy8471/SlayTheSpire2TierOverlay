@@ -438,7 +438,7 @@ public class DataPackLoaderTests
         Assert.Contains("relics[RELIC.BAD_TIER].tier", errors);
         Assert.Contains("relics[RELIC.BAD_RATE].pickRate", errors);
         Assert.Contains("relics[RELIC.BAD_RATE].signal", errors);
-        Assert.Equal(11, errors.Count);
+        Assert.Equal(6, errors.Count);
     }
 
     [Fact]
