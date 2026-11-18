@@ -457,6 +457,10 @@ public sealed partial class AppController : IDisposable
             UpdateCadence();
             return;
         }
+        // The title colour misreads now and then (the third card sliding in, a glow over the name); a combat card reward's
+        // upgrade is replayed exactly from the run seed, so that wins wherever the replay explains the cards on screen.
+        if (r.ScreenKind == ScreenKind.Reward && _source is Sts2Overlay.GameState.Tracking.ICardOfferSink replay)
+            r = RewardUpgrades.Apply(r, replay.ReplayedRewardUpgrades(r.Cards.Select(c => c.Card.Id).ToList()));
         _lastResult = r;
         // The tracker links the next "obtained CARD.X from card reward" to this screen (upgrade read from the title colour).
         if (r.ScreenKind == ScreenKind.Reward && _source is Sts2Overlay.GameState.Tracking.ICardOfferSink sink) sink.OnCardOfferSeen(r.Cards.Select(c => c.Card).ToList());

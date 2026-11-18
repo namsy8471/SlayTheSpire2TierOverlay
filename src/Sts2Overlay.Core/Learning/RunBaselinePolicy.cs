@@ -15,8 +15,13 @@ public sealed class RunBaselinePolicy(IReadOnlyDictionary<string, double> weight
 {
     internal const string Ironclad = "CHARACTER.IRONCLAD";
 
-    /// <summary>The runs the AI covers (<see cref="AiCoverage.Covers"/>: standard runs at the measured ascensions; co-op uses
-    /// the solo policy) with HP and gold read. Which characters have a policy is the pack's <see cref="DataPack.ForRun"/>.</summary>
+    /// <summary>Highest ascension the learned policies run at.</summary>
+    internal const int MaxAscension = 10;
+
+    /// <summary>The runs the AI covers (<see cref="AiCoverage.Covers"/>: standard runs at A0 to A10, co-op with the solo
+    /// policy) with HP and gold read. Measured on whole runs at A0 and A10 (Ironclad's adopted policy) and at A0, A8 and
+    /// A10 (the other characters' adjustments, learned at A8); the ascensions between use the same files (11-18: an A1 run
+    /// otherwise fell back to the old rules). Which characters have a policy is the pack's <see cref="DataPack.ForRun"/>.</summary>
     internal static bool Supports(RunState state) =>
         AiCoverage.Covers(state) && state.VitalsKnown && state.SaveSchemaVersion is null or 20 or 21;
 

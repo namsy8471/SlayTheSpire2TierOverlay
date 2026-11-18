@@ -609,6 +609,41 @@ public class GameStateTrackerTests
     }
 
     [Fact]
+    public void Reward_upgrades_on_screen_come_from_the_replayed_rolls()
+    {
+        // A real act-3 Necrobinder run (v0.113.1). Floor 40 showed Blight Strike plain for its first frames (it was
+        // upgraded); floor 43 showed Putrefy "+" (it was not). The run history has the true levels.
+        var t = NewTracker();
+        t.ProcessLines([
+            "Release Version: v0.113.1",
+            "[INFO] Embarking on a singleplayer NECROBINDER run. Ascension: 0 Seed: 3PWM5ZKNZFG0",
+            "[INFO] Preloading 'Act=OVERGROWTH' assets... count=8 vfx=0",
+            "[INFO] Preloading 'Act=HIVE' assets... count=6 vfx=0",
+            "[INFO] Preloading 'Act=GLORY' assets... count=6 vfx=0",
+            "[INFO] Preloading 'Combat Room' assets... count=8 vfx=0",
+            "[INFO] Card rarity: Rolled 0.7185067, need < 0.01 for rare (offset = -0.02)",
+            "[INFO] Card rarity: Rolled 0.18402304, need < 0.02 for rare (offset = -0.01)",
+            "[INFO] Card rarity: Rolled 0.8314024, need < 0.03 for rare (offset = 0)",
+        ]);
+        Assert.Equal(new Dictionary<string, int> { ["CARD.FLATTEN"] = 1, ["CARD.NO_ESCAPE"] = 1, ["CARD.BLIGHT_STRIKE"] = 1 },
+            t.ReplayedRewardUpgrades(["CARD.FLATTEN", "CARD.NO_ESCAPE", "CARD.BLIGHT_STRIKE"]));
+        Assert.Equal(new Dictionary<string, int> { ["CARD.NO_ESCAPE"] = 1 }, t.ReplayedRewardUpgrades(["CARD.NO_ESCAPE"])); // a card not read yet
+        Assert.Null(t.ReplayedRewardUpgrades(["CARD.FLATTEN", "CARD.SOW"])); // a card this reward did not roll: misread, no replay
+
+        // Live, the tailer can hand one screen's rarity lines over in separate reads.
+        foreach (string line in (string[])[
+            "[INFO] Player 1 obtained CARD.NO_ESCAPE from card reward",
+            "[INFO] Preloading 'Combat Room' assets... count=8 vfx=0",
+            "[INFO] Card rarity: Rolled 0.12508376, need < 0.04 for rare (offset = 0.01)",
+            "[INFO] Card rarity: Rolled 0.57421595, need < 0.049999997 for rare (offset = 0.02)",
+            "[INFO] Card rarity: Rolled 0.3711682, need < 0.06 for rare (offset = 0.03)",
+        ])
+            t.ProcessLine(line);
+        Assert.Equal(new Dictionary<string, int> { ["CARD.RIGHT_HAND_HAND"] = 1, ["CARD.SOW"] = 0, ["CARD.PUTREFY"] = 0 },
+            t.ReplayedRewardUpgrades(["CARD.RIGHT_HAND_HAND", "CARD.SOW", "CARD.PUTREFY"]));
+    }
+
+    [Fact]
     public void Scarcity_pity_grows_half_as_fast()
     {
         var t = NewTracker();
