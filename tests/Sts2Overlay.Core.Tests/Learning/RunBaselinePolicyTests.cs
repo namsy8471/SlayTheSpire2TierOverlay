@@ -14,7 +14,8 @@ public class RunBaselinePolicyTests
     [Theory]
     [InlineData(0, false, true, true)]
     [InlineData(10, false, true, true)]
-    [InlineData(9, false, true, false)]
+    [InlineData(1, false, true, true)]
+    [InlineData(11, false, true, false)]
     [InlineData(0, true, true, false)]
     [InlineData(10, false, false, false)]
     public void Scopes_reference_data_to_the_measured_runs(int ascension, bool coop, bool vitals, bool expected)
@@ -28,8 +29,8 @@ public class RunBaselinePolicyTests
         Assert.Equal(expected, RunBaselinePolicy.For(Pack.Value, run with { SaveSchemaVersion = 21 }) is not null);
     }
 
-    /// <summary>The four characters with A8-learned adjustments: their own pack (v0.107.1 tables, own card model) at A0,
-    /// A8 and A10; Ironclad's adopted policy stays A0/A10.</summary>
+    /// <summary>The four characters with A8-learned adjustments: their own pack (v0.107.1 tables, own card model) at A0
+    /// to A10.</summary>
     [Theory]
     [InlineData("CHARACTER.DEFECT")]
     [InlineData("CHARACTER.SILENT")]
@@ -39,7 +40,7 @@ public class RunBaselinePolicyTests
     {
         var pack = Pack.Value;
         var run = new RunState { Character = character, VitalsKnown = true };
-        foreach (var (asc, expected) in new[] { (0, true), (8, true), (10, true), (5, false) })
+        foreach (var (asc, expected) in new[] { (0, true), (1, true), (8, true), (10, true), (11, false) })
         {
             var policy = RunBaselinePolicy.For(pack, run with { Ascension = asc });
             Assert.True(expected == policy is not null, $"{character} A{asc}");
@@ -50,7 +51,6 @@ public class RunBaselinePolicyTests
             Assert.Same(own.CardPolicyFor(character), own.CardPolicy);
             Assert.Equal(pack.CardPolicyFor(character)!.PointUtility, own.CardPolicy!.PointUtility);
         }
-        Assert.Null(RunBaselinePolicy.For(pack, run with { Character = "CHARACTER.IRONCLAD", Ascension = 8 }));
         // Defect's A0 file (rest/shop learned at A0) replaces its A8 file at A0 only.
         Assert.Equal(character == "CHARACTER.DEFECT", !ReferenceEquals(RunBaselinePolicy.For(pack, run with { Ascension = 0 }),
             RunBaselinePolicy.For(pack, run with { Ascension = 10 })));
