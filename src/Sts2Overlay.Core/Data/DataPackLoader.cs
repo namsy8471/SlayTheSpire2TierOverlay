@@ -120,7 +120,14 @@ public static class DataPackLoader
     public static DataPack LoadDirectory(string directory, CardCatalog? catalog = null, string? catalogPath = null)
         => LoadPack(directory, catalog, catalogPath, null);
 
-    private static DataPack LoadPack(string directory, CardCatalog? catalog, string? catalogPath, string? baselineModelDir)
+    /// <summary>Per-character full-run adjustments (<c>model/run-baseline/characters/&lt;character&gt;/adjust.json</c>, and
+    /// <c>adjust-a&lt;N&gt;.json</c> for one ascension where a different file measured better); each
+    /// uses that character's own card model (<c>model/characters/&lt;character&gt;.json</c>) on the v0.107.1 tables, the
+    /// setup the simulator measured them with.</summary>
+    public const string CharacterBaselineDir = "model/run-baseline/characters";
+
+    private static DataPack LoadPack(string directory, CardCatalog? catalog, string? catalogPath, string? baselineModelDir,
+        string? baselinePolicyPath = null, string adjustFile = "adjust.json")
     {
         if (!Directory.Exists(directory))
         {
@@ -191,7 +198,8 @@ public static class DataPackLoader
         var relicStats = File.Exists(relicStatsPath) ? LoadFile(relicStatsPath, LoadRelicStats) : null;
         var relicFitPath = Path.Combine(directory, RelicFitFile);
         var relicFit = File.Exists(relicFitPath) ? LoadFile(relicFitPath, LoadRelicFit) : null;
-        var policyPath = baselineModelDir is null ? Path.Combine(directory, CardPolicyFile) : Path.Combine(baselineModelDir, "card-policy.json");
+        var policyPath = baselineModelDir is null ? Path.Combine(directory, CardPolicyFile)
+            : baselinePolicyPath ?? Path.Combine(baselineModelDir, "card-policy.json");
         var cardPolicy = File.Exists(policyPath) ? LoadFile(policyPath, Learning.CardPolicyModel.Load) : null;
         var characterPolicies = new Dictionary<string, Learning.CardPolicyModel>(StringComparer.Ordinal);
         var characterDir = Path.Combine(directory, CharacterCardPolicyDir);
@@ -206,11 +214,33 @@ public static class DataPackLoader
         // The evaluation used the v0.107.1 tables with a separate card model and no sibling card catalog.
         var profile = Path.Combine(directory, "model", "run-baseline");
         var tables = Path.Combine(directory, "..", "v0.107.1");
-        DataPack? baselinePack = null;
+        var baselinePacks = new Dictionary<string, DataPack>(StringComparer.Ordinal);
         if (baselineModelDir is null && Path.GetFileName(Path.TrimEndingDirectorySeparator(directory)) == "v0.111.0"
-            && File.Exists(Path.Combine(profile, "adjust.json")) && File.Exists(Path.Combine(profile, "card-policy.json"))
             && File.Exists(Path.Combine(tables, WeightsFile)))
-            baselinePack = LoadPack(tables, null, null, profile);
+        {
+            if (File.Exists(Path.Combine(profile, "adjust.json")) && File.Exists(Path.Combine(profile, "card-policy.json")))
+                baselinePacks[Learning.RunBaselinePolicy.Ironclad] = LoadPack(tables, null, null, profile);
+            var characterProfiles = Path.Combine(directory, CharacterBaselineDir);
+            if (Directory.Exists(characterProfiles))
+            {
+                foreach (var own in Directory.GetDirectories(characterProfiles).Order(StringComparer.Ordinal))
+                {
+                    var name = Path.GetFileName(own);
+                    var ownPolicy = Path.Combine(characterDir, name + ".json");
+                    if (!File.Exists(ownPolicy)) continue;
+                    var key = "CHARACTER." + name.ToUpperInvariant();
+                    // adjust.json for every measured ascension; adjust-a<N>.json, when present, replaces it at ascension N.
+                    foreach (var file in Directory.GetFiles(own, "adjust*.json").Order(StringComparer.Ordinal))
+                    {
+                        var stem = Path.GetFileNameWithoutExtension(file);
+                        var at = stem == "adjust" ? "" : stem.StartsWith("adjust-a", StringComparison.Ordinal)
+                            && int.TryParse(stem["adjust-a".Length..], out var asc) ? "@" + asc : null;
+                        if (at is null) continue;
+                        baselinePacks[key + at] = LoadPack(tables, null, null, own, ownPolicy, Path.GetFileName(file));
+                    }
+                }
+            }
+        }
 
         return new DataPack
         {
@@ -225,8 +255,8 @@ public static class DataPackLoader
             RelicFit = relicFit,
             CardPolicy = cardPolicy,
             CharacterCardPolicies = characterPolicies,
-            BaselinePack = baselinePack,
-            RunBaseline = baselineModelDir is null ? null : LoadFile(Path.Combine(baselineModelDir, "adjust.json"), Learning.RunBaselinePolicy.Load),
+            BaselinePacks = baselinePacks,
+            RunBaseline = baselineModelDir is null ? null : LoadFile(Path.Combine(baselineModelDir, adjustFile), Learning.RunBaselinePolicy.Load),
         };
     }
 

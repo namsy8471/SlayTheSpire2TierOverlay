@@ -44,9 +44,13 @@ public sealed class DataPack
         character is not null && CharacterCardPolicies.TryGetValue(character, out var own) ? own : CardPolicy;
 
     public Learning.RunBaselinePolicy? RunBaseline { get; init; }
-    internal DataPack? BaselinePack { get; init; }
-    public DataPack ForRun(RunState state) => BaselinePack is not null && Learning.RunBaselinePolicy.Supports(state)
-        ? BaselinePack : this;
+    /// <summary>Full-run reference packs by character (v0.107.1 tables, the character's card model and its adjustments).</summary>
+    internal IReadOnlyDictionary<string, DataPack> BaselinePacks { get; init; } = new Dictionary<string, DataPack>(StringComparer.Ordinal);
+
+    /// <remarks>Keys: the character id, or <c>CHARACTER.X@N</c> for a pack that replaces it at ascension N.</remarks>
+    public DataPack ForRun(RunState state) => Learning.RunBaselinePolicy.Supports(state) && state.Character is { } character
+        && (BaselinePacks.TryGetValue($"{character}@{state.Ascension}", out var baseline) || BaselinePacks.TryGetValue(character, out baseline))
+        ? baseline : this;
 
     public IReadOnlyDictionary<string, string> IdAliases { get; init; } = new Dictionary<string, string>(StringComparer.Ordinal);
 

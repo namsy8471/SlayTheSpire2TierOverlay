@@ -64,7 +64,7 @@ public sealed class AdoptedEventChoices
 
     public EventEvaluation Apply(EventEvaluation baseline, RunState run, bool stateExact, string? lastChosen = null)
     {
-        if (!_observedFromAct1 || !RunBaselinePolicy.Supports(run) || run.Ascension != 0
+        if (!_observedFromAct1 || run.Character != RunBaselinePolicy.Ironclad || !RunBaselinePolicy.Supports(run) || run.Ascension != 0
             || Slot(run, baseline.Event.Id) is not { } kind || !_policies.TryGetValue(kind, out var model)) return baseline;
         if (_used.TryGetValue(kind, out var previous))
             return previous.Floor == run.Floor && previous.Event == baseline.Event.Id && previous.Page == baseline.Page && previous.LastChoice == lastChosen
@@ -137,6 +137,6 @@ public sealed class AdoptedEventChoices
         if (IsAncient(eventId)) return run.Act == 2 ? "ancient" : "ancient3";
         return _ordinary.Contains(eventId) && eventId is not ("EVENT.RELIC_TRADER" or "EVENT.THE_FUTURE_OF_POTIONS") ? "event" : null;
     }
-    private static bool IsAncient(string id) => id is "EVENT.DARV" or "EVENT.NEOW" or "EVENT.NONUPEIPE" or "EVENT.OROBAS"
+    public static bool IsAncient(string id) => id is "EVENT.DARV" or "EVENT.NEOW" or "EVENT.NONUPEIPE" or "EVENT.OROBAS"
         or "EVENT.PAEL" or "EVENT.TANX" or "EVENT.TEZCATARA" or "EVENT.VAKUU";
 }

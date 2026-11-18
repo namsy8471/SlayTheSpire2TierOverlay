@@ -22,10 +22,56 @@ public class RunBaselinePolicyTests
         var run = new RunState { Character = "CHARACTER.IRONCLAD", Ascension = ascension, IsMultiplayer = coop, VitalsKnown = vitals };
         Assert.Equal(expected, RunBaselinePolicy.For(Pack.Value, run) is not null);
         Assert.Equal(expected, !ReferenceEquals(Pack.Value.ForRun(run), Pack.Value));
-        Assert.Null(RunBaselinePolicy.For(Pack.Value, run with { Character = "CHARACTER.SILENT" }));
+        Assert.Null(RunBaselinePolicy.For(Pack.Value, run with { Character = "CHARACTER.FOOL" }));
         Assert.Null(RunBaselinePolicy.For(Pack.Value, run with { SaveSchemaVersion = 16 }));
         Assert.Null(RunBaselinePolicy.For(Pack.Value, run with { IsStandardRun = false }));
         Assert.Equal(expected, RunBaselinePolicy.For(Pack.Value, run with { SaveSchemaVersion = 21 }) is not null);
+    }
+
+    /// <summary>The four characters with A8-learned adjustments: their own pack (v0.107.1 tables, own card model) at A0,
+    /// A8 and A10; Ironclad's adopted policy stays A0/A10.</summary>
+    [Theory]
+    [InlineData("CHARACTER.DEFECT")]
+    [InlineData("CHARACTER.SILENT")]
+    [InlineData("CHARACTER.NECROBINDER")]
+    [InlineData("CHARACTER.REGENT")]
+    public void Characters_with_their_own_adjustments_use_them_at_the_measured_ascensions(string character)
+    {
+        var pack = Pack.Value;
+        var run = new RunState { Character = character, VitalsKnown = true };
+        foreach (var (asc, expected) in new[] { (0, true), (8, true), (10, true), (5, false) })
+        {
+            var policy = RunBaselinePolicy.For(pack, run with { Ascension = asc });
+            Assert.True(expected == policy is not null, $"{character} A{asc}");
+            if (!expected) continue;
+            Assert.True(policy!.HasEventWeights, character);
+            var own = pack.ForRun(run with { Ascension = asc });
+            Assert.NotSame(pack.ForRun(run with { Character = "CHARACTER.IRONCLAD", Ascension = 0 }), own);
+            Assert.Same(own.CardPolicyFor(character), own.CardPolicy);
+            Assert.Equal(pack.CardPolicyFor(character)!.PointUtility, own.CardPolicy!.PointUtility);
+        }
+        Assert.Null(RunBaselinePolicy.For(pack, run with { Character = "CHARACTER.IRONCLAD", Ascension = 8 }));
+        // Defect's A0 file (rest/shop learned at A0) replaces its A8 file at A0 only.
+        Assert.Equal(character == "CHARACTER.DEFECT", !ReferenceEquals(RunBaselinePolicy.For(pack, run with { Ascension = 0 }),
+            RunBaselinePolicy.For(pack, run with { Ascension = 10 })));
+    }
+
+    /// <summary>Event keys as sts2-agent runs/adjust.rs builds them; an exact tie keeps the rule's button.</summary>
+    [Fact]
+    public void Event_adjustment_reads_the_simulator_keys_and_ties_keep_the_rule()
+    {
+        var policy = RunBaselinePolicy.Load("""
+            {"version":1,"weights":{"event:rule":0.1,"event:TRIAL|NOBLE_GUILTY|h4":0.05,"event:TRIAL|NOBLE_GUILTY|g1":0.04,
+             "event:TRIAL|NOBLE_GUILTY|a2":0.02,"event:NEOW|LostCoffer|silent":0.3,"event:relic|LOST_COFFER":-0.1}}
+            """);
+        var run = new RunState { Character = "CHARACTER.SILENT", Act = 2, Hp = 70, MaxHp = 70, Gold = 100 };
+        EventCandidate[] trial = [new("NOBLE_INNOCENT", null, true), new("NOBLE_GUILTY", null, true), new("LEAVE", null, true)];
+        Assert.Equal(1, policy.PickEvent(run, "EVENT.TRIAL", trial, 0));             // 0.11 > 0.1
+        Assert.Equal(0, policy.PickEvent(run with { Gold = 10 }, "EVENT.TRIAL", trial, 0)); // 0.07 < 0.1
+        Assert.Equal(1, policy.PickEvent(run, "EVENT.TRIAL", [trial[0], trial[1] with { Legal = false }, trial[1]], 1)); // illegal rule: kept
+        EventCandidate[] neow = [new("Pomander", "POMANDER", true), new("LostCoffer", "LOST_COFFER", true)];
+        Assert.Equal(1, policy.PickEvent(run with { Act = 1 }, "EVENT.NEOW", neow, 0)); // 0.3 - 0.1 > 0.1
+        Assert.Equal(0, policy.PickEvent(run with { Act = 1, Character = "CHARACTER.DEFECT" }, "EVENT.NEOW", neow, 0));
     }
 
     [Fact]
