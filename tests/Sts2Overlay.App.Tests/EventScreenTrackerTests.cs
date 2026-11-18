@@ -49,6 +49,23 @@ public class EventScreenTrackerTests
               { "key": "TEST_COURT.pages.NOBLE.options.INNOCENT" }
             ]}
           ]
+        },
+        {
+          "id": "EVENT.TEST_TINKER",
+          "pages": [
+            { "page": "INITIAL", "options": [ { "key": "TEST_TINKER.pages.INITIAL.options.GO", "next": "TYPE" } ] },
+            { "page": "TYPE", "options": [
+              { "key": "TEST_TINKER.pages.TYPE.options.ATTACK", "next": "RIDER" },
+              { "key": "TEST_TINKER.pages.TYPE.options.SKILL", "next": "RIDER" },
+              { "key": "TEST_TINKER.pages.TYPE.options.POWER", "next": "RIDER" }
+            ]},
+            { "page": "RIDER", "options": [
+              { "key": "TEST_TINKER.pages.RIDER.options.SAPPING" },
+              { "key": "TEST_TINKER.pages.RIDER.options.VIOLENCE" },
+              { "key": "TEST_TINKER.pages.RIDER.options.EXPERTISE" },
+              { "key": "TEST_TINKER.pages.RIDER.options.CURIOUS" }
+            ]}
+          ]
         }
       ]
     }
@@ -178,6 +195,37 @@ public class EventScreenTrackerTests
         t.OnScreen(Screen(2, hover: 0, text: 1));
         Assert.Null(t.Current);
         Assert.False(t.Lost); // the click was seen; only the page behind it is not known
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Pages_showing_a_random_few_options_line_up_with_the_seed_replay(bool replayed)
+    {
+        // Tinker Time: 2 of 3 card types, then 2 of the chosen type's riders, in the replayed order.
+        var t = new EventScreenTracker(Catalog);
+        t.SetEvent("EVENT.TEST_TINKER");
+        if (replayed)
+        {
+            t.SetOfferedAfter(new Dictionary<string, IReadOnlyList<string>>
+            {
+                ["TEST_TINKER.pages.INITIAL.options.GO"] = ["TEST_TINKER.pages.TYPE.options.POWER", "TEST_TINKER.pages.TYPE.options.ATTACK"],
+                ["TEST_TINKER.pages.TYPE.options.POWER"] = ["TEST_TINKER.pages.RIDER.options.CURIOUS", "TEST_TINKER.pages.RIDER.options.EXPERTISE"],
+            });
+        }
+        t.OnScreen(Screen(1, hover: 0));
+        t.OnScreen(Screen(2, hover: 0, text: 1)); // GO clicked: the type page
+        t.OnScreen(Screen(2, hover: 0, text: 1));
+        if (!replayed)
+        {
+            Assert.Null(t.Current); // two of three: which two is unknown
+            return;
+        }
+        Assert.Equal(["POWER", "ATTACK"], Short(t.Current));
+        t.OnScreen(Screen(2, hover: 0, text: 2)); // POWER clicked: its riders
+        t.OnScreen(Screen(2, hover: 0, text: 2));
+        Assert.Equal("RIDER", t.Current!.Page);
+        Assert.Equal(["CURIOUS", "EXPERTISE"], Short(t.Current));
     }
 
     [Fact]

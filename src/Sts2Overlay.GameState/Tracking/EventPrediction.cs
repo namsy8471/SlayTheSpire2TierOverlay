@@ -58,6 +58,7 @@ public static class EventPrediction
             UnlockedEpochs = save.UnlockedEpochs,
             RelicGrabBag = save.RelicGrabBag,
             Version = version,
+            AncientId = ev.AncientId,
         };
         var guess = Pull(ev.EventIds, ev.EventsVisited, ev.EventsSeen.ToHashSet(StringComparer.Ordinal), facts, out _);
         if (ev.ActIndex == 2 && state.Deck.Any(c => c.Id == "CARD.LANTERN_KEY")) return new EventGuess(WarHistorian, true, []);
@@ -118,6 +119,9 @@ public static class EventPrediction
 
         /// <summary>The run's game generation: which card / relic tables and upgrade rules apply (<see cref="GameDataVersion"/>).</summary>
         public GameDataVersion Version { get; init; }
+
+        /// <summary>The act's ancient (<c>rooms.ancient_id</c>, <c>RunState.CurrentRooms</c>' ancient); null = unknown.</summary>
+        public string? AncientId { get; init; }
     }
 
     /// <summary>
@@ -249,6 +253,11 @@ public static class EventPrediction
             "EVENT.SLIPPERY_BRIDGE" => f.TotalFloor > 6 ? Cards(deck.Any(Removable)) : Allowed.No,
             // UnlockState.CharacterCardPools.Count() > 1: another character's epoch is revealed.
             "EVENT.COLORFUL_PHILOSOPHERS" => f.UnlockedEpochs is { } ep ? B(s_characterEpochs.Any(ep.Contains)) : Allowed.Probably,
+            // New in v0.113 (MuseumOfTorture, ShrineOfTheWarlord, ThermaeNonupeipe .IsAllowed): the act-2 museum, and two
+            // events left out of an act whose ancient is the one they are about. Thermae: gold above 175 and HP at most 75 %.
+            "EVENT.MUSEUM_OF_TORTURE" => B(f.Act == 1),
+            "EVENT.SHRINE_OF_THE_WARLORD" => B(f.AncientId != "EVENT.TANX"),
+            "EVENT.THERMAE_NONUPEIPE" => B(f.Gold > 175 && f.Hp * 4 <= f.MaxHp * 3 && f.AncientId != "EVENT.NONUPEIPE"),
             _ => Allowed.Yes,
         };
     }

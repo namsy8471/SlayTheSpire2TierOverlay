@@ -138,6 +138,7 @@ public sealed partial class AppController
         // The log names the offered options; so does a seed replay (Neow, act-start ancients), in button order.
         if (active.Source == EventSource.Log || active.OptionsReplayed) _eventScreens?.SetLog(active.OptionKeys, active.ChosenKeys);
         _eventScreens?.SetRandomPages(active.RandomPages); // the Trial's defendant, replayed from the seed
+        _eventScreens?.SetOfferedAfter(active.OfferedAfter); // Tinker Time's card types and riders, replayed from the seed
         if (_lastResult is not null)
         {
             _eventMarkers?.Clear(); // a card screen (event card choice) is up
@@ -148,7 +149,7 @@ public sealed partial class AppController
         // Buttons lined up on screen: exactly those options. Otherwise the page the log/data says.
         var match = _eventScreens?.Current;
         var page = match?.Page ?? CurrentPage(active);
-        var keys = match?.Keys ?? (active.ChosenKeys.Count == 0 ? active.OptionKeys : null);
+        var keys = match?.Keys ?? (active.ChosenKeys.Count == 0 ? active.OptionKeys : null) ?? OfferedOn(active, page);
         var tracked = ((GameStateAdapter)_source!).Tracked!;
         var context = EventContextFor(active.EventId, tracked, run);
         var lastChoice = active.ChosenKeys.LastOrDefault() ?? _eventScreens?.LastChoice;
@@ -244,6 +245,14 @@ public sealed partial class AppController
         if (screens.Page is { } page) return page;
         if (screens.EndedOn is { } last) return last; // the last option was clicked: not back to the first page
         return screens.Lost && active.RandomPages is { Count: 1 } random ? random.Values.First() : null;
+    }
+
+    /// <summary>The replayed keys of a random-subset page (Tinker Time) when they belong to <paramref name="page"/>; else null.</summary>
+    private IReadOnlyList<string>? OfferedOn(ActiveEvent active, string? page)
+    {
+        var last = active.ChosenKeys.LastOrDefault() ?? _eventScreens?.LastChoice;
+        if (page is null || last is null || active.OfferedAfter?.GetValueOrDefault(last) is not { } keys) return null;
+        return keys.All(k => _eventScorer!.Catalog.FindOption(k)?.Page.Page == page) ? keys : null;
     }
 
     // ---- screen: buttons → markers ----------------------------------------------------------------------------
