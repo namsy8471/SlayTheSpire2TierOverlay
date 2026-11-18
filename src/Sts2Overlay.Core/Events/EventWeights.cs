@@ -11,18 +11,6 @@ namespace Sts2Overlay.Core.Events;
 /// </summary>
 public sealed class EventWeights
 {
-    /// <summary>
-    /// How much of the measured top-player choice rate (<c>events.stats.json</c>) is added to an option's score:
-    /// <c>score = formula + MeasuredBlend × MeasuredScale × (rate − 1/k)</c>. 0 = the formula alone (no stats used).
-    /// </summary>
-    public double MeasuredBlend { get; set; } = 0.5;
-
-    /// <summary>
-    /// Points for a rate 1.0 above neutral, about the spread of the formula's own values (transform 16–28, relic 13–24).
-    /// With the default blend, a 90% pick on a two-option page adds 0.5 × 20 × 0.4 = 4 points.
-    /// </summary>
-    public double MeasuredScale { get; set; } = 20;
-
     /// <summary>Points per gold. A 75-gold removal is worth ≈ 14 → 0.19; a 50–75-gold shop card ≈ 8–12 → 0.15. [추정]</summary>
     public double GoldValue { get; set; } = 0.15;
 

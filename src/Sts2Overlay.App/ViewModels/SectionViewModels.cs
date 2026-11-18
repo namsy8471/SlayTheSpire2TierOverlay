@@ -78,7 +78,7 @@ public sealed record OfferSectionVm
 
 /// <param name="Doubt">Why the log-only rebuild is unsure of this card (shown as a "?" with this tooltip); null = certain.</param>
 /// <param name="Art">Card portrait (thumbnail + hover image); null when the art isn't extracted.</param>
-public sealed record DeckCardVm(string TierText, string Name, string CountText, bool IsUpgraded, string? Doubt = null,
+public sealed record DeckCardVm(string Name, string CountText, bool IsUpgraded, string? Doubt = null,
     CardArtVm? Art = null, CardText? Text = null, string? Enchantment = null);
 
 public sealed record DeckGroupVm(string Title, IReadOnlyList<DeckCardVm> Cards);
@@ -93,72 +93,6 @@ public sealed record DeckSectionVm
     public string Summary { get; init; } = "";
     public IReadOnlyList<DeckGroupVm> Groups { get; init; } = [];
     public IReadOnlyList<RoleBarVm> Roles { get; init; } = [];
-}
-
-/// <summary>One card tile of an archetype in the 빌드 tab (portrait + name; dimmed while not owned).</summary>
-/// <param name="RoleText">핵심 / 완성 / 조력 / 보조.</param>
-/// <param name="RarityText">일반 / 고급 / 희귀 …, null when unknown.</param>
-/// <param name="TierText">"S".."D", or "?" when unrated.</param>
-/// <param name="Art">Card portrait; null when the art isn't extracted (the tile shows a placeholder).</param>
-/// <param name="Text">Effect text (cost, description, upgraded description) from the game's localization; null when unknown.</param>
-public sealed record BuildCardVm(string Name, string RoleText, string? RarityText, string TierText, bool Owned, CardArtVm? Art, CardText? Text = null)
-{
-    /// <summary>"핵심 · 희귀 · 티어 A" line of the hover tooltip.</summary>
-    public string DetailText => string.Join(" · ", new[] { RoleText, RarityText, Loc.T($"티어 {TierText}", $"Tier {TierText}") }.Where(s => !string.IsNullOrEmpty(s)));
-
-    public string OwnedText => Owned ? Loc.T("보유 중", "Owned") : Loc.T("아직 없음", "Not yet");
-}
-
-/// <summary>A relic that suits an archetype in the 빌드 tab (icon tile; dimmed while not owned).</summary>
-/// <param name="ReasonText">Why it is listed: the build's key relic, or how much more often top players take it in this build.</param>
-public sealed record BuildRelicVm(RelicTipVm Relic, bool Owned, string ReasonText)
-{
-    public string OwnedText => Owned ? Loc.T("보유 중", "Owned") : Loc.T("아직 없음", "Not yet");
-}
-
-/// <summary>Cards of one archetype role, e.g. "핵심 2/3".</summary>
-public sealed record BuildCardGroupVm(string Title, IReadOnlyList<BuildCardVm> Cards);
-
-public sealed record ArchetypeVm
-{
-    /// <summary>Archetype id from the pack; keys the expanded/collapsed state across rebuilds.</summary>
-    public string Id { get; init; } = "";
-
-    public required string Name { get; init; }
-    public Brush Color { get; init; } = Brushes.SteelBlue;
-    public bool IsPrimary { get; init; }
-    public string CommitText { get; init; } = "";
-    public double CompletionBarWidth { get; init; }
-    public string StageText { get; init; } = "";
-    public string? ProbabilityText { get; init; }
-    public string? MissingText { get; init; }
-    public string? NeedsText { get; init; }
-
-    /// <summary>The archetype's cards by role (핵심 → 완성 → 조력 → 보조), empty roles left out.</summary>
-    public IReadOnlyList<BuildCardGroupVm> CardGroups { get; init; } = [];
-
-    /// <summary>Relics that suit the build (key relics, then the ones top players favour in it); shown with the card tiles.</summary>
-    public IReadOnlyList<BuildRelicVm> Relics { get; init; } = [];
-
-    public bool HasRelics => Relics.Count > 0;
-
-    /// <summary>Card tiles shown; the controller remembers the user's choice per <see cref="Id"/>.</summary>
-    public bool IsExpanded { get; init; }
-
-    /// <summary>"카드 9/15 보유".</summary>
-    public string CardsSummaryText { get; init; } = "";
-
-    /// <summary>Header click: show/hide the card tiles.</summary>
-    public ICommand? ToggleCardsCommand { get; init; }
-}
-
-public sealed record BuildSectionVm
-{
-    public static BuildSectionVm Empty { get; } = new() { HasContent = false };
-
-    public bool HasContent { get; init; } = true;
-    public string Summary { get; init; } = "";
-    public IReadOnlyList<ArchetypeVm> Archetypes { get; init; } = [];
 }
 
 /// <summary>One row of the in-fight play order: "1. 강타 → 턱벌레", or the closing "턴 종료" / "마무리!".</summary>

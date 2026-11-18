@@ -202,10 +202,6 @@ public class LanguageTests
     {
         using var _ = Loc.Use(Lang.Eng);
         Assert.Equal("#3", UiText.Rank(3));
-        var card = new BuildCardVm("Bash", "Core", "Rare", "A", Owned: false, Art: null);
-        Assert.Equal("Core · Rare · Tier A", card.DetailText);
-        Assert.Equal("Not yet", card.OwnedText);
-        Assert.DoesNotMatch(Hangul, ForecastSectionVm.Empty.Title);
         Assert.DoesNotMatch(Hangul, new PanelViewModel().StatusText);
         Assert.DoesNotMatch(Hangul, new PanelViewModel().RunText);
     }

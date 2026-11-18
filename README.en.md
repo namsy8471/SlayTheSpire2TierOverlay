@@ -23,11 +23,9 @@ A Windows overlay for Slay the Spire 2 that puts **card tier badges** on the gam
 
 ### Badges and the "Pick!" ribbon on the cards
 
-When a reward or shop screen opens, every card gets a badge with its **tier letter (S·A·B·C·D) and score**. The best card gets a gold outline and a **"Pick!"** ribbon (**"Buy!"** in shops), and reason chips under each card explain the score (for example "Top players' preference +18" or "Deck fit -9"). When taking no card is better you get **"Skip!"**, and when removing a card in the shop is worth it a **"Remove a card"** marker appears over the removal button.
+When a reward or shop screen opens, every card gets a badge with its **AI rank (#1, #2 …) and score**. The best card gets a gold outline and a **"Pick!"** ribbon (**"Buy!"** in shops), and reason chips under each card explain the score (for example "Top players' preference +18" or "Deck fit -9"). When taking no card is better you get **"Skip!"**, and when removing a card in the shop is worth it a **"Remove a card"** marker appears over the removal button.
 
-| Tier | S | A | B | C | D | ? |
-|---|---|---|---|---|---|---|
-| Badge colour | gold | purple | blue | grey | dark red | no rating data |
+The #1 badge is gold, the others grey. A card that cannot be rated shows "?".
 
 - **Cards without tier data** (for example cards added by a game patch) get a "?" badge and are never recommended. If every card on screen is like that, there is no pick and no skip verdict, only a note that the cards have no rating data.
 - **When only some cards were read** (2 of 3, say), the badges are shown but the ribbon and skip verdict wait, with a "reading 2 of 3 cards…" note. If the last card still can't be read after 2 seconds, it decides anyway and says so.
@@ -52,7 +50,7 @@ Card rewards, shop cards and the "gain this card" option in events all use **the
 - **Ancient choices**: the relic options offered by Neow and the act 2 and 3 Ancients are compared, and the recommended option button gets "Pick!".
 - Relic scores include **how well the relic fits the build your deck is heading for**, based on which relics top players actually took in that build.
 
-### The panel: Picks, Deck, Build, Tiers, Path, Review
+### The panel: Picks, Deck, Path, Review
 
 A small panel that sits to the right of the game. It starts on the monitor the game is on, can be dragged anywhere, and remembers its position and last tab. It switches to **Picks** once when a card or shop screen **newly opens** (a price colour change won't drag you away from another tab).
 
@@ -61,27 +59,17 @@ A small panel that sits to the right of the game. It starts on the monitor the g
 | ![Picks tab: card reward ranking and reasons](docs/images/panel-offer-reward.en.png) | ![Picks tab: shop value and budget](docs/images/panel-offer-shop.en.png) |
 | Ranking, score, reason chips, skip score | Purchase value, value per gold, suggested purchases and leftover gold |
 
-| Deck | Build |
+| Deck | Path |
 |---|---|
-| ![Deck tab: role supply and card list](docs/images/panel-deck.en.png) | ![Build tab: build completion odds and current direction](docs/images/panel-build.en.png) |
-| Whether frontload damage, AoE, block, scaling and draw meet their targets; tier per card | The build your deck is heading for, its odds of coming together by act 3, the core cards to go for first |
+| ![Deck tab: role supply and card list](docs/images/panel-deck.en.png) | ![Path tab: comparing path candidates (demo data)](docs/images/panel-path.en.png) |
+| Whether frontload damage, AoE, block, scaling and draw meet their targets | Paths compared by elites, rests, shops and expected HP at the boss |
 
-| Tiers | Path |
-|---|---|
-| ![Tiers tab: every card's tier for a character](docs/images/panel-tiers.en.png) | ![Path tab: comparing path candidates (demo data)](docs/images/panel-path.en.png) |
-| Every card's tier per character, with type/rarity filters and name search | Paths compared by elites, rests and shops and the HP you are expected to reach the boss with |
+The Build and Tiers tabs were built from top players' records and are gone. Advice comes from the AI trained in the simulator.
 
-<sub>The screenshots are the demo-mode (`--demo`) panel in English, rendered off-screen. Card names are placeholders such as "Attack card A" and card art is left out (the "No art" tiles in the Tiers tab). In real use you see card names and small card images built on your own PC. The path tab shows fixed demo data.</sub>
+<sub>The screenshots are the demo-mode (`--demo`) panel in English, rendered off-screen. Card names are placeholders such as "Attack card A" and card art is left out. In real use you see card names and small card images built on your own PC. The path tab shows fixed demo data.</sub>
 
 - **Fool combat advice** appears above the tabs in monster, elite and boss rooms in standard single-player runs on game v0.113. It shows which cards to play and which enemies to target. When a play opens a card or tarot choice, the next recommendation follows your selection.
-- **Build tab**: hover a card image to see its cost, effect text and upgraded text, with the numbers that change on upgrade in green as in the game. Build conditions are shown in game terms rather than internal tags.
 - In the **Deck tab**, hover over a card name to read its cost and effects.
-- In the **Tiers tab**, choose a character or colourless to see cards grouped into S, A, B, C, D and unrated sections. The Fool is available in game v0.113.0. The tab follows your character when a run starts.
-  - Filter by type (attack, skill, power) and rarity, and search by name (Korean initial-consonant search works too).
-  - Cards in your deck get a gold ✓ (✓2 for two or more), and a card whose tier in the current act differs from its base tier shows it, for example "Act 1: A".
-  - Co-op-only cards are tagged and hidden in solo runs (a chip brings them back).
-  - Hover a tile for a large image, the effect text and a one-line tip.
-  - The tier is the card's base rating. The ranking on a reward screen also weighs your deck and top players' tendencies, so it can differ from the Tiers tab.
 - **Path tab**: accounts for each act having only a few easy hallway fights before they get harder. A path made of nothing but hallway fights gets a "hard hallway fights N" chip, and each extra card reward in the same act is valued slightly less.
 - **Review tab**: after a run, compares your card choices with the advice (how often you took the top pick, and the choices that differed most). It judges against **the advice that was actually on screen during play**, so updating the overlay doesn't change the review of a past run. Only decisions without a record are recalculated with the current version and marked as such.
 

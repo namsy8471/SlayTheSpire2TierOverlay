@@ -60,7 +60,7 @@ public sealed class CardScorer(DataPack pack)
         if (entry is not null && entry.BaseAdjust != 0)
         {
             baseValue += Finite(entry.BaseAdjust);
-            baseDetail += Loc.T($", 랭커 선택 보정 {Signed(entry.BaseAdjust)}", $", top-player pick adjustment {Signed(entry.BaseAdjust)}");
+            baseDetail += Loc.T($", 보정 {Signed(entry.BaseAdjust)}", $", adjustment {Signed(entry.BaseAdjust)}");
         }
         parts.Add(new ScoreComponent(ComponentKeys.Base, Loc.T($"기본 {tier}", $"Base {tier}"), baseValue, baseDetail));
 

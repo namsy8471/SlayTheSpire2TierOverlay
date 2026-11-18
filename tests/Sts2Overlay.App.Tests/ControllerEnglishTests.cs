@@ -83,52 +83,6 @@ public class ControllerEnglishTests
     /// <summary>No catalog and an empty pack: names are prettified ids ("CARD.BASH" → "Bash"), never Korean.</summary>
     private static readonly CardInfoProvider IdNames = CardInfoProvider.Load(null, new DataPack());
 
-    // ---- BuildCardsPresenter ---------------------------------------------------------------------------------------
-
-    private static BuildCardVm Tile(string id, string role, bool owned) => new(id, role, null, "?", owned, null);
-
-    [Fact]
-    public void Build_cards_role_titles_and_summary_are_English()
-    {
-        using var _ = Loc.Use(Lang.Eng);
-        var st = new ArchetypeStatus
-        {
-            Archetype = new Archetype { Id = "orbs", Cards = new ArchetypeCards { Core = ["CARD.C1"], Payoff = ["CARD.P1"], Enabler = ["CARD.E1"], Support = ["CARD.S1", "CARD.S2"] } },
-            OwnedCards = ["CARD.C1", "CARD.S2"],
-        };
-
-        var groups = BuildCardsPresenter.Groups(st, id => id, Tile);
-
-        Assert.Equal(["Core 1/1", "Payoff 0/1", "Enabler 0/1", "Support 1/2"], groups.Select(g => g.Title));
-        Assert.Equal("Core", groups[0].Cards[0].RoleText);
-        Assert.Equal("Cards 2/5 owned", BuildCardsPresenter.Summary(groups));
-        Assert.Equal("Payoff", BuildCardsPresenter.RoleName(ArchetypeRoles.Payoff));
-        Assert.Equal("custom", BuildCardsPresenter.RoleName("custom"));
-    }
-
-    [Fact]
-    public void Build_cards_of_every_pack_archetype_have_no_Korean_in_English()
-    {
-        using var _ = Loc.Use(Lang.Eng);
-        var pack = Pack.Value;
-        foreach (var character in pack.Archetypes.Select(a => a.Character).Distinct())
-        {
-            var state = new RunState { Character = character, Act = 2, Floor = 20 };
-            foreach (var st in ArchetypeDetector.Detect(state, pack))
-            {
-                var groups = BuildCardsPresenter.Groups(st, pack.Canonical, Tile);
-                AssertNoHangul(groups.Select(g => g.Title).Append(BuildCardsPresenter.Summary(groups)).Concat(groups.SelectMany(g => g.Cards.Select(c => c.RoleText))));
-            }
-        }
-    }
-
-    [Fact]
-    public void Build_cards_stay_Korean_by_default()
-    {
-        using var _ = Loc.Use(Lang.Kor);
-        Assert.Equal("핵심", BuildCardsPresenter.RoleName(ArchetypeRoles.Core));
-    }
-
     // ---- OfferMarkers ------------------------------------------------------------------------------------------------
 
     private static ShopItemEvaluation Item(ShopItemKind kind, string? target = null) => new()
@@ -208,65 +162,7 @@ public class ControllerEnglishTests
         AssertNoHangul(grid.Rects.SelectMany(r => new[] { r.Ribbon, r.Note }));
     }
 
-    // ---- ForecastReviewPresenter -------------------------------------------------------------------------------------
-
-    private static HorizonOutcome Outcome(double p) => new() { PComplete = p, PPrimary = p, MeanCompletionPercent = 70 };
-
-    private static ArchetypeForecast Forecast(Archetype a, bool complete, double p) => new()
-    {
-        Archetype = a,
-        IsCompleteNow = complete,
-        CurrentCommit = 0.5,
-        CurrentCompletionPercent = 40,
-        NextBoss = Outcome(p),
-        EndOfRun = Outcome(p),
-        EndOfRunAll = Outcome(p / 2),
-        CalibratedIfSurvive = p,
-        CalibratedAll = p / 2,
-    };
-
-    private static Archetype Named(string id, string kor, string eng) => new() { Id = id, Names = new() { ["kor"] = kor, ["eng"] = eng }, Color = "#FF8800" };
-
-    [Fact]
-    public void Forecast_section_is_English()
-    {
-        using var _ = Loc.Use(Lang.Eng);
-        var result = new ForecastResult
-        {
-            Archetypes = [Forecast(Named("a", "중독", "Poison"), false, 0.42), Forecast(Named("b", "단도", "Shiv"), true, 1)],
-            Simulations = 1500,
-            UsedMap = true,
-            PoolSize = 70,
-            ExpectedUntilEnd = new RewardCounts(10, 2.5, 2, 1.5),
-        };
-        var vm = ForecastReviewPresenter.Forecast(result);
-
-        Assert.Equal("Build completion odds (if you survive · incl. death)", vm.Title);
-        Assert.Equal(["Poison", "Shiv"], vm.Rows.Select(r => r.Name));
-        Assert.Equal("42%", vm.Rows[0].EndText);
-        Assert.Equal("Complete", vm.Rows[1].EndText);
-        Assert.Contains("1500 simulations", vm.Note);
-        AssertNoHangul(Texts(vm));
-
-        Assert.Equal("No card pool data: based on the current deck only.", ForecastReviewPresenter.Forecast(result with { PoolSize = 0 }).Note);
-    }
-
-    [Fact]
-    public void Forecast_line_is_matched_to_the_build_by_archetype_id_not_display_name()
-    {
-        // The build list was built in Korean; the forecast arrives after a switch to English (different display names).
-        BuildSectionVm build;
-        using (Loc.Use(Lang.Kor))
-        {
-            build = new BuildSectionVm { Summary = "x", Archetypes = [new ArchetypeVm { Id = "a", Name = "중독" }] };
-        }
-        using var _ = Loc.Use(Lang.Eng);
-        var result = new ForecastResult { Archetypes = [Forecast(Named("a", "중독", "Poison"), false, 0.3)] };
-
-        var withLine = ForecastReviewPresenter.WithForecast(build, result);
-
-        Assert.Equal("Complete by Act 3 end: 30% if you survive · 15% incl. death [est.]", withLine.Archetypes[0].ProbabilityText);
-    }
+    // ---- review ---------------------------------------------------------------------------------------------------
 
     [Fact]
     public void Review_of_every_fixture_run_has_no_Korean_in_English()
