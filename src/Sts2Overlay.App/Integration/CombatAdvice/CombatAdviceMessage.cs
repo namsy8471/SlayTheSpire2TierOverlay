@@ -200,7 +200,12 @@ public static class CombatAdviceParser
                     foreach (var c in cs.EnumerateArray())
                         if (Picks(c) is { } picks) choices.Add(picks);
                 steps.Add(new CombatAdviceStep(kind, id, Bool(s, "upgraded"), Int(s, "hand"), Str(s, "target") is { Length: > 0 } t ? t : null,
-                    Int(s, "targetSlot"), Bool(s, "targetAmbiguous")) { Choices = choices });
+                    Int(s, "targetSlot"), Bool(s, "targetAmbiguous"))
+                {
+                    // The shared empty list when there are none, so a step without picks equals one built in code (records
+                    // compare lists by reference).
+                    Choices = choices.Count == 0 ? [] : choices,
+                });
             }
         }
         return new CombatAdviceMessage(CombatAdviceState.Advice)
