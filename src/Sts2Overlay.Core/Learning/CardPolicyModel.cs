@@ -38,14 +38,16 @@ public sealed class CardPolicyModel
             throw new InvalidDataException("card-policy.json: inconsistent sizes.");
         }
 
-        if (BaseWeight <= 0)
+        if (f.PointUtility is { } unit ? !(unit > 0) || BaseWeight < 0 : BaseWeight <= 0)
         {
-            throw new InvalidDataException("card-policy.json: the base component weight must be positive (it sets the point scale).");
+            throw new InvalidDataException("card-policy.json: the base component weight must be positive (it sets the point scale), "
+                + "or zero with a positive pointUtility.");
         }
     }
 
-    /// <summary>Utility of one tier-base point: dividing a utility by this gives "engine base points" for display.</summary>
-    public double PointUtility => _f.Scale * BaseWeight;
+    /// <summary>Utility of one tier-base point: dividing a utility by this gives "engine base points" for display. A model
+    /// that weighs no engine component (base weight 0) names its own unit (<c>pointUtility</c>).</summary>
+    public double PointUtility => _f.PointUtility ?? _f.Scale * BaseWeight;
 
     private double BaseWeight => _f.CardWeights[_baseIndex];
 
@@ -133,13 +135,14 @@ public sealed class CardPolicyModel
     public double[] Utilities(int act, IReadOnlyList<string> deck, IReadOnlyList<PolicyOption> options, IReadOnlyDictionary<string, double> skipComponents)
         => Parts(act, deck, options, skipComponents).Select(p => p.Sum(x => x.Utility)).ToArray();
 
-    /// <summary>Engine component weight relative to the base weight (1 for base itself, 0 for a key the model does not weigh).</summary>
+    /// <summary>Engine component weight in display points (relative to the base weight: 1 for base itself, 0 for a key the
+    /// model does not weigh).</summary>
     public double RelativeWeight(string componentKey)
     {
         var i = Array.IndexOf(_f.CardComponents, componentKey);
-        if (i >= 0) return _f.CardWeights[i] / BaseWeight;
+        if (i >= 0) return _f.Scale * _f.CardWeights[i] / PointUtility;
         i = Array.IndexOf(_f.SkipComponents, componentKey);
-        return i >= 0 ? _f.SkipWeights[i] / BaseWeight : 0.0;
+        return i >= 0 ? _f.Scale * _f.SkipWeights[i] / PointUtility : 0.0;
     }
 
     private static double Dot(double[] x, double[] y)
@@ -153,6 +156,9 @@ public sealed class CardPolicyModel
     {
         public int Version { get; set; }
         public double Scale { get; set; }
+
+        /// <summary>Optional display unit; required when the base weight is 0.</summary>
+        public double? PointUtility { get; set; }
         public int CopiesCap { get; set; } = 3;
         public string[] CardComponents { get; set; } = [];
         public double[] CardWeights { get; set; } = [];
