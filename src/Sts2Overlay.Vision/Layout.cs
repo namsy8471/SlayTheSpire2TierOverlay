@@ -94,6 +94,38 @@ public static class ScreenLayouts
         return slots;
     }
 
+    // ---- Card grid scrolled by a gamepad ----
+    // With directional navigation (NControllerManager.IsUsingDirectionalNavigation) NCardGrid.ProcessGuiFocus scrolls
+    // so the focused holder sits mid-grid: target = -holder.Y + 1000 / 2, clamped to [ScrollLimitBottom, 0], where
+    // holder.Y = 248.8 + 377.6 * row and ScrollLimitBottom = 1000 - container height (container = rows * 377.6 + 362.4).
+    // Row 0 keeps the grid at 0 (the unscrolled layout above). Any lower row gives 251.2 - 377.6 * row
+    // (≡ -126.4 modulo a row), and the clamp at the end of the deck gives 637.6 - 377.6 * rows (≡ -117.6); a 6-10 card
+    // deck is clamped at -117.6 as soon as the second row is focused. Mouse play never moves the grid without the wheel,
+    // which is why a gamepad lost the Smith marks.
+    public const float GridFocusScroll = -126.4f, GridEndScroll = -117.6f;
+
+    /// <summary>First slot index of a scrolled grid layout, so the tracker never mixes its slots with the unscrolled ones.</summary>
+    public const int GridScrolledSlotBase = 10;
+
+    /// <summary>
+    /// The fully visible rows of a grid scrolled by <paramref name="scroll"/> (<see cref="GridFocusScroll"/> or
+    /// <see cref="GridEndScroll"/>): the focused row near the middle and the one under it. The row above is skipped, its
+    /// art reaches under the top bar (y 80).
+    /// </summary>
+    public static SlotLayout[] GridScrolled(float scroll)
+    {
+        var slots = new List<SlotLayout>();
+        for (int r = 0; r < 4; r++)
+        {
+            float y = GridFirstRowY + scroll + GridRowStep * r;
+            if (y + CardGeometry.Art.Y * RewardSmallScale < 80f) continue;
+            if (y + CardGeometry.Art.Bottom * RewardHoverScale > 1080f) break;
+            for (int c = 0; c < GridColumns; c++)
+                slots.Add(new SlotLayout(GridScrolledSlotBase + slots.Count, CardSlotKind.Grid, GridX0 + GridColumnStep * c, y, RewardSmallScale, RewardHoverScale));
+        }
+        return [.. slots];
+    }
+
     // ---- Shop (scenes/merchant/merchant_inventory.tscn, merchant_card.tscn, NMerchantInventory/NMerchantSlot) ----
     // SlotsContainer: anchored at the centre, offset_left -842 → x = 118; NMerchantInventory tweens its y to
     // _openPosition 80. CharacterCards container at (332, 303), ColorlessCards at (397, 676); each
