@@ -308,26 +308,39 @@ public sealed class CardRecognizer
 
     private (List<RecognizedCard>, string) RecognizeGrid(in ScreenFrame frame, RefTransform t, int step, RecognitionHints? hints)
     {
-        // Band: titles of the top row of a tall grid (y 328.8 - 204 = 125) down to the art bottom of its second row
-        // (706.4 + 22 = 728), plus the search radius and the hover lift; x covers the five columns (375..1495 +- 150).
-        using IntegralImage img = IntegralImage.Build(frame, t.ToPixelRect(new RectF(215, 70, 1440, 680)), step, VisionScratch.Tables);
+        // Band: titles of the top row of a tall grid (y 328.8 - 204 = 125) down to the art bottom of the lowest row a
+        // gamepad-scrolled grid shows (957.6 + 22 = 980), plus the search radius and the hover lift; x covers the five
+        // columns (375..1495 +- 150).
+        using IntegralImage img = IntegralImage.Build(frame, t.ToPixelRect(new RectF(215, 70, 1440, 940)), step, VisionScratch.Tables);
         SlotLayout[]? chosen = null;
         Presence best = default;
-        foreach (bool twoRows in (bool[])[false, true])
+        string detail = "";
+        foreach ((SlotLayout[] layout, string name) in GridLayouts)
         {
-            SlotLayout[] layout = ScreenLayouts.Grid(twoRows);
             Presence p = QuickPresence(img, t, layout, 0.76f, 1.04f);
             if (p.Present < 2) continue;
             if (chosen == null || Better(p, best))
             {
                 best = p;
                 chosen = layout;
+                detail = name;
             }
         }
         if (chosen == null) return ([], "no grid");
-        string detail = chosen.Length > ScreenLayouts.GridColumns ? "grid, 2+ rows" : "grid, 1 row";
         return (MatchAll(img, t, chosen, hints), detail);
     }
+
+    /// <summary>
+    /// Grid hypotheses: one centred row, the top of a taller grid, and the two scroll positions a gamepad leaves the grid
+    /// at (<see cref="ScreenLayouts.GridScrolled"/>).
+    /// </summary>
+    private static readonly (SlotLayout[] Layout, string Name)[] GridLayouts =
+    [
+        (ScreenLayouts.Grid(twoRows: false), "grid, 1 row"),
+        (ScreenLayouts.Grid(twoRows: true), "grid, 2+ rows"),
+        (ScreenLayouts.GridScrolled(ScreenLayouts.GridFocusScroll), "grid, pad-scrolled"),
+        (ScreenLayouts.GridScrolled(ScreenLayouts.GridEndScroll), "grid, pad-scrolled to the end"),
+    ];
 
     // ------------------------------------------------------------------ shop
 

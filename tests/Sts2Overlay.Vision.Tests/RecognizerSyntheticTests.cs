@@ -159,4 +159,38 @@ public class RecognizerSyntheticTests
         Assert.Equal([0, 3, 6], r.Cards.Select(x => x.Slot));
         Assert.Equal(7, r.Slots.Count);
     }
+
+    [Theory]
+    [InlineData(0f, 1920, 1080)]
+    [InlineData(ScreenLayouts.GridFocusScroll, 1920, 1080)]
+    [InlineData(ScreenLayouts.GridFocusScroll, 3842, 2160)]
+    [InlineData(ScreenLayouts.GridEndScroll, 1920, 1080)]
+    public void Card_grid_scrolled_by_a_gamepad_is_read(float scroll, int w, int h)
+    {
+        // A 15-card deck grid (NCardGrid) scrolled where a gamepad focus leaves it; the focused card is hovered (scale 1).
+        var rec = new CardRecognizer(SyntheticDb.Ten());
+        var c = new Canvas(w, h);
+        int Seed(int row, int col) => 100 + (row * 5 + col) % 10;
+        int focusRow = scroll == 0 ? 0 : 1;
+        for (int row = 0; row < 3; row++)
+            for (int col = 0; col < 5; col++)
+            {
+                float y = ScreenLayouts.GridFirstRowY + scroll + ScreenLayouts.GridRowStep * row;
+                PaintCard(c, ScreenLayouts.GridX0 + ScreenLayouts.GridColumnStep * col, y, row == focusRow && col == 2 ? 1f : 0.8f, Seed(row, col));
+            }
+        c.FillRef(new RectF(0, 0, 1920, 80), 0, 0, 0); // the top bar hides what scrolled above the grid
+
+        ScreenRecognition r = rec.Recognize(c.Frame);
+
+        Assert.Equal(ScreenKind.CardGrid, r.Kind);
+        int firstRow = scroll == 0 ? 0 : 1;
+        var expected = Enumerable.Range(firstRow * 5, 10).Select(k => $"CARD.C{k % 10}");
+        Assert.Equal(expected, r.Cards.Select(x => x.CardId));
+        Assert.All(r.Cards, x => Assert.True(x.Score > 0.95f, $"scroll {scroll}: {x}"));
+        // Marks follow the card: the bounds are where the game drew it.
+        RefTransform t = RefTransform.For(w, h);
+        float centreY = r.Cards[0].CardBounds.Y + r.Cards[0].CardBounds.Height / 2f;
+        Assert.InRange(centreY, t.ToPixelY(ScreenLayouts.GridFirstRowY + scroll + ScreenLayouts.GridRowStep * firstRow) - 3,
+            t.ToPixelY(ScreenLayouts.GridFirstRowY + scroll + ScreenLayouts.GridRowStep * firstRow) + 3);
+    }
 }
