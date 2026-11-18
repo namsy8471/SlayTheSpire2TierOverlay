@@ -1272,6 +1272,58 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
         lock (_gate) _seenOffer = offered.ToList();
     }
 
+    /// <inheritdoc/>
+    public IReadOnlyDictionary<string, int>? ReplayedRewardUpgrades(IReadOnlyList<string> shown)
+    {
+        lock (_gate)
+        {
+            if (shown.Count == 0 || shown.Distinct().Count() != shown.Count || _offers.Count == 0 || Pool() is not { } pool) return null;
+            int actIndex = CurrentAct() - 1;
+            int ascension = Ascension();
+            GameDataVersion version = CardVersion();
+            // An egg relic upgrades its card type on the way into the deck; whether the reward screen already shows that
+            // is not checked here, so those cards keep what the screen showed.
+            var eggTypes = s_eggs.Where(e => _current?.State.Relics.Contains(e.Relic) == true).Select(e => e.Type).ToHashSet();
+            Dictionary<string, int>? result = null;
+            for (int h = 0; h < pool.Hypotheses && h < 64; h++)
+            {
+                if ((_liveEpochs >> h & 1) == 0) continue;
+                foreach (List<OfferSlot> offer in Screens(_offers))
+                {
+                    if (pool.Predict(offer, h) is not { } cards || !shown.All(cards.Contains)) continue;
+                    var levels = new Dictionary<string, int>(StringComparer.Ordinal);
+                    for (int i = 0; i < cards.Length; i++)
+                    {
+                        if (!shown.Contains(cards[i])) continue;
+                        if (CardRarities.TypeOf(cards[i], version) is { } type && eggTypes.Contains(type)) return null;
+                        bool up = actIndex > 0 && MayRollUpgrade(cards[i], version)
+                                  && RewardRollReplay.Upgrades(offer[i].UpgradeRoll, CardRarities.Of(cards[i], version)!, actIndex, ascension);
+                        levels[cards[i]] = up ? 1 : 0;
+                    }
+                    if (result == null) result = levels;
+                    else if (!result.OrderBy(kv => kv.Key).SequenceEqual(levels.OrderBy(kv => kv.Key))) return null; // hypotheses disagree
+                }
+            }
+            return result;
+        }
+    }
+
+    /// <summary>
+    /// The located slots regrouped into reward screens: one screen's cards sit 3 values apart. The log can hand a
+    /// screen's rarity lines over in more than one read, and each read is located (and grouped) on its own.
+    /// </summary>
+    private static IEnumerable<List<OfferSlot>> Screens(IEnumerable<List<OfferSlot>> offers)
+    {
+        var chains = new List<List<OfferSlot>>();
+        foreach (OfferSlot s in offers.SelectMany(o => o).DistinctBy(s => s.Counter).OrderBy(s => s.Counter))
+        {
+            if (chains.Count > 0 && chains[^1][^1].Counter + 3 == s.Counter) chains[^1].Add(s);
+            else chains.Add([s]);
+        }
+        // Two card rewards on one screen (e.g. an elite with Prayer Wheel) follow each other directly.
+        return chains.SelectMany(c => c.Count > 3 && c.Count % 3 == 0 ? c.Chunk(3).Select(x => x.ToList()) : [c]);
+    }
+
     /// <summary>
     /// Single player: all rolls are mine. Co-op: every client logs every player's reward rolls back to back,
     /// so we cut the batch into per-player runs. Each player's offsets form a chain (next = after(prev)), so a

@@ -89,6 +89,9 @@ public sealed class GameStateAdapter : IGameStateSource, ICardOfferSink
     /// <summary>The recognizer read a card-reward screen: the tracker uses it for the picked card's upgrade if replay fails.</summary>
     public void OnCardOfferSeen(IReadOnlyList<CardRef> offered) => _tracker.OnCardOfferSeen(offered);
 
+    /// <inheritdoc/>
+    public IReadOnlyDictionary<string, int>? ReplayedRewardUpgrades(IReadOnlyList<string> shown) => _tracker.ReplayedRewardUpgrades(shown);
+
     internal static GameStateSnapshot Map(TrackedRun? run)
     {
         if (run is null || run.Outcome != RunOutcome.InProgress) return GameStateSnapshot.Empty with { UpdatedAt = DateTime.Now };

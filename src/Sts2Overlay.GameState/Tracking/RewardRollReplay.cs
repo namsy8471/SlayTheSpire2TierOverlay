@@ -11,6 +11,14 @@ namespace Sts2Overlay.GameState.Tracking;
 public interface ICardOfferSink
 {
     void OnCardOfferSeen(IReadOnlyList<CardRef> offered);
+
+    /// <summary>
+    /// The upgrade each card on the open card-reward screen rolled (CardFactory.RollForUpgrade, replayed from the run seed),
+    /// by card id, for the cards in <paramref name="shown"/>. Exact, unlike the title colour the screen is read by, which
+    /// a card sliding in or a hover glow can fool. Null when no reward rolled in this room shows these cards under every
+    /// card-pool hypothesis still alive (another pool, an unlocated roll, a misread card).
+    /// </summary>
+    IReadOnlyDictionary<string, int>? ReplayedRewardUpgrades(IReadOnlyList<string> shown);
 }
 
 /// <summary>
