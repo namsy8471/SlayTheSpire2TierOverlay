@@ -76,7 +76,7 @@ public sealed record CombatAdviceStep(
     /// pick there, in pick order. Empty when the step opens none, or when the helper leaves it out because the picks
     /// would depend on cards not drawn yet.
     /// </summary>
-    public IReadOnlyList<IReadOnlyList<CombatPick>> Choices { get; init; } = [];
+    public IReadOnlyList<IReadOnlyList<CombatPick>> Choices { get; init; } = Array.Empty<IReadOnlyList<CombatPick>>();
 }
 
 /// <summary>A card to pick in a selection: the log id (<c>STRIKE_IRONCLAD</c>) and whether it is upgraded.</summary>
@@ -204,7 +204,7 @@ public static class CombatAdviceParser
                 {
                     // The shared empty list when there are none, so a step without picks equals one built in code (records
                     // compare lists by reference).
-                    Choices = choices.Count == 0 ? [] : choices,
+                    Choices = choices.Count == 0 ? Array.Empty<IReadOnlyList<CombatPick>>() : choices,
                 });
             }
         }
