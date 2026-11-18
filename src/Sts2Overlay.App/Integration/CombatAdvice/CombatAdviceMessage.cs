@@ -69,7 +69,18 @@ public sealed record CombatAdviceStep(
     int? Hand = null,
     string? Target = null,
     int? TargetSlot = null,
-    bool TargetAmbiguous = false);
+    bool TargetAmbiguous = false)
+{
+    /// <summary>
+    /// <c>choices</c>: for each selection this step opens (exhaust, discard, upgrade a card …), the cards the helper would
+    /// pick there, in pick order. Empty when the step opens none, or when the helper leaves it out because the picks
+    /// would depend on cards not drawn yet.
+    /// </summary>
+    public IReadOnlyList<IReadOnlyList<CombatPick>> Choices { get; init; } = [];
+}
+
+/// <summary>A card to pick in a selection: the log id (<c>STRIKE_IRONCLAD</c>) and whether it is upgraded.</summary>
+public sealed record CombatPick(string Id, bool Upgraded);
 
 /// <summary>One parsed stdout line of the helper.</summary>
 public sealed record CombatAdviceMessage(CombatAdviceState State)
@@ -89,6 +100,12 @@ public sealed record CombatAdviceMessage(CombatAdviceState State)
 
     /// <summary>What to do from now on, in order.</summary>
     public IReadOnlyList<CombatAdviceStep> Steps { get; init; } = [];
+
+    /// <summary>
+    /// <c>choosing</c> (with <see cref="CombatEnding.AdviseAfterChoice"/>): the game shows a selection now, and these are
+    /// the cards the helper would pick there. Null when not given.
+    /// </summary>
+    public IReadOnlyList<CombatPick>? Choosing { get; init; }
 
     public CombatEnding Ending { get; init; }
 
@@ -178,8 +195,12 @@ public static class CombatAdviceParser
                     "potion" => CombatStepKind.Potion,
                     _ => CombatStepKind.Unknown,
                 };
+                var choices = new List<IReadOnlyList<CombatPick>>();
+                if (s.TryGetProperty("choices", out var cs) && cs.ValueKind == JsonValueKind.Array)
+                    foreach (var c in cs.EnumerateArray())
+                        if (Picks(c) is { } picks) choices.Add(picks);
                 steps.Add(new CombatAdviceStep(kind, id, Bool(s, "upgraded"), Int(s, "hand"), Str(s, "target") is { Length: > 0 } t ? t : null,
-                    Int(s, "targetSlot"), Bool(s, "targetAmbiguous")));
+                    Int(s, "targetSlot"), Bool(s, "targetAmbiguous")) { Choices = choices });
             }
         }
         return new CombatAdviceMessage(CombatAdviceState.Advice)
@@ -191,6 +212,7 @@ public static class CombatAdviceParser
             Block = Int(root, "block"),
             Played = Int(root, "played"),
             Steps = steps,
+            Choosing = root.TryGetProperty("choosing", out var choosing) ? Picks(choosing) : null,
             IsFoolSearch = Str(root, "policy") == "fool_rust",
             Ending = Str(root, "ending") switch
             {
@@ -206,6 +228,16 @@ public static class CombatAdviceParser
             Note = Str(root, "note") ?? "",
             Ms = root.TryGetProperty("ms", out var ms) && ms.ValueKind == JsonValueKind.Number ? ms.GetDouble() : null,
         };
+    }
+
+    /// <summary><c>{"cards":[{"id":…,"upgraded":…},…]}</c> → the picks; null when it is not that shape. Cards without an id are dropped.</summary>
+    private static IReadOnlyList<CombatPick>? Picks(JsonElement e)
+    {
+        if (e.ValueKind != JsonValueKind.Object || !e.TryGetProperty("cards", out var cards) || cards.ValueKind != JsonValueKind.Array) return null;
+        var picks = new List<CombatPick>();
+        foreach (var c in cards.EnumerateArray())
+            if (c.ValueKind == JsonValueKind.Object && Str(c, "id") is { Length: > 0 } id) picks.Add(new CombatPick(id, Bool(c, "upgraded")));
+        return picks;
     }
 
     private static string? Str(JsonElement e, string name)
