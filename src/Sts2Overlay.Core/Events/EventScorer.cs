@@ -210,6 +210,7 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
         var texts = new List<string>();
         var sim = new Sim(state.Hp, Math.Max(1, state.MaxHp), state.Gold);
         bool lethal = false, unaffordable = false, unmodelled = false, random = false;
+        double hpCost = 0;
         double? winChance = null; // chance to win this option's dummy fight; its OnWin rewards are weighted by it
         int? dummyHp = null;
         // Log-only run: HP and gold are starting values. HP loss can't be called lethal or safe, and a gold cost can't be
@@ -249,6 +250,7 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
                 {
                     if (!vitalsKnown) hpLossUnknown |= a > 0;
                     else if (p >= 1 && a >= sim.Hp) lethal = true;
+                    hpCost += Math.Max(0, a);
                     var lost = Math.Min(a, sim.Hp);
                     var v = -HpPoints(lost, sim) * p;
                     acc.Add(new(EventComponentKeys.Hp, Loc.T($"체력 −{a:0}", $"HP −{a:0}"), v));
@@ -474,6 +476,7 @@ public sealed class EventScorer(DataPack pack, EventCatalog catalog, EventWeight
             Option = option,
             Score = new ScoreBreakdown(acc),
             IsLethal = lethal,
+            HpCost = hpCost,
             IsUnaffordable = unaffordable,
             HpLossUnknown = hpLossUnknown,
             HasUnmodelled = unmodelled,

@@ -117,4 +117,32 @@ public class RunBaselinePolicyTests
         Assert.Equal("X.EXIT", state.Apply(ev, 5, 60, "X.LINGER").Best?.Option.Key);
         Assert.Equal("X.LINGER", state.Apply(ev, 12, 60, null).Best?.Option.Key);
     }
+
+    /// <summary>Slippery Bridge (11-18 bug): the learned adjustment liked Hold On, and the guard only watched the rule's
+    /// button and the exact key (HOLD_ON_0, HOLD_ON_1 ...), so Hold On was recommended until death.</summary>
+    [Fact]
+    public void Slippery_bridge_guard_and_low_hp_floor_stop_hold_on()
+    {
+        var dir = Path.Combine(TestPaths.RepoRoot, "data", "packs", "v0.111.0");
+        var scorer = new EventScorer(Pack.Value, EventCatalog.LoadDirectory(dir));
+        var policy = RunBaselinePolicy.Load("""
+            {"version":1,"weights":{"event:rule":0.001,"event:SLIPPERY_BRIDGE|OVERCOME":-0.01,"event:SLIPPERY_BRIDGE|HOLD_ON_0":0.01}}
+            """);
+        const string overcome = "SLIPPERY_BRIDGE.pages.INITIAL.options.OVERCOME";
+        string Hold(int page) => page < 0 ? "SLIPPERY_BRIDGE.pages.INITIAL.options.HOLD_ON_0" : $"SLIPPERY_BRIDGE.pages.HOLD_ON_{page}.options.HOLD_ON_{page + 1}";
+        var run = new RunState { Character = "CHARACTER.SILENT", Act = 2, Hp = 60, MaxHp = 70, Gold = 100, Floor = 20 };
+        string? Pick(BaselineEventChoices state, int page, int hp, string? last)
+        {
+            var at = run with { Hp = hp };
+            var ev = scorer.Evaluate(at, "EVENT.SLIPPERY_BRIDGE", [overcome, Hold(page)], page < 0 ? "INITIAL" : $"HOLD_ON_{page}")!;
+            return state.Apply(ev, at.Floor, hp, last, policy, at, at.MaxHp).Best?.Option.Key;
+        }
+        var state = new BaselineEventChoices();
+        Assert.Equal(Hold(-1), Pick(state, -1, 60, null));        // the adjustment may hold on once
+        Assert.Equal(overcome, Pick(state, 0, 57, Hold(-1)));     // HP dropped: Hold On is the same button on the next page
+        Assert.Equal(overcome, Pick(state, 0, 57, Hold(-1)));     // a refresh keeps the guard
+        Assert.Equal(overcome, Pick(new BaselineEventChoices(), -1, 23, null)); // 23 - 3 < 30 % of 70: no paying HP
+        Assert.Equal(Hold(-1), Pick(new BaselineEventChoices(), -1, 24, null)); // 24 - 3 = 21 = 30 % of 70: allowed
+        Assert.Equal("HOLD_ON", BaselineEventChoices.Repeat("SLIPPERY_BRIDGE.pages.HOLD_ON_6.options.HOLD_ON_LOOP"));
+    }
 }

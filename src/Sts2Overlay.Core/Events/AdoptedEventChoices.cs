@@ -92,7 +92,8 @@ public sealed class AdoptedEventChoices
                 id = _relicClasses.FirstOrDefault(pair => pair.Value == content).Key;
                 if (id is null) return baseline;
             }
-            candidates.Add(new(id, content, !option.IsUnaffordable));
+            // Same HP floor as the rule: an HP-cost button that would kill or leave too little HP is not a candidate.
+            candidates.Add(new(id, content, !option.IsUnaffordable && !(run.VitalsKnown && BaselineEventChoices.TooCostly(option, run.Hp, run.MaxHp))));
         }
         var rule = baseline.Options.ToList().FindIndex(o => o.IsBest);
         var legal = Enumerable.Range(0, candidates.Count).Where(i => candidates[i].Legal).ToArray();

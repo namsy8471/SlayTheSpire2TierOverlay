@@ -18,6 +18,9 @@ public sealed record EventOptionEvaluation
     /// <summary>Choosing it would kill the player (HP loss ≥ current HP).</summary>
     public bool IsLethal { get; init; }
 
+    /// <summary>HP the option itself takes (its own <c>hpLoss</c> effects, chance ignored); 0 when it costs none.</summary>
+    public double HpCost { get; init; }
+
     /// <summary>The player cannot pay for it (gold cost above current gold).</summary>
     public bool IsUnaffordable { get; init; }
 
