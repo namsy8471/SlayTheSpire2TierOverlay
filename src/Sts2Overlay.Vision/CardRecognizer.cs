@@ -560,6 +560,7 @@ public sealed class CardRecognizer
             price, reading?.Value, top.Take(3).ToArray())
         {
             PriceReading = reading,
+            MissingPortrait = _db.Entries[pick.EntryIndex].IsMissingPortrait,
         };
     }
 

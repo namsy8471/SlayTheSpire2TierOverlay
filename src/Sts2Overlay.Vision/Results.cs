@@ -86,6 +86,12 @@ public sealed record RecognizedCard(
     /// </summary>
     public PartialMatch? Partial { get; init; }
 
+    /// <summary>
+    /// The slot shows the game's placeholder portrait (<see cref="CardArtSource.MissingPortrait"/>): a card is there, but
+    /// <see cref="CardId"/> is only one of the cards that share the placeholder. The App resolves or drops it.
+    /// </summary>
+    public bool MissingPortrait { get; init; }
+
     /// <summary>Shop only: the raw price reading (digits, label colour, scores), also when <see cref="Price"/> is null.</summary>
     public PriceReading? PriceReading { get; init; }
 

@@ -644,6 +644,44 @@ public class GameStateTrackerTests
     }
 
     [Fact]
+    public void Reward_cards_without_art_come_from_the_replayed_rolls()
+    {
+        // A real Fool A1 run (v0.113.1): most Fool cards have no portrait, so the screen cannot name them; the replay
+        // names the reward the log then confirms. An elite's two rewards are both listed.
+        var t = NewTracker();
+        t.ProcessLines([
+            "Release Version: v0.113.1",
+            "[INFO] Embarking on a singleplayer FOOL run. Ascension: 1 Seed: C15BK6Z0VMCY",
+            "[INFO] Preloading 'Act=OVERGROWTH' assets... count=6 vfx=0",
+            "[INFO] Preloading 'Combat Room' assets... count=10 vfx=0",
+            "[INFO] Card rarity: Rolled 0.24363457, need < -0.020000001 for rare (offset = -0.05)",
+            "[INFO] Card rarity: Rolled 0.067214906, need < -0.01 for rare (offset = -0.04)",
+            "[INFO] Card rarity: Rolled 0.5354905, need < 0 for rare (offset = -0.03)",
+            "[INFO] Player 1 obtained CARD.CHO_FIRM from card reward",
+            "[INFO] Preloading 'Combat Room' assets... count=9 vfx=0",
+            "[INFO] Card rarity: Rolled 0.13233674, need < 0.01 for rare (offset = -0.02)",
+            "[INFO] Card rarity: Rolled 0.2946124, need < 0.02 for rare (offset = -0.01)",
+            "[INFO] Card rarity: Rolled 0.67208475, need < 0.03 for rare (offset = 0)",
+        ]);
+        Assert.Equal([["CARD.HARMONIC_SHIELD", "CARD.RAPID_SHOT", "CARD.QUICK_SHOT"]], t.ReplayedRewardCards(3));
+        Assert.Empty(t.ReplayedRewardCards(2));
+        t.ProcessLines([
+            "[INFO] Player 1 obtained CARD.HARMONIC_SHIELD from card reward",
+            "[INFO] Preloading 'Combat Room' assets... count=10 vfx=0",
+            "[INFO] Card rarity: Rolled 0.94123214, need < 0.19999999 for rare (offset = 0.09999999)",
+            "[INFO] Card rarity: Rolled 0.3921857, need < 0.20999998 for rare (offset = 0.109999985)",
+            "[INFO] Card rarity: Rolled 0.6743912, need < 0.21999998 for rare (offset = 0.11999998)",
+            "[INFO] Card rarity: Rolled 0.9556356, need < 1 for rare (offset = 0)",
+            "[INFO] Card rarity: Rolled 0.1698958, need < 1 for rare (offset = 0)",
+            "[INFO] Card rarity: Rolled 0.8060546, need < 1 for rare (offset = 0)",
+        ]);
+        var two = t.ReplayedRewardCards(3);
+        Assert.Equal(2, two.Count);
+        Assert.Contains(two, s => s.Contains("CARD.KI_CHANT"));
+        Assert.Contains(two, s => s.Contains("CARD.YAH"));
+    }
+
+    [Fact]
     public void Scarcity_pity_grows_half_as_fast()
     {
         var t = NewTracker();

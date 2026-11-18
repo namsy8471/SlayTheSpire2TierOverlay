@@ -19,6 +19,10 @@ public interface ICardOfferSink
     /// card-pool hypothesis still alive (another pool, an unlocated roll, a misread card).
     /// </summary>
     IReadOnlyDictionary<string, int>? ReplayedRewardUpgrades(IReadOnlyList<string> shown);
+
+    /// <summary>This room's card rewards with <paramref name="count"/> cards, replayed from the run seed, each in screen
+    /// order; only the rewards the replay pins down.</summary>
+    IReadOnlyList<IReadOnlyList<string>> ReplayedRewardCards(int count);
 }
 
 /// <summary>

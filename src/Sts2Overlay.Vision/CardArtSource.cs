@@ -11,6 +11,13 @@ public sealed record ArtFile(string CardId, string Pool, string? Character, stri
 public static class CardArtSource
 {
     /// <summary>
+    /// The game's portrait for a card without its own art (CardModel.MissingPortraitPath,
+    /// <c>atlases/card_atlas.sprites/beta.tres</c>), extracted to the art root. One picture for all such cards (in
+    /// v0.113.1 most of The Fool's cards), so it tells that a card is there, not which one.
+    /// </summary>
+    public const string MissingPortrait = "beta.webp";
+
+    /// <summary>
     /// With a catalog: exactly one entry per catalog card that has art (main, else beta, else per-type variants
     /// such as event/mad_science_attack.webp for CARD.MAD_SCIENCE). Art files of cards that no longer exist in
     /// this game version are ignored, which also removes stale look-alikes (e.g. BLACKENED_BLADE, which shares
@@ -40,10 +47,15 @@ public static class CardArtSource
             {
                 result.Add(new ArtFile(card.Id, card.Pool, card.Character, Rel(artRoot, beta), true));
             }
-            else if (Directory.Exists(Path.Combine(artRoot, folder)))
+            else
             {
-                foreach (string v in Directory.EnumerateFiles(Path.Combine(artRoot, folder), name + "_*.webp").Order(StringComparer.Ordinal))
-                    result.Add(new ArtFile(card.Id, card.Pool, card.Character, Rel(artRoot, v), false));
+                int before = result.Count;
+                if (Directory.Exists(Path.Combine(artRoot, folder)))
+                    foreach (string v in Directory.EnumerateFiles(Path.Combine(artRoot, folder), name + "_*.webp").Order(StringComparer.Ordinal))
+                        result.Add(new ArtFile(card.Id, card.Pool, card.Character, Rel(artRoot, v), false));
+                // No art of its own: the game shows the shared placeholder.
+                if (result.Count == before && File.Exists(Path.Combine(artRoot, MissingPortrait)))
+                    result.Add(new ArtFile(card.Id, card.Pool, card.Character, MissingPortrait, true));
             }
         }
         return result;

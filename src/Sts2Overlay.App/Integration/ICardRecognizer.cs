@@ -23,7 +23,12 @@ public enum ScreenKind
 /// <param name="OnSale">Shop: the green half-price label.</param>
 /// <param name="PriceBounds">Shop: where the price label is, physical SCREEN pixels (debug outline view).</param>
 public sealed record RecognizedCard(CardRef Card, PixelRect ScreenBounds, double Confidence, int? Price = null, bool? Unaffordable = null, bool OnSale = false,
-    PixelRect? PriceBounds = null);
+    PixelRect? PriceBounds = null)
+{
+    /// <summary>The card shows the game's placeholder portrait: <see cref="Card"/> is a guess among the cards without art
+    /// until <see cref="MissingPortraitCards"/> resolves it.</summary>
+    public bool MissingPortrait { get; init; }
+}
 
 /// <summary>One relic for sale on the merchant's rug (identified from its icon; bought or covered slots are left out).</summary>
 /// <param name="RelicId"><c>RELIC.X</c>.</param>

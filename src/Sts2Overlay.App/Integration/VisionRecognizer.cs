@@ -83,7 +83,8 @@ public sealed class VisionRecognizer : ICardRecognizer
                 c.Price,
                 c.Unaffordable,
                 c.PriceReading?.OnSale == true,
-                c.PriceBounds is { } p ? new PixelRect(p.X, p.Y, p.Width, p.Height).Offset(frame.ScreenRect.X, frame.ScreenRect.Y) : null))
+                c.PriceBounds is { } p ? new PixelRect(p.X, p.Y, p.Width, p.Height).Offset(frame.ScreenRect.X, frame.ScreenRect.Y) : null)
+            { MissingPortrait = c.MissingPortrait })
             .ToArray();
         // Shop: is the card-removal service still for sale? A fixed-place colour probe (CardRemovalProbe), ~0.1 ms.
         var removal = kind == ScreenKind.Shop ? CardRemovalProbe.Read(vf) : null;

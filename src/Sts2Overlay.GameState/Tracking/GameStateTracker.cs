@@ -1309,6 +1309,35 @@ public sealed class GameStateTracker : IDisposable, ICardOfferSink
     }
 
     /// <summary>
+    /// The card rewards of this room with <paramref name="count"/> cards (an elite can give two), replayed from the run
+    /// seed (rarity roll + NextItem over the character's pool, <see cref="RewardCardPool.Predict"/>), each in screen
+    /// order. A reward is listed only when every card-pool hypothesis still alive gives the same cards. For a reward the
+    /// screen cannot read: cards without their own portrait in the game files (most of The Fool's v0.113 cards) all
+    /// show the same placeholder.
+    /// </summary>
+    public IReadOnlyList<IReadOnlyList<string>> ReplayedRewardCards(int count)
+    {
+        lock (_gate)
+        {
+            var screens = new List<IReadOnlyList<string>>();
+            if (count <= 0 || _offers.Count == 0 || Pool() is not { } pool) return screens;
+            foreach (List<OfferSlot> offer in Screens(_offers).Where(o => o.Count == count))
+            {
+                string[]? result = null;
+                for (int h = 0; h < pool.Hypotheses && h < 64; h++)
+                {
+                    if ((_liveEpochs >> h & 1) == 0) continue;
+                    string[]? cards = pool.Predict(offer, h);
+                    if (cards is null || (result is not null && !result.SequenceEqual(cards))) { result = null; break; } // hypotheses disagree
+                    result = cards;
+                }
+                if (result is not null) screens.Add(result);
+            }
+            return screens;
+        }
+    }
+
+    /// <summary>
     /// The located slots regrouped into reward screens: one screen's cards sit 3 values apart. The log can hand a
     /// screen's rarity lines over in more than one read, and each read is located (and grouped) on its own.
     /// </summary>
