@@ -6,7 +6,11 @@ using System.Text;
 namespace Sts2Overlay.Vision;
 
 /// <summary>One database entry (a card's portrait). Several entries may share a card id (art variants).</summary>
-public sealed record ArtEntry(int Index, string CardId, string Pool, string? Character, string ArtPath, bool IsBeta);
+public sealed record ArtEntry(int Index, string CardId, string Pool, string? Character, string ArtPath, bool IsBeta)
+{
+    /// <summary>The shared placeholder of cards without art (<see cref="CardArtSource.MissingPortrait"/>).</summary>
+    public bool IsMissingPortrait => ArtPath == CardArtSource.MissingPortrait;
+}
 
 /// <summary>A database candidate with its NCC score.</summary>
 public readonly record struct ArtMatch(int EntryIndex, string CardId, float Score);

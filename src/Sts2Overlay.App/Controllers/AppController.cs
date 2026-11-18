@@ -440,6 +440,9 @@ public sealed partial class AppController : IDisposable
             AppLog.Info($"screen: {_loggedKind?.ToString() ?? "-"} -> {r.ScreenKind} ({r.Cards.Count} cards, hint {_snapshot.Hint})");
             _loggedKind = r.ScreenKind;
         }
+        // Cards without art of their own all show one placeholder picture: a card reward names them from the replayed
+        // rolls, any other screen leaves them out (a wrong name is worse than no badge).
+        r = MissingPortraitCards.Resolve(r, _source as Sts2Overlay.GameState.Tracking.ICardOfferSink);
         UpdateRestMarks(r); // rest-site buttons / Smith grid (AppController.RestOverlay.cs)
         _removal.Observe(r.ScreenKind, r.RemovalService is not null); // before a deck grid becomes "Other": Shop → Grid → Shop = removal used
         // In combat a choose-a-card row or a card grid is a temporary pick (Discovery, Attack Potion, the draw/discard

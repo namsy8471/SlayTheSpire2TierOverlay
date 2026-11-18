@@ -92,6 +92,9 @@ public sealed class GameStateAdapter : IGameStateSource, ICardOfferSink
     /// <inheritdoc/>
     public IReadOnlyDictionary<string, int>? ReplayedRewardUpgrades(IReadOnlyList<string> shown) => _tracker.ReplayedRewardUpgrades(shown);
 
+    /// <inheritdoc/>
+    public IReadOnlyList<IReadOnlyList<string>> ReplayedRewardCards(int count) => _tracker.ReplayedRewardCards(count);
+
     internal static GameStateSnapshot Map(TrackedRun? run)
     {
         if (run is null || run.Outcome != RunOutcome.InProgress) return GameStateSnapshot.Empty with { UpdatedAt = DateTime.Now };
