@@ -3,6 +3,7 @@ using Sts2Overlay.App.Integration;
 using Sts2Overlay.App.Services;
 using Sts2Overlay.App.ViewModels;
 using Sts2Overlay.App.Views;
+using Sts2Overlay.Core.Learning;
 using Sts2Overlay.Core.Combat;
 using Sts2Overlay.Core.Events;
 using Sts2Overlay.Core.Localization;
@@ -162,6 +163,19 @@ public sealed partial class AppController
             return;
         }
         _eventKey = key;
+
+        if (AiCoverage.Excludes(run))
+        {
+            var newEvent = _lastEvent is not null || !PanelOffer.HasContent || PanelOffer.IsStale;
+            _lastEvent = null;
+            _eventMarkers?.Clear();
+            var eventId = active.EventId;
+            PanelOffer = NotLearnedEventOffer(eventId, run);
+            _offerSource = null;
+            _eventOfferRebuild = () => NotLearnedEventOffer(eventId, run);
+            if (newEvent) _vm.SelectedTab = PanelTab.Offer;
+            return;
+        }
 
         EventEvaluation? eval;
         try
@@ -482,6 +496,14 @@ public sealed partial class AppController
     internal static string UnmodelledText(EventOptionEvaluation o) => o.HasNoData ? Loc.T("정보 없음", "No data") : Loc.T("일부 추정", "Partly estimated");
 
     /// <summary>The 추천 tab for an event room events.json does not know yet: the previous event's rows must not stay.</summary>
+    /// <summary>An event in a run the AI was not measured on (<see cref="AiCoverage"/>): the reason instead of scores.</summary>
+    private OfferSectionVm NotLearnedEventOffer(string eventId, Core.Model.RunState run) => new()
+    {
+        Title = Loc.T($"이벤트 · {_eventText.EventTitle(eventId)}", $"Event · {_eventText.EventTitle(eventId)}"),
+        ConfidenceText = "",
+        Footer = AiCoverage.Note(run),
+    };
+
     private OfferSectionVm NoEventDataOffer(string eventId) => new()
     {
         Title = Loc.T($"이벤트 · {_eventText.EventTitle(eventId)}", $"Event · {_eventText.EventTitle(eventId)}"),

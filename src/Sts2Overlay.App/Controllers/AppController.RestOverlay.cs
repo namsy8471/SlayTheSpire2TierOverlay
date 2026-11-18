@@ -1,5 +1,6 @@
 using Sts2Overlay.App.Infrastructure;
 using Sts2Overlay.App.Integration;
+using Sts2Overlay.Core.Learning;
 using Sts2Overlay.Core.Localization;
 using Sts2Overlay.Core.Map;
 using Sts2Overlay.Core.Model;
@@ -35,7 +36,7 @@ public sealed partial class AppController
         var eventPick = _eventUpgrade.Update(_eventWatch ? _eventScreens?.Clicked : null, r.RestSite is { CardGridOpen: true }, _loggedButtons > 0);
         try
         {
-            if (_settings.MapOverlay && Demo is null && _snapshot.Run is { } run && r.RestSite is { } rest)
+            if (_settings.MapOverlay && Demo is null && _snapshot.Run is { } run && !AiCoverage.Excludes(run) && r.RestSite is { } rest)
             {
                 if (rest.ChoiceScreen)
                 {

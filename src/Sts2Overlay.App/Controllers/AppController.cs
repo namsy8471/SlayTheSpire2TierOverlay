@@ -10,6 +10,7 @@ using Sts2Overlay.App.Interop;
 using Sts2Overlay.App.Services;
 using Sts2Overlay.App.ViewModels;
 using Sts2Overlay.App.Views;
+using Sts2Overlay.Core.Learning;
 using Sts2Overlay.Core.Archetypes;
 using Sts2Overlay.Core.Data;
 using Sts2Overlay.Core.Localization;
@@ -273,6 +274,12 @@ public sealed partial class AppController : IDisposable
         var key = $"{run.Character}/{run.Ascension}/{run.IsMultiplayer}/{run.Act}/{run.VitalsKnown}|{map.ActId}|{map.Current}|{run.Hp}/{run.MaxHp}|{run.Gold}|{run.Deck.Count}|{run.Deck.Count(c => c.Upgrade > 0)}#{_engineVersion}@{Loc.CurrentCode}";
         if (key == _pathKey) return;
         _pathKey = key;
+        if (AiCoverage.Excludes(run))
+        {
+            UpdatePath(new PathView([], null, AiCoverage.Note(run)));
+            SetMapRecommendation(null);
+            return;
+        }
         try
         {
             var rec = new PathAdvisor(_engine.Pack).Recommend(run, map);
@@ -475,7 +482,8 @@ public sealed partial class AppController : IDisposable
             OfferSectionVm panelOffer;
             try
             {
-                var (offer, badges, skip, removal) = r.ScreenKind == ScreenKind.Shop ? EvaluateShop(r) : EvaluateReward(r);
+                var (offer, badges, skip, removal) = AiCoverage.Excludes(_snapshot.Run) ? NotLearnedOffer(r, _snapshot.Run!)
+                    : r.ScreenKind == ScreenKind.Shop ? EvaluateShop(r) : EvaluateReward(r);
                 if (verdict != PartialVerdict.Complete) (offer, badges, skip) = PartialRow(r, verdict, offer, badges, skip);
                 panelOffer = offer;
                 _offerSource = r;
@@ -505,7 +513,7 @@ public sealed partial class AppController : IDisposable
 
         // Card positions can change every frame (hovering enlarges and lifts a card) even when the offer is the same,
         // so the evaluation is cached but the badge positions always come from the latest recognition.
-        var specs = new BadgeSpec[r.Cards.Count];
+        var specs = new BadgeSpec[AiCoverage.Excludes(_snapshot.Run) ? 0 : r.Cards.Count];
         for (var i = 0; i < specs.Length; i++)
         {
             specs[i] = i < _lastBadges.Count
@@ -514,7 +522,8 @@ public sealed partial class AppController : IDisposable
         }
         // The removal marker needs both: the engine recommends removal AND the probe sees the service still for sale.
         var removalMark = r.RemovalService is { } coin && _lastRemovalText is { } text ? new RemovalSpec(coin, text) : null;
-        if (r.ScreenKind == ScreenKind.Shop && _nextShopPotion is { } selected &&
+        if (AiCoverage.Excludes(_snapshot.Run)) removalMark = null;
+        else if (r.ScreenKind == ScreenKind.Shop && _nextShopPotion is { } selected &&
             r.Potions.FirstOrDefault(p => p.PotionId == selected.Id && p.Price == selected.Price && p.Unaffordable != true) is { } potion)
             removalMark = new RemovalSpec(potion.ScreenBounds, Loc.T($"구매 추천: {PotionName(selected.Id)}", $"Buy: {PotionName(selected.Id)}"));
         NoteBadgesShown(r); // perf: frame-to-paint of a newly shown screen (AppController.Perf.cs)
@@ -545,6 +554,23 @@ public sealed partial class AppController : IDisposable
             },
             badges.Select(b => b with { IsBest = false, Ribbon = null }).ToArray(),
             null);
+    }
+
+    /// <summary>
+    /// A reward or shop screen in a run the AI was not measured on (<see cref="AiCoverage"/>): no scores, badges or pick, only
+    /// the reason. The potion purchase mark is cleared too.
+    /// </summary>
+    private (OfferSectionVm, IReadOnlyList<BadgeSpec>, SkipSpec?, string?) NotLearnedOffer(RecognitionResult r, RunState run)
+    {
+        _nextShopPotion = null;
+        var title = r.ScreenKind switch
+        {
+            ScreenKind.Shop => Loc.T("상점", "Shop"),
+            ScreenKind.Choice => Loc.T("카드 선택", "Choose a Card"),
+            ScreenKind.Grid => Loc.T("카드 선택 · 이벤트", "Choose a Card · Event"),
+            _ => ContextTitle(_snapshot.RewardContext),
+        };
+        return (new OfferSectionVm { Title = title, ConfidenceText = "", Footer = AiCoverage.Note(run) }, [], null, null);
     }
 
     private (OfferSectionVm, IReadOnlyList<BadgeSpec>, SkipSpec?, string?) EvaluateReward(RecognitionResult r)
