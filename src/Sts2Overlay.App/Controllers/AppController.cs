@@ -568,7 +568,7 @@ public sealed partial class AppController : IDisposable
             rows.Add(new OfferRowVm
             {
                 Name = _cards.Name(e.Card),
-                TierText = e.TierText,
+                TierText = UiText.Rank(e.Rank),
                 ScoreText = Fmt(e.Total),
                 BarWidth = Bar(e.Total),
                 IsBest = e.IsBest,
@@ -612,7 +612,7 @@ public sealed partial class AppController : IDisposable
         };
 
         var badges = eval.Cards
-            .Select((e, i) => new BadgeSpec(r.Cards[i].ScreenBounds, e.TierText, Fmt(e.Total), e.IsBest, e.IsEstimate, e.Card.IsUpgraded,
+            .Select((e, i) => new BadgeSpec(r.Cards[i].ScreenBounds, UiText.Rank(e.Rank), Fmt(e.Total), e.IsBest, e.IsEstimate, e.Card.IsUpgraded,
                 Chips: OfferMarkers.CardChips(e.Chips), Ribbon: e.IsBest ? OfferMarkers.RecommendRibbon : null))
             .ToArray();
         return (offer, badges, OfferMarkers.Skip(eval, Fmt), null);
@@ -638,6 +638,12 @@ public sealed partial class AppController : IDisposable
         string EnchantmentName(string id) => _relicInfo.EnchantmentName(id, Loc.CurrentCode);
         NoteShop(r, eval); // play-time decision log (AppController.DecisionLog.cs)
         var recommended = eval.RecommendedPurchase.ToHashSet(ReferenceEqualityComparer.Instance);
+        // The shop's cards in the AI's order of value (1위 = highest), shown where the tier letter used to be.
+        // By reference: two copies of the same card on sale are equal records but get their own ranks.
+        var cardRank = new Dictionary<CardEvaluation, int>(ReferenceEqualityComparer.Instance);
+        foreach (var c in eval.Items.Where(i => i.Kind == ShopItemKind.Card && i.CardEvaluation is not null)
+                     .Select(i => i.CardEvaluation!).OrderByDescending(c => c.Total))
+            cardRank[c] = cardRank.Count + 1;
 
         var rows = eval.Items.Select(item =>
         {
@@ -666,7 +672,7 @@ public sealed partial class AppController : IDisposable
                     : isRelic ? RelicName(item.RelicId!) + Loc.T(" (유물)", " (Relic)")
                     : isPotion ? PotionName(item.PotionId!) + Loc.T(" (포션)", " (Potion)")
                     : $"{RemovalName()} ({OfferMarkers.RemovalTargetName(item, _cards.Name, EnchantmentName)})",
-                TierText = e?.TierText ?? "—",
+                TierText = e is not null && cardRank.TryGetValue(e, out var rank) ? UiText.Rank(rank) : "—",
                 ScoreText = hasRuleValue ? Fmt(score) : "—",
                 BarWidth = Bar(score),
                 IsBest = recommended.Contains(item),
@@ -715,7 +721,7 @@ public sealed partial class AppController : IDisposable
             var item = byCard.TryGetValue(rc.Card, out var q) && q.Count > 0 ? q.Dequeue() : null;
             var e = item?.CardEvaluation;
             var buy = item is not null && recommended.Contains(item);
-            return new BadgeSpec(rc.ScreenBounds, e?.TierText ?? "?", e is null ? "" : Fmt(e.Total),
+            return new BadgeSpec(rc.ScreenBounds, e is not null && cardRank.TryGetValue(e, out var rank) ? UiText.Rank(rank) : "?", e is null ? "" : Fmt(e.Total),
                 buy, e?.IsEstimate ?? true, rc.Card.IsUpgraded, Ribbon: buy ? OfferMarkers.BuyRibbon : null);
         }).ToArray();
         return (section, badges, null, OfferMarkers.RemovalText(eval, _cards.Name, EnchantmentName));
@@ -836,17 +842,14 @@ public sealed partial class AppController : IDisposable
                     .Select(copies =>
                     {
                         var copy = copies.First();
-                        var tier = TierOf(run, copy.Id);
                         var text = _cardText.ForDeck(copy, Loc.CurrentCode);
                         var name = text?.Base.Title ?? _cards.Name(copy.Card);
                         string? enchantment = copy.EnchantmentId is { } ench
                             ? $"{_relicInfo.EnchantmentName(ench, Loc.CurrentCode)} ×{copy.EnchantmentAmount}" : null;
-                        return (Tier: tier, Vm: new DeckCardVm(tier?.ToString() ?? "?", name, $"×{copies.Count()}",
-                            copy.Card.IsUpgraded, _snapshot.Doubts?.ReasonText(copy.Id), ArtOf(copy.Id), text, enchantment));
+                        return new DeckCardVm(name, $"×{copies.Count()}",
+                            copy.Card.IsUpgraded, _snapshot.Doubts?.ReasonText(copy.Id), ArtOf(copy.Id), text, enchantment);
                     })
-                    .OrderBy(x => x.Tier is null ? 99 : (int)x.Tier)
-                    .ThenBy(x => x.Vm.Name, StringComparer.CurrentCulture)
-                    .Select(x => x.Vm)
+                    .OrderBy(x => x.Name, StringComparer.CurrentCulture)
                     .ToArray();
                 return new DeckGroupVm($"{DeckGroupName(g.Key)} ({g.Count()})", cards);
             })
@@ -905,12 +908,6 @@ public sealed partial class AppController : IDisposable
         _ => Loc.T("기타", "Other"),
     };
 
-    private Tier? TierOf(RunState run, string id)
-    {
-        var entry = _engine.Pack.FindTier(run.Character, id);
-        if (entry is null) return null;
-        return entry.ActTier is not null && entry.ActTier.TryGetValue(run.Act, out var t) ? t : entry.Tier;
-    }
 
 
     // ---- visibility / windows ----------------------------------------------------------------------------------

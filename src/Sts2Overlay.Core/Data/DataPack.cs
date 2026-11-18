@@ -19,9 +19,6 @@ public sealed class DataPack
     public IReadOnlyList<Combo> Combos { get; init; } = [];
     public CardCatalog? Catalog { get; init; }
 
-    /// <summary>Measured event/ancient choice rates (<c>events.stats.json</c>); null when the pack has none.</summary>
-    public EventStats? EventStats { get; init; }
-
     /// <summary>Measured relic pick rates (<c>relics.json</c>); null when the pack has none.</summary>
     public RelicStats? RelicStats { get; init; }
 

@@ -5,7 +5,10 @@ using System.Windows.Media;
 
 namespace Sts2Overlay.App.Views;
 
-/// <summary>Tier letter → brush. PLAN §8: S gold, A purple, B blue, C grey, D dark red. ConverterParameter "fg" gives a readable text colour.</summary>
+/// <summary>
+/// Rank text → brush: the AI's first pick ("1위" / "#1") gold, every other rank grey. A tier letter (S gold, A purple, B blue,
+/// C grey, D dark red) is still understood for old callers. ConverterParameter "fg" gives a readable text colour.
+/// </summary>
 public sealed class TierBrushConverter : IValueConverter
 {
     private static readonly Brush S = Frozen(0xF1, 0xC4, 0x0F);
@@ -20,10 +23,10 @@ public sealed class TierBrushConverter : IValueConverter
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         var tier = value as string;
-        if (parameter as string == "fg") return tier is "S" or "C" ? Dark : Light;
+        if (parameter as string == "fg") return tier is "S" or "C" or "1위" or "#1" ? Dark : Light;
         return tier switch
         {
-            "S" => S,
+            "S" or "1위" or "#1" => S,
             "A" => A,
             "B" => B,
             "C" => C,

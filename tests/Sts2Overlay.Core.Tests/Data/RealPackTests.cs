@@ -194,11 +194,9 @@ public abstract class RealPackTests
         Assert.Equal(expected, Pack.Value.Archetypes.Count(a => a.Character == character));
     }
 
-    // ---- v2 measured rates: events.stats.json, relics.json ----
+    // ---- v2 measured rates: relics.json ----
 
     private const string StatsSourcePrefix = "opgg-top-a10-2026-11";
-
-    private Lazy<EventCatalog> EventsJson => new(() => Cached("events", () => EventCatalog.LoadFile(Path.Combine(PackDir, "events.json"))));
 
     private Lazy<HashSet<string>> KnownRelics => new(() => Cached("relics", () =>
     {
@@ -207,71 +205,20 @@ public abstract class RealPackTests
     }));
 
     /// <summary>
-    /// Ids in the v2 data that the v0.107.1 game does not have: the sample pools v0.107.x with the v0.108–v0.111 beta.
-    /// NEOWS_SACRIFICE / DOWSING_ROD are not in the v0.107.1 relic catalog; the OROBAS ids are character ids, not v0.107.1 OROBAS buttons.
-    /// They never match a key at runtime (no v0.107.1 option has these ids), so they are inert; listed so a new unknown id still fails.
+    /// Relic ids in the v2 data that the v0.107.1 game does not have: the sample pools v0.107.x with the v0.108–v0.111 beta.
+    /// NEOWS_SACRIFICE / DOWSING_ROD are not in the v0.107.1 relic catalog. They never match at runtime, so they are inert;
+    /// listed so a new unknown id still fails.
     /// </summary>
-    protected abstract string[] NewerAncientOptions { get; }
-
     protected abstract string[] NewerRelics { get; }
-
-    /// <summary>Options in events.stats.json (docs/research/v2-stats/events.md).</summary>
-    protected abstract int EventStatsOptionCount { get; }
-
-    protected static readonly string[] NewerAncientOptionsV0107 = ["NEOW.NEOWS_SACRIFICE", "OROBAS.IRONCLAD", "OROBAS.REGENT", "OROBAS.SILENT"];
 
     protected static readonly string[] NewerRelicsV0107 = ["RELIC.DOWSING_ROD", "RELIC.NEOWS_SACRIFICE"];
 
     [Fact]
     public void StatsFiles_AreLoaded_WithTheV2Source()
     {
-        var events = Assert.IsType<EventStats>(Pack.Value.EventStats);
         var relics = Assert.IsType<RelicStats>(Pack.Value.RelicStats);
-        Assert.StartsWith(StatsSourcePrefix, events.Source, StringComparison.Ordinal);
         Assert.StartsWith(StatsSourcePrefix, relics.Source, StringComparison.Ordinal);
-        Assert.NotEmpty(events.Events);
-        Assert.NotEmpty(events.Ancients);
         Assert.Contains(relics.Relics.Values, r => r.Use == true);
-    }
-
-    [Fact]
-    public void EveryEventStatsOption_ExistsInEventsJson()
-    {
-        var missing = new List<string>();
-        var count = 0;
-        foreach (var (eventId, pages) in Pack.Value.EventStats!.Events)
-        {
-            Assert.NotNull(EventsJson.Value.Find($"EVENT.{eventId}"));
-            foreach (var (page, p) in pages)
-            {
-                Assert.True(p.Options.Count <= p.K, $"{eventId}.{page}: {p.Options.Count} options listed but k = {p.K}");
-                foreach (var option in p.Options.Keys)
-                {
-                    count++;
-                    var key = $"{eventId}.pages.{page}.options.{option}";
-                    if (EventsJson.Value.FindOption(key) is null) missing.Add(key);
-                }
-            }
-        }
-        Assert.True(missing.Count == 0, "Not in events.json:" + Environment.NewLine + string.Join(Environment.NewLine, missing));
-        Assert.Equal(EventStatsOptionCount, count);
-    }
-
-    [Fact]
-    public void EveryAncientStatsOption_IsAnAncientOptionInEventsJson_OrADocumentedNewerId()
-    {
-        var unmatched = new List<string>();
-        foreach (var (ancient, options) in Pack.Value.EventStats!.Ancients)
-        {
-            var def = EventsJson.Value.Find($"EVENT.{ancient}");
-            Assert.True(def is { IsAncient: true }, $"{ancient} is not an ancient in events.json");
-            foreach (var option in options.Keys)
-            {
-                // The key is built the way NeowOptions / the log name an ancient's buttons.
-                if (EventsJson.Value.FindOption($"{ancient}.pages.INITIAL.options.{option}") is null) unmatched.Add($"{ancient}.{option}");
-            }
-        }
-        Assert.Equal(NewerAncientOptions.Order(StringComparer.Ordinal), unmatched.Order(StringComparer.Ordinal));
     }
 
     [Fact]
@@ -305,9 +252,7 @@ public sealed class RealPackTestsV0107 : RealPackTests
 {
     protected override string Version => "v0.107.1";
     protected override string[] IntentionallyCoreless => IntentionallyCorelessV0107;
-    protected override string[] NewerAncientOptions => NewerAncientOptionsV0107;
     protected override string[] NewerRelics => NewerRelicsV0107;
-    protected override int EventStatsOptionCount => 115;
 }
 
 /// <summary>The v0.111.0 pack against the v0.111.0 catalogs.</summary>
@@ -326,7 +271,5 @@ public sealed class RealPackTestsV0111 : RealPackTests
         "regent.forge",
     ];
     // v0.111 has Neow's Sacrifice; the OROBAS ids are still character ids, not OROBAS buttons.
-    protected override string[] NewerAncientOptions => ["OROBAS.IRONCLAD", "OROBAS.REGENT", "OROBAS.SILENT"];
     protected override string[] NewerRelics => [];
-    protected override int EventStatsOptionCount => 115;
 }

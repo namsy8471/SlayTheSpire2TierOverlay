@@ -14,7 +14,6 @@ namespace Sts2Overlay.Core.Data;
 /// aliases.json            (optional) { "OLD_ID": "NEW_ID" }
 /// text.eng.json           (optional) English for the Korean tips, combo names/reasons, archetype descriptions (PackText)
 /// catalog.json            (optional) CardCatalog; usually passed in instead (catalog / catalogPath)
-/// events.stats.json       (optional) EventStats: measured event/ancient choice rates
 /// relics.json             (optional) RelicStats: measured relic pick rates
 /// relic-fit.json          (optional) RelicFit: measured relic pick rates per build
 /// </code>
@@ -37,7 +36,6 @@ public static class DataPackLoader
     public const string WeightsFile = "weights.json";
     public const string AliasesFile = "aliases.json";
     public const string CatalogFile = "catalog.json";
-    public const string EventStatsFile = "events.stats.json";
     public const string RelicStatsFile = "relics.json";
     public const string RelicFitFile = "relic-fit.json";
     public const string CardPolicyFile = "model/card-policy.json";
@@ -192,8 +190,6 @@ public static class DataPackLoader
         }
 
         // Measured rates: optional. Absent → null, and the scorers behave exactly as without them.
-        var eventStatsPath = Path.Combine(directory, EventStatsFile);
-        var eventStats = File.Exists(eventStatsPath) ? LoadFile(eventStatsPath, LoadEventStats) : null;
         var relicStatsPath = Path.Combine(directory, RelicStatsFile);
         var relicStats = File.Exists(relicStatsPath) ? LoadFile(relicStatsPath, LoadRelicStats) : null;
         var relicFitPath = Path.Combine(directory, RelicFitFile);
@@ -250,7 +246,6 @@ public static class DataPackLoader
             Combos = combos,
             IdAliases = aliases,
             Catalog = catalog,
-            EventStats = eventStats,
             RelicStats = relicStats,
             RelicFit = relicFit,
             CardPolicy = cardPolicy,
@@ -259,9 +254,6 @@ public static class DataPackLoader
             RunBaseline = baselineModelDir is null ? null : LoadFile(Path.Combine(baselineModelDir, adjustFile), Learning.RunBaselinePolicy.Load),
         };
     }
-
-    /// <summary><c>events.stats.json</c>: measured event and ancient choice rates.</summary>
-    public static EventStats LoadEventStats(string json) => Deserialize<EventStats>(json, "event stats");
 
     /// <summary><c>relics.json</c>: measured relic pick rates.</summary>
     public static RelicStats LoadRelicStats(string json) => Deserialize<RelicStats>(json, "relic stats");

@@ -78,7 +78,7 @@ public sealed record OfferSectionVm
 
 /// <param name="Doubt">Why the log-only rebuild is unsure of this card (shown as a "?" with this tooltip); null = certain.</param>
 /// <param name="Art">Card portrait (thumbnail + hover image); null when the art isn't extracted.</param>
-public sealed record DeckCardVm(string TierText, string Name, string CountText, bool IsUpgraded, string? Doubt = null,
+public sealed record DeckCardVm(string Name, string CountText, bool IsUpgraded, string? Doubt = null,
     CardArtVm? Art = null, CardText? Text = null, string? Enchantment = null);
 
 public sealed record DeckGroupVm(string Title, IReadOnlyList<DeckCardVm> Cards);

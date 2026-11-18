@@ -135,7 +135,7 @@ public sealed class UpgradeAdvisor(DataPack pack)
         var rated = calibrated || (entry is not null && entry.UpgradedDelta > 0 && double.IsFinite(entry.UpgradedDelta));
         var value = calibrated ? entry!.UpgradeValue!.Value : rated ? entry!.UpgradedDelta : fallbackDelta;
         parts.Add(new ScoreComponent(UpgradeComponentKeys.Upgrade, Loc.T($"강화 {Signed(value)}", $"Upgrade {Signed(value)}"), value,
-            calibrated ? Loc.T("랭커 강화 선택으로 보정한 카드별 강화 가치", "Per-card upgrade value calibrated on top players' upgrades")
+            calibrated ? Loc.T("카드별 강화 가치", "Per-card upgrade value")
             : rated ? Loc.T("티어 팩 upgradedDelta", "Tier pack upgradedDelta")
             : Loc.T("팩에 값 없음: 캐릭터 평균 (추정)", "Not in pack: character average (estimate)")));
 

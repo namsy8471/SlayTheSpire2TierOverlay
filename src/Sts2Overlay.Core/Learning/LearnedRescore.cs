@@ -121,7 +121,7 @@ public static class LearnedRescore
         public void FoldInto(List<ScoreComponent> comps, string key)
         {
             if (_labels.Count == 0) return;
-            var detail = Loc.T($"랭커 기준으로 다시 잰 요소: {string.Join(", ", _labels)}", $"Re-weighed by top players' picks: {string.Join(", ", _labels)}");
+            var detail = Loc.T($"학습 모델이 다시 잰 요소: {string.Join(", ", _labels)}", $"Re-weighed by the learned model: {string.Join(", ", _labels)}");
             var i = comps.FindIndex(c => c.Key == key);
             if (i >= 0)
             {
@@ -150,7 +150,7 @@ public static class LearnedRescore
 
     private static string? Label(string key) => key switch
     {
-        PolicyKeys.CardValue => Loc.T("상위 랭커 선호", "Top players' preference"),
+        PolicyKeys.CardValue => Loc.T("학습된 카드 가치", "Learned card value"),
         PolicyKeys.DeckFit => Loc.T("덱 궁합", "Deck fit"),
         PolicyKeys.Upgraded => Loc.T("강화됨", "Upgraded"),
         PolicyKeys.Copies => Loc.T("이미 보유", "Already owned"),

@@ -68,11 +68,13 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
               </Grid.ColumnDefinitions>
-              <!-- Tier letter tile -->
+              <!-- AI rank tile ("1위") -->
               <Border Width="31" Height="31" CornerRadius="6" VerticalAlignment="Center"
                       Background="{Binding TierText, Converter={StaticResource TierBrush}}">
-                <TextBlock Text="{Binding TierText}" FontSize="21" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"
-                           Foreground="{Binding TierText, Converter={StaticResource TierBrush}, ConverterParameter=fg}" />
+                <Viewbox Margin="3" StretchDirection="DownOnly">
+                  <TextBlock Text="{Binding TierText}" FontSize="21" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"
+                             Foreground="{Binding TierText, Converter={StaticResource TierBrush}, ConverterParameter=fg}" />
+                </Viewbox>
               </Border>
               <!-- Score, upgrade "+", estimate tag -->
               <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="7,0,0,0">
