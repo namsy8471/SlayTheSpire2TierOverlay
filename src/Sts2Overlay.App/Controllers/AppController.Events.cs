@@ -29,7 +29,7 @@ namespace Sts2Overlay.App.Controllers;
 public sealed partial class AppController
 {
     private EventScorer? _eventScorer;
-    private readonly BaselineEventChoices _baselineEvents = new();
+    private BaselineEventChoices _baselineEvents = new();
     private AdoptedEventChoices? _adoptedEvents;
     private EventTextProvider _eventText = EventTextProvider.Empty;
     private EventScreenTracker? _eventScreens;
@@ -52,6 +52,17 @@ public sealed partial class AppController
 
     private sealed record DummyForecast(string Key, DamageForecast Forecast, IReadOnlyList<string> Notes);
 
+    /// <summary>The run as the simulator sees it at an Ancient's question (<c>AncientEventModel</c>): the entry heal (all
+    /// missing HP, 80 % of it from ascension 2, Weary Traveler) comes before the choice, while the room-entry save predates
+    /// it; Neow first sets HP to 0. Fractions are rounded down here (only the HP bucket reads it).</summary>
+    private static Core.Model.RunState AtQuestion(Core.Model.RunState run, EventDef ev)
+    {
+        if (!AdoptedEventChoices.IsAncient(ev.Id) || run.MaxHp <= 0) return run;
+        var hp = ev.Id == "EVENT.NEOW" ? 0 : Math.Min(run.Hp, run.MaxHp);
+        var missing = run.MaxHp - hp;
+        return run with { Hp = hp + (run.Ascension >= 2 ? missing * 8 / 10 : missing) };
+    }
+
     private void InitEvents(string packDir)
     {
         _baselineEvents.Reset();
@@ -65,6 +76,13 @@ public sealed partial class AppController
         {
             AppLog.Error("events: load failed", ex);
             catalog = EventCatalog.Empty;
+        }
+        try { _baselineEvents = new BaselineEventChoices(BaselineEventChoices.LoadRelicClasses(packDir)); }
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or System.Text.Json.JsonException
+            or InvalidOperationException or KeyNotFoundException)
+        {
+            AppLog.Error("event adjustment relic names: load failed; Ancient relic options keep the rule", ex);
+            _baselineEvents = new BaselineEventChoices();
         }
         try { _adoptedEvents = AdoptedEventChoices.LoadDirectory(packDir); }
         catch (Exception ex) when (ex is System.IO.IOException or System.IO.InvalidDataException or UnauthorizedAccessException
@@ -148,9 +166,9 @@ public sealed partial class AppController
         try
         {
             eval = _eventScorer.Evaluate(run, active.EventId, keys, page, active.PossibleKeys, context);
-            if (eval is not null && _engine.UseLearnedModel && Core.Learning.RunBaselinePolicy.For(_engine.Pack, run) is not null)
+            if (eval is not null && _engine.UseLearnedModel && Core.Learning.RunBaselinePolicy.For(_engine.Pack, run) is { } runPolicy)
             {
-                eval = _baselineEvents.Apply(eval, run.Floor, run.Hp, lastChoice);
+                eval = _baselineEvents.Apply(eval, run.Floor, run.Hp, lastChoice, runPolicy, AtQuestion(run, eval.Event));
                 // A0 ancient entry heals all missing HP before its choice; the room-entry save predates that heal.
                 var visible = eval.Event.IsAncient ? run with { Hp = run.MaxHp } : run;
                 eval = _adoptedEvents?.Apply(eval, visible, active.Certain && !tracked.DeckApproximate && tracked.HpGoldReliable, lastChoice) ?? eval;
@@ -184,9 +202,9 @@ public sealed partial class AppController
         {
             var again = scorer.Evaluate(run, active.EventId, keys, page, active.PossibleKeys, context);
             if (again is null) return null;
-            if (_engine.UseLearnedModel && Core.Learning.RunBaselinePolicy.For(_engine.Pack, run) is not null)
+            if (_engine.UseLearnedModel && Core.Learning.RunBaselinePolicy.For(_engine.Pack, run) is { } againPolicy)
             {
-                again = _baselineEvents.Apply(again, run.Floor, run.Hp, lastChoice);
+                again = _baselineEvents.Apply(again, run.Floor, run.Hp, lastChoice, againPolicy, AtQuestion(run, again.Event));
                 var visible = again.Event.IsAncient ? run with { Hp = run.MaxHp } : run;
                 again = _adoptedEvents?.Apply(again, visible, active.Certain && !tracked.DeckApproximate && tracked.HpGoldReliable, lastChoice) ?? again;
             }

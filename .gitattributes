@@ -11,3 +11,8 @@ data/advisor/combat-value-silent.json -text
 data/advisor/combat-value-necrobinder.json -text
 data/advisor/combat-value-regent.json -text
 data/advisor/combat-value-fool.json -text
+data/packs/v0.111.0/model/run-baseline/characters/defect/adjust.json -text
+data/packs/v0.111.0/model/run-baseline/characters/silent/adjust.json -text
+data/packs/v0.111.0/model/run-baseline/characters/necrobinder/adjust.json -text
+data/packs/v0.111.0/model/run-baseline/characters/regent/adjust.json -text
+data/packs/v0.111.0/model/run-baseline/characters/defect/adjust-a0.json -text

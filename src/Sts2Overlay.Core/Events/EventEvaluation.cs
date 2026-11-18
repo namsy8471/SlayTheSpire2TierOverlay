@@ -67,6 +67,9 @@ public sealed record EventEvaluation
     public bool UsedRunBaseline { get; init; }
     public bool UsedAdoptedPolicy { get; init; }
 
+    /// <summary>The learned event adjustment moved the pick off the rule's button.</summary>
+    public bool UsedEventAdjust { get; init; }
+
     /// <summary>
     /// An ancient's options that could have been drawn but weren't offered this time, ranked among themselves (rank 1 =
     /// best of them; never <see cref="EventOptionEvaluation.IsBest"/>). For reference only: they don't change

@@ -6,12 +6,21 @@ namespace Sts2Overlay.Core.Learning;
 
 public sealed record BaselineCandidate(string Type, string? Id = null, int Upgrades = 0, int? Price = null, bool Legal = true);
 
+/// <summary>An event button as the simulator's adjustment reads it: its option id (an Ancient's relic option: the relic's
+/// class name), the relic it offers (an Ancient's relic option only, id without <c>RELIC.</c>) and whether it can be taken.</summary>
+public sealed record EventCandidate(string Id, string? Relic, bool Legal);
+
 /// <summary>Learned adjustments for the full-run policy's rest, shop and map choices.</summary>
 public sealed class RunBaselinePolicy(IReadOnlyDictionary<string, double> weights)
 {
-    internal static bool Supports(RunState state) => state.Character == "CHARACTER.IRONCLAD"
-        && state.IsStandardRun && !state.IsMultiplayer && state.Ascension is 0 or 10 && state.VitalsKnown
-        && state.SaveSchemaVersion is null or 20 or 21;
+    internal const string Ironclad = "CHARACTER.IRONCLAD";
+
+    /// <summary>Solo standard runs at the measured ascensions: Ironclad's adopted policy A0 and A10; the other characters'
+    /// adjustments (learned at A8) A0, A8 and A10. Which characters have a policy is the pack's
+    /// <see cref="DataPack.ForRun"/>.</summary>
+    internal static bool Supports(RunState state) =>
+        state.IsStandardRun && !state.IsMultiplayer && state.VitalsKnown && state.SaveSchemaVersion is null or 20 or 21
+        && (state.Character == Ironclad ? state.Ascension is 0 or 10 : state.Ascension is 0 or 8 or 10);
 
     public static RunBaselinePolicy? For(DataPack pack, RunState state) =>
         Supports(state) ? pack.ForRun(state).RunBaseline : null;
@@ -81,6 +90,51 @@ public sealed class RunBaselinePolicy(IReadOnlyDictionary<string, double> weight
             }
         }
         return best;
+    }
+
+    /// <summary>True when the file has event weights (the simulator's <c>--adjust-kinds event</c>).</summary>
+    public bool HasEventWeights => _hasEvent ??= weights.Keys.Any(k => k.StartsWith("event:", StringComparison.Ordinal));
+    private bool? _hasEvent;
+
+    /// <summary>
+    /// The simulator's event adjustment (sts2-agent <c>runs/adjust.rs</c>, kind <c>event</c>): each legal button's total over
+    /// <c>event:rule</c> (the rule's pick), <c>event:E|O</c>, <c>event:E|O|hH</c>, <c>event:E|O|aA</c>, <c>event:E|O|gG</c> (gold at
+    /// the question), <c>event:E|O|C</c> (character) and for a relic option <c>event:relic|R</c>, <c>event:relic|R|C</c>. The
+    /// highest total wins; an exact tie goes to the rule, then to the lower index. Returns <paramref name="rule"/> when it is
+    /// not a legal index.
+    /// </summary>
+    public int PickEvent(RunState state, string eventId, IReadOnlyList<EventCandidate> options, int rule)
+    {
+        if (rule < 0 || rule >= options.Count || !options[rule].Legal) return rule;
+        var e = eventId.StartsWith("EVENT.", StringComparison.Ordinal) ? eventId["EVENT.".Length..] : eventId;
+        var h = HpBucket(state);
+        var g = state.Gold < 50 ? 0 : state.Gold < 150 ? 1 : 2;
+        var c = (state.Character ?? "").Replace("CHARACTER.", "", StringComparison.Ordinal).ToLowerInvariant();
+        double Total(int i)
+        {
+            var o = options[i];
+            var t = i == rule ? Weight("event:rule") : 0;
+            t += Weight($"event:{e}|{o.Id}") + Weight($"event:{e}|{o.Id}|h{h}") + Weight($"event:{e}|{o.Id}|a{state.Act}")
+                + Weight($"event:{e}|{o.Id}|g{g}") + Weight($"event:{e}|{o.Id}|{c}");
+            if (o.Relic is not null) t += Weight($"event:relic|{o.Relic}") + Weight($"event:relic|{o.Relic}|{c}");
+            return t;
+        }
+        var best = rule;
+        var bestTotal = Total(rule);
+        for (var i = 0; i < options.Count; i++)
+        {
+            if (!options[i].Legal) continue;
+            var t = Total(i);
+            if (t > bestTotal) { best = i; bestTotal = t; }
+        }
+        return best;
+    }
+
+    private static int HpBucket(RunState state)
+    {
+        var hp = (long)state.Hp * 10;
+        var max = (long)state.MaxHp;
+        return max <= 0 || hp < 3 * max ? 0 : hp < 5 * max ? 1 : hp < 7 * max ? 2 : hp < 9 * max ? 3 : 4;
     }
 
     private double Weight(string key) => weights.GetValueOrDefault(key);
