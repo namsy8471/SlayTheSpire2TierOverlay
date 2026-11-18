@@ -145,4 +145,26 @@ public class RunBaselinePolicyTests
         Assert.Equal(Hold(-1), Pick(new BaselineEventChoices(), -1, 24, null)); // 24 - 3 = 21 = 30 % of 70: allowed
         Assert.Equal("HOLD_ON", BaselineEventChoices.Repeat("SLIPPERY_BRIDGE.pages.HOLD_ON_6.options.HOLD_ON_LOOP"));
     }
+
+    /// <summary>The five v0.113 events added to events.json (11-18): their buttons line up and the simulator's learned
+    /// event adjustment, not pick statistics, ranks them.</summary>
+    [Theory]
+    [InlineData("EVENT.MUSEUM_OF_TORTURE", "DISPLAY", 2)]
+    [InlineData("EVENT.SHRINE_OF_THE_WARLORD", "INITIAL", 3)]
+    [InlineData("EVENT.THERMAE_NONUPEIPE", "INITIAL", 3)]
+    [InlineData("EVENT.WATERFALL_OF_OBVIOUS_SECRETS", "ENTER", 1)]
+    [InlineData("EVENT.WUPPY_IN_TROUBLE", "INITIAL", 1)]
+    public void V113_events_are_ranked_by_the_run_baseline(string eventId, string page, int act)
+    {
+        var catalog = EventCatalog.LoadDirectory(Path.Combine(TestPaths.RepoRoot, "data", "packs", "v0.111.0"));
+        var scorer = new EventScorer(Pack.Value, catalog) { UseLearnedModel = true };
+        var run = new RunState { Character = "CHARACTER.NECROBINDER", Act = act, Hp = 50, MaxHp = 80, Gold = 200, Floor = 5 + 17 * act, VitalsKnown = true };
+        var def = catalog.Find(eventId)!.FindPage(page)!;
+        var keys = EventSlots.Keys(def, EventSlots.Displayed(def).Count)!;
+        var ev = scorer.Evaluate(run, eventId, keys, page)!;
+        var picked = new BaselineEventChoices().Apply(ev, run.Floor, run.Hp, null, RunBaselinePolicy.For(Pack.Value, run), run, run.MaxHp);
+        Assert.True(picked.OptionsExact, eventId);
+        Assert.True(picked.UsedRunBaseline, eventId);
+        Assert.NotNull(picked.Best);
+    }
 }

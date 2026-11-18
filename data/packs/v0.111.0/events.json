@@ -2072,6 +2072,84 @@
    ]
   },
   {
+   "id": "EVENT.MUSEUM_OF_TORTURE",
+   "kind": "event",
+   "shared": false,
+   "acts": [
+    "ACT.OVERGROWTH",
+    "ACT.HIVE",
+    "ACT.GLORY",
+    "ACT.UNDERDOCKS"
+   ],
+   "allowed": "CurrentActIndex == 1 (act 2 only)",
+   "vars": {},
+   "notes": "New in v0.113. The relic is drawn when the event starts: Rng.NextItem of OBSIDIAN_VICE, THUMBSCREW, TORMENTOUS_COLLAR (equal odds). Take adds a random curse (curse pool, NonCombatGeneration rng).",
+   "pages": [
+    {
+     "page": "INITIAL",
+     "options": [
+      {
+       "key": "MUSEUM_OF_TORTURE.pages.INITIAL.options.CONTINUE",
+       "condition": null,
+       "effects": [],
+       "next": "LOCKED",
+       "leave": false
+      }
+     ]
+    },
+    {
+     "page": "LOCKED",
+     "options": [
+      {
+       "key": "MUSEUM_OF_TORTURE.pages.LOCKED.options.CONTINUE",
+       "condition": null,
+       "effects": [],
+       "next": "DISPLAY",
+       "leave": false
+      }
+     ]
+    },
+    {
+     "page": "DISPLAY",
+     "options": [
+      {
+       "key": "MUSEUM_OF_TORTURE.pages.DISPLAY.options.TAKE",
+       "condition": null,
+       "effects": [
+        {
+         "type": "relic",
+         "relic": null,
+         "tier": "event",
+         "count": 1,
+         "note": "random 1 of RELIC.OBSIDIAN_VICE, THUMBSCREW, TORMENTOUS_COLLAR (equal odds)"
+        },
+        {
+         "type": "curse",
+         "card": null,
+         "count": 1,
+         "note": "random curse from the curse pool"
+        }
+       ],
+       "next": null,
+       "leave": false
+      },
+      {
+       "key": "MUSEUM_OF_TORTURE.pages.DISPLAY.options.BREAK_OUT",
+       "condition": null,
+       "effects": [
+        {
+         "type": "maxHp",
+         "amount": -10
+        }
+       ],
+       "next": null,
+       "leave": false
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "EVENT.NEOW",
    "kind": "ancient",
    "shared": false,
@@ -4035,6 +4113,75 @@
    ]
   },
   {
+   "id": "EVENT.SHRINE_OF_THE_WARLORD",
+   "kind": "event",
+   "shared": false,
+   "acts": [
+    "ACT.GLORY"
+   ],
+   "allowed": "the act's ancient is not EVENT.TANX",
+   "vars": {},
+   "notes": "New in v0.113.",
+   "pages": [
+    {
+     "page": "INITIAL",
+     "options": [
+      {
+       "key": "SHRINE_OF_THE_WARLORD.pages.INITIAL.options.TAKE_WEAPON",
+       "condition": null,
+       "effects": [
+        {
+         "type": "cardAdd",
+         "card": "CARD.MIGHTY_WEAPON",
+         "pool": null,
+         "rarity": null,
+         "count": 1,
+         "how": "fixed"
+        }
+       ],
+       "next": null,
+       "leave": false
+      },
+      {
+       "key": "SHRINE_OF_THE_WARLORD.pages.INITIAL.options.TAKE_SHIELD",
+       "condition": null,
+       "effects": [
+        {
+         "type": "cardAdd",
+         "card": "CARD.MIGHTY_SHIELD",
+         "pool": null,
+         "rarity": null,
+         "count": 1,
+         "how": "fixed"
+        }
+       ],
+       "next": null,
+       "leave": false
+      },
+      {
+       "key": "SHRINE_OF_THE_WARLORD.pages.INITIAL.options.TAKE_WINGS",
+       "condition": null,
+       "effects": [
+        {
+         "type": "curse",
+         "card": "CARD.CLUMSY",
+         "count": 1
+        },
+        {
+         "type": "relic",
+         "relic": "RELIC.MIGHTY_WINGS",
+         "tier": "event",
+         "count": 1
+        }
+       ],
+       "next": null,
+       "leave": false
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "EVENT.SLIPPERY_BRIDGE",
    "kind": "event",
    "shared": false,
@@ -5410,6 +5557,85 @@
    ]
   },
   {
+   "id": "EVENT.THERMAE_NONUPEIPE",
+   "kind": "event",
+   "shared": false,
+   "acts": [
+    "ACT.GLORY"
+   ],
+   "allowed": "gold > 175 and HP <= 75 % of max HP, and the act's ancient is not EVENT.NONUPEIPE",
+   "vars": {},
+   "notes": "New in v0.113. The drink's relic is drawn when the event starts: Rng.NextItem of BLESSED_ANTLER, BRILLIANT_SCARF, DELICATE_FROND, DIAMOND_DIADEM, FUR_COAT, GLITTER, JEWELRY_BOX, SIGNET_RING, BEAUTIFUL_BRACELET (equal odds).",
+   "pages": [
+    {
+     "page": "INITIAL",
+     "options": [
+      {
+       "key": "THERMAE_NONUPEIPE.pages.INITIAL.options.THERMAL_BATHS",
+       "condition": null,
+       "effects": [
+        {
+         "type": "gold",
+         "amount": -88
+        },
+        {
+         "type": "relic",
+         "relic": "RELIC.BATH_TOWEL",
+         "tier": "event",
+         "count": 1
+        }
+       ],
+       "next": null,
+       "leave": false
+      },
+      {
+       "key": "THERMAE_NONUPEIPE.pages.INITIAL.options.PRIVATE_OASIS",
+       "condition": null,
+       "effects": [
+        {
+         "type": "gold",
+         "amount": "-gold"
+        },
+        {
+         "type": "relic",
+         "relic": "RELIC.BATH_ROBES",
+         "tier": "event",
+         "count": 1
+        }
+       ],
+       "next": null,
+       "leave": false
+      },
+      {
+       "key": "THERMAE_NONUPEIPE.pages.INITIAL.options.DRINK_WATERS",
+       "condition": null,
+       "effects": [
+        {
+         "type": "hpLoss",
+         "amount": 31,
+         "note": "unblockable damage"
+        },
+        {
+         "type": "curse",
+         "card": "CARD.GUILTY",
+         "count": 3
+        },
+        {
+         "type": "relic",
+         "relic": null,
+         "tier": "event",
+         "count": 1,
+         "note": "random 1 of 9 relics (see notes)"
+        }
+       ],
+       "next": null,
+       "leave": false
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "EVENT.THE_ARCHITECT",
    "kind": "event",
    "shared": false,
@@ -6536,6 +6762,99 @@
    ]
   },
   {
+   "id": "EVENT.WATERFALL_OF_OBVIOUS_SECRETS",
+   "kind": "event",
+   "shared": false,
+   "acts": [
+    "ACT.UNDERDOCKS"
+   ],
+   "allowed": null,
+   "vars": {},
+   "notes": "New in v0.113.",
+   "pages": [
+    {
+     "page": "INITIAL",
+     "options": [
+      {
+       "key": "WATERFALL_OF_OBVIOUS_SECRETS.pages.INITIAL.options.ENTER",
+       "condition": null,
+       "effects": [],
+       "next": "ENTER",
+       "leave": false
+      }
+     ]
+    },
+    {
+     "page": "ENTER",
+     "options": [
+      {
+       "key": "WATERFALL_OF_OBVIOUS_SECRETS.pages.ENTER.options.BE_NICE",
+       "condition": null,
+       "effects": [
+        {
+         "type": "cardAdd",
+         "card": "CARD.DINGY_DAGGER",
+         "pool": null,
+         "rarity": null,
+         "count": 1,
+         "how": "fixed"
+        }
+       ],
+       "next": null,
+       "leave": false
+      },
+      {
+       "key": "WATERFALL_OF_OBVIOUS_SECRETS.pages.ENTER.options.BEAT_UP",
+       "condition": null,
+       "effects": [
+        {
+         "type": "relic",
+         "relic": null,
+         "tier": "event",
+         "count": 1,
+         "note": "next relic from the front of the relic bag (rarity rolled C 50% / U 33% / R 17%)"
+        },
+        {
+         "type": "curse",
+         "card": "CARD.GUILTY",
+         "count": 2
+        }
+       ],
+       "next": null,
+       "leave": false
+      },
+      {
+       "key": "WATERFALL_OF_OBVIOUS_SECRETS.pages.ENTER.options.NEGOTIATE",
+       "condition": "gold >= 70",
+       "effects": [
+        {
+         "type": "gold",
+         "amount": -70
+        },
+        {
+         "type": "cardAdd",
+         "card": null,
+         "pool": "character",
+         "rarity": "Rare",
+         "count": 1,
+         "how": "random"
+        }
+       ],
+       "next": null,
+       "leave": false
+      },
+      {
+       "key": "WATERFALL_OF_OBVIOUS_SECRETS.pages.ENTER.options.NEGOTIATE_LOCKED",
+       "condition": "shown instead of NEGOTIATE when gold < 70 (disabled)",
+       "effects": [],
+       "next": null,
+       "leave": false
+      }
+     ]
+    }
+   ]
+  },
+  {
    "id": "EVENT.WATERLOGGED_SCRIPTORIUM",
    "kind": "event",
    "shared": false,
@@ -6865,6 +7184,76 @@
          "count": 1,
          "how": "choose",
          "filter": "Basic rarity -> CARD.TORIC_TOUGHNESS"
+        }
+       ],
+       "next": null,
+       "leave": false
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": "EVENT.WUPPY_IN_TROUBLE",
+   "kind": "event",
+   "shared": false,
+   "acts": [
+    "ACT.UNDERDOCKS"
+   ],
+   "allowed": "HP > 0 and no event pet",
+   "vars": {},
+   "notes": "New in v0.113. Wuppy's counter starts at 60 (Help) or 30 (Be cautious).",
+   "pages": [
+    {
+     "page": "INITIAL",
+     "options": [
+      {
+       "key": "WUPPY_IN_TROUBLE.pages.INITIAL.options.HELP_IMMEDIATELY",
+       "condition": null,
+       "effects": [
+        {
+         "type": "curse",
+         "card": "CARD.INJURY",
+         "count": 1
+        },
+        {
+         "type": "relic",
+         "relic": "RELIC.WUPPY",
+         "tier": "event",
+         "count": 1
+        }
+       ],
+       "next": null,
+       "leave": false
+      },
+      {
+       "key": "WUPPY_IN_TROUBLE.pages.INITIAL.options.BE_CAUTIOUS",
+       "condition": null,
+       "effects": [
+        {
+         "type": "hpLoss",
+         "amount": "hp*0.05",
+         "note": "unblockable damage of 5 % of current HP"
+        },
+        {
+         "type": "relic",
+         "relic": "RELIC.WUPPY",
+         "tier": "event",
+         "count": 1
+        }
+       ],
+       "next": null,
+       "leave": false
+      },
+      {
+       "key": "WUPPY_IN_TROUBLE.pages.INITIAL.options.IGNORE",
+       "condition": null,
+       "effects": [
+        {
+         "type": "potion",
+         "count": 1,
+         "how": "random",
+         "note": "one random out-of-combat potion (Rewards rng)"
         }
        ],
        "next": null,
