@@ -47,7 +47,7 @@ public class PathAdvisorTests
         Assert.Equal(MapNodeType.Elite, adjusted.NextSteps[0].Type);
         Assert.Equal(adjusted.NextSteps[0].Coord, adjusted.Top[0].Coords[0]);
         Assert.Contains("학습", adjusted.Top[0].Chips[0]);
-        Assert.Equal(raw.NextStep, advisor.Recommend(state with { Ascension = 9 }, map).NextStep);
+        Assert.Equal(raw.NextStep, advisor.Recommend(state with { Ascension = 11 }, map).NextStep);
     }
 
     [Fact]
