@@ -138,7 +138,12 @@ public static class CombatAdvicePresenter
     {
         var rows = new List<CombatStepVm>();
         var shown = Math.Min(m.Steps.Count, MaxSteps);
-        for (var i = 0; i < shown; i++) rows.Add(Step(i + 1, m.Steps[i], names));
+        for (var i = 0; i < shown; i++)
+        {
+            rows.Add(Step(i + 1, m.Steps[i], names));
+            foreach (var picks in m.Steps[i].Choices) rows.Add(PickRow(picks, names, PickTip));
+        }
+        if (m.Ending == CombatEnding.AdviseAfterChoice && m.Choosing is { } choosing) rows.Add(PickRow(choosing, names, ChoosingTip));
         var more = m.Steps.Count - shown;
         var reason = DrawReasonOf(m.Note);
         if (m.Ending == CombatEnding.AdviseAfterPlay)
@@ -234,6 +239,28 @@ public static class CombatAdvicePresenter
         CombatEnding.AwaitObservedAction => Loc.T("… 다음 행동을 확인하면 다시 추천", "… more after your next action"),
         _ => null,
     };
+
+    /// <summary>
+    /// The row under a step (or alone, while the game shows the selection) that names the cards to pick:
+    /// "↳ 고를 카드: 타격, 수비". Gold like the closing row, so it stands out from the plays.
+    /// </summary>
+    public static CombatStepVm PickRow(IReadOnlyList<CombatPick> picks, ICombatNames names, string tip)
+    {
+        var text = picks.Count == 0
+            ? Loc.T("고르지 않고 확인", "Confirm without picking")
+            : Loc.T("고를 카드: ", "Pick: ") + string.Join(", ", picks.Select(p => names.Card(p.Id, p.Upgraded)));
+        return new CombatStepVm("↳", text, IsEnding: true, Tip: tip);
+    }
+
+    /// <summary>Tooltip of a pick row under a step.</summary>
+    public static string PickTip => Loc.T(
+        "이 카드를 내면 카드를 고르는 화면(소멸, 버리기, 강화 등)이 나옵니다. 추천 순서는 여기 적힌 카드를 고른다고 보고 계산했습니다.",
+        "This play opens a card selection (exhaust, discard, upgrade …). The order assumes you pick these cards.");
+
+    /// <summary>Tooltip of the pick row while the selection is on screen.</summary>
+    public static string ChoosingTip => Loc.T(
+        "지금 열린 카드 선택 화면에서 고를 카드입니다. 고르고 나면 다음 행동을 다시 추천합니다.",
+        "The cards to pick in the selection on screen. The next plays are advised after you choose.");
 
     /// <summary>The small tag next to the header when the helper is unsure.</summary>
     public static string UncertainTag => Loc.T("불확실", "uncertain");

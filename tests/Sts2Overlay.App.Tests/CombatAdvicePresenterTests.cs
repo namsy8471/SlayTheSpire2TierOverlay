@@ -122,6 +122,29 @@ public class CombatAdvicePresenterTests
         Assert.Contains(language == Lang.Kor ? "선택 전" : "before your selection", vm.UncertainTip);
     }
 
+    [Theory]
+    [InlineData(Lang.Kor, "고를 카드: 수비+, 강타", "고르지 않고 확인", "… 선택을 마치면 다시 추천")]
+    [InlineData(Lang.Eng, "Pick: Defend+, Bash", "Confirm without picking", "… more after you choose")]
+    public void Names_the_cards_to_pick_under_the_step_and_while_the_selection_is_open(
+        Lang language, string pick, string none, string pause)
+    {
+        using var _ = Loc.Use(language);
+        var line = """{"v":1,"state":"advice","steps":[{"kind":"card","id":"BASH","choices":[{"cards":[{"id":"DEFEND_IRONCLAD","upgraded":true},{"id":"BASH"}]},{"cards":[]}]},{"kind":"card","id":"BASH"}],"ending":"end_turn","confidence":"exact"}""";
+        var vm = CombatAdvicePresenter.Build(CombatAdviceParser.Parse(line, out var problem), CombatAdvicePlace.Fight, TestNames);
+        Assert.Null(problem);
+        Assert.Equal(["1.", "↳", "↳", "2.", ""], vm.Steps.Select(s => s.NumberText));
+        Assert.Equal(pick, vm.Steps[1].Name);
+        Assert.Equal(none, vm.Steps[2].Name);
+        Assert.Equal(CombatAdvicePresenter.PickTip, vm.Steps[1].Tip);
+
+        var open = """{"v":1,"state":"advice","steps":[],"choosing":{"cards":[{"id":"DEFEND_IRONCLAD","upgraded":true},{"id":"BASH"}]},"ending":"choice","confidence":"exact"}""";
+        vm = CombatAdvicePresenter.Build(CombatAdviceParser.Parse(open, out problem), CombatAdvicePlace.Fight, TestNames);
+        Assert.Null(problem);
+        Assert.Equal([pick, pause], vm.Steps.Select(s => s.Name));
+        Assert.Equal(CombatAdvicePresenter.ChoosingTip, vm.Steps[0].Tip);
+        Assert.False(vm.IsUncertain);
+    }
+
     [Fact]
     public void Target_position_is_added_only_when_the_helper_says_the_name_is_ambiguous()
     {
