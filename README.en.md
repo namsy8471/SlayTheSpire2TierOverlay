@@ -14,7 +14,8 @@ A Windows overlay for Slay the Spire 2 that puts **an AI rank badge on every car
 
 - **No game mod.** It never changes game files or injects anything into the game.
 - It only **reads** the save and log files to know your deck, HP, gold and map, and **recognizes the game window** to see the cards offered on reward and shop screens.
-- Advice comes from **an AI trained by playing hundreds of thousands of runs in a simulator**. A card is valued by how much picking it changes the chance of **winning the whole run**. See ["How the AI was trained"](#how-the-ai-was-trained) below.
+- Cards are ranked by **a model trained on what top players picked, corrected with whole runs played in a simulator** (The Fool's model was learned in the simulator only, with no top-player data). Rest, shop, event and path advice also carry simulator-learned corrections.
+- The models are being replaced one character at a time by models learned in the simulator only, with no top-player data (Defect first, in the next version). See ["How the AI was trained"](#how-the-ai-was-trained) below.
 - On top of that come **what your deck is missing** (AoE, block, draw…), **your gold** and **the path ahead**.
 - **It says so when it doesn't know.** Cards without rating data, event options with unknown effects, and HP/gold that a co-op guest cannot see are shown as "?" or "No data" instead of a made-up number.
 - Korean and English UI. By default it follows the game's language setting; you can also pick one from the tray menu **"언어 / Language"**.
@@ -66,7 +67,7 @@ A small panel that sits to the right of the game. It starts on the monitor the g
 | ![Deck tab: role supply and card list](docs/images/panel-deck.en.png) | ![Path tab: comparing path candidates (demo data)](docs/images/panel-path.en.png) |
 | Whether frontload damage, AoE, block, scaling and draw meet their targets | Paths compared by elites, rests, shops and expected HP at the boss |
 
-The Build and Tiers tabs were built from top players' records and are gone. Advice comes from the AI trained in the simulator.
+The Build and Tiers tabs were built from top players' records and are gone.
 
 <sub>The screenshots are the demo-mode (`--demo`) panel in English, rendered off-screen. Card names are placeholders such as "Attack card A" and card art is left out. In real use you see card names and small card images built on your own PC. The path tab shows fixed demo data.</sub>
 
@@ -101,6 +102,7 @@ When you hover a card, relic or event option in the game to read its tooltip, th
 - The simulator is a port of the game's own code. It plays whole runs over and over; on the same seed and the same screen it changes one choice, plays to the end, and learns card, rest, shop, event and path scores from which choice wins more often.
 - Fights are played by a beam search (a wide look over possible card orders) with a fight value model trained per character.
 - A new setting goes in only if it beats the current one on **the same 5,000 seeds**.
+- In the current release (v0.1.34), card advice for every character except The Fool is still the top-player model plus simulator corrections, and the shop's base score and relic scores are still from top-player data. Simulator-only models go in as each character's training finishes.
 
 Ascension 0 win rates of the simulator research settings (whole runs won / the same 5,000 runs, 2026-11-19):
 
@@ -125,7 +127,7 @@ Ascension 0 win rates of the simulator research settings (whole runs won / the s
 - **Save and log watching**: reads the game's `current_run.save` and `godot.log` for the deck, HP, gold, map and signals such as "a reward screen just opened". It looks for the saves folder again every 10 seconds, so it follows you if the game was never started before or you switch profiles. If a game update changes the save or log format slightly, it skips only the lines it can't read, keeps running and shows a note on the panel.
 - **Screen capture**: the save only changes after you pick a card, so the cards on reward and shop screens are read by capturing the game window. It captures only the game window and only while the game is in front (3 times a second on reward and shop screens, less often otherwise), processes the image in memory and throws it away. Nothing is written to disk. Capture pauses 3 seconds after you hide the overlay or switch to another window.
 - **Card recognition**: on first run it **reads the game files installed on your PC** to build card images and names, kept only on your PC, and matches them against the captured cards.
-- **Advice engine**: scores options with the simulator-trained card model and the rest / shop / event / path corrections, plus your current deck, gold and the path ahead. Card order in fights comes from the bundled combat helper, which simulates the fight itself.
+- **Advice engine**: scores options with the per-character card model (trained on top players and corrected in the simulator; The Fool: simulator only) and the rest / shop / event / path corrections (the shop's base score is still from top-player data), plus your current deck, gold and the path ahead. Card order in fights comes from the bundled combat helper, which simulates the fight itself.
 
 ## Install
 
