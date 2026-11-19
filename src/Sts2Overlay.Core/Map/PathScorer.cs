@@ -30,7 +30,7 @@ namespace Sts2Overlay.Core.Map;
 /// </list>
 /// All numbers come from <see cref="PathWeights"/>: room HP loss, gold and heal are measured from run history ([측정]), point values are estimates ([추정]).
 /// </summary>
-public sealed class PathScorer
+public sealed partial class PathScorer
 {
     private readonly PathWeights _p;
     private readonly ShopWeights _shop;
@@ -49,8 +49,9 @@ public sealed class PathScorer
     private readonly int _removalStep;
     private Sim _start; // not readonly: WithHp() changes it on a clone
 
-    public PathScorer(DataPack pack, RunState state, MapGraph map, DeckProfile profile, PathWeights? path = null)
+    public PathScorer(DataPack pack, RunState state, MapGraph map, DeckProfile profile, PathWeights? path = null, PathHpLoss? loss = null)
     {
+        // loss: HP-loss table instead of PathWeights.HpLossFor (the map DP's per-ascension tables).
         _p = path ?? pack.Weights.Path;
         _shop = pack.Weights.Shop;
         _map = map;
@@ -61,7 +62,7 @@ public sealed class PathScorer
         DamageMultiplier = StrengthDamageFactor(DeckStrength, _p);
 
         // Act and player count pick the measured per-room loss (co-op fights are longer and hit harder).
-        var loss = _p.HpLossFor(state.IsMultiplayer);
+        loss ??= _p.HpLossFor(state.IsMultiplayer);
         _monsterLoss = loss.For(MapNodeType.Monster, act);
         _hardMonsterLoss = loss.HardMonsterFor(act);
         _easyFights = map.EasyFights ?? Weights.ForAct(_p.EasyFights, act, 2);

@@ -268,6 +268,92 @@ public sealed class PathWeights
 
     /// <summary>Two elites in a row. [추정]</summary>
     public double EliteChainPenalty { get; set; } = 6;
+
+    /// <summary>The map DP used instead of the path list for the characters it names (<see cref="PathDpWeights"/>).</summary>
+    [JsonObjectCreationHandling(JsonObjectCreationHandling.Populate)]
+    public PathDpWeights Dp { get; set; } = new();
+}
+
+/// <summary>
+/// The map DP (<c>weights.json → "path" → "dp"</c>, <see cref="PathScorer"/> <c>DpValues</c>): a port of the simulator's
+/// <c>--path-rule dp</c>. The defaults are the simulator's adopted Defect settings (2026-11-19, same 5,000 seeds each):
+/// A0 4,456 wins (elite value 50/40/25), A8 3,368 (A8 loss table, elite value 50/40/25), A10 774 (A10 loss table,
+/// elite value 95/74/47). Single player only; co-op and characters not in <see cref="Characters"/> keep the path list.
+/// </summary>
+public sealed class PathDpWeights
+{
+    /// <summary>
+    /// Characters whose next room comes from the DP (others: the path list's first step). Empty in code; the data pack
+    /// turns it on for Defect, the only character the simulator measured it on.
+    /// </summary>
+    public List<string> Characters { get; set; } = [];
+
+    /// <summary>HP grid of the DP states: HP is rounded to 1/<c>HpSteps</c> of max HP.</summary>
+    public int HpSteps { get; set; } = 100;
+
+    /// <summary>Survived-loss outcomes per fight (equal-probability quantiles of the loss distribution).</summary>
+    public int LossPoints { get; set; } = 3;
+
+    /// <summary>Subtracted per easy-pool hallway fight still left when an elite is entered (easy fights first).</summary>
+    public double EarlyElitePenalty { get; set; } = 4;
+
+    /// <summary>Factor on a hard-pool hallway fight's card reward (0: it earns no reward, only costs HP).</summary>
+    public double HardFightReward { get; set; }
+
+    /// <summary>
+    /// HP-loss tables by ascension (key = the lowest ascension a table applies to; the greatest key ≤ the run's
+    /// ascension wins, none: <see cref="PathWeights.HpLoss"/>). Measured in the simulator (Defect, 1,000 runs each):
+    /// mean net HP lost per room plus the scorer's after-room heal.
+    /// </summary>
+    public Dictionary<int, PathHpLoss> HpLossByAscension { get; set; } = new()
+    {
+        [8] = Table([0.054, 0.081, 0.083], [0.104, 0.108, 0.121], [0.287, 0.275, 0.292], [0.044, 0.044, 0.019], [0.303, 0.428, 0.482]),
+        [10] = Table([0.067, 0.105, 0.130], [0.129, 0.137, 0.149], [0.353, 0.371, 0.364], [0.049, 0.049, 0.025], [0.377, 0.498, 0.490]),
+    };
+
+    /// <summary>
+    /// Value of one elite win by act (key 1..3), by ascension (keys as <see cref="HpLossByAscension"/>). It replaces the
+    /// elite's card reward + relic in the DP. A0–A9: 50/40/25 (best of 35/50/95 on the simulator's A0 and A8 runs);
+    /// A10: 95/74/47 (logistic fit of the act's boss win on its elite count).
+    /// </summary>
+    public Dictionary<int, Dictionary<int, double>> EliteValueByAscension { get; set; } = new()
+    {
+        [0] = new() { [1] = 50, [2] = 40, [3] = 25 },
+        [10] = new() { [1] = 95, [2] = 74, [3] = 47 },
+    };
+
+    /// <summary>True when the DP picks the next room for this run.</summary>
+    public bool AppliesTo(Model.RunState state)
+        => !state.IsMultiplayer && state.Character is { } c && Characters.Contains(c);
+
+    /// <summary>The DP's HP-loss table for <paramref name="ascension"/>, or null for <see cref="PathWeights.HpLoss"/>.</summary>
+    public PathHpLoss? HpLossFor(int ascension) => ByAscension(HpLossByAscension, ascension);
+
+    /// <summary>The DP's elite value in <paramref name="act"/>, or null for the scorer's elite reward.</summary>
+    public double? EliteValueFor(int ascension, int act)
+        => ByAscension(EliteValueByAscension, ascension) is { } t ? Data.Weights.ForAct(t, act, 0.0) : null;
+
+    private static T? ByAscension<T>(Dictionary<int, T> tables, int ascension) where T : class
+    {
+        T? best = null;
+        var bestKey = int.MinValue;
+        foreach (var (k, t) in tables)
+        {
+            if (k <= ascension && k > bestKey) (best, bestKey) = (t, k);
+        }
+        return best;
+    }
+
+    private static PathHpLoss Table(double[] monster, double[] hardMonster, double[] elite, double[] unknown, double[] boss) => new()
+    {
+        Monster = ByAct(monster),
+        HardMonster = ByAct(hardMonster),
+        Elite = ByAct(elite),
+        Unknown = ByAct(unknown),
+        Boss = ByAct(boss),
+    };
+
+    private static Dictionary<int, double> ByAct(double[] v) => new() { [1] = v[0], [2] = v[1], [3] = v[2] };
 }
 
 /// <summary>
