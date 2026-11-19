@@ -2,9 +2,9 @@
 
 [한국어](README.md) · **English**
 
-A Windows overlay for Slay the Spire 2 that puts **card tier badges** on the game screen and recommends **the choice that fits your current deck** on rewards, shops, the map, rest sites and events.
+A Windows overlay for Slay the Spire 2 that puts **an AI rank badge on every card** on the game screen and recommends **the choice that fits your current deck** on rewards, shops, the map, rest sites and events.
 
-![Tier badges and the advice panel over a card reward screen (illustrated mock-up: the cards are plain shapes, the badges and panel are rendered by the real app)](docs/images/hero-reward.en.png)
+![AI rank badges and the advice panel over a card reward screen (illustrated mock-up: the cards are plain shapes, the badges and panel are rendered by the real app)](docs/images/hero-reward.en.png)
 
 <sub>The picture above is an illustrative mock-up. The cards are hand-drawn shapes; only the badges and the panel on the right are drawn by the app. Card names are placeholders such as "Power card B".</sub>
 
@@ -14,8 +14,9 @@ A Windows overlay for Slay the Spire 2 that puts **card tier badges** on the gam
 
 - **No game mod.** It never changes game files or injects anything into the game.
 - It only **reads** the save and log files to know your deck, HP, gold and map, and **recognizes the game window** to see the cards offered on reward and shop screens.
-- Cards are ranked by **a model trained on what top players actually picked**, combined with **what your deck is missing** (AoE, block, draw…), **the build you are heading for**, **your gold** and **the path ahead**.
-- **It says so when it doesn't know.** Cards without tier data, event options with unknown effects, and HP/gold that a co-op guest cannot see are shown as "?" or "No data" instead of a made-up number.
+- Advice comes from **an AI trained by playing hundreds of thousands of runs in a simulator**. A card is valued by how much picking it changes the chance of **winning the whole run**. See ["How the AI was trained"](#how-the-ai-was-trained) below.
+- On top of that come **what your deck is missing** (AoE, block, draw…), **your gold** and **the path ahead**.
+- **It says so when it doesn't know.** Cards without rating data, event options with unknown effects, and HP/gold that a co-op guest cannot see are shown as "?" or "No data" instead of a made-up number.
 - Korean and English UI. By default it follows the game's language setting; you can also pick one from the tray menu **"언어 / Language"**.
 - Works in single player and in co-op (host and guest).
 
@@ -23,11 +24,11 @@ A Windows overlay for Slay the Spire 2 that puts **card tier badges** on the gam
 
 ### Badges and the "Pick!" ribbon on the cards
 
-When a reward or shop screen opens, every card gets a badge with its **AI rank (#1, #2 …) and score**. The best card gets a gold outline and a **"Pick!"** ribbon (**"Buy!"** in shops), and reason chips under each card explain the score (for example "Top players' preference +18" or "Deck fit -9"). When taking no card is better you get **"Skip!"**, and when removing a card in the shop is worth it a **"Remove a card"** marker appears over the removal button.
+When a reward or shop screen opens, every card gets a badge with its **AI rank (#1, #2 …) and score**. The best card gets a gold outline and a **"Pick!"** ribbon (**"Buy!"** in shops), and reason chips under each card explain the score (for example "Deck fit -9"). When taking no card is better you get **"Skip!"**, and when removing a card in the shop is worth it a **"Remove a card"** marker appears over the removal button.
 
 The #1 badge is gold, the others grey. A card that cannot be rated shows "?".
 
-- **Cards without tier data** (for example cards added by a game patch) get a "?" badge and are never recommended. If every card on screen is like that, there is no pick and no skip verdict, only a note that the cards have no rating data.
+- **Cards without rating data** (for example cards added by a game patch) get a "?" badge and are never recommended. If every card on screen is like that, there is no pick and no skip verdict, only a note that the cards have no rating data.
 - **When only some cards were read** (2 of 3, say), the badges are shown but the ribbon and skip verdict wait, with a "reading 2 of 3 cards…" note. If the last card still can't be read after 2 seconds, it decides anyway and says so.
 - Badges disappear within about a second after the screen closes, and cards you already bought in a shop don't leave badges or "Buy!" behind on the empty slot.
 - Temporary card choices during combat are not deck additions, so they are not rated like rewards.
@@ -40,7 +41,8 @@ The #1 badge is gold, the others grey. A card that cannot be rated shows "?".
 
 Card rewards, shop cards and the "gain this card" option in events all use **the same calculation**. A card the reward screen told you to skip won't get "Buy!" in the very next shop.
 
-- The model was trained on **solo Ascension 10 top-player runs**. In co-op the panel notes that the advice is based on solo A10 runs with no co-op adjustment.
+- Each character has its own card model. **The Fool**'s was learned from whole simulated runs only, with no top-player data. The other characters' models started from top-player picks and were corrected with simulator results; they are being replaced one character at a time by models without top-player data (Defect first, in the next version).
+- The AI was trained on single-player runs. In co-op the panel says "Solo-trained AI advice (co-op not learned yet)".
 - **Co-op-only cards** have no solo data, so they are tagged "Co-op only · no solo data" and are not given high confidence.
 - To use only the hand-tuned rules instead of the learned model, set `"cardModel": "engine"` in `settings.json`.
 
@@ -48,7 +50,7 @@ Card rewards, shop cards and the "gain this card" option in events all use **the
 
 - **Shop relics**: the three relics in the shop are read from the screen, compared on the same list as cards and card removal, and included in the suggested purchases within budget.
 - **Ancient choices**: the relic options offered by Neow and the act 2 and 3 Ancients are compared, and the recommended option button gets "Pick!".
-- Relic scores include **how well the relic fits the build your deck is heading for**, based on which relics top players actually took in that build.
+- Relic scores include **how well the relic fits the build your deck is heading for**. For now they are still based on which relics top players took in that build; simulator-learned relic scores will replace them.
 
 ### The panel: Picks, Deck, Path, Review
 
@@ -68,7 +70,7 @@ The Build and Tiers tabs were built from top players' records and are gone. Advi
 
 <sub>The screenshots are the demo-mode (`--demo`) panel in English, rendered off-screen. Card names are placeholders such as "Attack card A" and card art is left out. In real use you see card names and small card images built on your own PC. The path tab shows fixed demo data.</sub>
 
-- **Fool combat advice** appears above the tabs in monster, elite and boss rooms in standard single-player runs on game v0.113. It shows which cards to play and which enemies to target. When a play opens a card or tarot choice, the next recommendation follows your selection.
+- **Combat advice** (every character) appears above the tabs in monster, elite and boss rooms in standard single-player runs on game v0.113. It shows which cards to play and which enemies to target. When a play opens a card or tarot choice, the next recommendation follows your selection.
 - In the **Deck tab**, hover over a card name to read its cost and effects.
 - **Path tab**: accounts for each act having only a few easy hallway fights before they get harder. A path made of nothing but hallway fights gets a "hard hallway fights N" chip, and each extra card reward in the same act is valued slightly less.
 - **Review tab**: after a run, compares your card choices with the advice (how often you took the top pick, and the choices that differed most). It judges against **the advice that was actually on screen during play**, so updating the overlay doesn't change the review of a past run. Only decisions without a record are recalculated with the current version and marked as such.
@@ -94,6 +96,28 @@ The Build and Tiers tabs were built from top players' records and are gone. Advi
 
 When you hover a card, relic or event option in the game to read its tooltip, the overlay briefly turns transparent to get out of the way, and comes back 0.3 seconds after you move off. Hovering the overlay's own panel doesn't hide the badges.
 
+## How the AI was trained
+
+- The simulator is a port of the game's own code. It plays whole runs over and over; on the same seed and the same screen it changes one choice, plays to the end, and learns card, rest, shop, event and path scores from which choice wins more often.
+- Fights are played by a beam search (a wide look over possible card orders) with a fight value model trained per character.
+- A new setting goes in only if it beats the current one on **the same 5,000 seeds**.
+
+Ascension 0 win rates of the simulator research settings (whole runs won / the same 5,000 runs, 2026-11-19):
+
+| Character | First measured | Now |
+|---|---:|---:|
+| Defect | 34.6 % | **87.9 %** (4,394 wins) |
+| Ironclad | | 81.5 % (4,074) |
+| Silent | 23.6 % | 71.2 % (3,559) |
+| Necrobinder | 18.7 % | 70.3 % (3,515) |
+| Regent | 15.3 % | 68.5 % (3,424) |
+| The Fool | 41.0 % | 55.9 % (2,797) |
+
+- "First measured" is the shared card pack with no fight model (The Fool: before its card correction). Ironclad's first value was measured on other seeds.
+- These are **research settings**; not all of them are in the overlay yet (for example per-boss fight models and Defect's new card model), so following the overlay's advice will not give exactly these numbers.
+- Higher ascensions are still lower: Defect wins 63.9 % at Ascension 8 (3,194) and 11.9 % at Ascension 10 (595). Defect Ascension 10 is being retrained act by act, starting with act 1.
+- Two-player co-op, first measured after adding a co-op mode to the simulator: Ironclad + Silent 54.4 %, Defect + Necrobinder 26.4 % (1,000 runs). No co-op-specific training yet.
+
 ## How it works
 
 ![How it works: save/log watching and screen capture → card recognition → advice engine → badges and panel](docs/images/how-it-works.en.svg)
@@ -101,7 +125,7 @@ When you hover a card, relic or event option in the game to read its tooltip, th
 - **Save and log watching**: reads the game's `current_run.save` and `godot.log` for the deck, HP, gold, map and signals such as "a reward screen just opened". It looks for the saves folder again every 10 seconds, so it follows you if the game was never started before or you switch profiles. If a game update changes the save or log format slightly, it skips only the lines it can't read, keeps running and shows a note on the panel.
 - **Screen capture**: the save only changes after you pick a card, so the cards on reward and shop screens are read by capturing the game window. It captures only the game window and only while the game is in front (3 times a second on reward and shop screens, less often otherwise), processes the image in memory and throws it away. Nothing is written to disk. Capture pauses 3 seconds after you hide the overlay or switch to another window.
 - **Card recognition**: on first run it **reads the game files installed on your PC** to build card images and names, kept only on your PC, and matches them against the captured cards.
-- **Advice engine**: scores options with the model trained on top-player runs and the tier data, plus your current deck, build, gold and the path ahead.
+- **Advice engine**: scores options with the simulator-trained card model and the rest / shop / event / path corrections, plus your current deck, gold and the path ahead. Card order in fights comes from the bundled combat helper, which simulates the fight itself.
 
 ## Install
 
@@ -177,7 +201,7 @@ Common `settings.json` entries:
 | `mapOverlay` | `true` | Advice on the map and rest sites (`Ctrl+F5`) |
 | `showOverlayInCapture` | `true` | Show the overlay in streams, recordings and screenshots (see FAQ) |
 | `language` | `"auto"` | UI language: `"auto"` (follow the game), `"kor"`, `"eng"`. Also in the tray menu |
-| `cardModel` | `"learned"` | Card value: `"learned"` (model trained on top players), `"engine"` (hand-tuned rules only) |
+| `cardModel` | `"learned"` | Card value: `"learned"` (the learned AI model), `"engine"` (hand-tuned rules only) |
 | `captureBackend` | `"auto"` | `"gdi"` is slower but more compatible |
 | `autoUpdate` | `true` | Automatic updates |
 | `updateUrl` | `null` | Where to get updates (for testing; empty means the official releases) |
@@ -185,7 +209,7 @@ Common `settings.json` entries:
 ## Privacy and copyright
 
 - This is an **unofficial fan tool**, not affiliated with, approved or endorsed by Mega Crit. Slay the Spire 2 and its art and text belong to Mega Crit.
-- **No game files are distributed.** Neither the installer nor this repository contains card art or game text such as card names and descriptions. The data pack holds only internal game IDs (such as `CARD.BALL_LIGHTNING`), our own tiers and notes, aggregate statistics from top-player runs and the learned model's weights.
+- **No game files are distributed.** Neither the installer nor this repository contains card art or game text such as card names and descriptions. The data pack holds only internal game IDs (such as `CARD.BALL_LIGHTNING`), our own notes, aggregate statistics (some, such as relics, from top-player runs) and the learned models' weights.
 - Card images and names are built **on the player's own PC from the game files they installed**, only in `%LOCALAPPDATA%\Sts2Overlay\local`. Game files are only read.
 - **Nothing is sent out.** Captures, decks, run history, advice records and logs never leave your PC. The only network traffic is checking GitHub for a new version and downloading it.
 - `app.log` is written with Steam IDs, paths containing your Windows user name and e-mail addresses masked.
@@ -193,7 +217,7 @@ Common `settings.json` entries:
 ## FAQ
 
 **What happens when the game updates?**
-On the next start the overlay notices the game files changed and rebuilds card images and names (a few seconds). Cards with no tier in the data pack are listed **by name** on an orange line at the bottom of the panel; they get a "?" badge and are never recommended, and everything else works as before. If the save or log format changed and some of it can't be read, only that part is skipped and the panel shows a note. A version with a new data pack arrives through automatic updates.
+On the next start the overlay notices the game files changed and rebuilds card images and names (a few seconds). Cards with no rating in the data pack are listed **by name** on an orange line at the bottom of the panel; they get a "?" badge and are never recommended, and everything else works as before. If the save or log format changed and some of it can't be read, only that part is skipped and the panel shows a note. A version with a new data pack arrives through automatic updates.
 
 **A "Windows protected your PC" window appears.**
 That is the SmartScreen warning for programs without a signing certificate. Click **More info → Run anyway**. If you'd rather not, you can build it yourself from this repository (see For developers).
