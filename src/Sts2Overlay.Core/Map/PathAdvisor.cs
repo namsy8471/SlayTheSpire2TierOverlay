@@ -45,19 +45,24 @@ public sealed class PathAdvisor
     {
         var pack = _pack.ForRun(state);
         var advisor = pack == _pack ? this : new PathAdvisor(pack, _path);
+        // The map DP (Defect, single player) replaces the learned path policy, as in the simulator's --path-rule dp,
+        // and like it reads the act's easy fights from the weights.
+        if ((advisor._path ?? pack.Weights.Path).Dp.AppliesTo(state))
+            return advisor.RankRoutes(state, map with { EasyFights = null }, null, dp: true);
         var policy = RunBaselinePolicy.For(pack, state);
         return advisor.RankRoutes(state, policy != null ? map with { EasyFights = null } : map, policy);
     }
 
     // The rest advisor uses the ordinary route ranking for its heal/smith simulation.
-    internal PathRecommendation RankRoutes(RunState state, MapGraph map, RunBaselinePolicy? policy)
+    internal PathRecommendation RankRoutes(RunState state, MapGraph map, RunBaselinePolicy? policy, bool dp = false)
     {
         var origin = map.Current ?? map.Start;
         var children = MapPaths.ValidChildren(map, origin);
         if (children.Count == 0) return new PathRecommendation { Origin = origin, Exhaustive = true };
 
         var p = _path ?? _pack.Weights.Path;
-        var baseScorer = new PathScorer(_pack, state, map, DeckAnalyzer.Analyze(state, _pack), _path);
+        var baseScorer = new PathScorer(_pack, state, map, DeckAnalyzer.Analyze(state, _pack), _path,
+            dp ? p.Dp.HpLossFor(state.Ascension) : null);
         var hpPercent = (int)Math.Floor(baseScorer.StartHp * 100 + 1e-9);
         var scorer = baseScorer.WithHp(hpPercent / 100.0);
 
@@ -105,6 +110,20 @@ public sealed class PathAdvisor
             CapBinds: scored.Any(o => !InCap(o) && o.Total > ordered[0].Total));
 
         bool changed = false;
+        bool dpChanged = false;
+        if (dp && children.Count > 1)
+        {
+            // Next room by the map DP (first child on ties); every route keeps its own score, routes are grouped by
+            // their first step in DP order.
+            var act = map.Act > 0 ? map.Act : Math.Max(1, state.Act);
+            var values = baseScorer.DpValues(children, p.Dp.EliteValueFor(state.Ascension, act));
+            var rank = Enumerable.Range(0, children.Count).Where(i => values[i] is not null)
+                .OrderByDescending(i => values[i]!.Value).ThenBy(i => i)
+                .Select((i, r) => (children[i], r)).ToDictionary(x => x.Item1, x => x.r);
+            var before = ordered[0].Coords[0];
+            ordered = ordered.OrderBy(o => rank.TryGetValue(o.Coords[0], out var r) ? r : int.MaxValue).ToList();
+            dpChanged = ordered[0].Coords[0] != before;
+        }
         if (policy != null && children.Count > 1)
         {
             var scores = ordered.GroupBy(o => o.Coords[0]).ToDictionary(g => g.Key, g => g.First().Total);
@@ -130,6 +149,8 @@ public sealed class PathAdvisor
             .ToArray();
         if (changed)
             top[0] = top[0] with { Chips = [Loc.T("학습 정책의 다음 방 선택", "Next room selected by the learned policy"), .. top[0].Chips] };
+        if (dpChanged)
+            top[0] = top[0] with { Chips = [Loc.T("맵 전체 계산으로 고른 다음 방", "Next room picked by the whole-map plan"), .. top[0].Chips] };
 
         // Next steps in the same order as the full ranking: each child appears where its best path first appears.
         var nextSteps = ordered

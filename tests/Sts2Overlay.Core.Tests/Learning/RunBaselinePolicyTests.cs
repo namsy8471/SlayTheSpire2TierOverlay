@@ -51,9 +51,9 @@ public class RunBaselinePolicyTests
             Assert.Same(own.CardPolicyFor(character), own.CardPolicy);
             Assert.Equal(pack.CardPolicyFor(character)!.PointUtility, own.CardPolicy!.PointUtility);
         }
-        // Defect's A0 file (rest/shop learned at A0) replaces its A8 file at A0 only.
-        Assert.Equal(character == "CHARACTER.DEFECT", !ReferenceEquals(RunBaselinePolicy.For(pack, run with { Ascension = 0 }),
-            RunBaselinePolicy.For(pack, run with { Ascension = 10 })));
+        // One file for every ascension (Defect too since 2026-11-19: the simulator's adopted A0, A8 and A10 setups all
+        // use its A0 rest / shop file with the A8 event weights).
+        Assert.Same(RunBaselinePolicy.For(pack, run with { Ascension = 0 }), RunBaselinePolicy.For(pack, run with { Ascension = 10 }));
     }
 
     /// <summary>Event keys as sts2-agent runs/adjust.rs builds them; an exact tie keeps the rule's button.</summary>
