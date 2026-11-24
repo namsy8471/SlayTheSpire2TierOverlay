@@ -1,0 +1,16 @@
+[package]
+name = "ov-vision"
+description = "Screen recognition on captured frames (port of Sts2Overlay.Vision)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde_json.workspace = true
+image = { version = "0.25", default-features = false, features = ["png", "webp"] }
+rayon = "1"
+
+[dev-dependencies]
+ov-core.workspace = true
+flate2 = "1"
