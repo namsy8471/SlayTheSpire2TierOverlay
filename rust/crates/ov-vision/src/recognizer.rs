@@ -148,7 +148,7 @@ impl CardRecognizer {
         let offerable = db
             .entries
             .iter()
-            .map(|e| options.candidate_pools.as_ref().is_none_or(|p| p.iter().any(|x| *x == e.pool)))
+            .map(|e| options.candidate_pools.as_ref().is_none_or(|p| p.contains(&e.pool)))
             .collect();
         let blocks = TileMatcher::new(&db, TileGrid::blocks());
         let rows = TileMatcher::new(&db, TileGrid::rows());
@@ -861,7 +861,7 @@ fn rug_share(img: &IntegralImage, t: &RefTransform, slot: &SlotLayout) -> f32 {
     const GH: i32 = 12;
     let mut rgb = vec![0f32; (GW * GH * 3) as usize];
     img.sample_grid(t.to_pixels(card_geometry::place(card_geometry::ART, slot.center_x, slot.center_y, slot.small_scale)), GW, GH, &mut rgb);
-    let rug = rgb.chunks_exact(3).filter(|p| relics::is_rug(p[0], p[1], p[2])).count();
+    let rug = rgb.as_chunks::<3>().0.iter().filter(|p| relics::is_rug(p[0], p[1], p[2])).count();
     rug as f32 / (GW * GH) as f32
 }
 

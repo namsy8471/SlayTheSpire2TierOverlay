@@ -580,12 +580,11 @@ pub mod ancient {
         let mut hovered = -1;
         let mut best = f32::MIN;
         for i in 0..count {
-            if let Some(strength) = ring(frame, &t, slot_top(count, i)) {
-                if strength > best {
+            if let Some(strength) = ring(frame, &t, slot_top(count, i))
+                && strength > best {
                     best = strength;
                     hovered = i;
                 }
-            }
         }
         let mut buttons = Vec::new();
         for i in 0..count {

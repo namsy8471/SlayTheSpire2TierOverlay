@@ -48,8 +48,8 @@ pub fn read(frame: &ScreenFrame<'_>) -> CardRemovalReading {
         let mut x = CENTER_X - FACE_RADIUS;
         while x <= CENTER_X + FACE_RADIUS {
             let (dx, dy) = (x - CENTER_X, y - CENTER_Y);
-            if dx * dx + dy * dy <= FACE_RADIUS * FACE_RADIUS {
-                if let Some((r, g, b)) = try_sample(frame, &t, x, y) {
+            if dx * dx + dy * dy <= FACE_RADIUS * FACE_RADIUS
+                && let Some((r, g, b)) = try_sample(frame, &t, x, y) {
                     face += 1;
                     if is_gold(r, g, b) {
                         gold += 1;
@@ -57,7 +57,6 @@ pub fn read(frame: &ScreenFrame<'_>) -> CardRemovalReading {
                         red += 1;
                     }
                 }
-            }
             x += 1.0;
         }
         y += 1.0;
@@ -68,13 +67,11 @@ pub fn read(frame: &ScreenFrame<'_>) -> CardRemovalReading {
         let mut x = PRICE_ROW.x;
         while x < PRICE_ROW.right() {
             let (dx, dy) = (x - CENTER_X, y - CENTER_Y);
-            if dx * dx + dy * dy >= PRICE_ROW_EXCLUSION * PRICE_ROW_EXCLUSION {
-                if let Some((r, g, b)) = try_sample(frame, &t, x, y) {
-                    if is_gold(r, g, b) {
+            if dx * dx + dy * dy >= PRICE_ROW_EXCLUSION * PRICE_ROW_EXCLUSION
+                && let Some((r, g, b)) = try_sample(frame, &t, x, y)
+                    && is_gold(r, g, b) {
                         icon += 1;
                     }
-                }
-            }
             x += 1.0;
         }
         y += 1.0;

@@ -322,7 +322,7 @@ pub fn is_overlay(r: f32, g: f32, b: f32) -> bool {
     r.max(g.max(b)) < 80.0 || (r >= g && g >= b + 15.0 && r <= 140.0 && !is_rug(r, g, b))
 }
 pub fn is_rug(r: f32, g: f32, b: f32) -> bool {
-    (90.0..=160.0).contains(&g) && g >= r + 8.0 && g >= b + 5.0 && r >= 45.0 && b >= 40.0 && b <= 120.0
+    (90.0..=160.0).contains(&g) && g >= r + 8.0 && g >= b + 5.0 && r >= 45.0 && (40.0..=120.0).contains(&b)
 }
 pub fn is_hand(r: f32, g: f32, b: f32) -> bool {
     b >= 150.0 && b >= r + 25.0 && g >= r && b >= g - 10.0
@@ -551,7 +551,7 @@ impl RelicRecognizer {
         let mut c = vec![0f32; G * G * 3];
         img.sample_grid(t.to_pixels(self.picture_at(b)), G as i32, G as i32, &mut c);
         let (mut tip, mut hand, mut dark, mut rug) = (0, 0, 0, 0);
-        for px in c.chunks_exact(3) {
+        for px in c.as_chunks::<3>().0 {
             let (r, g, bl) = (px[0], px[1], px[2]);
             if upgrade::is_tooltip_slate(r, g, bl) {
                 tip += 1;

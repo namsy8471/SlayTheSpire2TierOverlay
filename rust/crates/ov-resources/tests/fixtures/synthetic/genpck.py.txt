@@ -1,0 +1,102 @@
+# Builds a synthetic Godot 4 pack (format v3) and a fake install folder for the resource parity test.
+# Every image is random noise or a flat colour made here; no game files are used.
+import io, json, os, random, struct, sys, hashlib
+from PIL import Image
+out = sys.argv[1]; dll = sys.argv[2]
+rnd = random.Random(7)
+files = []  # (path, bytes, flags)
+
+def add(path, data, flags=0, res=True):
+    files.append((("res://" if res else "") + path, data, flags))
+
+def ctex(data_format, image_format, w, h, payload):
+    head = struct.pack("<4sIIIIi12sIHHII", b"GST2", 1, w, h, 0, 0, b"\0" * 12, data_format, w, h, 0, image_format)
+    if data_format in (1, 2):
+        return head + struct.pack("<I", len(payload)) + payload + b"\x00" * 9
+    return head + payload
+
+def img_bytes(fmt, w, h, lossless=True, seed=0):
+    r = random.Random(seed)
+    im = Image.new("RGBA", (w, h))
+    im.putdata([(r.randrange(256), r.randrange(256), r.randrange(256), r.choice([0, 128, 255])) for _ in range(w * h)])
+    b = io.BytesIO()
+    if fmt == "webp": im.save(b, "WEBP", lossless=lossless)
+    else: im.save(b, "PNG")
+    return b.getvalue()
+
+def imported(logical, ctex_bytes, key="path", name=None):
+    name = name or ".godot/imported/%s-%s.ctex" % (logical.rsplit("/", 1)[-1], hashlib.md5(logical.encode()).hexdigest())
+    add(logical + ".import", ("[remap]\n\nimporter=\"texture\"\ntype=\"CompressedTexture2D\"\n%s=\"res://%s\"\nmetadata={}\n" % (key, name)).encode())
+    if ctex_bytes is not None: add(name, ctex_bytes)
+
+# localization (made-up names)
+for lang, names in [("kor", {"STRIKE_BRAWLER.title": "타격", "HEAVY_BLOW.title": "강타", "HEAVY_BLOW.description": "피해 {Damage}", "DINGY_DAGGER.title.dingy": "녹슨 단검", "DINGY_DAGGER.title": "단검"}),
+                    ("eng", {"STRIKE_BRAWLER.title": "Strike", "WHIRL.title": "Whirl", "WHIRL.description": "Hit X times", "TWIN_BLADE.title": 5})]:
+    add("localization/%s/cards.json" % lang, json.dumps(names, ensure_ascii=False).encode())
+    add("localization/%s/relics.json" % lang, b'{"WARM_STONE.title":"stone"}')
+add("localization/jpn/cards.json", b"{}")
+add("localization/kor/old.json", b"{}")
+add("localization/kor/old.json", b"", flags=2)  # removal entry
+
+# card portraits
+imported("images/packed/card_portraits/brawler/strike_brawler.png", ctex(2, 5, 12, 10, img_bytes("webp", 12, 10, seed=1)))
+imported("images/packed/card_portraits/brawler/heavy_blow.png", ctex(1, 5, 9, 7, img_bytes("png", 9, 7, seed=2)))
+imported("images/packed/card_portraits/weaver/beta/loom_of_fate.png", ctex(2, 5, 8, 8, img_bytes("webp", 8, 8, seed=3)), key="path.s3tc")
+imported("images/packed/card_portraits/weaver/vram_card.png", ctex(0, 22, 4, 4, bytes(16)))
+imported("images/packed/card_portraits/weaver/missing.png", None)
+imported("images/other/not_a_card.png", ctex(2, 5, 4, 4, img_bytes("webp", 4, 4, seed=4)))
+
+# relic atlas: BC7 noise
+W, H = 64, 48
+blocks = bytes(rnd.randrange(256) for _ in range(W // 4 * H // 4 * 16))
+imported("images/atlases/relic_atlas.png", ctex(0, 22, W, H, blocks + bytes(64)), key="path.bptc")
+def tres(atlas, region, margin=None):
+    s = '[gd_resource type="AtlasTexture" load_steps=2 format=3]\n\n[ext_resource type="Texture2D" path="res://images/atlases/%s" id="1"]\n\n[resource]\natlas = ExtResource("1")\n' % atlas
+    if region: s += "region = Rect2(%s)\n" % region
+    if margin: s += "margin = Rect2(%s)\n" % margin
+    return s.encode()
+sp = "images/atlases/relic_atlas.sprites/"
+add(sp + "warm_stone.tres", tres("relic_atlas.png", "0, 0, 20, 18", "2, 1, 4, 3"))
+add(sp + "spool_charm.tres", tres("relic_atlas.png", "20.5, 4, 16, 16"))
+add(sp + "glass_jar.tres", tres("other_atlas.png", "0, 0, 8, 8"))
+add(sp + "ledger.tres", tres("relic_atlas.png", None))
+add(sp + "too_big.tres", tres("relic_atlas.png", "60, 40, 8, 8"))
+add(sp + "nest_egg.tres", tres("relic_atlas.png", "40, 20, 24, 28", "0, 0, 0, 0"))
+# outline atlas: BC3 noise
+ob = bytes(rnd.randrange(256) for _ in range(8 * 8 * 16))
+imported("images/atlases/relic_outline_atlas.png", ctex(0, 19, 32, 32, ob), key="path.s3tc")
+add("images/atlases/relic_outline_atlas.sprites/warm_stone.tres", tres("relic_outline_atlas.png", "1, 2, 13, 11", "1, 1, 2, 2"))
+# standalone relic images
+imported("images/relics/nest_egg.png", ctex(1, 5, 6, 6, img_bytes("png", 6, 6, seed=5)))
+imported("images/relics/glass_jar.png", ctex(1, 5, 5, 4, img_bytes("png", 5, 4, seed=6)))
+raw = bytes(rnd.randrange(256) for _ in range(7 * 5 * 4)) + bytes(40)
+imported("images/relics/beta/moody.png", ctex(0, 5, 7, 5, raw))
+imported("images/relics/beta/ledger.png", ctex(2, 5, 6, 3, img_bytes("webp", 6, 3, seed=8)))
+imported("images/relics/beta/basis.png", ctex(3, 5, 4, 4, b""))
+# potion atlas: lossless WebP embedded
+imported("images/atlases/potion_atlas.png", ctex(2, 5, 40, 40, img_bytes("webp", 40, 40, seed=9)))
+add("images/atlases/potion_atlas.sprites/fire_potion.tres", tres("potion_atlas.png", "3, 4, 10, 12", "1, 0, 2, 0"))
+add("images/atlases/potion_atlas.sprites/block_potion.tres", tres("potion_atlas.png", "20, 20, 12, 12"))
+# merchant scene
+add("scenes/merchant/merchant_inventory.tscn", b'[gd_scene format=3]\n\n[node name="SlotsContainer" type="Control" parent="."]\n\n[node name="Relics" type="Control" parent="SlotsContainer"]\nlayout_mode = 0\noffset_left = 812.0\noffset_top = -4.5\noffset_right = 900.0\n\n[node name="Potions" type="Control" parent="SlotsContainer"]\noffset_left = 1210.25\noffset_top = 12.0\n')
+
+# pack: header, directory, data
+dir_entries = b""
+data = b""
+for path, blob, flags in files:
+    p = path.encode()
+    p += b"\0" * ((4 - len(p) % 4) % 4 or 0)
+    if len(p) % 4: p += b"\0" * (4 - len(p) % 4)
+    dir_entries += struct.pack("<I", len(p)) + p + struct.pack("<QQ", len(data), len(blob)) + hashlib.md5(blob).digest() + struct.pack("<I", flags)
+    data += blob
+header_len = 0x28 + 16 * 4
+file_base = header_len
+dir_offset = file_base + len(data)
+pck = struct.pack("<4sIIIIIQQ", b"GDPC", 3, 4, 5, 1, 0, file_base, dir_offset) + b"\0" * (header_len - 0x28) + data + struct.pack("<I", len(files)) + dir_entries
+os.makedirs(out + "/data_sts2_windows_x86_64", exist_ok=True)
+open(out + "/SlayTheSpire2.pck", "wb").write(pck)
+d = open(dll, "rb").read()
+open(out + "/data_sts2_windows_x86_64/sts2.dll", "wb").write(d)
+mah = struct.unpack("<i", hashlib.sha1(d).digest()[:4])[0]
+open(out + "/release_info.json", "w").write(json.dumps({"commit": "0000abcd", "version": "v0.113.0", "date": "2026-11-01T00:00:00-07:00", "branch": "v0.113.0", "main_assembly_hash": mah}))
+print(len(files), "entries,", len(pck), "bytes")
