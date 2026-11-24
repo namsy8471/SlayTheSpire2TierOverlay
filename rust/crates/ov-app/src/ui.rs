@@ -11,6 +11,10 @@ use crate::win::hotkey::Hotkey;
 use crate::win::{PixelRect, game, style};
 use egui::{Color32, CornerRadius, Pos2, Rect, Stroke, Vec2, ViewportBuilder, ViewportCommand, ViewportId};
 use ov_core::loc::{self, t};
+use ov_gamestate::paths::GamePaths;
+use ov_gamestate::tracking::live::{LiveHandle, LiveOptions, LiveTracker};
+use ov_gamestate::tracking::tracked::TrackedRun;
+use ov_gamestate::tracking::tracker::TrackerOptions;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -77,6 +81,9 @@ pub struct OverlayApp {
     capture_line: String,
     started: Instant,
     first_update_check_done: bool,
+    /// Latest run from the save + log tracker (its own thread).
+    run: Arc<Mutex<Option<TrackedRun>>>,
+    _live: LiveHandle,
 }
 
 impl OverlayApp {
@@ -100,7 +107,27 @@ impl OverlayApp {
         }
         crate::applog::info(format!("start: {version_text}, update source {}", updater.source));
         let (update_tx, update_rx) = mpsc::channel();
+        let run: Arc<Mutex<Option<TrackedRun>>> = Arc::new(Mutex::new(None));
+        let live = {
+            let (run, ctx) = (run.clone(), cc.egui_ctx.clone());
+            let options = LiveOptions {
+                tracker: TrackerOptions { paths: Some(GamePaths::discover(None, None, None)), ..Default::default() },
+                ..Default::default()
+            };
+            LiveTracker::spawn(
+                options,
+                move |r| {
+                    if let Ok(mut slot) = run.lock() {
+                        *slot = r;
+                    }
+                    ctx.request_repaint();
+                },
+                |d| crate::applog::info(format!("tracker: {d}")),
+            )
+        };
         OverlayApp {
+            run,
+            _live: live,
             tab: Tab::from_key(store.settings.selected_tab.as_deref()),
             store,
             hidden: false,
@@ -357,7 +384,32 @@ impl OverlayApp {
         });
     }
 
+    fn run_ui(&self, ui: &mut egui::Ui) {
+        let guard = self.run.lock();
+        let Some(r) = guard.as_ref().ok().and_then(|g| g.as_ref()) else {
+            ui.label(t("진행 중인 런을 찾지 못했습니다", "No run in progress"));
+            return;
+        };
+        let s = &r.state;
+        egui::Grid::new("run").num_columns(2).spacing([12.0, 4.0]).show(ui, |ui| {
+            ui.label(t("캐릭터", "Character"));
+            ui.label(format!("{} A{}{}", s.character, s.ascension, if s.is_multiplayer { t(" · 협동", " · co-op") } else { "" }));
+            ui.end_row();
+            ui.label(t("위치", "Where"));
+            ui.label(format!("{}막 {}층 · {:?}", s.act, s.floor, r.screen));
+            ui.end_row();
+            ui.label(t("체력·골드", "HP / gold"));
+            ui.label(if s.vitals_known { format!("{}/{} · {}G", s.hp, s.max_hp, s.gold) } else { t("모름", "unknown").into() });
+            ui.end_row();
+            ui.label(t("덱·유물", "Deck / relics"));
+            ui.label(format!("{} · {}", s.deck.len(), s.relics.len()));
+            ui.end_row();
+        });
+    }
+
     fn spike_ui(&mut self, ui: &mut egui::Ui) {
+        self.run_ui(ui);
+        ui.separator();
         if self.store.loaded_from_broken_file() {
             ui.colored_label(Color32::from_rgb(255, 170, 60), t("settings.json을 읽지 못해 기본값으로 실행 중입니다 (원본은 settings.json.bad로 보관)", "settings.json could not be read, running with default settings (the original is kept as settings.json.bad)"));
         }
