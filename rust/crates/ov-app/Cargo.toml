@@ -1,0 +1,45 @@
+[package]
+name = "ov-app"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Slay the Spire 2 overlay: windows, capture, hotkeys, tray, settings, updates"
+publish.workspace = true
+
+[[bin]]
+name = "Sts2Overlay"
+path = "src/main.rs"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+ov-core.workspace = true
+velopack = "1.2.161"
+
+[target.'cfg(windows)'.dependencies]
+image = { version = "0.25", default-features = false, features = ["png", "ico"] }
+egui = "0.37"
+eframe = { version = "0.37", default-features = false, features = ["glow", "default_fonts"] }
+tray-icon = "0.26"
+windows = { version = "0.62", features = [
+    "Foundation",
+    "Graphics",
+    "Graphics_Capture",
+    "Graphics_DirectX",
+    "Graphics_DirectX_Direct3D11",
+    "Win32_Foundation",
+    "Win32_Graphics_Direct3D",
+    "Win32_Graphics_Direct3D11",
+    "Win32_Graphics_Dwm",
+    "Win32_Graphics_Dxgi",
+    "Win32_Graphics_Dxgi_Common",
+    "Win32_Graphics_Gdi",
+    "Win32_System_Console",
+    "Win32_System_Threading",
+    "Win32_System_WinRT",
+    "Win32_System_WinRT_Direct3D11",
+    "Win32_System_WinRT_Graphics_Capture",
+    "Win32_UI_HiDpi",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_WindowsAndMessaging",
+] }

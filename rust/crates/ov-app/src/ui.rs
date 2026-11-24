@@ -1,0 +1,509 @@
+//! The overlay app on eframe: the root viewport is the panel (clickable, never takes focus), and a second viewport is
+//! the full-game layer (transparent, click-through, topmost) where badges and map / rest / event marks are drawn.
+//!
+//! M0 draws a check pattern on the layer (corner marks and one badge) and offers the three spike checks on the panel:
+//! the layer sits on the game, one WGC frame, and the update check.
+
+use crate::settings::Store;
+use crate::tray::{Tray, TrayAction};
+use crate::update::{UpdateEvent, Updater};
+use crate::win::hotkey::Hotkey;
+use crate::win::{PixelRect, game, style};
+use egui::{Color32, CornerRadius, Pos2, Rect, Stroke, Vec2, ViewportBuilder, ViewportCommand, ViewportId};
+use ov_core::loc::{self, t};
+use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
+
+pub const PANEL_TITLE: &str = "Sts2Overlay";
+pub const LAYER_TITLE: &str = "Sts2Overlay Layer";
+const PANEL_SIZE: Vec2 = Vec2::new(380.0, 520.0);
+const TICK: Duration = Duration::from_millis(250);
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Tab {
+    Recommend,
+    Deck,
+    Path,
+    Review,
+}
+
+impl Tab {
+    const ALL: [Tab; 4] = [Tab::Recommend, Tab::Deck, Tab::Path, Tab::Review];
+
+    fn key(self) -> &'static str {
+        match self {
+            Tab::Recommend => "live",
+            Tab::Deck => "deck",
+            Tab::Path => "path",
+            Tab::Review => "review",
+        }
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            Tab::Recommend => t("실시간 추천", "Live"),
+            Tab::Deck => t("덱", "Deck"),
+            Tab::Path => t("경로", "Path"),
+            Tab::Review => t("리뷰", "Review"),
+        }
+    }
+
+    fn from_key(k: Option<&str>) -> Tab {
+        Tab::ALL.into_iter().find(|t| Some(t.key()) == k).unwrap_or(Tab::Recommend)
+    }
+}
+
+pub struct OverlayApp {
+    store: Store,
+    tab: Tab,
+    hidden: bool,
+    click_through: bool,
+    debug_outlines: bool,
+    tracker: game::GameTracker,
+    game: Option<game::GameWindow>,
+    last_poll: Option<Instant>,
+    panel_hwnd: isize,
+    layer_hwnd: isize,
+    layer_rect: PixelRect,
+    tray: Option<Tray>,
+    tray_rx: Receiver<TrayAction>,
+    hotkey_rx: Receiver<Hotkey>,
+    updater: Arc<Mutex<Updater>>,
+    update_tx: Sender<UpdateEvent>,
+    update_rx: Receiver<UpdateEvent>,
+    update_line: String,
+    capture_rx: Option<Receiver<String>>,
+    capture_line: String,
+    started: Instant,
+    first_update_check_done: bool,
+}
+
+impl OverlayApp {
+    pub fn new(cc: &eframe::CreationContext<'_>, store: Store) -> Self {
+        crate::fonts::install(&cc.egui_ctx);
+        apply_language(&store.settings.language);
+        let wake = {
+            let ctx = cc.egui_ctx.clone();
+            move || ctx.request_repaint()
+        };
+        let (tray_tx, tray_rx) = mpsc::channel();
+        let (hk_tx, hotkey_rx) = mpsc::channel();
+        crate::win::hotkey::start(store.settings.debug_captures, hk_tx, wake.clone());
+        let updater = Updater::new(store.settings.update_url.as_deref());
+        let version_text = format!("v{} ({})", updater.current_version(), if updater.is_installed() { "설치판" } else { "개발판" });
+        let tray = Tray::new(&version_text, tray_tx, wake);
+        if let Some(tr) = &tray {
+            tr.on_top.set_checked(store.settings.always_on_top);
+            tr.map_overlay.set_checked(store.settings.map_overlay);
+            tr.set_language(&store.settings.language);
+        }
+        crate::applog::info(format!("start: {version_text}, update source {}", updater.source));
+        let (update_tx, update_rx) = mpsc::channel();
+        OverlayApp {
+            tab: Tab::from_key(store.settings.selected_tab.as_deref()),
+            store,
+            hidden: false,
+            click_through: false,
+            debug_outlines: false,
+            tracker: Default::default(),
+            game: None,
+            last_poll: None,
+            panel_hwnd: 0,
+            layer_hwnd: 0,
+            layer_rect: PixelRect::default(),
+            tray,
+            tray_rx,
+            hotkey_rx,
+            updater: Arc::new(Mutex::new(updater)),
+            update_tx,
+            update_rx,
+            update_line: String::new(),
+            capture_rx: None,
+            capture_line: String::new(),
+            started: Instant::now(),
+            first_update_check_done: false,
+        }
+    }
+
+    fn save_settings(&mut self) {
+        if let Err(e) = self.store.save(&crate::paths::settings_file()) {
+            crate::applog::warn(format!("settings: could not save ({e})"));
+        }
+    }
+
+    // ---- inputs -------------------------------------------------------------------------------------------------
+
+    fn poll_inputs(&mut self, ctx: &egui::Context) {
+        while let Ok(k) = self.hotkey_rx.try_recv() {
+            match k {
+                Hotkey::ToggleMapOverlay => self.toggle_map_overlay(),
+                Hotkey::ToggleAlwaysOnTop => self.toggle_on_top(),
+                Hotkey::ToggleClickThrough => self.toggle_click_through(),
+                Hotkey::ToggleHidden => self.toggle_hidden(),
+                Hotkey::SaveCapture | Hotkey::RecognizeNow => self.start_capture(),
+                Hotkey::ToggleDebugOutlines => self.debug_outlines = !self.debug_outlines,
+            }
+        }
+        while let Ok(a) = self.tray_rx.try_recv() {
+            match a {
+                TrayAction::ToggleHidden => self.toggle_hidden(),
+                TrayAction::ToggleAlwaysOnTop => self.toggle_on_top(),
+                TrayAction::ToggleClickThrough => self.toggle_click_through(),
+                TrayAction::ToggleMapOverlay => self.toggle_map_overlay(),
+                TrayAction::Language(l) => {
+                    self.store.settings.language = l.into();
+                    apply_language(l);
+                    if let Some(tr) = &self.tray {
+                        tr.set_language(l);
+                    }
+                    self.save_settings();
+                }
+                TrayAction::CheckUpdate => self.start_update_check(ctx),
+                TrayAction::ApplyUpdate => self.apply_update(ctx),
+                TrayAction::Exit => ctx.send_viewport_cmd(ViewportCommand::Close),
+            }
+        }
+        while let Ok(e) = self.update_rx.try_recv() {
+            if let (UpdateEvent::Ready(_), Some(tr)) = (&e, &self.tray) {
+                tr.apply_update.set_enabled(true);
+            }
+            self.update_line = e.message_ko();
+        }
+        if let Some(rx) = &self.capture_rx {
+            if let Ok(line) = rx.try_recv() {
+                self.capture_line = line;
+                self.capture_rx = None;
+            }
+        }
+    }
+
+    fn toggle_on_top(&mut self) {
+        let s = &mut self.store.settings;
+        s.always_on_top = !s.always_on_top;
+        if self.panel_hwnd != 0 {
+            if s.always_on_top { style::assert_topmost(self.panel_hwnd) } else { style::clear_topmost(self.panel_hwnd) }
+        }
+        if let Some(tr) = &self.tray {
+            tr.on_top.set_checked(s.always_on_top);
+        }
+        self.save_settings();
+    }
+
+    /// Ctrl+F8: nothing is drawn and the panel lets clicks through, but the window stays (so the UI loop keeps running).
+    fn toggle_hidden(&mut self) {
+        self.hidden = !self.hidden;
+        if self.panel_hwnd != 0 {
+            style::set_click_through(self.panel_hwnd, self.hidden || self.click_through);
+        }
+    }
+
+    fn toggle_click_through(&mut self) {
+        self.click_through = !self.click_through;
+        if self.panel_hwnd != 0 {
+            style::set_click_through(self.panel_hwnd, self.hidden || self.click_through);
+        }
+        if let Some(tr) = &self.tray {
+            tr.click_through.set_checked(self.click_through);
+        }
+    }
+
+    fn toggle_map_overlay(&mut self) {
+        let s = &mut self.store.settings;
+        s.map_overlay = !s.map_overlay;
+        if let Some(tr) = &self.tray {
+            tr.map_overlay.set_checked(s.map_overlay);
+        }
+        self.save_settings();
+    }
+
+    // ---- workers ------------------------------------------------------------------------------------------------
+
+    fn start_update_check(&mut self, ctx: &egui::Context) {
+        let (up, tx, ctx) = (self.updater.clone(), self.update_tx.clone(), ctx.clone());
+        std::thread::spawn(move || {
+            let (relay_tx, relay_rx) = mpsc::channel();
+            let c2 = ctx.clone();
+            let relay = std::thread::spawn(move || {
+                for e in relay_rx {
+                    let _ = tx.send(e);
+                    c2.request_repaint();
+                }
+            });
+            if let Ok(mut u) = up.try_lock() {
+                u.check_and_download(&relay_tx);
+            }
+            drop(relay_tx);
+            let _ = relay.join();
+            ctx.request_repaint();
+        });
+    }
+
+    fn apply_update(&mut self, ctx: &egui::Context) {
+        self.save_settings();
+        let result = self.updater.lock().map_err(|e| e.to_string()).and_then(|u| u.apply_and_restart());
+        if let Err(e) = result {
+            self.update_line = format!("업데이트 적용 실패: {e}");
+            ctx.request_repaint();
+        }
+    }
+
+    fn start_capture(&mut self) {
+        let Some(g) = self.game else {
+            self.capture_line = t("게임 창을 찾지 못해 캡처하지 않았습니다", "Game window not found; nothing captured").into();
+            return;
+        };
+        let (tx, rx) = mpsc::channel();
+        self.capture_rx = Some(rx);
+        self.capture_line = t("캡처 중…", "Capturing…").into();
+        std::thread::spawn(move || {
+            let _ = tx.send(crate::spike::capture_to_file(g.hwnd, None));
+        });
+    }
+
+    // ---- placement ----------------------------------------------------------------------------------------------
+
+    fn find_windows(&mut self) {
+        if self.panel_hwnd == 0 {
+            if let Some(h) = style::find_own_window(PANEL_TITLE) {
+                self.panel_hwnd = h;
+                style::make_panel(h);
+                if !self.store.settings.always_on_top {
+                    style::clear_topmost(h);
+                }
+                if let (Some(x), Some(y)) = (self.store.settings.panel_x, self.store.settings.panel_y) {
+                    style::set_position_in_place(h, x, y);
+                }
+            }
+        }
+        if self.layer_hwnd == 0 && self.layer_visible() {
+            if let Some(h) = style::find_own_window(LAYER_TITLE) {
+                self.layer_hwnd = h;
+                self.layer_rect = PixelRect::default();
+                style::make_layer(h);
+                style::set_exclude_from_capture(h, true);
+            }
+        }
+    }
+
+    fn layer_visible(&self) -> bool {
+        !self.hidden && self.game.is_some_and(|g| !g.minimized && !g.client.is_empty())
+    }
+
+    fn place_layer(&mut self) {
+        let (Some(g), true) = (self.game, self.layer_hwnd != 0) else { return };
+        // Like C# LayerPlacement: put it back whenever the window is not exactly on the game (DPI moves can resize it).
+        if g.client != self.layer_rect || game::window_rect(self.layer_hwnd) != g.client {
+            style::set_bounds(self.layer_hwnd, g.client);
+            if self.layer_rect != g.client {
+                crate::applog::info(format!("layer: placed on the game {}", g.client));
+            }
+            self.layer_rect = g.client;
+        } else if self.store.settings.always_on_top {
+            style::assert_topmost(self.layer_hwnd);
+        }
+    }
+
+    // ---- drawing ------------------------------------------------------------------------------------------------
+
+    fn panel_ui(&mut self, ui: &mut egui::Ui) {
+        let alpha = (self.store.settings.panel_opacity.clamp(0.2, 1.0) * 255.0) as u8;
+        let frame = egui::Frame::new()
+            .fill(Color32::from_rgba_unmultiplied(20, 22, 28, if self.hidden { 0 } else { alpha }))
+            .corner_radius(CornerRadius::same(8))
+            .inner_margin(10.0);
+        frame.show(ui, |ui| {
+            ui.set_min_size(ui.available_size());
+            if self.hidden {
+                return;
+            }
+            self.title_bar(ui);
+            if self.store.settings.panel_collapsed {
+                return;
+            }
+            ui.horizontal(|ui| {
+                for tab in Tab::ALL {
+                    if ui.selectable_label(self.tab == tab, tab.label()).clicked() && self.tab != tab {
+                        self.tab = tab;
+                        self.store.settings.selected_tab = Some(tab.key().into());
+                    }
+                }
+            });
+            ui.separator();
+            egui::ScrollArea::vertical().show(ui, |ui| match self.tab {
+                Tab::Recommend => self.spike_ui(ui),
+                _ => {
+                    ui.label(t("이 탭은 다음 단계(M6)에서 옮깁니다.", "This tab is ported in M6."));
+                }
+            });
+        });
+    }
+
+    fn title_bar(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            let title = ui.add(egui::Label::new(egui::RichText::new(t("StS2 오버레이", "StS2 Overlay")).strong()).sense(egui::Sense::drag()));
+            if title.drag_started() {
+                ui.ctx().send_viewport_cmd(ViewportCommand::StartDrag);
+            }
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                let collapsed = self.store.settings.panel_collapsed;
+                if ui.small_button(if collapsed { "▾" } else { "▴" }).clicked() {
+                    self.store.settings.panel_collapsed = !collapsed;
+                    let h = if collapsed { PANEL_SIZE.y } else { 44.0 };
+                    ui.ctx().send_viewport_cmd(ViewportCommand::InnerSize(Vec2::new(PANEL_SIZE.x, h)));
+                    self.save_settings();
+                }
+            });
+        });
+    }
+
+    fn spike_ui(&mut self, ui: &mut egui::Ui) {
+        if self.store.loaded_from_broken_file() {
+            ui.colored_label(Color32::from_rgb(255, 170, 60), t("settings.json을 읽지 못해 기본값으로 실행 중입니다 (원본은 settings.json.bad로 보관)", "settings.json could not be read, running with default settings (the original is kept as settings.json.bad)"));
+        }
+        ui.heading(t("M0 확인", "M0 checks"));
+        egui::Grid::new("m0").num_columns(2).spacing([12.0, 6.0]).show(ui, |ui| {
+            ui.label(t("게임 창", "Game window"));
+            match self.game {
+                Some(g) => ui.label(format!("{}{}", g.client, if g.minimized { t(" (최소화)", " (minimized)") } else { "" })),
+                None => ui.label(t("찾지 못함 (SlayTheSpire2.exe)", "not found (SlayTheSpire2.exe)")),
+            };
+            ui.end_row();
+            ui.label(t("겹침 창", "Layer"));
+            ui.label(if self.layer_hwnd != 0 && self.layer_visible() {
+                format!("{} {}", t("게임 위", "on the game"), self.layer_rect)
+            } else {
+                t("없음", "none").into()
+            });
+            ui.end_row();
+            ui.label(t("항상 맨 앞", "Always on top"));
+            ui.label(if self.store.settings.always_on_top { "on" } else { "off" });
+            ui.end_row();
+            ui.label(t("클릭 통과", "Click-through"));
+            ui.label(if self.click_through { "on" } else { "off" });
+            ui.end_row();
+        });
+        ui.add_space(8.0);
+        if ui.button(t("WGC 캡처 1장 저장", "Save one WGC frame")).clicked() {
+            self.start_capture();
+        }
+        if !self.capture_line.is_empty() {
+            ui.label(&self.capture_line);
+        }
+        ui.add_space(8.0);
+        let (installed, version, source) = match self.updater.try_lock() {
+            Ok(u) => (u.is_installed(), u.current_version(), u.source.to_string()),
+            Err(_) => (true, "…".into(), String::new()),
+        };
+        ui.label(format!("{} v{version} · {}", if installed { t("설치판", "installed") } else { t("개발판", "dev build") }, source));
+        if ui.button(t("업데이트 확인", "Check for updates")).clicked() {
+            self.start_update_check(ui.ctx());
+        }
+        if !self.update_line.is_empty() {
+            ui.label(&self.update_line);
+        }
+        if self.updater.try_lock().is_ok_and(|u| u.ready_version().is_some()) && ui.button(t("업데이트 적용 (재시작)", "Apply update (restart)")).clicked() {
+            self.apply_update(ui.ctx());
+        }
+    }
+
+    fn layer_ui(ui: &mut egui::Ui, outlines: bool) {
+        let r = ui.ctx().content_rect();
+        let p = ui.painter();
+        let accent = Color32::from_rgb(255, 196, 0);
+        let len = 40.0;
+        for (corner, dx, dy) in [(r.left_top(), 1.0, 1.0), (r.right_top(), -1.0, 1.0), (r.left_bottom(), 1.0, -1.0), (r.right_bottom(), -1.0, -1.0)] {
+            let c = corner + Vec2::new(dx * 2.0, dy * 2.0);
+            p.line_segment([c, c + Vec2::new(dx * len, 0.0)], Stroke::new(4.0, accent));
+            p.line_segment([c, c + Vec2::new(0.0, dy * len)], Stroke::new(4.0, accent));
+        }
+        let badge = Rect::from_center_size(Pos2::new(r.center().x, r.top() + r.height() * 0.12), Vec2::new(260.0, 44.0));
+        p.rect_filled(badge, CornerRadius::same(10), Color32::from_rgba_unmultiplied(20, 22, 28, 220));
+        p.rect_stroke(badge, CornerRadius::same(10), Stroke::new(2.0, accent), egui::StrokeKind::Inside);
+        p.text(badge.center(), egui::Align2::CENTER_CENTER, t("러스트 오버레이 M0", "Rust overlay M0"), egui::FontId::proportional(20.0), Color32::WHITE);
+        if outlines {
+            p.rect_stroke(r.shrink(1.0), 0.0, Stroke::new(1.0, Color32::RED), egui::StrokeKind::Inside);
+        }
+    }
+}
+
+fn apply_language(setting: &str) {
+    // "auto" follows the game (read with the game state in M4); Korean until then.
+    loc::set_language(if setting == "eng" { loc::Lang::Eng } else { loc::Lang::Kor });
+}
+
+impl eframe::App for OverlayApp {
+    fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.poll_inputs(ctx);
+        if self.last_poll.is_none_or(|t| t.elapsed() >= TICK) {
+            self.last_poll = Some(Instant::now());
+            self.game = self.tracker.poll();
+            self.find_windows();
+            self.place_layer();
+            if self.panel_hwnd != 0 && self.store.settings.always_on_top {
+                style::assert_topmost(self.panel_hwnd);
+            }
+        }
+        if !self.first_update_check_done && self.started.elapsed() >= Duration::from_secs(15) {
+            self.first_update_check_done = true;
+            let auto = self.store.settings.auto_update && self.updater.try_lock().is_ok_and(|u| u.is_installed());
+            if auto {
+                self.start_update_check(ctx);
+            }
+        }
+        ctx.request_repaint_after(TICK);
+    }
+
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        self.panel_ui(ui);
+        if self.layer_visible() {
+            let outlines = self.debug_outlines;
+            let builder = ViewportBuilder::default()
+                .with_title(LAYER_TITLE)
+                .with_decorations(false)
+                .with_transparent(true)
+                .with_mouse_passthrough(true)
+                .with_window_level(egui::WindowLevel::AlwaysOnTop)
+                .with_taskbar(false)
+                .with_active(false)
+                .with_inner_size(Vec2::new(64.0, 64.0));
+            ui.ctx().show_viewport_immediate(ViewportId::from_hash_of("layer"), builder, |ui, _class| {
+                OverlayApp::layer_ui(ui, outlines);
+            });
+        } else if self.layer_hwnd != 0 {
+            // The viewport is closed when it is not shown this pass; its HWND is gone.
+            self.layer_hwnd = 0;
+        }
+    }
+
+    fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
+        [0.0, 0.0, 0.0, 0.0]
+    }
+
+    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+        if self.panel_hwnd != 0 {
+            let r = game::window_rect(self.panel_hwnd);
+            self.store.settings.panel_x = Some(r.x);
+            self.store.settings.panel_y = Some(r.y);
+        }
+        self.save_settings();
+        if let Ok(u) = self.updater.lock() {
+            u.apply_on_exit();
+        }
+        crate::applog::info("exit");
+    }
+}
+
+pub fn native_options() -> eframe::NativeOptions {
+    eframe::NativeOptions {
+        viewport: ViewportBuilder::default()
+            .with_title(PANEL_TITLE)
+            .with_inner_size(PANEL_SIZE)
+            .with_decorations(false)
+            .with_transparent(true)
+            .with_window_level(egui::WindowLevel::AlwaysOnTop)
+            .with_taskbar(false)
+            .with_active(false),
+        ..Default::default()
+    }
+}
