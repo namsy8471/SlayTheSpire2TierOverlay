@@ -88,6 +88,23 @@ pub struct Recognition {
 }
 
 impl Recognition {
+    /// Sets each card's upgrade to the level the tracker replayed from the run seed (card reward screens). The title
+    /// colour the frame was read by slips now and then: the third card's first frames while it slides in read as plain,
+    /// and some titles read as green when the card is not upgraded (C# PR 103, `RewardUpgrades.Apply`). Returns the
+    /// cards that changed as `(id, colour reading, replay)`.
+    pub fn apply_replayed_upgrades(&mut self, levels: &std::collections::BTreeMap<String, i32>) -> Vec<(String, i32, i32)> {
+        let mut changed = Vec::new();
+        for c in &mut self.cards {
+            if let Some(&level) = levels.get(&c.id)
+                && level != c.upgrade
+            {
+                changed.push((c.id.clone(), c.upgrade, level));
+                c.upgrade = level;
+            }
+        }
+        changed
+    }
+
     pub fn other() -> Self {
         Recognition {
             kind: ScreenKind::Other,
@@ -346,5 +363,23 @@ fn load_potions(layout: &LocalLayout, manifest: Option<&ResourceManifest>, log: 
             log(&format!("potion icons failed to load; shop potions off: {e}"));
             None
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn card(id: &str, upgrade: i32) -> SeenCard {
+        SeenCard { slot: 0, id: id.into(), upgrade, bounds: Rect { x: 0, y: 0, width: 1, height: 1 }, confidence: 1.0, price: None, unaffordable: None, on_sale: false, price_bounds: None, missing_portrait: false }
+    }
+
+    #[test]
+    fn replayed_upgrades_replace_the_title_colour_where_known() {
+        // Floor 43 of a real run: Putrefy read "+" (plain in the run history); Sow, not replayed, keeps its reading.
+        let mut r = Recognition { kind: ScreenKind::Reward, cards: vec![card("CARD.RIGHT_HAND_HAND", 1), card("CARD.SOW", 0), card("CARD.PUTREFY", 1)], ..Recognition::other() };
+        let levels = [("CARD.RIGHT_HAND_HAND".to_string(), 1), ("CARD.PUTREFY".to_string(), 0)].into_iter().collect();
+        assert_eq!(r.apply_replayed_upgrades(&levels), vec![("CARD.PUTREFY".to_string(), 1, 0)]);
+        assert_eq!(r.cards.iter().map(|c| c.upgrade).collect::<Vec<_>>(), vec![1, 0, 0]);
     }
 }

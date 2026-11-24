@@ -17,7 +17,8 @@ use ov_live::advisor::AdvisorCommand;
 use ov_live::map_marks::{self, MapSight, MapTarget, MapWatcher};
 use ov_live::brain::{Brain, BrainOptions};
 use ov_live::paths::AppLayout;
-use ov_live::recognition::{Frame, Recognition, VisionRecognizer};
+use ov_core::model::CardRef;
+use ov_live::recognition::{Frame, Recognition, ScreenKind, VisionRecognizer};
 use ov_live::text::GameText;
 use ov_resources::install::{GameInstall, InstalledGame};
 use ov_resources::manifest::{LocalLayout, ResourceManifest};
@@ -73,6 +74,8 @@ pub struct Live {
     map_moving: bool,
     map_scroll: f32,
     _tracker: LiveHandle,
+    /// The last "reward upgrades" app.log line (logged once per change, not per frame).
+    upgrade_logged: String,
 }
 
 fn log() -> ov_live::advisor::host::Log {
@@ -159,6 +162,7 @@ impl Live {
             map_moving: false,
             map_scroll: 0.0,
             _tracker: tracker,
+            upgrade_logged: String::new(),
         }
     }
 
@@ -188,7 +192,10 @@ impl Live {
             self.event_room = er;
             let _ = self.cmd_tx.send(Cmd::EventRoom(er));
         }
-        while let Ok(r) = self.rec_rx.try_recv() {
+        while let Ok(mut r) = self.rec_rx.try_recv() {
+            if r.kind == ScreenKind::Reward && !r.cards.is_empty() {
+                self.replay_reward_upgrades(&mut r);
+            }
             self.brain.on_recognition(r, Instant::now());
         }
         self.update_map_target();
@@ -219,6 +226,33 @@ impl Live {
     }
 
     /// Per act: where the game draws the map nodes (from the save's map and seed).
+    /// A card reward's upgrades come from the tracker's replay of the run seed where it explains the cards on screen,
+    /// not from the title colour. The tracker also keeps what the screen showed, for a picked card it can't replay.
+    fn replay_reward_upgrades(&mut self, r: &mut Recognition) {
+        let ids: Vec<String> = r.cards.iter().map(|c| c.id.clone()).collect();
+        let seen: Vec<CardRef> = r.cards.iter().map(|c| CardRef::new(c.id.clone(), c.upgrade)).collect();
+        let (tx, rx) = mpsc::channel();
+        self._tracker.query_tracker(move |t| {
+            let levels = t.replayed_reward_upgrades(&ids);
+            let seen = seen.into_iter().map(|c| match levels.as_ref().and_then(|l| l.get(&c.id)) {
+                Some(&level) => CardRef::new(c.id, level),
+                None => c,
+            }).collect();
+            t.on_card_offer_seen(seen);
+            let _ = tx.send(levels);
+        });
+        // The tracker thread answers at once (it sleeps on its command channel); never hold the UI longer than this.
+        let Ok(Some(levels)) = rx.recv_timeout(Duration::from_millis(100)) else { return };
+        let changed = r.apply_replayed_upgrades(&levels);
+        if !changed.is_empty() {
+            let key = changed.iter().map(|(id, seen, replay)| format!("{id} {seen}->{replay}")).collect::<Vec<_>>().join(", ");
+            if key != self.upgrade_logged {
+                crate::applog::info(format!("reward upgrades: title colour vs replay: {key}"));
+                self.upgrade_logged = key;
+            }
+        }
+    }
+
     fn update_map_target(&mut self) {
         let run = self.brain.run().filter(|_| self.map_on);
         let key = run.map(MapTarget::key_for).unwrap_or_default();
