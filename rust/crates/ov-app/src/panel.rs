@@ -1,6 +1,6 @@
 //! Drawing the panel tabs and the layer marks from [`Live`] (the C# PanelWindow sections and BadgeWindow).
 
-use egui::{Color32, Pos2, Rect, RichText, Stroke, Vec2};
+use egui::{Color32, CornerRadius, Pos2, Rect, RichText, Stroke, Vec2};
 use ov_core::loc::{self, t};
 use ov_live::brain::DecisionView;
 use ov_live::map_marks::{self as mm, LineKind, MapTarget, NodeKind};
@@ -242,7 +242,6 @@ fn event_marks(p: &egui::Painter, live: &Live, v: &DecisionView, layer: PxBox, d
 
 const PARTNER: Color32 = Color32::from_rgb(110, 190, 255);
 const PARTNER_DARK: Color32 = Color32::from_rgb(10, 30, 50);
-const GOLD_DARK: Color32 = Color32::from_rgb(40, 28, 0);
 const CHIP: Color32 = Color32::from_rgba_premultiplied(18, 20, 26, 225);
 
 /// The path marks on the game's own map (C# MapOverlayWindow): the gold line and ring with "추천!" on the advised
@@ -289,7 +288,8 @@ fn map_marks(p: &egui::Painter, live: &Live, target: &MapTarget, scroll: f32, la
                 p.circle_stroke(c, 42.0 * m, Stroke::new(5.0 * m, GOLD));
                 let tip = vec![c + Vec2::new(-11.0 * m, -58.0 * m), c + Vec2::new(11.0 * m, -58.0 * m), c + Vec2::new(0.0, -45.0 * m)];
                 p.add(egui::Shape::convex_polygon(tip, GOLD, Stroke::NONE));
-                label(t("추천!", "Pick!"), c + Vec2::new(0.0, -58.0 * m), 26.0 * m, GOLD_DARK, GOLD, egui::Align2::CENTER_BOTTOM);
+                let r = egui::Align2::CENTER_BOTTOM.anchor_size(c + Vec2::new(0.0, -58.0 * m), Vec2::new(120.0 * m, 38.0 * m));
+                theme::plaque(&p, r, t("추천!", "Pick!"), Plaque::Pick, 24.0 * m);
             }
             NodeKind::Partner | NodeKind::MyVote | NodeKind::BothVoted => {
                 let width = if n.kind == NodeKind::BothVoted { 5.0 } else { 3.5 };
