@@ -2,6 +2,8 @@
 
 pub mod history;
 pub mod parser;
+pub mod progress;
+pub mod watcher;
 
 pub use parser::{RUN_SAVE_FILE_NAMES, parse, parse_file};
 
