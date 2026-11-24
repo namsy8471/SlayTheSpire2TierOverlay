@@ -2051,7 +2051,7 @@ dependencies = [
 
 [[package]]
 name = "ov-app"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "eframe",
  "egui",
@@ -2069,7 +2069,7 @@ dependencies = [
 
 [[package]]
 name = "ov-core"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "flate2",
  "serde",
@@ -2078,7 +2078,7 @@ dependencies = [
 
 [[package]]
 name = "ov-gamestate"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "flate2",
  "ov-core",
@@ -2088,7 +2088,7 @@ dependencies = [
 
 [[package]]
 name = "ov-live"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "ov-core",
  "ov-gamestate",
@@ -2101,11 +2101,12 @@ dependencies = [
 
 [[package]]
 name = "ov-resources"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "flate2",
  "image",
  "ov-core",
+ "ruzstd",
  "serde",
  "serde_json",
  "sha1",
@@ -2115,7 +2116,7 @@ dependencies = [
 
 [[package]]
 name = "ov-vision"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "flate2",
  "image",
@@ -2578,6 +2579,12 @@ name = "rustversion"
 version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
+
+[[package]]
+name = "ruzstd"
+version = "0.8.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a7c1c839d570d835527c9a5e4db7cb2198683a988cb9d7293fc8674e6bd58fc8"
 
 [[package]]
 name = "same-file"

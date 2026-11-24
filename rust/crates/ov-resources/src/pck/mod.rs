@@ -4,6 +4,7 @@ pub mod bc3;
 pub mod bc7;
 pub mod ctex;
 pub mod extract;
+pub mod font;
 pub mod glob;
 pub mod png;
 pub mod reader;

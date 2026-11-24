@@ -398,6 +398,10 @@ fn spawn_prepare(
             }
         };
         crate::applog::info(format!("resources: game {} at {}", game.version_label(), game.install.directory.display()));
+        {
+            let (ctx, pck) = (ctx.clone(), game.install.pck_path());
+            let _ = std::thread::Builder::new().name("title-font".into()).spawn(move || crate::fonts::ensure_title_from_game(&ctx, &pck));
+        }
         let preparer = ResourcePreparer::new(local.clone());
         let check = preparer.check(&game);
         crate::applog::info(format!("resources: {:?} ({})", check.need, check.reason));

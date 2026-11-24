@@ -86,7 +86,7 @@ pub struct OverlayApp {
 
 impl OverlayApp {
     pub fn new(cc: &eframe::CreationContext<'_>, store: Store) -> Self {
-        crate::fonts::install(&cc.egui_ctx, None);
+        crate::fonts::install(&cc.egui_ctx, crate::fonts::cached_title());
         crate::theme::apply_visuals(&cc.egui_ctx);
         apply_language(&store.settings.language);
         if store.settings.panel_collapsed {
