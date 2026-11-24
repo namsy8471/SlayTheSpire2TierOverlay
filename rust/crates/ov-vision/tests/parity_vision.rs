@@ -11,6 +11,11 @@ use ov_vision::price::PriceReading;
 use ov_vision::recognizer::{CardRecognizer, RecognizerOptions};
 use ov_vision::relics::{self, RelicIconDatabase, RelicRecognizer};
 use ov_vision::results::*;
+use ov_vision::events::{self, EventScreen, TextInk};
+use ov_vision::geometry::RectF;
+use ov_vision::map::{MapMark, MapScrollEstimator};
+use ov_vision::{removal, rest};
+use ov_vision::tracker::RecognitionTracker;
 use serde_json::{json, Value};
 
 fn fixtures() -> PathBuf {
@@ -61,8 +66,72 @@ fn relic(x: &RecognizedRelic) -> Value {
         "rug": f(x.rug_share), "shape": f(x.shape_score), "shapeM": f(x.shape_margin), "agree": x.shape_agrees})
 }
 
-/// Rust output lines in the golden file's shape.
-fn rust_lines() -> Vec<Value> {
+fn rf(r: RectF) -> Value {
+    json!([f(r.x), f(r.y), f(r.width), f(r.height)])
+}
+
+fn ev(e: &Option<EventScreen>) -> Value {
+    match e {
+        None => Value::Null,
+        Some(e) => Value::Array(e.buttons.iter().map(|b| json!({"i": b.index, "bounds": r(b.bounds), "state": format!("{:?}", b.state),
+            "sig": b.text_signature.iter().map(|&v| f(v)).collect::<Vec<_>>(),
+            "ink": b.ink.as_ref().map(|k| json!([k.width, k.height, f(k.pivot_x), f(k.pivot_y), k.count()]))})).collect()),
+    }
+}
+
+fn frames() -> Vec<PathBuf> {
+    let mut v: Vec<PathBuf> = std::fs::read_dir(fixtures().join("frames")).unwrap().flatten().map(|e| e.path()).collect();
+    v.sort();
+    v
+}
+
+/// The other recognisers on every frame, ink verdicts between event buttons and a tracker run (400 ms per frame).
+fn rust_extras(rec: &CardRecognizer) -> Vec<Value> {
+    let marks: Vec<Vec<f32>> = serde_json::from_str(&std::fs::read_to_string(fixtures().join("map_marks.json")).unwrap()).unwrap();
+    let marks: Vec<MapMark> = marks.iter().map(|m| MapMark { x: m[0], y0: m[1] }).collect();
+    let mut tracker = RecognitionTracker::default();
+    let t0 = std::time::Instant::now();
+    let mut out = Vec::new();
+    for (tick, file) in frames().into_iter().enumerate() {
+        let owned = image_io::load(&file).expect("frame");
+        let frame = owned.view();
+        let rs = rest::detect(&frame);
+        let e = events::detect(&frame);
+        let a = events::ancient::detect(&frame);
+        let rm = removal::read(&frame);
+        let mf = MapScrollEstimator::default().estimate(&frame, &marks, -800.0, 2000.0);
+        let mut j = json!({
+            "frame": file.file_name().unwrap().to_string_lossy(),
+            "rest": {"choice": rs.choice_screen, "grid": rs.card_grid_open, "detail": rs.detail,
+                "buttons": rs.buttons.iter().map(|b| json!([format!("{:?}", b.option), b.index, rf(b.rect), rf(b.slot), format!("{:?}", b.state),
+                    b.enabled, f(b.residual), f(b.margin)])).collect::<Vec<_>>()},
+            "event": ev(&e),
+            "ancient": ev(&a),
+            "removal": [rm.available, r(rm.bounds), f(rm.face_gold), f(rm.face_red), rm.price_icon],
+            "map": [mf.is_map, f(mf.scroll), f(mf.score), mf.visible, mf.matched, f(mf.runner), f(mf.paper), mf.detail],
+        });
+        if let Some(e) = e.as_ref().filter(|e| e.buttons.len() >= 2) {
+            let inks: Vec<&TextInk> = e.buttons.iter().map(|b| b.ink.as_ref().unwrap()).collect();
+            let mut v = Vec::new();
+            for x in &inks {
+                for y in &inks {
+                    let m = TextInk::match_inks(x, y);
+                    v.push(json!([format!("{:?}", TextInk::judge(x, y)), f(m.distance), f(m.lost), f(m.gained)]));
+                }
+            }
+            j["inks"] = Value::Array(v);
+        }
+        let res = rec.recognize(&frame, &RecognitionHints { character_id: Some("CHARACTER.IRONCLAD".into()) }).expect("recognize");
+        let ts = tracker.update(&res, t0 + std::time::Duration::from_millis(400 * tick as u64));
+        j["tracked"] = json!({"kind": format!("{:?}", ts.kind), "cards": ts.cards.iter().map(card).collect::<Vec<_>>(), "relics": ts.relics.len(),
+            "slots": ts.slot_count, "gen": ts.generation, "held": ts.held, "unsettled": ts.unsettled});
+        out.push(j);
+    }
+    out
+}
+
+/// Rust output lines in the golden file's shape, plus the extras lines.
+fn rust_lines() -> (Vec<Value>, Vec<Value>) {
     let data = fixtures();
     let db = CardArtDatabase::build(&data.join("art"), None, 0.97, &mut |_| {}).expect("db");
     let mut lines = vec![json!({
@@ -78,9 +147,7 @@ fn rust_lines() -> Vec<Value> {
     let mut rec = CardRecognizer::new(db, RecognizerOptions::default());
     rec.relics = Some(RelicRecognizer::new(relic_db, Default::default(), Default::default()));
     rec.potions = Some(RelicRecognizer::for_potions(potion_db, relics::SLOT_X0, 819.0));
-    let mut frames: Vec<PathBuf> = std::fs::read_dir(data.join("frames")).unwrap().flatten().map(|e| e.path()).collect();
-    frames.sort();
-    for file in frames {
+    for file in frames() {
         let frame = image_io::load(&file).expect("frame");
         for hint in [Some("CHARACTER.IRONCLAD"), None] {
             let res = rec.recognize(&frame.view(), &RecognitionHints { character_id: hint.map(str::to_string) }).expect("recognize");
@@ -97,7 +164,8 @@ fn rust_lines() -> Vec<Value> {
             }));
         }
     }
-    lines
+    let extras = rust_extras(&rec);
+    (lines, extras)
 }
 
 /// First difference between two JSON values; numbers may differ by `tol` (summation order of SIMD dot products).
@@ -128,16 +196,22 @@ fn diff(path: &str, a: &Value, b: &Value, tol: f64) -> Option<String> {
 
 #[test]
 fn recognition_matches_csharp() {
-    let mut text = String::new();
-    flate2::read::GzDecoder::new(std::fs::File::open(fixtures().join("csharp.jsonl.gz")).expect("golden"))
-        .read_to_string(&mut text)
-        .unwrap();
-    let golden: Vec<Value> = text.lines().map(|l| serde_json::from_str(l).unwrap()).collect();
-    let ours = rust_lines();
+    let golden = |name: &str| -> Vec<Value> {
+        let mut text = String::new();
+        flate2::read::GzDecoder::new(std::fs::File::open(fixtures().join(name)).expect("golden")).read_to_string(&mut text).unwrap();
+        text.lines().map(|l| serde_json::from_str(l).unwrap()).collect()
+    };
+    let (main, extras) = rust_lines();
     if let Ok(dir) = std::env::var("OV_VISION_DUMP") {
-        let s: String = ours.iter().map(|v| v.to_string() + "\n").collect();
-        std::fs::write(Path::new(&dir).join("rust.jsonl"), s).unwrap();
+        for (name, v) in [("rust.jsonl", &main), ("rust_extras.jsonl", &extras)] {
+            let s: String = v.iter().map(|v| v.to_string() + "\n").collect();
+            std::fs::write(Path::new(&dir).join(name), s).unwrap();
+        }
     }
+    let mut golden_all = golden("csharp.jsonl.gz");
+    golden_all.extend(golden("csharp_extras.jsonl.gz"));
+    let golden = golden_all;
+    let ours: Vec<Value> = main.into_iter().chain(extras).collect();
     assert_eq!(golden.len(), ours.len(), "line count");
     let mut failures = Vec::new();
     for (i, (g, o)) in golden.iter().zip(&ours).enumerate() {
