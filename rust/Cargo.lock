@@ -2049,6 +2049,7 @@ version = "0.2.0"
 dependencies = [
  "flate2",
  "ov-core",
+ "regex",
  "serde_json",
 ]
 
