@@ -1,6 +1,6 @@
 //! Drawing the panel tabs and the layer marks from [`Live`] (the C# PanelWindow sections and BadgeWindow).
 
-use egui::{Color32, CornerRadius, Pos2, Rect, RichText, Stroke, Vec2};
+use egui::{Color32, Pos2, Rect, RichText, Stroke, Vec2};
 use ov_core::loc::{self, t};
 use ov_live::brain::DecisionView;
 use ov_live::offer::PartialVerdict;
@@ -12,38 +12,44 @@ use crate::layout::badge::{self, CardMarks, FrameInput, PtRect, PxBox};
 use crate::live::Live;
 use crate::win::PixelRect;
 
-pub const GOLD: Color32 = Color32::from_rgb(255, 196, 0);
-const DIM: Color32 = Color32::from_rgb(170, 170, 180);
-const WARN: Color32 = Color32::from_rgb(255, 170, 60);
+use crate::theme::{self, DIM, GOLD, Plaque, WARN};
 
 fn section_ui(ui: &mut egui::Ui, s: &Section) {
     if s.title.is_empty() {
         return;
     }
-    ui.label(RichText::new(&s.title).strong().size(15.0));
+    theme::section_head(ui, &s.title);
     if !s.status.is_empty() {
-        let r = ui.colored_label(if s.warn { WARN } else { DIM }, &s.status);
+        let color = if s.warn { WARN } else { DIM };
+        let r = ui.horizontal(|ui| {
+            ui.add_space(14.0);
+            ui.colored_label(color, &s.status)
+        });
         if !s.note.is_empty() {
-            r.on_hover_text(&s.note);
+            r.inner.on_hover_text(&s.note);
         }
     }
+    ui.add_space(2.0);
     for row in &s.rows {
-        ui.horizontal_wrapped(|ui| {
-            if row.picked {
-                ui.label(RichText::new(t("추천!", "Pick!")).color(Color32::BLACK).background_color(GOLD).strong());
-            } else {
-                ui.label(RichText::new(format!("{}", row.rank + 1)).color(DIM).monospace());
-            }
-            ui.label(RichText::new(&row.label).color(if row.picked { Color32::WHITE } else { Color32::LIGHT_GRAY }));
-            if !row.sub.is_empty() {
-                ui.label(RichText::new(&row.sub).color(DIM).small());
-            }
+        let resp = theme::row_frame(row.picked).show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            ui.horizontal_wrapped(|ui| {
+                theme::rank_seal(ui, if row.picked { None } else { Some(row.rank + 1) });
+                ui.label(RichText::new(&row.label).color(if row.picked { Color32::WHITE } else { theme::TEXT }));
+                if !row.sub.is_empty() {
+                    ui.label(RichText::new(&row.sub).color(DIM).small());
+                }
+            });
         });
+        if row.picked {
+            theme::row_bar(ui, resp.response.rect);
+        }
     }
     if !s.ending.is_empty() {
-        ui.label(RichText::new(&s.ending).color(GOLD));
+        ui.add_space(4.0);
+        ui.label(RichText::new(&s.ending).font(crate::fonts::title_font(14.5)).color(GOLD));
     }
-    ui.add_space(6.0);
+    ui.add_space(8.0);
 }
 
 /// The 추천 tab: preparation line, helper state, combat order, the open screen's decision.
@@ -109,18 +115,23 @@ pub fn deck_ui(ui: &mut egui::Ui, live: &Live) {
         }
     }
     groups.sort();
-    ui.label(RichText::new(loc::tr(format!("덱 {}장", run.state.deck.len()), format!("Deck: {} cards", run.state.deck.len()))).strong());
+    theme::section_head(ui, &loc::tr(format!("덱 {}장", run.state.deck.len()), format!("Deck: {} cards", run.state.deck.len())));
     if run.deck_approximate {
         ui.colored_label(DIM, t("로그로 추정한 덱입니다 (상점 구매 등은 빠질 수 있음)", "Deck rebuilt from the log (shop buys may be missing)"));
     }
     for (name, n) in groups {
         ui.label(if n > 1 { format!("{name} ×{n}") } else { name });
     }
-    ui.add_space(6.0);
-    ui.label(RichText::new(t("유물", "Relics")).strong());
+    theme::divider(ui);
+    theme::section_head(ui, t("유물", "Relics"));
     for r in &run.state.relics {
         ui.label(live.text.relic(lang, r));
     }
+}
+
+/// Gold for the advised choice, silver when the advisor calls it close.
+fn pick_kind(v: &DecisionView) -> Plaque {
+    if v.close { Plaque::Close } else { Plaque::Pick }
 }
 
 fn px(r: SRect) -> PxBox {
@@ -129,12 +140,6 @@ fn px(r: SRect) -> PxBox {
 
 fn to_egui(r: PtRect) -> Rect {
     Rect::from_min_size(Pos2::new(r.x as f32, r.y as f32), Vec2::new(r.w as f32, r.h as f32))
-}
-
-fn pill(p: &egui::Painter, r: Rect, text: &str, fill: Color32, fg: Color32, size: f32) {
-    p.rect_filled(r, CornerRadius::same((r.height() / 2.0).min(14.0) as u8), fill);
-    p.rect_stroke(r, CornerRadius::same((r.height() / 2.0).min(14.0) as u8), Stroke::new(1.5, GOLD), egui::StrokeKind::Inside);
-    p.text(r.center(), egui::Align2::CENTER_CENTER, text, egui::FontId::proportional(size), fg);
 }
 
 /// Marks on the game: a badge per offered card / shop item (AI rank, "추천!" on the pick), the skip pill, the
@@ -178,22 +183,22 @@ fn card_badges(p: &egui::Painter, v: &DecisionView, layer: PxBox, dpi: f64, mult
         (Shown::Shop { removal: Some(r), .. }, true) => Some(px(*r)),
         _ => None,
     };
+    let pick = pick_kind(v);
     let frame = badge::compute(&FrameInput { cards: &boxes, prices: &prices, layer, dpi_scale: dpi, multiplier, skip: skip_picked, outlines, marks: &marks, removal });
     for (i, b) in frame.badges.iter().enumerate() {
         let Some(c) = choice(items[i].0) else { continue };
         let r = to_egui(b.rect);
         let text = loc::tr(format!("AI {}위", c.rank + 1), format!("AI #{}", c.rank + 1));
-        let fill = if c.picked && !hold { Color32::from_rgba_unmultiplied(60, 46, 0, 235) } else { Color32::from_rgba_unmultiplied(20, 22, 28, 220) };
-        pill(p, r, &text, fill, Color32::WHITE, (18.0 * b.scale) as f32);
+        theme::plaque(p, r, &text, Plaque::Plain, (17.0 * b.scale) as f32);
     }
     for r in frame.ribbons.iter().flatten() {
-        pill(p, to_egui(r.rect), t("추천!", "Pick!"), GOLD, Color32::BLACK, (16.0 * r.scale) as f32);
+        theme::plaque(p, to_egui(r.rect), t("추천!", "Pick!"), pick, (15.0 * r.scale) as f32);
     }
     if let Some(r) = frame.removal {
-        pill(p, to_egui(r.rect), t("제거 추천!", "Remove a card!"), GOLD, Color32::BLACK, (16.0 * r.scale) as f32);
+        theme::plaque(p, to_egui(r.rect), t("제거 추천!", "Remove a card!"), pick, (15.0 * r.scale) as f32);
     }
     if let Some(s) = frame.skip {
-        pill(p, to_egui(s.rect), t("스킵 추천!", "Skip!"), GOLD, Color32::BLACK, (18.0 * s.scale) as f32);
+        theme::plaque(p, to_egui(s.rect), t("스킵 추천!", "Skip!"), pick, (17.0 * s.scale) as f32);
     }
     for o in frame.card_outlines.iter().chain(frame.price_outlines.iter()) {
         p.rect_stroke(to_egui(*o), 0.0, Stroke::new(1.0, Color32::RED), egui::StrokeKind::Inside);
@@ -211,7 +216,7 @@ fn rest_marks(p: &egui::Painter, live: &Live, v: &DecisionView, layer: PxBox, dp
         let scale = badge::scale_for(r.w);
         let (w, h) = (badge::RIBBON_WIDTH * scale * 1.3, badge::RIBBON_HEIGHT * scale);
         let (x, y) = badge::place(r, w, h, f64::from(layer.w) / dpi, f64::from(layer.h) / dpi, 4.0 * scale);
-        pill(p, to_egui(PtRect::new(x, y, w, h)), t("추천!", "Pick!"), GOLD, Color32::BLACK, (16.0 * scale) as f32);
+        theme::plaque(p, to_egui(PtRect::new(x, y, w, h)), t("추천!", "Pick!"), pick_kind(v), (15.0 * scale) as f32);
     }
 }
 
@@ -226,6 +231,6 @@ fn event_marks(p: &egui::Painter, live: &Live, v: &DecisionView, layer: PxBox, d
         let (w, h) = (badge::RIBBON_WIDTH * scale, badge::RIBBON_HEIGHT * scale);
         let rect = PtRect::new(r.x - w - 6.0 * scale, r.y + (r.h - h) / 2.0, w, h);
         let rect = if rect.x < 2.0 { PtRect::new(r.x + 4.0 * scale, rect.y, w, h) } else { rect };
-        pill(p, to_egui(rect), if v.close { t("추천 (박빙)", "Pick (close)") } else { t("추천!", "Pick!") }, GOLD, Color32::BLACK, (15.0 * scale) as f32);
+        theme::plaque(p, to_egui(rect), if v.close { t("추천 (박빙)", "Pick (close)") } else { t("추천!", "Pick!") }, pick_kind(v), (14.0 * scale) as f32);
     }
 }

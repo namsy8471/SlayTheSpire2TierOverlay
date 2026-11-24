@@ -10,7 +10,7 @@ use crate::tray::{Tray, TrayAction};
 use crate::update::{UpdateEvent, Updater};
 use crate::win::hotkey::Hotkey;
 use crate::win::{PixelRect, game, style};
-use egui::{Color32, CornerRadius, Stroke, Vec2, ViewportBuilder, ViewportCommand, ViewportId};
+use egui::{Color32, Stroke, Vec2, ViewportBuilder, ViewportCommand, ViewportId};
 use ov_core::loc::{self, t};
 use crate::live::Live;
 use std::sync::mpsc::{self, Receiver, Sender};
@@ -20,6 +20,8 @@ use std::time::{Duration, Instant};
 pub const PANEL_TITLE: &str = "Sts2Overlay";
 pub const LAYER_TITLE: &str = "Sts2Overlay Layer";
 const PANEL_SIZE: Vec2 = Vec2::new(380.0, 520.0);
+/// The folded panel: the frame around the title row.
+const COLLAPSED_HEIGHT: f32 = 62.0;
 const TICK: Duration = Duration::from_millis(250);
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -84,7 +86,8 @@ pub struct OverlayApp {
 
 impl OverlayApp {
     pub fn new(cc: &eframe::CreationContext<'_>, store: Store) -> Self {
-        crate::fonts::install(&cc.egui_ctx);
+        crate::fonts::install(&cc.egui_ctx, None);
+        crate::theme::apply_visuals(&cc.egui_ctx);
         apply_language(&store.settings.language);
         let wake = {
             let ctx = cc.egui_ctx.clone();
@@ -314,10 +317,11 @@ impl OverlayApp {
 
     fn panel_ui(&mut self, ui: &mut egui::Ui) {
         let alpha = (self.store.settings.panel_opacity.clamp(0.2, 1.0) * 255.0) as u8;
-        let frame = egui::Frame::new()
-            .fill(Color32::from_rgba_unmultiplied(20, 22, 28, if self.hidden { 0 } else { alpha }))
-            .corner_radius(CornerRadius::same(8))
-            .inner_margin(10.0);
+        if !self.hidden {
+            crate::theme::panel_frame(ui.painter(), ui.max_rect(), alpha);
+        }
+        let margin = crate::theme::FRAME_INSET as i8 + 12;
+        let frame = egui::Frame::new().inner_margin(egui::Margin { left: margin, right: margin, top: margin - 2, bottom: margin - 2 });
         frame.show(ui, |ui| {
             ui.set_min_size(ui.available_size());
             if self.hidden {
@@ -327,15 +331,17 @@ impl OverlayApp {
             if self.store.settings.panel_collapsed {
                 return;
             }
-            ui.horizontal(|ui| {
-                for tab in Tab::ALL {
-                    if ui.selectable_label(self.tab == tab, tab.label()).clicked() && self.tab != tab {
-                        self.tab = tab;
-                        self.store.settings.selected_tab = Some(tab.key().into());
-                    }
+            ui.add_space(6.0);
+            let labels: Vec<&str> = Tab::ALL.iter().map(|t| t.label()).collect();
+            let selected = Tab::ALL.iter().position(|t| *t == self.tab).unwrap_or(0);
+            if let Some(i) = crate::theme::tabs(ui, &labels, selected) {
+                let tab = Tab::ALL[i];
+                if self.tab != tab {
+                    self.tab = tab;
+                    self.store.settings.selected_tab = Some(tab.key().into());
                 }
-            });
-            ui.separator();
+            }
+            crate::theme::divider(ui);
             egui::ScrollArea::vertical().show(ui, |ui| match self.tab {
                 Tab::Recommend => crate::panel::recommend_ui(ui, &self.live),
                 Tab::Deck => crate::panel::deck_ui(ui, &self.live),
@@ -347,19 +353,18 @@ impl OverlayApp {
 
     fn title_bar(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
-            let title = ui.add(egui::Label::new(egui::RichText::new(t("StS2 오버레이", "StS2 Overlay")).strong()).sense(egui::Sense::drag()));
+            ui.spacing_mut().item_spacing.x = 4.0;
+            let title = crate::theme::title(ui, t("StS2 오버레이", "StS2 Overlay"), 24.0);
             if title.drag_started() {
                 ui.ctx().send_viewport_cmd(ViewportCommand::StartDrag);
             }
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                let collapsed = self.store.settings.panel_collapsed;
-                if ui.small_button(if collapsed { "▾" } else { "▴" }).clicked() {
-                    self.store.settings.panel_collapsed = !collapsed;
-                    let h = if collapsed { PANEL_SIZE.y } else { 44.0 };
-                    ui.ctx().send_viewport_cmd(ViewportCommand::InnerSize(Vec2::new(PANEL_SIZE.x, h)));
-                    self.save_settings();
-                }
-            });
+            let collapsed = self.store.settings.panel_collapsed;
+            if crate::theme::small_button(ui, if collapsed { "▼" } else { "▲" }).clicked() {
+                self.store.settings.panel_collapsed = !collapsed;
+                let h = if collapsed { PANEL_SIZE.y } else { COLLAPSED_HEIGHT };
+                ui.ctx().send_viewport_cmd(ViewportCommand::InnerSize(Vec2::new(PANEL_SIZE.x, h)));
+                self.save_settings();
+            }
         });
     }
 
@@ -387,9 +392,9 @@ impl OverlayApp {
 
     fn spike_ui(&mut self, ui: &mut egui::Ui) {
         self.run_ui(ui);
-        ui.separator();
+        crate::theme::divider(ui);
         if self.store.loaded_from_broken_file() {
-            ui.colored_label(Color32::from_rgb(255, 170, 60), t("settings.json을 읽지 못해 기본값으로 실행 중입니다 (원본은 settings.json.bad로 보관)", "settings.json could not be read, running with default settings (the original is kept as settings.json.bad)"));
+            ui.colored_label(crate::theme::WARN, t("settings.json을 읽지 못해 기본값으로 실행 중입니다 (원본은 settings.json.bad로 보관)", "settings.json could not be read, running with default settings (the original is kept as settings.json.bad)"));
         }
         if self.live.brain.advisor_available() {
             let mut on = self.live.brain.enabled();
@@ -399,7 +404,7 @@ impl OverlayApp {
                 self.save_settings();
             }
         }
-        ui.heading(t("연결 상태", "Connections"));
+        crate::theme::section_head(ui, t("연결 상태", "Connections"));
         egui::Grid::new("m0").num_columns(2).spacing([12.0, 6.0]).show(ui, |ui| {
             ui.label(t("게임 창", "Game window"));
             match self.game {

@@ -19,6 +19,8 @@ mod live;
 #[cfg(windows)]
 mod panel;
 #[cfg(windows)]
+mod theme;
+#[cfg(windows)]
 mod tray;
 #[cfg(windows)]
 mod ui;
