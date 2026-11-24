@@ -44,7 +44,10 @@ pub fn apply_visuals(ctx: &egui::Context) {
     w.inactive.fg_stroke = Stroke::new(1.0, GOLD_PALE);
     w.hovered.fg_stroke = Stroke::new(1.5, GOLD);
     w.active.fg_stroke = Stroke::new(1.5, GOLD);
-    ctx.set_visuals(v);
+    // egui keeps a style per OS theme; a light Windows theme would otherwise bring grey-on-light widgets back.
+    ctx.set_theme(egui::Theme::Dark);
+    ctx.set_visuals_of(egui::Theme::Dark, v.clone());
+    ctx.set_visuals_of(egui::Theme::Light, v);
 }
 
 fn with_alpha(c: Color32, a: u8) -> Color32 {

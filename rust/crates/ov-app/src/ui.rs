@@ -89,6 +89,10 @@ impl OverlayApp {
         crate::fonts::install(&cc.egui_ctx, None);
         crate::theme::apply_visuals(&cc.egui_ctx);
         apply_language(&store.settings.language);
+        if store.settings.panel_collapsed {
+            // The window opens at the full size; fold it to the title row like the collapse button does.
+            cc.egui_ctx.send_viewport_cmd(ViewportCommand::InnerSize(Vec2::new(PANEL_SIZE.x, COLLAPSED_HEIGHT)));
+        }
         let wake = {
             let ctx = cc.egui_ctx.clone();
             move || ctx.request_repaint()

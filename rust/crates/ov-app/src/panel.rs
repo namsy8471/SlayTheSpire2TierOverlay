@@ -37,7 +37,7 @@ fn section_ui(ui: &mut egui::Ui, s: &Section) {
                 theme::rank_seal(ui, if row.picked { None } else { Some(row.rank + 1) });
                 ui.label(RichText::new(&row.label).color(if row.picked { Color32::WHITE } else { theme::TEXT }));
                 if !row.sub.is_empty() {
-                    ui.label(RichText::new(&row.sub).color(DIM).small());
+                    ui.label(RichText::new(&row.sub).color(DIM).size(13.0));
                 }
             });
         });
@@ -47,7 +47,7 @@ fn section_ui(ui: &mut egui::Ui, s: &Section) {
     }
     if !s.ending.is_empty() {
         ui.add_space(4.0);
-        ui.label(RichText::new(&s.ending).font(crate::fonts::title_font(14.5)).color(GOLD));
+        ui.label(RichText::new(&s.ending).font(crate::fonts::title_font(15.5)).color(GOLD));
     }
     ui.add_space(8.0);
 }
