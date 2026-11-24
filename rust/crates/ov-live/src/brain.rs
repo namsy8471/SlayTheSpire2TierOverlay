@@ -4,6 +4,7 @@
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver};
 use std::time::Instant;
 
@@ -17,7 +18,7 @@ use crate::advisor::{AdvisorCommand, AdvisorHost, AdvisorLine, CombatAdviceMessa
 use crate::broker::DecisionBroker;
 use crate::offer::{OfferLifecycle, PartialVerdict};
 use crate::recognition::{Recognition, ScreenKind};
-use crate::request::{self, DecideRequest, Target};
+use crate::request::{self, DecideRequest, Shown, Target};
 
 pub const SAVE_SOLO: &str = "current_run.save";
 pub const SAVE_COOP: &str = "current_run_mp.save";
@@ -111,6 +112,8 @@ pub struct Brain {
     event_buttons: Vec<(crate::recognition::Rect, bool)>,
     epoch: i32,
     problems: HashSet<String>,
+    /// The save the last snapshot came from (pointer identity): a new save may make an unanswerable path answerable.
+    save_seen: usize,
     /// Lines written to the helper (tests read them; capped).
     pub sent: Vec<String>,
 }
@@ -135,6 +138,7 @@ impl Brain {
             event_buttons: Vec::new(),
             epoch: 0,
             problems: HashSet::new(),
+            save_seen: 0,
             sent: Vec::new(),
         }
     }
@@ -209,6 +213,26 @@ impl Brain {
         Some(DecisionView::of(req, answer, self.is_coop()))
     }
 
+    /// The advised next map step, when the path answer is ok and was asked from where the map says we are now.
+    pub fn path_choice(&self) -> Option<crate::map_marks::PathChoice> {
+        let map = self.run.as_ref()?.map.as_ref()?;
+        let v = self.decision("path")?;
+        if v.status != AdviceStatus::Ok {
+            return None;
+        }
+        let Shown::Path(next) = &v.request.shown else { return None };
+        let from = v.request.screen.get("from")?;
+        let origin = ov_core::map::MapCoord { col: from.get("col")?.as_i64()? as i32, row: from.get("row")?.as_i64()? as i32 };
+        if origin != map.current.unwrap_or(map.start) {
+            return None;
+        }
+        let best = v.choices.iter().find_map(|c| match c.target {
+            Target::Path(p) if c.picked => Some(p),
+            _ => None,
+        })?;
+        Some(crate::map_marks::PathChoice { origin, best, others: next.clone() })
+    }
+
     /// The decision the 추천 tab shows now: the open card / shop / rest / event screen.
     pub fn current_offer(&self) -> Option<DecisionView> {
         let kind = match self.shown.as_ref().map(|s| s.kind) {
@@ -243,6 +267,15 @@ impl Brain {
             self.rest_site = None;
             self.broker.clear("rest");
         }
+        // The app may already stand on the voted node while the helper's save is a room behind ("not travelable"). The
+        // path question would not change when the save catches up, so a non-ok answer is asked again on a new save.
+        let save = self.run.as_ref().and_then(|r| r.save.as_ref()).map_or(0, |s| Arc::as_ptr(s) as usize);
+        if save != self.save_seen {
+            self.save_seen = save;
+            if self.broker.get("path").is_some_and(|(_, a)| a.is_some_and(|a| a.status != DecisionStatus::Ok)) {
+                self.broker.clear("path");
+            }
+        }
         self.update_helper();
         self.ask_from_run();
     }
@@ -257,14 +290,13 @@ impl Brain {
             self.broker.forget_all();
             return;
         };
-        let screen = run.screen;
         let path_req = run.map.as_ref().and_then(request::path);
         let ev = run.current_event.as_ref().and_then(|e| e.option_keys.as_ref().map(|k| (e.event_id.clone(), k.clone())));
-        // Path: on the map screen, from the saved map.
-        match (screen, path_req) {
-            (ScreenHint::Map, Some(req)) => self.ask(req),
-            (ScreenHint::Map, None) => {}
-            _ => self.broker.clear("path"),
+        // Path: whenever the saved map has a next step, like the C# app (it advised the path on every snapshot). The
+        // tracker's Map hint only comes after the player has voted, which is too late to advise the vote.
+        match path_req {
+            Some(req) => self.ask(req),
+            None => self.broker.clear("path"),
         }
         // Event / ancient buttons from the log.
         match ev {
@@ -542,5 +574,37 @@ mod tests {
         assert!(b.is_coop());
         b.on_line(r#"{"v":1,"state":"advice","steps":[]}"#);
         assert!(b.combat().is_none(), "no combat advice in co-op");
+    }
+
+    /// The path is asked whenever the saved map has a next step, not only after the log saw a map vote.
+    #[cfg(unix)]
+    #[test]
+    fn the_path_is_asked_off_the_map_hint() {
+        use ov_core::map::{MapCoord, MapGraph, MapNode, MapNodeType};
+        let mut b = brain("cat >/dev/null");
+        let a = MapCoord::new(3, 5);
+        let mut map = MapGraph {
+            act_id: "ACT".into(),
+            act: 1,
+            width: 7,
+            height: 15,
+            is_blitz: false,
+            centered_rows: true,
+            nodes: Default::default(),
+            start: MapCoord::new(3, 0),
+            boss: MapCoord::new(3, 16),
+            second_boss: None,
+            current: Some(a),
+            visited: Vec::new(),
+            normal_fights_done: None,
+            easy_fights: None,
+        };
+        map.nodes.insert(a, MapNode { coord: a, kind: MapNodeType::Monster, children: vec![MapCoord::new(4, 6)] });
+        let mut run = TrackedRun::new(RunState::new("CHARACTER.DEFECT"));
+        run.screen = ScreenHint::Event;
+        run.map = Some(map);
+        b.on_run(Some(run), Some("/s".into()));
+        assert_eq!(b.sent.iter().filter(|l| l.contains(r#""kind":"path""#)).count(), 1, "{:?}", b.sent);
+        assert_eq!(b.decision("path").map(|v| v.status), Some(AdviceStatus::Waiting));
     }
 }

@@ -281,6 +281,7 @@ impl OverlayApp {
             if let Some(h) = style::find_own_window(PANEL_TITLE) {
                 self.panel_hwnd = h;
                 style::make_panel(h);
+                style::set_exclude_from_capture(h, !self.store.settings.show_overlay_in_capture);
                 if !self.store.settings.always_on_top {
                     style::clear_topmost(h);
                 }
@@ -294,7 +295,9 @@ impl OverlayApp {
                 self.layer_hwnd = h;
                 self.layer_rect = PixelRect::default();
                 style::make_layer(h);
-                style::set_exclude_from_capture(h, true);
+                // Like C# OverlayCaptureVisibility: our recogniser captures the game window alone (WGC), which never
+                // holds other windows, so the marks need no exclusion. Hidden from OBS / screenshots only on request.
+                style::set_exclude_from_capture(h, !self.store.settings.show_overlay_in_capture);
             }
         }
     }
@@ -476,7 +479,7 @@ impl eframe::App for OverlayApp {
             self.game = self.tracker.poll();
             self.find_windows();
             let shown = self.layer_visible() && self.game.is_some_and(|g| g.foreground);
-            self.live.tick(self.game, shown);
+            self.live.tick(self.game, shown, self.store.settings.map_overlay);
             if self.live.brain.take_tab_request() {
                 self.tab = Tab::Recommend;
             }

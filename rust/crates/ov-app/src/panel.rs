@@ -3,6 +3,7 @@
 use egui::{Color32, Pos2, Rect, RichText, Stroke, Vec2};
 use ov_core::loc::{self, t};
 use ov_live::brain::DecisionView;
+use ov_live::map_marks::{self as mm, LineKind, MapTarget, NodeKind};
 use ov_live::offer::PartialVerdict;
 use ov_live::present::{self, Section};
 use ov_live::recognition::Rect as SRect;
@@ -152,6 +153,10 @@ pub fn layer_marks(ui: &mut egui::Ui, live: &Live, layer: PixelRect, multiplier:
     if !brain.enabled() {
         return;
     }
+    if let Some((target, scroll)) = live.map_view() {
+        map_marks(&p, live, target, scroll, layer_px, dpi, multiplier);
+        return;
+    }
     let Some(v) = brain.current_offer() else { return };
     let hold = brain.verdict() == PartialVerdict::Hold;
     match &v.request.shown {
@@ -232,5 +237,73 @@ fn event_marks(p: &egui::Painter, live: &Live, v: &DecisionView, layer: PxBox, d
         let rect = PtRect::new(r.x - w - 6.0 * scale, r.y + (r.h - h) / 2.0, w, h);
         let rect = if rect.x < 2.0 { PtRect::new(r.x + 4.0 * scale, rect.y, w, h) } else { rect };
         theme::plaque(p, to_egui(rect), if v.close { t("추천 (박빙)", "Pick (close)") } else { t("추천!", "Pick!") }, pick_kind(v), (14.0 * scale) as f32);
+    }
+}
+
+const PARTNER: Color32 = Color32::from_rgb(110, 190, 255);
+const PARTNER_DARK: Color32 = Color32::from_rgb(10, 30, 50);
+const GOLD_DARK: Color32 = Color32::from_rgb(40, 28, 0);
+const CHIP: Color32 = Color32::from_rgba_premultiplied(18, 20, 26, 225);
+
+/// The path marks on the game's own map (C# MapOverlayWindow): the gold line and ring with "추천!" on the advised
+/// next node, faint lines to the other next nodes, and the co-op votes. Built in the 1920x1080 design space, then
+/// letterbox-scaled to the game client and clipped to the visible map area.
+fn map_marks(p: &egui::Painter, live: &Live, target: &MapTarget, scroll: f32, layer: PxBox, dpi: f64, multiplier: f64) {
+    let run = live.brain.run();
+    let choice = live.brain.path_choice();
+    let partners: Vec<_> = run.map(|r| r.partner_votes.iter().map(|v| v.coord).collect()).unwrap_or_default();
+    let plan = mm::build(&target.map, &target.layout, scroll, choice.as_ref(), &partners, run.and_then(|r| r.my_vote));
+    // Design px -> layer points: RefTransform (scale + letterbox) / DPI.
+    let (w, h) = (layer.w as f32, layer.h as f32);
+    let s = (w / 1920.0).min(h / 1080.0);
+    let (ox, oy) = ((w - 1920.0 * s) / 2.0, (h - 1080.0 * s) / 2.0);
+    let d = dpi as f32;
+    let pt = |x: f32, y: f32| Pos2::new((ox + x * s) / d, (oy + y * s) / d);
+    let k = s / d; // design px -> points
+    let m = multiplier as f32 * k;
+    let p = p.with_clip_rect(Rect::from_min_max(pt(0.0, mm::VISIBLE_TOP), pt(1920.0, mm::VISIBLE_BOTTOM)));
+    let shadow = Color32::from_rgba_premultiplied(0, 0, 0, 150);
+    let alt = Color32::from_rgba_premultiplied(150, 140, 110, 170);
+    for l in plan.lines.iter().filter(|l| l.kind == LineKind::Other) {
+        let (a, b) = (pt(l.x1, l.y1), pt(l.x2, l.y2));
+        let dash = 6.0 * m;
+        p.extend(egui::Shape::dashed_line(&[a, b], Stroke::new(3.0 * m, alt), dash, dash * 0.8));
+    }
+    for l in plan.lines.iter().filter(|l| l.kind == LineKind::Best) {
+        let (a, b) = (pt(l.x1, l.y1), pt(l.x2, l.y2));
+        p.line_segment([a, b], Stroke::new(11.0 * m, shadow));
+        p.line_segment([a, b], Stroke::new(6.0 * m, GOLD));
+    }
+    let label = |text: &str, at: Pos2, size: f32, fg: Color32, bg: Color32, anchor: egui::Align2| {
+        let galley = p.layout_no_wrap(text.to_string(), egui::FontId::proportional(size), fg);
+        let pad = Vec2::new(size * 0.45, size * 0.14);
+        let r = anchor.anchor_size(at, galley.size() + pad * 2.0);
+        p.rect_filled(r, CornerRadius::same((size * 0.35) as u8), bg);
+        p.galley(r.min + pad, galley, fg);
+    };
+    for n in &plan.nodes {
+        let c = pt(n.x, n.y);
+        match n.kind {
+            NodeKind::Recommended => {
+                p.circle_stroke(c, 42.0 * m, Stroke::new(9.0 * m, shadow));
+                p.circle_stroke(c, 42.0 * m, Stroke::new(5.0 * m, GOLD));
+                let tip = vec![c + Vec2::new(-11.0 * m, -58.0 * m), c + Vec2::new(11.0 * m, -58.0 * m), c + Vec2::new(0.0, -45.0 * m)];
+                p.add(egui::Shape::convex_polygon(tip, GOLD, Stroke::NONE));
+                label(t("추천!", "Pick!"), c + Vec2::new(0.0, -58.0 * m), 26.0 * m, GOLD_DARK, GOLD, egui::Align2::CENTER_BOTTOM);
+            }
+            NodeKind::Partner | NodeKind::MyVote | NodeKind::BothVoted => {
+                let width = if n.kind == NodeKind::BothVoted { 5.0 } else { 3.5 };
+                p.circle_stroke(c, 36.0 * m, Stroke::new(width * m, PARTNER));
+                let text = match n.kind {
+                    NodeKind::Partner if n.count > 1 => loc::tr(format!("동료 ×{}", n.count), format!("Ally ×{}", n.count)),
+                    NodeKind::Partner => t("동료", "Ally").to_string(),
+                    NodeKind::MyVote => t("내 투표", "My vote").to_string(),
+                    _ if n.count == 1 => t("투표 일치", "Both voted").to_string(),
+                    _ => loc::tr(format!("나 + 동료 ×{}", n.count), format!("Me + ally ×{}", n.count)),
+                };
+                let (fg, bg) = if n.kind == NodeKind::MyVote { (PARTNER, CHIP) } else { (PARTNER_DARK, PARTNER) };
+                label(&text, c + Vec2::new(-44.0 * m, 0.0), 15.0 * m, fg, bg, egui::Align2::RIGHT_CENTER);
+            }
+        }
     }
 }
