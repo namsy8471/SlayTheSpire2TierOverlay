@@ -9,8 +9,8 @@ use std::sync::mpsc::{self, Receiver};
 use std::time::Instant;
 
 use ov_core::model::OfferContext;
-use ov_gamestate::tracking::deck_effects;
-use ov_gamestate::tracking::tracked::{RunOutcome, ScreenHint, TrackedRun};
+use ov_gamestate::tracking::tracked::{ActiveEvent, EventSource, RunOutcome, ScreenHint, TrackedRun};
+use ov_gamestate::tracking::{deck_effects, event_catalog};
 
 use crate::advisor::decision::parse_line;
 use crate::advisor::host::Log;
@@ -19,6 +19,18 @@ use crate::broker::DecisionBroker;
 use crate::offer::{OfferLifecycle, PartialVerdict};
 use crate::recognition::{Recognition, ScreenKind};
 use crate::request::{self, DecideRequest, Shown, Target};
+
+/// The option keys of an open event room: the log's or the seed replay's, else (a solo game logs none) the first
+/// page's buttons from the event pack when the save names the event for certain. Ancients are left to the replay.
+fn event_keys(e: &ActiveEvent) -> Option<Vec<String>> {
+    if let Some(k) = e.option_keys.as_ref().filter(|k| !k.is_empty()) {
+        return Some(k.clone());
+    }
+    if e.source != EventSource::SavePrediction || !e.certain || !e.chosen_keys.is_empty() || deck_effects::is_ancient(&e.event_id) {
+        return None;
+    }
+    event_catalog::initial_options(&e.event_id)
+}
 
 pub const SAVE_SOLO: &str = "current_run.save";
 pub const SAVE_COOP: &str = "current_run_mp.save";
@@ -186,10 +198,10 @@ impl Brain {
         std::mem::take(&mut self.tab_request)
     }
 
-    /// Some(ancient?) while an event room with logged options is open: the capture reads its buttons.
+    /// Some(ancient?) while an event room with known options is open: the capture reads its buttons.
     pub fn event_room(&self) -> Option<bool> {
         let e = self.run.as_ref()?.current_event.as_ref()?;
-        e.option_keys.as_ref().filter(|k| !k.is_empty())?;
+        event_keys(e)?;
         Some(deck_effects::is_ancient(&e.event_id))
     }
 
@@ -291,7 +303,7 @@ impl Brain {
             return;
         };
         let path_req = run.map.as_ref().and_then(request::path);
-        let ev = run.current_event.as_ref().and_then(|e| e.option_keys.as_ref().map(|k| (e.event_id.clone(), k.clone())));
+        let ev = run.current_event.as_ref().and_then(|e| event_keys(e).map(|k| (e.event_id.clone(), k)));
         // Path: whenever the saved map has a next step, like the C# app (it advised the path on every snapshot). The
         // tracker's Map hint only comes after the player has voted, which is too late to advise the vote.
         match path_req {
@@ -321,7 +333,7 @@ impl Brain {
             return;
         }
         if r.kind == ScreenKind::Other && self.event_room().is_some() && r.event_buttons != self.event_buttons {
-            let count = self.run.as_ref().and_then(|x| x.current_event.as_ref()).and_then(|e| e.option_keys.as_ref()).map_or(0, Vec::len);
+            let count = self.run.as_ref().and_then(|x| x.current_event.as_ref()).and_then(event_keys).map_or(0, |k| k.len());
             if r.event_buttons.len() == count || r.event_buttons.is_empty() {
                 self.event_buttons = r.event_buttons.clone();
                 self.ask_from_run();
@@ -606,5 +618,30 @@ mod tests {
         b.on_run(Some(run), Some("/s".into()));
         assert_eq!(b.sent.iter().filter(|l| l.contains(r#""kind":"path""#)).count(), 1, "{:?}", b.sent);
         assert_eq!(b.decision("path").map(|v| v.status), Some(AdviceStatus::Waiting));
+    }
+
+    /// A solo game logs no event options: a save-predicted event is asked with the pack's first-page buttons.
+    #[cfg(unix)]
+    #[test]
+    fn a_solo_event_is_asked_with_the_first_page_buttons() {
+        use ov_gamestate::tracking::tracked::ActiveEvent;
+        let mut b = brain("cat >/dev/null");
+        let mut run = TrackedRun::new(RunState::new("CHARACTER.DEFECT"));
+        run.current_event = Some(ActiveEvent::new("EVENT.WOOD_CARVINGS", None, vec![], EventSource::SavePrediction));
+        b.on_run(Some(run.clone()), Some("/s".into()));
+        assert_eq!(b.event_room(), Some(false));
+        let asked: Vec<&String> = b.sent.iter().filter(|l| l.contains(r#""kind":"event""#)).collect();
+        assert_eq!(asked.len(), 1, "{:?}", b.sent);
+        assert!(asked[0].contains(r#""options":[{"id":"WOOD_CARVINGS.pages.INITIAL.options.BIRD","locked":false},{"id":"WOOD_CARVINGS.pages.INITIAL.options.SNAKE","locked":false},{"id":"WOOD_CARVINGS.pages.INITIAL.options.TORUS","locked":false}]"#), "{}", asked[0]);
+
+        // An uncertain guess, or a random-subset page, is not asked with options that may not be on screen.
+        for (id, certain) in [("EVENT.WOOD_CARVINGS", false), ("EVENT.COLORFUL_PHILOSOPHERS", true)] {
+            let mut b = brain("cat >/dev/null");
+            let mut e = ActiveEvent::new(id, None, vec![], EventSource::SavePrediction);
+            e.certain = certain;
+            run.current_event = Some(e);
+            b.on_run(Some(run.clone()), Some("/s".into()));
+            assert!(b.event_room().is_none() && !b.sent.iter().any(|l| l.contains(r#""kind":"event""#)), "{id} {certain}: {:?}", b.sent);
+        }
     }
 }
