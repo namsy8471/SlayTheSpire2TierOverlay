@@ -6,6 +6,7 @@
 #![cfg_attr(not(windows), allow(dead_code))]
 
 mod applog;
+mod layout;
 mod paths;
 mod settings;
 mod spike;
