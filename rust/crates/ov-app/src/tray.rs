@@ -10,6 +10,7 @@ pub enum TrayAction {
     ToggleAlwaysOnTop,
     ToggleClickThrough,
     ToggleMapOverlay,
+    Screenshot,
     Language(&'static str),
     CheckUpdate,
     ApplyUpdate,
@@ -42,6 +43,7 @@ impl Tray {
         let on_top = CheckMenuItem::new("항상 맨 앞 (Ctrl+F6)", true, true, None);
         let click_through = CheckMenuItem::new("클릭 통과 (Ctrl+F7)", true, false, None);
         let map_overlay = CheckMenuItem::new("지도 위 표시 (Ctrl+F5)", true, true, None);
+        let screenshot = MenuItem::new("오버레이 포함 스크린샷 (Ctrl+F12)", true, None);
         let lang_auto = CheckMenuItem::new("게임 언어 따라가기", true, true, None);
         let lang_kor = CheckMenuItem::new("한국어", true, false, None);
         let lang_eng = CheckMenuItem::new("English", true, false, None);
@@ -56,6 +58,7 @@ impl Tray {
             &on_top,
             &click_through,
             &map_overlay,
+            &screenshot,
             &language,
             &sep,
             &version,
@@ -71,6 +74,7 @@ impl Tray {
             (on_top.id().clone(), TrayAction::ToggleAlwaysOnTop),
             (click_through.id().clone(), TrayAction::ToggleClickThrough),
             (map_overlay.id().clone(), TrayAction::ToggleMapOverlay),
+            (screenshot.id().clone(), TrayAction::Screenshot),
             (lang_auto.id().clone(), TrayAction::Language("auto")),
             (lang_kor.id().clone(), TrayAction::Language("kor")),
             (lang_eng.id().clone(), TrayAction::Language("eng")),
