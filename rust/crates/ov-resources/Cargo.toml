@@ -11,6 +11,7 @@ serde.workspace = true
 serde_json.workspace = true
 ov-core.workspace = true
 flate2 = "1"
+ruzstd = { version = "0.8", default-features = false, features = ["std"] }
 sha1 = "0.11"
 sha2 = "0.11"
 image = { version = "0.25", default-features = false, features = ["png", "webp"] }
