@@ -470,6 +470,7 @@ fn path_text(p: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
     use crate::recognition::{Rect, SeenCard};
     use ov_core::model::RunState;
     use std::sync::{Arc, Mutex};
@@ -483,6 +484,7 @@ mod tests {
         )
     }
 
+    #[cfg(unix)]
     fn card(slot: i32, id: &str) -> SeenCard {
         SeenCard { slot, id: id.into(), upgrade: 0, bounds: Rect::default(), confidence: 1.0, price: None, unaffordable: None, on_sale: false, price_bounds: None, missing_portrait: false }
     }
@@ -535,7 +537,8 @@ mod tests {
         b.on_run(Some(run.clone()), Some("/s".into()));
         assert!(b.host.is_none());
         b.set_enabled(true);
-        assert_eq!(b.host.as_ref().unwrap().arguments().unwrap()[2], "/s/current_run_mp.save", "co-op reads the multiplayer save");
+        let want = std::path::Path::new("/s").join(SAVE_COOP).to_string_lossy().into_owned();
+        assert_eq!(b.host.as_ref().unwrap().arguments().unwrap()[2], want, "co-op reads the multiplayer save");
         assert!(b.is_coop());
         b.on_line(r#"{"v":1,"state":"advice","steps":[]}"#);
         assert!(b.combat().is_none(), "no combat advice in co-op");
