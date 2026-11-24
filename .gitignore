@@ -14,6 +14,7 @@ releases/
 
 # Game files must never be committed (copyright). Reference via Directory.Build.props.
 *.pck
+!rust/crates/ov-resources/tests/fixtures/synthetic/install/*.pck
 0Harmony.dll
 sts2.dll
 GodotSharp.dll

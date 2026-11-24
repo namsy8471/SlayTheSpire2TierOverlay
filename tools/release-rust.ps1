@@ -149,7 +149,10 @@ if (-not $AdvisorSha256) {
     $shaFile = "$AdvisorZip.sha256"
     if (Test-Path -LiteralPath $shaFile) { $AdvisorSha256 = ((Get-Content -LiteralPath $shaFile -Raw).Trim() -split '\s+')[0] }
 }
-$actualSha = (Get-FileHash -Algorithm SHA256 -LiteralPath $AdvisorZip).Hash.ToLowerInvariant()
+# Get-FileHash는 PowerShell 7에서 5.1을 부를 때 모듈을 못 찾을 수 있어 .NET으로 직접 계산합니다.
+$sha = [System.Security.Cryptography.SHA256]::Create()
+$stream = [System.IO.File]::OpenRead($AdvisorZip)
+try { $actualSha = (-join ($sha.ComputeHash($stream) | ForEach-Object { $_.ToString('x2') })) } finally { $stream.Dispose(); $sha.Dispose() }
 if (-not $AdvisorSha256) { Problem "도우미 zip의 SHA-256을 확인할 값이 없습니다 (-AdvisorSha256 또는 $AdvisorZip.sha256). 실제 값: $actualSha" }
 elseif ($AdvisorSha256.ToLowerInvariant() -ne $actualSha) { Problem "도우미 zip의 SHA-256이 다릅니다. 기대 $AdvisorSha256, 실제 $actualSha" }
 Write-Host "도우미 zip: $AdvisorZip (SHA-256 $($actualSha.Substring(0, 16))...)"
@@ -206,7 +209,9 @@ $catalog = @(git ls-files 'data/catalog/*.json')
 if ($catalog.Count -eq 0) { Fail 'data/catalog에 추적되는 파일이 없습니다.' }
 foreach ($f in $catalog) { Copy-Item -LiteralPath (Join-Path $repo $f) -Destination (Join-Path $publish 'data\catalog') }
 $advisorDir = Join-Path $publish 'advisor'
-Expand-Archive -LiteralPath $AdvisorZip -DestinationPath $advisorDir -Force
+# Expand-Archive(Archive 모듈) 대신 .NET으로 풉니다 (모듈 경로 문제를 피하려고).
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+[System.IO.Compression.ZipFile]::ExtractToDirectory($AdvisorZip, $advisorDir)
 foreach ($need in @('sts2-advisor.exe', 'decide', 'combat-value-R01.json')) {
     if (-not (Test-Path -LiteralPath (Join-Path $advisorDir $need))) { Fail "도우미 zip에 $need 가 없습니다." }
 }
