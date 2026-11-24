@@ -166,6 +166,7 @@ Hotkeys work only while the game is in front (including the tray menu opened fro
 | `Ctrl+F8` | Hide/show the whole overlay |
 | `Ctrl+F10` | Recognize now |
 | `Ctrl+F11` | Show recognition areas (card and price boxes, for troubleshooting) |
+| `Ctrl+F12` | Save a screenshot with the overlay in it (`Pictures\STS2 Overlay`). Steam `F12` and the Xbox Game Bar capture the game only, so the overlay is never in them; `Win+Shift+S`, `PrtScn` and OBS display capture do include it |
 
 If another program already uses one of these keys, a "hotkey registration failed" line stays at the bottom of the panel (with a one-time tray notification), and it tries again each time you return to the game. Everything a hotkey does is also in the tray menu.
 

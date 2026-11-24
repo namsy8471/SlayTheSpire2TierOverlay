@@ -156,6 +156,7 @@ impl OverlayApp {
                 Hotkey::SaveCapture => self.start_capture(),
                 Hotkey::RecognizeNow => self.live.recognize_now(),
                 Hotkey::ToggleDebugOutlines => self.debug_outlines = !self.debug_outlines,
+                Hotkey::Screenshot => self.start_screenshot(),
             }
         }
         while let Ok(a) = self.tray_rx.try_recv() {
@@ -164,6 +165,7 @@ impl OverlayApp {
                 TrayAction::ToggleAlwaysOnTop => self.toggle_on_top(),
                 TrayAction::ToggleClickThrough => self.toggle_click_through(),
                 TrayAction::ToggleMapOverlay => self.toggle_map_overlay(),
+                TrayAction::Screenshot => self.start_screenshot(),
                 TrayAction::Language(l) => {
                     self.store.settings.language = l.into();
                     apply_language(l);
@@ -259,6 +261,22 @@ impl OverlayApp {
             self.update_line = format!("업데이트 적용 실패: {e}");
             ctx.request_repaint();
         }
+    }
+
+    /// Ctrl+F12: the game's area of the screen with the overlay, saved under Pictures (Steam F12 and the Game Bar
+    /// only see the game's own frames, so the overlay is never in them).
+    fn start_screenshot(&mut self) {
+        let Some(area) = self.game.map(|g| g.client).filter(|c| !c.is_empty()) else {
+            self.capture_line = t("게임 창을 찾지 못해 스크린샷을 찍지 않았습니다", "Game window not found; no screenshot taken").into();
+            return;
+        };
+        let (tx, rx) = mpsc::channel();
+        self.capture_rx = Some(rx);
+        std::thread::spawn(move || {
+            // a moment for the tray menu (when it was clicked there) to close
+            std::thread::sleep(std::time::Duration::from_millis(250));
+            let _ = tx.send(crate::win::screenshot::save(area));
+        });
     }
 
     fn start_capture(&mut self) {

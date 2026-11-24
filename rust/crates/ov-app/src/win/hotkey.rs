@@ -2,7 +2,7 @@
 //! owns the registrations and its message loop, so the UI event loop never sees `WM_HOTKEY`.
 //!
 //! Ctrl+F5 map marks, Ctrl+F6 always on top, Ctrl+F7 click-through, Ctrl+F8 hide, Ctrl+F9 save capture (debug),
-//! Ctrl+F10 recognise now, Ctrl+F11 debug outlines. A key another program holds is logged and skipped.
+//! Ctrl+F10 recognise now, Ctrl+F11 debug outlines, Ctrl+F12 screenshot with the overlay. A key another program holds is logged and skipped.
 
 use std::sync::mpsc::Sender;
 use windows::Win32::UI::Input::KeyboardAndMouse::{HOT_KEY_MODIFIERS, MOD_CONTROL, MOD_NOREPEAT, RegisterHotKey};
@@ -17,10 +17,11 @@ pub enum Hotkey {
     SaveCapture,
     RecognizeNow,
     ToggleDebugOutlines,
+    Screenshot,
 }
 
-/// (virtual key, key name, action). VK_F5 = 0x74 .. VK_F11 = 0x7A.
-pub const BINDINGS: [(u32, &str, Hotkey); 7] = [
+/// (virtual key, key name, action). VK_F5 = 0x74 .. VK_F12 = 0x7B.
+pub const BINDINGS: [(u32, &str, Hotkey); 8] = [
     (0x74, "F5", Hotkey::ToggleMapOverlay),
     (0x75, "F6", Hotkey::ToggleAlwaysOnTop),
     (0x76, "F7", Hotkey::ToggleClickThrough),
@@ -28,6 +29,7 @@ pub const BINDINGS: [(u32, &str, Hotkey); 7] = [
     (0x78, "F9", Hotkey::SaveCapture),
     (0x79, "F10", Hotkey::RecognizeNow),
     (0x7A, "F11", Hotkey::ToggleDebugOutlines),
+    (0x7B, "F12", Hotkey::Screenshot),
 ];
 
 /// Starts the hotkey thread. `wake` is called after each key (repaint the UI so it reads the channel).
