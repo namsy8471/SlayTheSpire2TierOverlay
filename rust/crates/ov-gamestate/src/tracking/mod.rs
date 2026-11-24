@@ -2,6 +2,7 @@
 
 pub mod data;
 pub mod deck_effects;
+pub mod event_catalog;
 pub mod event_pages;
 pub mod geometry;
 pub mod relics;
