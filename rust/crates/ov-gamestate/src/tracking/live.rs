@@ -155,9 +155,14 @@ impl LiveTracker {
 
     /// Runs on a background thread; `on_change` gets each new snapshot (None = no run), `on_diag` each note.
     /// Dropping the returned handle's sender (or `stop`) ends the thread.
-    pub fn spawn(
+    pub fn spawn(o: LiveOptions, mut on_change: impl FnMut(Option<TrackedRun>) + Send + 'static, on_diag: impl FnMut(String) + Send + 'static) -> LiveHandle {
+        Self::spawn_with_folder(o, move |r, _| on_change(r), on_diag)
+    }
+
+    /// [`LiveTracker::spawn`] that also passes the saves folder watched now (the advisor helper reads the save there).
+    pub fn spawn_with_folder(
         o: LiveOptions,
-        mut on_change: impl FnMut(Option<TrackedRun>) + Send + 'static,
+        mut on_change: impl FnMut(Option<TrackedRun>, Option<std::path::PathBuf>) + Send + 'static,
         mut on_diag: impl FnMut(String) + Send + 'static,
     ) -> LiveHandle {
         let (tx, rx) = mpsc::channel::<LiveCommand>();
@@ -172,13 +177,13 @@ impl LiveTracker {
                         on_diag(d);
                     }
                     if changed {
-                        on_change(live.tracker.current().cloned());
+                        on_change(live.tracker.current().cloned(), live.saves_directory().map(|p| p.to_path_buf()));
                     }
                     match rx.recv_timeout(interval) {
                         Ok(LiveCommand::Stop) | Err(mpsc::RecvTimeoutError::Disconnected) => break,
                         Ok(LiveCommand::Run(f)) => {
                             f(&mut live.tracker);
-                            on_change(live.tracker.current().cloned());
+                            on_change(live.tracker.current().cloned(), live.saves_directory().map(|p| p.to_path_buf()));
                         }
                         Err(mpsc::RecvTimeoutError::Timeout) => {}
                     }
