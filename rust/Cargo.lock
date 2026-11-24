@@ -2027,6 +2027,7 @@ dependencies = [
  "egui",
  "image",
  "ov-core",
+ "ov-gamestate",
  "serde",
  "serde_json",
  "tray-icon",

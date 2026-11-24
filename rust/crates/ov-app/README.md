@@ -13,7 +13,8 @@ cargo build -p ov-app --release --target x86_64-pc-windows-gnu         # cross b
 
 | What | Kept the same |
 |---|---|
-| exe name | `Sts2Overlay.exe` (Velopack `--mainExe`, shortcuts) |
+| exe name | `Sts2Overlay.exe` (Velopack `--mainExe`) |
+| shortcut name | `--packTitle "STS2 티어 오버레이"` (without it the update renames the shortcuts to the packId) |
 | Velopack | packId `namsy8471.Sts2Overlay`, channel `win`, library 1.2.161 (same as C#) |
 | data folder | `%LOCALAPPDATA%\Sts2Overlay` (`settings.json`, `app.log`, `captures\`) |
 | settings | camelCase keys, comments and trailing commas read; unknown keys written back |
@@ -26,6 +27,6 @@ cargo build -p ov-app --release --target x86_64-pc-windows-gnu         # cross b
    "러스트 오버레이 M0" badge must show, clicks must reach the game, and the panel must not take focus.
 2. Capture: `Sts2Overlay.exe --capture-once` (or the panel button) writes `captures\rust-wgc-spike.png`; the overlay
    itself must not be in the picture.
-3. Update: pack this exe with `vpk pack --packId namsy8471.Sts2Overlay --packVersion 0.2.0-m0 --mainExe Sts2Overlay.exe
+3. Update: pack this exe with `vpk pack --packId namsy8471.Sts2Overlay --packTitle "STS2 티어 오버레이" --packVersion 0.2.0-m0 --mainExe Sts2Overlay.exe
    --channel win`, point an installed C# 0.1.35 at that folder (`updateUrl`), update from the tray, and check that the
    Rust build starts as the installed version (`Sts2Overlay.exe --update-check`).
