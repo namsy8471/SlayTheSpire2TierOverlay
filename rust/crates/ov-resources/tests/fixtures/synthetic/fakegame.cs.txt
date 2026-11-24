@@ -1,0 +1,334 @@
+// Synthetic stand-in for the game's model classes: same namespaces and member names the catalog reader looks for,
+// written from scratch with made-up cards, so the static reader can be tested without game files.
+using System;
+using System.Collections.Generic;
+
+namespace MegaCrit.Sts2.Core.Entities.Cards
+{
+    public enum CardType { None, Attack, Skill, Power, Status, Curse, Quest }
+    public enum CardRarity { None, Basic, Common, Uncommon, Rare, Ancient, Event, Token, Status, Curse, Quest }
+    public enum TargetType { None, Self, AnyEnemy, AllEnemies, RandomEnemy, AnyAlly }
+    public enum CardMultiplayerConstraint { None, MultiplayerOnly, SingleplayerOnly }
+    public enum CardKeyword { None, Exhaust, Ethereal, Innate, Retain, Sly, Eternal, Unplayable }
+    [Flags] public enum CardTag { None = 0, Strike = 1, Defend = 2, Minion = 4, OstyAttack = 8 }
+}
+
+namespace MegaCrit.Sts2.Core.Entities.Relics
+{
+    public enum RelicRarity : byte { None, Starter, Common, Uncommon, Rare, Shop, Event, Ancient }
+}
+
+namespace MegaCrit.Sts2.Core.Models
+{
+    using MegaCrit.Sts2.Core.Entities.Cards;
+    using MegaCrit.Sts2.Core.Entities.Relics;
+
+    public abstract class AbstractModel { public static int Seen; }
+
+    public abstract class CardModel : AbstractModel
+    {
+        private readonly int _cost; private readonly CardType _type; private readonly CardRarity _rarity; private readonly TargetType _target;
+        protected CardModel(int canonicalEnergyCost, CardType type, CardRarity rarity, TargetType targetType, bool shouldShowInCardLibrary = true)
+        { _cost = canonicalEnergyCost; _type = type; _rarity = rarity; _target = targetType; Seen += shouldShowInCardLibrary ? 1 : 0; }
+        public virtual CardType Type => _type;
+        public virtual CardRarity Rarity => _rarity;
+        public virtual TargetType TargetType => _target;
+        public virtual int CanonicalEnergyCost => _cost;
+        public virtual bool HasEnergyCostX => false;
+        public virtual int CanonicalStarCost => -1;
+        public virtual bool HasStarCostX => false;
+        public virtual bool GainsBlock => false;
+        public virtual int MaxUpgradeLevel => 1;
+        public virtual CardMultiplayerConstraint MultiplayerConstraint => CardMultiplayerConstraint.None;
+        public virtual IEnumerable<CardKeyword> CanonicalKeywords => Array.Empty<CardKeyword>();
+        public virtual HashSet<CardTag> CanonicalTags => new HashSet<CardTag>();
+    }
+
+    public abstract class CardPoolModel : AbstractModel { public abstract IEnumerable<CardModel> GenerateAllCards(); }
+
+    public abstract class RelicModel : AbstractModel
+    {
+        public abstract RelicRarity Rarity { get; }
+        public virtual bool HasUponPickupEffect => false;
+        public virtual bool SpawnsPets => false;
+        public virtual bool AddsPet => false;
+        public virtual bool IsUsedUp => false;
+        public virtual bool IsAllowed(int act) => true;
+    }
+
+    public abstract class CharacterModel : AbstractModel
+    {
+        public abstract CardPoolModel CardPool { get; }
+        public abstract IEnumerable<CardModel> StartingDeck { get; }
+        public abstract IEnumerable<RelicModel> StartingRelics { get; }
+        public virtual int StartingHp => 70;
+        public virtual int StartingGold => 99;
+        public virtual int MaxEnergy => 3;
+    }
+
+    public static class ModelDb
+    {
+        public static T Card<T>() where T : CardModel => default;
+        public static T CardPool<T>() where T : CardPoolModel => default;
+        public static T Character<T>() where T : CharacterModel => default;
+        public static T Relic<T>() where T : RelicModel => default;
+        public static IEnumerable<CharacterModel> AllCharacters => new CharacterModel[] { Character<Characters.Brawler>(), Character<Characters.Weaver>() };
+        public static IEnumerable<CardPoolModel> AllSharedCardPools => new CardPoolModel[] { CardPool<CardPools.GreyCardPool>(), CardPool<CardPools.CurseCardPool>() };
+    }
+}
+
+namespace MegaCrit.Sts2.Core.Models.Characters
+{
+    using MegaCrit.Sts2.Core.Models.Cards;
+    using MegaCrit.Sts2.Core.Models.Relics;
+
+    public sealed class Brawler : CharacterModel
+    {
+        public override CardPoolModel CardPool => ModelDb.CardPool<CardPools.BrawlerCardPool>();
+        public override IEnumerable<CardModel> StartingDeck => new CardModel[] { ModelDb.Card<StrikeBrawler>(), ModelDb.Card<StrikeBrawler>(), ModelDb.Card<GuardBrawler>(), ModelDb.Card<Keepsake>() };
+        public override IEnumerable<RelicModel> StartingRelics => new RelicModel[] { ModelDb.Relic<WarmStone>() };
+        public override int StartingHp => 80;
+    }
+
+    public sealed class Weaver : CharacterModel
+    {
+        private int _bonus = 3;
+        public override CardPoolModel CardPool => ModelDb.CardPool<CardPools.WeaverCardPool>();
+        public override IEnumerable<CardModel> StartingDeck => [ModelDb.Card<ThreadNeedle>(), ModelDb.Card<GuardBrawler>()];
+        public override IEnumerable<RelicModel> StartingRelics => [ModelDb.Relic<SpoolCharm>()];
+        public override int StartingGold => _bonus > 2 ? 120 : 90;
+        public override int MaxEnergy => 4;
+    }
+}
+
+namespace MegaCrit.Sts2.Core.Models.CardPools
+{
+    using MegaCrit.Sts2.Core.Models.Cards;
+
+    public sealed class BrawlerCardPool : CardPoolModel
+    {
+        public override IEnumerable<CardModel> GenerateAllCards() => new CardModel[]
+        {
+            ModelDb.Card<StrikeBrawler>(), ModelDb.Card<GuardBrawler>(), ModelDb.Card<HeavyBlow>(), ModelDb.Card<Whirl>(), ModelDb.Card<MadTinker>(),
+            ModelDb.Card<StarFall>(), ModelDb.Card<RallyCry>(), ModelDb.Card<Outer.InnerTrick>(), ModelDb.Card<TwinBlade>(), ModelDb.Card<Spiked>(),
+        };
+    }
+
+    public sealed class WeaverCardPool : CardPoolModel
+    {
+        public override IEnumerable<CardModel> GenerateAllCards() => [ModelDb.Card<ThreadNeedle>(), ModelDb.Card<LoomOfFate>(), ModelDb.Card<GenericStitch>(),
+            ModelDb.Card<TwinBlade>(), ModelDb.Card<ManyWords>(), ModelDb.Card<DingyDagger>(), ModelDb.Card<OddValue>()];
+    }
+
+    public sealed class GreyCardPool : CardPoolModel
+    {
+        public override IEnumerable<CardModel> GenerateAllCards()
+        {
+            var list = new List<CardModel>();
+            list.Add(ModelDb.Card<Bandage>());
+            if (AbstractModel.Seen > 3) list.Add(ModelDb.Card<Flash>());
+            return list;
+        }
+    }
+
+    public sealed class CurseCardPool : CardPoolModel
+    {
+        public override IEnumerable<CardModel> GenerateAllCards() => new CardModel[] { ModelDb.Card<Gloom>() };
+    }
+
+    public sealed class MockCardPool : CardPoolModel
+    {
+        public override IEnumerable<CardModel> GenerateAllCards() => new CardModel[] { ModelDb.Card<MockCard>(), ModelDb.Card<HeavyBlow>() };
+    }
+}
+
+namespace MegaCrit.Sts2.Core.Models.Cards
+{
+    using MegaCrit.Sts2.Core.Entities.Cards;
+
+    public sealed class StrikeBrawler : CardModel
+    {
+        public StrikeBrawler() : base(1, CardType.Attack, CardRarity.Basic, TargetType.AnyEnemy) { }
+        public override HashSet<CardTag> CanonicalTags => new HashSet<CardTag> { CardTag.Strike };
+    }
+
+    public sealed class GuardBrawler : CardModel
+    {
+        public GuardBrawler() : base(1, CardType.Skill, CardRarity.Basic, TargetType.Self) { }
+        public override bool GainsBlock => true;
+        public override HashSet<CardTag> CanonicalTags => [CardTag.Defend];
+    }
+
+    public sealed class HeavyBlow : CardModel
+    {
+        public HeavyBlow() : base(2, CardType.Attack, CardRarity.Common, TargetType.AnyEnemy) { }
+        public override IEnumerable<CardKeyword> CanonicalKeywords => new[] { CardKeyword.Exhaust, CardKeyword.Ethereal, CardKeyword.Innate, CardKeyword.Retain, CardKeyword.Sly };
+        public override int MaxUpgradeLevel => 3;
+    }
+
+    public sealed class Whirl : CardModel
+    {
+        public Whirl() : base(-1, CardType.Attack, CardRarity.Uncommon, TargetType.AllEnemies) { }
+        public override bool HasEnergyCostX => true;
+        public override IEnumerable<CardKeyword> CanonicalKeywords => [CardKeyword.Exhaust];
+    }
+
+    public sealed class MadTinker : CardModel
+    {
+        private bool _flip;
+        public MadTinker() : base(1, CardType.Attack, CardRarity.Rare, TargetType.AnyEnemy) { }
+        public override CardType Type => _flip ? CardType.Skill : CardType.Attack;
+        public override CardRarity Rarity => _flip ? CardRarity.Rare : CardRarity.Uncommon;
+        public override IEnumerable<CardKeyword> CanonicalKeywords => _flip ? [CardKeyword.Eternal] : [];
+    }
+
+    public sealed class StarFall : CardModel
+    {
+        public StarFall() : base(0, CardType.Power, CardRarity.Rare, TargetType.Self) { }
+        public override int CanonicalStarCost => 3;
+        public override bool HasStarCostX => false;
+        public override CardMultiplayerConstraint MultiplayerConstraint => CardMultiplayerConstraint.MultiplayerOnly;
+        public override HashSet<CardTag> CanonicalTags => new HashSet<CardTag>(new[] { CardTag.Minion, (CardTag)3 });
+    }
+
+    public abstract class ShoutCard : CardModel
+    {
+        protected ShoutCard(int cost, CardRarity rarity) : base(cost, CardType.Skill, rarity, TargetType.AnyAlly, false) { }
+        public override int MaxUpgradeLevel => 0;
+    }
+
+    public sealed class RallyCry : ShoutCard
+    {
+        public RallyCry() : base(2, CardRarity.Uncommon) { }
+    }
+
+    public sealed class Keepsake : ShoutCard
+    {
+        public Keepsake() : base(0, CardRarity.Basic) { }
+        public override TargetType TargetType => TargetType.None;
+    }
+
+    public static class Outer
+    {
+        public sealed class InnerTrick : CardModel
+        {
+            public InnerTrick() : base(1, CardType.Skill, CardRarity.Common, TargetType.RandomEnemy) { }
+            public override IEnumerable<CardKeyword> CanonicalKeywords => new List<CardKeyword> { CardKeyword.Retain, CardKeyword.Unplayable };
+        }
+    }
+
+    public sealed class TwinBlade : CardModel
+    {
+        public TwinBlade() : base(1, CardType.Attack, CardRarity.Common, TargetType.AnyEnemy) { }
+        public override HashSet<CardTag> CanonicalTags => new HashSet<CardTag> { CardTag.Strike, CardTag.OstyAttack };
+    }
+
+    public sealed class Spiked : CardModel
+    {
+        public Spiked() : base(1, (CardType)42, CardRarity.Common, TargetType.AnyEnemy) { }
+        public override IEnumerable<CardKeyword> CanonicalKeywords => new[] { (CardKeyword)1, (CardKeyword)2, (CardKeyword)3, (CardKeyword)4, (CardKeyword)5, (CardKeyword)6, (CardKeyword)7, (CardKeyword)1 };
+    }
+
+    public sealed class ThreadNeedle : CardModel
+    {
+        public ThreadNeedle() : base(1, CardType.Attack, CardRarity.Basic, TargetType.AnyEnemy) { }
+    }
+
+    public sealed class LoomOfFate : CardModel
+    {
+        public LoomOfFate() : base(3, CardType.Power, CardRarity.Ancient, TargetType.Self, true) { }
+        public override IEnumerable<CardKeyword> CanonicalKeywords => [CardKeyword.Innate, CardKeyword.Ethereal];
+    }
+
+    public abstract class StitchBase<T> : CardModel
+    {
+        protected StitchBase(int cost) : base(cost, CardType.Skill, CardRarity.Uncommon, TargetType.Self) { }
+    }
+
+    public sealed class GenericStitch : StitchBase<int>
+    {
+        public GenericStitch() : base(2) { }
+    }
+
+    public sealed class ManyWords : CardModel
+    {
+        public ManyWords() : base(1, CardType.Skill, CardRarity.Common, TargetType.Self) { }
+        public override HashSet<CardTag> CanonicalTags => new HashSet<CardTag> { CardTag.Defend };
+        public override IEnumerable<CardKeyword> CanonicalKeywords => new CardKeyword[] { CardKeyword.Exhaust, CardKeyword.Ethereal, CardKeyword.Innate, CardKeyword.Retain, CardKeyword.Sly, CardKeyword.Eternal, CardKeyword.Unplayable, CardKeyword.Exhaust, CardKeyword.Ethereal, CardKeyword.Innate, CardKeyword.Retain, CardKeyword.Sly, CardKeyword.Eternal };
+    }
+
+    public sealed class DingyDagger : CardModel
+    {
+        public DingyDagger() : base(0, CardType.Attack, CardRarity.Event, TargetType.AnyEnemy) { }
+    }
+
+    public sealed class OddValue : CardModel
+    {
+        public OddValue() : base(GetCost(), CardType.Skill, CardRarity.Rare, TargetType.Self) { }
+        private static int GetCost() => 4;
+    }
+
+    public sealed class Bandage : CardModel
+    {
+        public Bandage() : base(0, CardType.Skill, CardRarity.Uncommon, TargetType.Self) { }
+    }
+
+    public sealed class Flash : CardModel
+    {
+        public Flash() : base(0, CardType.Skill, CardRarity.Rare, TargetType.Self) { }
+    }
+
+    public sealed class Gloom : CardModel
+    {
+        public Gloom() : base(-2, CardType.Curse, CardRarity.Curse, TargetType.None) { }
+        public override IEnumerable<CardKeyword> CanonicalKeywords => [CardKeyword.Unplayable];
+    }
+
+    public sealed class MockCard : CardModel
+    {
+        public MockCard() : base(1, CardType.Attack, CardRarity.Common, TargetType.AnyEnemy) { }
+    }
+
+    public abstract class NeverConcrete : CardModel
+    {
+        protected NeverConcrete() : base(1, CardType.Attack, CardRarity.Common, TargetType.AnyEnemy) { }
+    }
+}
+
+namespace MegaCrit.Sts2.Core.Models.Relics
+{
+    using MegaCrit.Sts2.Core.Entities.Relics;
+
+    public sealed class WarmStone : RelicModel { public override RelicRarity Rarity => RelicRarity.Starter; }
+
+    public sealed class SpoolCharm : RelicModel
+    {
+        public override RelicRarity Rarity => RelicRarity.Starter;
+        public override bool HasUponPickupEffect => true;
+    }
+
+    public sealed class GlassJar : RelicModel
+    {
+        private int _uses;
+        public override RelicRarity Rarity => RelicRarity.Common;
+        public override bool IsUsedUp => _uses > 2;
+    }
+
+    public sealed class NestEgg : RelicModel
+    {
+        public override RelicRarity Rarity => RelicRarity.Rare;
+        public override bool AddsPet => true;
+        public override bool SpawnsPets => true;
+        public override bool IsAllowed(int act) => act > 1;
+    }
+
+    public abstract class ShopRelic : RelicModel { public override RelicRarity Rarity => RelicRarity.Shop; }
+
+    public sealed class Ledger : ShopRelic { }
+
+    public sealed class Moody : RelicModel
+    {
+        private bool _m;
+        public override RelicRarity Rarity => _m ? RelicRarity.Event : RelicRarity.Ancient;
+    }
+}

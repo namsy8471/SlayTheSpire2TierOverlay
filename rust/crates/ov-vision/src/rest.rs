@@ -235,8 +235,8 @@ pub fn detect(frame: &ScreenFrame<'_>) -> RestSiteResult {
         idx.sort_by_key(|&i| std::cmp::Reverse((2 * i - (n - 1)).abs())); // stable, like OrderByDescending
         for i in idx {
             let k = 2 * i - (n - 1);
-            if !cache.contains_key(&k) {
-                cache.insert(k, match_slot(frame, &t, slot(i, n)));
+            if let std::collections::hash_map::Entry::Vacant(e) = cache.entry(k) {
+                e.insert(match_slot(frame, &t, slot(i, n)));
                 order.push(k);
             }
             let (enabled, grey) = &cache[&k];

@@ -1,0 +1,19 @@
+[package]
+name = "ov-resources"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Local resources from the installed game: pck reader, textures, relic icons, card catalog from sts2.dll metadata"
+publish.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+ov-core.workspace = true
+flate2 = "1"
+sha1 = "0.11"
+sha2 = "0.11"
+image = { version = "0.25", default-features = false, features = ["png", "webp"] }
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_System_Registry"] }

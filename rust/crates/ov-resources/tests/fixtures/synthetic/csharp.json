@@ -1,0 +1,2238 @@
+{
+ "tree": {
+  "pck/card_art/brawler/heavy_blow.png": "37ade750081883439ffbc7e45d18df650e1be28413c2fcd1125d3c82a4b7396e",
+  "pck/card_art/brawler/strike_brawler.webp": "65e8cae2c5d0cb22ef09239017f1d5579540a154d729d6705c7b7ab2f110b51e",
+  "pck/card_art/weaver/beta/loom_of_fate.webp": "3e6b6b10522c7abeaa1dbd50a5223fd8368ed03d9a141b213cf3381e1e7c9aaa",
+  "pck/localization/eng/cards.json": "ad0863dbde6a45e6328c7d59f8913becef298045b8b1532e6bd254800abe7d7d",
+  "pck/localization/eng/relics.json": "bd4e5fdd5bf17acbb32fa64368a0d1e59d34b71bf84c76398a2807bee85ef5a8",
+  "pck/localization/kor/cards.json": "8b1772ed17b12a6a5f911a87c54bab9d1ffb61ad421d4841ff787184d625b9d2",
+  "pck/localization/kor/relics.json": "bd4e5fdd5bf17acbb32fa64368a0d1e59d34b71bf84c76398a2807bee85ef5a8",
+  "pck/potion_icons/block_potion.png": "36a3f43fb33150c22b2c4b39b7d61d0125cb842f278bccbe8bef9993d1a281f5",
+  "pck/potion_icons/fire_potion.png": "f9eac552376eabfe3b1e3a22565bbbfde646184d9633619d3b53bdbaee833583",
+  "pck/relic_icons/glass_jar.png": "d97c4645a9c3307425544cc04e04882905066db80ec57511a74dbe1ea2d04054",
+  "pck/relic_icons/ledger.png": "c00b824491b45873ca0ca43b9516cce2a407a58e72257c4796708b0ba9bf093c",
+  "pck/relic_icons/moody.png": "aa19895a090f5313408c7099cea7bc156987fbb8f7f6868120c4faa0d91b4619",
+  "pck/relic_icons/nest_egg.png": "d533586826a6adbb84ee9e966e5fe364535f675ce52208443aea5dddffebdf74",
+  "pck/relic_icons/outline/warm_stone.png": "2f6a685e8c26c7f0cba4c6ef15d031ed03cc33b4cf9cb91d90a0c26476084fba",
+  "pck/relic_icons/spool_charm.png": "a35ebe0e07479a85bea08b709311eeea29b7dbfc21eb1ae98e0a72050b39aab7",
+  "pck/relic_icons/warm_stone.png": "f5050db4839c0e5cb05c98c74d7e7e483173bd5292c702f36063fcdbadb8d0da"
+ },
+ "manifest": {
+  "schema": 1,
+  "prepareFormat": 4,
+  "gameVersion": "v0.113.0",
+  "gameCommit": "0000abcd",
+  "fingerprint": {
+   "dllSha256": "2aeea6edf11c4c3f50718c27087bd1db19b10dd2cfa3896d03559dbb8ab7b9a7",
+   "dllSize": 18944,
+   "pckSize": 19510,
+   "version": "v0.113.0",
+   "commit": "0000abcd"
+  },
+  "catalogFile": "catalog.v0.113.0.json",
+  "catalogCards": 20,
+  "cardArtFiles": 3,
+  "localizationFiles": 4,
+  "relicIconFiles": 6,
+  "potionIconFiles": 2,
+  "potionShelfX": 1328.25,
+  "potionShelfY": 92,
+  "relicShelfX": 930,
+  "relicShelfY": 75.5
+ },
+ "catalog": {
+  "gameVersion": "v0.113.0",
+  "source": "static-il",
+  "cards": [
+   {
+    "id": "CARD.GUARD_BRAWLER",
+    "class": "GuardBrawler",
+    "pool": "CARD_POOL.BRAWLER_CARD_POOL",
+    "character": "CHARACTER.BRAWLER",
+    "type": "Skill",
+    "rarity": "Basic",
+    "cost": 1,
+    "costX": false,
+    "starCost": -1,
+    "starCostX": false,
+    "target": "Self",
+    "gainsBlock": true,
+    "maxUpgrade": 1,
+    "multiplayer": "None",
+    "showInLibrary": true,
+    "keywords": [],
+    "tags": [
+     "Defend"
+    ],
+    "names": {
+     "kor": null,
+     "eng": null
+    },
+    "descriptionTemplate": {
+     "kor": null,
+     "eng": null
+    },
+    "unresolved": [],
+    "dynamic": []
+   },
+   {
+    "id": "CARD.HEAVY_BLOW",
+    "class": "HeavyBlow",
+    "pool": "CARD_POOL.BRAWLER_CARD_POOL",
+    "character": "CHARACTER.BRAWLER",
+    "type": "Attack",
+    "rarity": "Common",
+    "cost": 2,
+    "costX": false,
+    "starCost": -1,
+    "starCostX": false,
+    "target": "AnyEnemy",
+    "gainsBlock": false,
+    "maxUpgrade": 3,
+    "multiplayer": "None",
+    "showInLibrary": true,
+    "keywords": [
+     "Exhaust",
+     "Ethereal",
+     "Innate",
+     "Retain",
+     "Sly"
+    ],
+    "tags": [],
+    "names": {
+     "kor": "강타",
+     "eng": null
+    },
+    "descriptionTemplate": {
+     "kor": "피해 {Damage}",
+     "eng": null
+    },
+    "unresolved": [],
+    "dynamic": []
+   },
+   {
+    "id": "CARD.INNER_TRICK",
+    "class": "InnerTrick",
+    "pool": "CARD_POOL.BRAWLER_CARD_POOL",
+    "character": "CHARACTER.BRAWLER",
+    "type": "Skill",
+    "rarity": "Common",
+    "cost": 1,
+    "costX": false,
+    "starCost": -1,
+    "starCostX": false,
+    "target": "RandomEnemy",
+    "gainsBlock": false,
+    "maxUpgrade": 1,
+    "multiplayer": "None",
+    "showInLibrary": true,
+    "keywords": [
+     "Retain",
+     "Unplayable"
+    ],
+    "tags": [],
+    "names": {
+     "kor": null,
+     "eng": null
+    },
+    "descriptionTemplate": {
+     "kor": null,
+     "eng": null
+    },
+    "unresolved": [],
+    "dynamic": []
+   },
+   {
+    "id": "CARD.MAD_TINKER",
+    "class": "MadTinker",
+    "pool": "CARD_POOL.BRAWLER_CARD_POOL",
+    "character": "CHARACTER.BRAWLER",
+    "type": "Attack",
+    "rarity": "Rare",
+    "cost": 1,
+    "costX": false,
+    "starCost": -1,
+    "starCostX": false,
+    "target": "AnyEnemy",
+    "gainsBlock": false,
+    "maxUpgrade": 1,
+    "multiplayer": "None",
+    "showInLibrary": true,
+    "keywords": null,
+    "tags": [],
+    "names": {
+     "kor": null,
+     "eng": null
+    },
+    "descriptionTemplate": {
+     "kor": null,
+     "eng": null
+    },
+    "unresolved": [
+     "keywords"
+    ],
+    "dynamic": [
+     "type",
+     "rarity"
+    ]
+   },
+   {
+    "id": "CARD.RALLY_CRY",
+    "class": "RallyCry",
+    "pool": "CARD_POOL.BRAWLER_CARD_POOL",
+    "character": "CHARACTER.BRAWLER",
+    "type": "Skill",
+    "rarity": "Uncommon",
+    "cost": 2,
+    "costX": false,
+    "starCost": -1,
+    "starCostX": false,
+    "target": "AnyAlly",
+    "gainsBlock": false,
+    "maxUpgrade": 0,
+    "multiplayer": "None",
+    "showInLibrary": false,
+    "keywords": [],
+    "tags": [],
+    "names": {
+     "kor": null,
+     "eng": null
+    },
+    "descriptionTemplate": {
+     "kor": null,
+     "eng": null
+    },
+    "unresolved": [],
+    "dynamic": []
+   },
+   {
+    "id": "CARD.SPIKED",
+    "class": "Spiked",
+    "pool": "CARD_POOL.BRAWLER_CARD_POOL",
+    "character": "CHARACTER.BRAWLER",
+    "type": "42",
+    "rarity": "Common",
+    "cost": 1,
+    "costX": false,
+    "starCost": -1,
+    "starCostX": false,
+    "target": "AnyEnemy",
+    "gainsBlock": false,
+    "maxUpgrade": 1,
+    "multiplayer": "None",
+    "showInLibrary": true,
+    "keywords": [
+     "Exhaust",
+     "Ethereal",
+     "Innate",
+     "Retain",
+     "Sly",
+     "Eternal",
+     "Unplayable",
+     "Exhaust"
+    ],
+    "tags": [],
+    "names": {
+     "kor": null,
+     "eng": null
+    },
+    "descriptionTemplate": {
+     "kor": null,
+     "eng": null
+    },
+    "unresolved": [],
+    "dynamic": []
+   },
+   {
+    "id": "CARD.STAR_FALL",
+    "class": "StarFall",
+    "pool": "CARD_POOL.BRAWLER_CARD_POOL",
+    "character": "CHARACTER.BRAWLER",
+    "type": "Power",
+    "rarity": "Rare",
+    "cost": 0,
+    "costX": false,
+    "starCost": 3,
+    "starCostX": false,
+    "target": "Self",
+    "gainsBlock": false,
+    "maxUpgrade": 1,
+    "multiplayer": "MultiplayerOnly",
+    "showInLibrary": true,
+    "keywords": [],
+    "tags": [
+     "Minion",
+     "Strike, Defend"
+    ],
+    "names": {
+     "kor": null,
+     "eng": null
+    },
+    "descriptionTemplate": {
+     "kor": null,
+     "eng": null
+    },
+    "unresolved": [],
+    "dynamic": []
+   },
+   {
+    "id": "CARD.STRIKE_BRAWLER",
+    "class": "StrikeBrawler",
+    "pool": "CARD_POOL.BRAWLER_CARD_POOL",
+    "character": "CHARACTER.BRAWLER",
+    "type": "Attack",
+    "rarity": "Basic",
+    "cost": 1,
+    "costX": false,
+    "starCost": -1,
+    "starCostX": false,
+    "target": "AnyEnemy",
+    "gainsBlock": false,
+    "maxUpgrade": 1,
+    "multiplayer": "None",
+    "showInLibrary": true,
+    "keywords": [],
+    "tags": [
+     "Strike"
+    ],
+    "names": {
+     "kor": "타격",
+     "eng": "Strike"
+    },
+    "descriptionTemplate": {
+     "kor": null,
+     "eng": null
+    },
+    "unresolved": [],
+    "dynamic": []
+   },
+   {
+    "id": "CARD.TWIN_BLADE",
+    "class": "TwinBlade",
+    "pool": "CARD_POOL.BRAWLER_CARD_POOL",
+    "character": "CHARACTER.BRAWLER",
+    "type": "Attack",
+    "rarity": "Common",
+    "cost": 1,
+    "costX": false,
+    "starCost": -1,
+    "starCostX": false,
+    "target": "AnyEnemy",
+    "gainsBlock": false,
+    "maxUpgrade": 1,
+    "multiplayer": "None",
+    "showInLibrary": true,
+    "keywords": [],
+    "tags": [
+     "Strike",
+     "OstyAttack"
+    ],
+    "names": {
+     "kor": null,
+     "eng": null
+    },
+    "descriptionTemplate": {
+     "kor": null,
+     "eng": null
+    },
+    "unresolved": [],
+    "dynamic": []
+   },
+   {
+    "id": "CARD.WHIRL",
+    "class": "Whirl",
+    "pool": "CARD_POOL.BRAWLER_CARD_POOL",
+    "character": "CHARACTER.BRAWLER",
+    "type": "Attack",
+    "rarity": "Uncommon",
+    "cost": -1,
+    "costX": true,
+    "starCost": -1,
+    "starCostX": false,
+    "target": "AllEnemies",
+    "gainsBlock": false,
+    "maxUpgrade": 1,
+    "multiplayer": "None",
+    "showInLibrary": true,
+    "keywords": [
+     "Exhaust"
+    ],
+    "tags": [],
+    "names": {
+     "kor": null,
+     "eng": "Whirl"
+    },
+    "descriptionTemplate": {
+     "kor": null,
+     "eng": "Hit X times"
+    },
+    "unresolved": [],
+    "dynamic": []
+   },
+   {
+    "id": "CARD.DINGY_DAGGER",
+    "class": "DingyDagger",
+    "pool": "CARD_POOL.WEAVER_CARD_POOL",
+    "character": "CHARACTER.WEAVER",
+    "type": "Attack",
+    "rarity": "Event",
+    "cost": 0,
+    "costX": false,
+    "starCost": -1,
+    "starCostX": false,
+    "target": "AnyEnemy",
+    "gainsBlock": false,
+    "maxUpgrade": 1,
+    "multiplayer": "None",
+    "showInLibrary": true,
+    "keywords": [],
+    "tags": [],
+    "names": {
+     "kor": "녹슨 단검",
+     "eng": null
+    },
+    "descriptionTemplate": {
+     "kor": null,
+     "eng": null
+    },
+    "unresolved": [],
+    "dynamic": []
+   },
+   {
+    "id": "CARD.GENERIC_STITCH",
+    "class": "GenericStitch",
+    "pool": "CARD_POOL.WEAVER_CARD_POOL",
+    "character": "CHARACTER.WEAVER",
+    "type": "Skill",
+    "rarity": "Uncommon",
+    "cost": 2,
+    "costX": false,
+    "starCost": -1,
+    "starCostX": false,
+    "target": "Self",
+    "gainsBlock": false,
+    "maxUpgrade": 1,
+    "multiplayer": "None",
+    "showInLibrary": true,
+    "keywords": [],
+    "tags": [],
+    "names": {
+     "kor": null,
+     "eng": null
+    },
+    "descriptionTemplate": {
+     "kor": null,
+     "eng": null
+    },
+    "unresolved": [],
+    "dynamic": []
+   },
+   {
+    "id": "CARD.LOOM_OF_FATE",
+    "class": "LoomOfFate",
+    "pool": "CARD_POOL.WEAVER_CARD_POOL",
+    "character": "CHARACTER.WEAVER",
+    "type": "Power",
+    "rarity": "Ancient",
+    "cost": 3,
+    "costX": false,
+    "starCost": -1,
+    "starCostX": false,
+    "target": "Self",
+    "gainsBlock": false,
+    "maxUpgrade": 1,
+    "multiplayer": "None",
+    "showInLibrary": true,
+    "keywords": [
+     "Innate",
+     "Ethereal"
+    ],
+    "tags": [],
+    "names": {
+     "kor": null,
+     "eng": null
+    },
+    "descriptionTemplate": {
+     "kor": null,
+     "eng": null
+    },
+    "unresolved": [],
+    "dynamic": []
+   },
+   {
+    "id": "CARD.MANY_WORDS",
+    "class": "ManyWords",
+    "pool": "CARD_POOL.WEAVER_CARD_POOL",
+    "character": "CHARACTER.WEAVER",
+    "type": "Skill",
+    "rarity": "Common",
+    "cost": 1,
+    "costX": false,
+    "starCost": -1,
+    "starCostX": false,
+    "target": "Self",
+    "gainsBlock": false,
+    "maxUpgrade": 1,
+    "multiplayer": "None",
+    "showInLibrary": true,
+    "keywords": [
+     "Exhaust",
+     "Ethereal",
+     "Innate",
+     "Retain",
+     "Sly",
+     "Eternal",
+     "Unplayable",
+     "Exhaust",
+     "Ethereal",
+     "Innate",
+     "Retain",
+     "Sly",
+     "Eternal"
+    ],
+    "tags": [
+     "Defend"
+    ],
+    "names": {
+     "kor": null,
+     "eng": null
+    },
+    "descriptionTemplate": {
+     "kor": null,
+     "eng": null
+    },
+    "unresolved": [],
+    "dynamic": []
+   },
+   {
+    "id": "CARD.ODD_VALUE",
+    "class": "OddValue",
+    "pool": "CARD_POOL.WEAVER_CARD_POOL",
+    "character": "CHARACTER.WEAVER",
+    "type": "Skill",
+    "rarity": "Rare",
+    "cost": null,
+    "costX": false,
+    "starCost": -1,
+    "starCostX": false,
+    "target": "Self",
+    "gainsBlock": false,
+    "maxUpgrade": 1,
+    "multiplayer": "None",
+    "showInLibrary": true,
+    "keywords": [],
+    "tags": [],
+    "names": {
+     "kor": null,
+     "eng": null
+    },
+    "descriptionTemplate": {
+     "kor": null,
+     "eng": null
+    },
+    "unresolved": [
+     "cost"
+    ],
+    "dynamic": []
+   },
+   {
+    "id": "CARD.THREAD_NEEDLE",
+    "class": "ThreadNeedle",
+    "pool": "CARD_POOL.WEAVER_CARD_POOL",
+    "character": "CHARACTER.WEAVER",
+    "type": "Attack",
+    "rarity": "Basic",
+    "cost": 1,
+    "costX": false,
+    "starCost": -1,
+    "starCostX": false,
+    "target": "AnyEnemy",
+    "gainsBlock": false,
+    "maxUpgrade": 1,
+    "multiplayer": "None",
+    "showInLibrary": true,
+    "keywords": [],
+    "tags": [],
+    "names": {
+     "kor": null,
+     "eng": null
+    },
+    "descriptionTemplate": {
+     "kor": null,
+     "eng": null
+    },
+    "unresolved": [],
+    "dynamic": []
+   },
+   {
+    "id": "CARD.BANDAGE",
+    "class": "Bandage",
+    "pool": "CARD_POOL.GREY_CARD_POOL",
+    "character": null,
+    "type": "Skill",
+    "rarity": "Uncommon",
+    "cost": 0,
+    "costX": false,
+    "starCost": -1,
+    "starCostX": false,
+    "target": "Self",
+    "gainsBlock": false,
+    "maxUpgrade": 1,
+    "multiplayer": "None",
+    "showInLibrary": true,
+    "keywords": [],
+    "tags": [],
+    "names": {
+     "kor": null,
+     "eng": null
+    },
+    "descriptionTemplate": {
+     "kor": null,
+     "eng": null
+    },
+    "unresolved": [],
+    "dynamic": []
+   },
+   {
+    "id": "CARD.FLASH",
+    "class": "Flash",
+    "pool": "CARD_POOL.GREY_CARD_POOL",
+    "character": null,
+    "type": "Skill",
+    "rarity": "Rare",
+    "cost": 0,
+    "costX": false,
+    "starCost": -1,
+    "starCostX": false,
+    "target": "Self",
+    "gainsBlock": false,
+    "maxUpgrade": 1,
+    "multiplayer": "None",
+    "showInLibrary": true,
+    "keywords": [],
+    "tags": [],
+    "names": {
+     "kor": null,
+     "eng": null
+    },
+    "descriptionTemplate": {
+     "kor": null,
+     "eng": null
+    },
+    "unresolved": [],
+    "dynamic": []
+   },
+   {
+    "id": "CARD.GLOOM",
+    "class": "Gloom",
+    "pool": "CARD_POOL.CURSE_CARD_POOL",
+    "character": null,
+    "type": "Curse",
+    "rarity": "Curse",
+    "cost": -2,
+    "costX": false,
+    "starCost": -1,
+    "starCostX": false,
+    "target": "None",
+    "gainsBlock": false,
+    "maxUpgrade": 1,
+    "multiplayer": "None",
+    "showInLibrary": true,
+    "keywords": [
+     "Unplayable"
+    ],
+    "tags": [],
+    "names": {
+     "kor": null,
+     "eng": null
+    },
+    "descriptionTemplate": {
+     "kor": null,
+     "eng": null
+    },
+    "unresolved": [],
+    "dynamic": []
+   },
+   {
+    "id": "CARD.KEEPSAKE",
+    "class": "Keepsake",
+    "pool": null,
+    "character": null,
+    "type": "Skill",
+    "rarity": "Basic",
+    "cost": 0,
+    "costX": false,
+    "starCost": -1,
+    "starCostX": false,
+    "target": "None",
+    "gainsBlock": false,
+    "maxUpgrade": 0,
+    "multiplayer": "None",
+    "showInLibrary": false,
+    "keywords": [],
+    "tags": [],
+    "names": {
+     "kor": null,
+     "eng": null
+    },
+    "descriptionTemplate": {
+     "kor": null,
+     "eng": null
+    },
+    "unresolved": [],
+    "dynamic": []
+   }
+  ]
+ },
+ "builds": [
+  {
+   "includeAll": false,
+   "catalog": {
+    "gameVersion": "v0.113.0",
+    "source": "static-il",
+    "cards": [
+     {
+      "id": "CARD.GUARD_BRAWLER",
+      "class": "GuardBrawler",
+      "pool": "CARD_POOL.BRAWLER_CARD_POOL",
+      "character": "CHARACTER.BRAWLER",
+      "type": "Skill",
+      "rarity": "Basic",
+      "cost": 1,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "Self",
+      "gainsBlock": true,
+      "maxUpgrade": 1,
+      "multiplayer": "None",
+      "showInLibrary": true,
+      "keywords": [],
+      "tags": [
+       "Defend"
+      ],
+      "names": {
+       "kor": null,
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.HEAVY_BLOW",
+      "class": "HeavyBlow",
+      "pool": "CARD_POOL.BRAWLER_CARD_POOL",
+      "character": "CHARACTER.BRAWLER",
+      "type": "Attack",
+      "rarity": "Common",
+      "cost": 2,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "AnyEnemy",
+      "gainsBlock": false,
+      "maxUpgrade": 3,
+      "multiplayer": "None",
+      "showInLibrary": true,
+      "keywords": [
+       "Exhaust",
+       "Ethereal",
+       "Innate",
+       "Retain",
+       "Sly"
+      ],
+      "tags": [],
+      "names": {
+       "kor": null,
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": "피해",
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.INNER_TRICK",
+      "class": "InnerTrick",
+      "pool": "CARD_POOL.BRAWLER_CARD_POOL",
+      "character": "CHARACTER.BRAWLER",
+      "type": "Skill",
+      "rarity": "Common",
+      "cost": 1,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "RandomEnemy",
+      "gainsBlock": false,
+      "maxUpgrade": 1,
+      "multiplayer": "None",
+      "showInLibrary": true,
+      "keywords": [
+       "Retain",
+       "Unplayable"
+      ],
+      "tags": [],
+      "names": {
+       "kor": null,
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.MAD_TINKER",
+      "class": "MadTinker",
+      "pool": "CARD_POOL.BRAWLER_CARD_POOL",
+      "character": "CHARACTER.BRAWLER",
+      "type": "Attack",
+      "rarity": "Rare",
+      "cost": 1,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "AnyEnemy",
+      "gainsBlock": false,
+      "maxUpgrade": 1,
+      "multiplayer": "None",
+      "showInLibrary": true,
+      "keywords": null,
+      "tags": [],
+      "names": {
+       "kor": null,
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [
+       "keywords"
+      ],
+      "dynamic": [
+       "type",
+       "rarity"
+      ]
+     },
+     {
+      "id": "CARD.RALLY_CRY",
+      "class": "RallyCry",
+      "pool": "CARD_POOL.BRAWLER_CARD_POOL",
+      "character": "CHARACTER.BRAWLER",
+      "type": "Skill",
+      "rarity": "Uncommon",
+      "cost": 2,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "AnyAlly",
+      "gainsBlock": false,
+      "maxUpgrade": 0,
+      "multiplayer": "None",
+      "showInLibrary": false,
+      "keywords": [],
+      "tags": [],
+      "names": {
+       "kor": null,
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.SPIKED",
+      "class": "Spiked",
+      "pool": "CARD_POOL.BRAWLER_CARD_POOL",
+      "character": "CHARACTER.BRAWLER",
+      "type": "42",
+      "rarity": "Common",
+      "cost": 1,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "AnyEnemy",
+      "gainsBlock": false,
+      "maxUpgrade": 1,
+      "multiplayer": "None",
+      "showInLibrary": true,
+      "keywords": [
+       "Exhaust",
+       "Ethereal",
+       "Innate",
+       "Retain",
+       "Sly",
+       "Eternal",
+       "Unplayable",
+       "Exhaust"
+      ],
+      "tags": [],
+      "names": {
+       "kor": null,
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.STAR_FALL",
+      "class": "StarFall",
+      "pool": "CARD_POOL.BRAWLER_CARD_POOL",
+      "character": "CHARACTER.BRAWLER",
+      "type": "Power",
+      "rarity": "Rare",
+      "cost": 0,
+      "costX": false,
+      "starCost": 3,
+      "starCostX": false,
+      "target": "Self",
+      "gainsBlock": false,
+      "maxUpgrade": 1,
+      "multiplayer": "MultiplayerOnly",
+      "showInLibrary": true,
+      "keywords": [],
+      "tags": [
+       "Minion",
+       "Strike, Defend"
+      ],
+      "names": {
+       "kor": null,
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.STRIKE_BRAWLER",
+      "class": "StrikeBrawler",
+      "pool": "CARD_POOL.BRAWLER_CARD_POOL",
+      "character": "CHARACTER.BRAWLER",
+      "type": "Attack",
+      "rarity": "Basic",
+      "cost": 1,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "AnyEnemy",
+      "gainsBlock": false,
+      "maxUpgrade": 1,
+      "multiplayer": "None",
+      "showInLibrary": true,
+      "keywords": [],
+      "tags": [
+       "Strike"
+      ],
+      "names": {
+       "kor": "타격",
+       "eng": "Strike"
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.TWIN_BLADE",
+      "class": "TwinBlade",
+      "pool": "CARD_POOL.BRAWLER_CARD_POOL",
+      "character": "CHARACTER.BRAWLER",
+      "type": "Attack",
+      "rarity": "Common",
+      "cost": 1,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "AnyEnemy",
+      "gainsBlock": false,
+      "maxUpgrade": 1,
+      "multiplayer": "None",
+      "showInLibrary": true,
+      "keywords": [],
+      "tags": [
+       "Strike",
+       "OstyAttack"
+      ],
+      "names": {
+       "kor": null,
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.WHIRL",
+      "class": "Whirl",
+      "pool": "CARD_POOL.BRAWLER_CARD_POOL",
+      "character": "CHARACTER.BRAWLER",
+      "type": "Attack",
+      "rarity": "Uncommon",
+      "cost": -1,
+      "costX": true,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "AllEnemies",
+      "gainsBlock": false,
+      "maxUpgrade": 1,
+      "multiplayer": "None",
+      "showInLibrary": true,
+      "keywords": [
+       "Exhaust"
+      ],
+      "tags": [],
+      "names": {
+       "kor": null,
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.DINGY_DAGGER",
+      "class": "DingyDagger",
+      "pool": "CARD_POOL.WEAVER_CARD_POOL",
+      "character": "CHARACTER.WEAVER",
+      "type": "Attack",
+      "rarity": "Event",
+      "cost": 0,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "AnyEnemy",
+      "gainsBlock": false,
+      "maxUpgrade": 1,
+      "multiplayer": "None",
+      "showInLibrary": true,
+      "keywords": [],
+      "tags": [],
+      "names": {
+       "kor": "녹슨 단검",
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.GENERIC_STITCH",
+      "class": "GenericStitch",
+      "pool": "CARD_POOL.WEAVER_CARD_POOL",
+      "character": "CHARACTER.WEAVER",
+      "type": "Skill",
+      "rarity": "Uncommon",
+      "cost": 2,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "Self",
+      "gainsBlock": false,
+      "maxUpgrade": 1,
+      "multiplayer": "None",
+      "showInLibrary": true,
+      "keywords": [],
+      "tags": [],
+      "names": {
+       "kor": null,
+       "eng": "Stitch"
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.LOOM_OF_FATE",
+      "class": "LoomOfFate",
+      "pool": "CARD_POOL.WEAVER_CARD_POOL",
+      "character": "CHARACTER.WEAVER",
+      "type": "Power",
+      "rarity": "Ancient",
+      "cost": 3,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "Self",
+      "gainsBlock": false,
+      "maxUpgrade": 1,
+      "multiplayer": "None",
+      "showInLibrary": true,
+      "keywords": [
+       "Innate",
+       "Ethereal"
+      ],
+      "tags": [],
+      "names": {
+       "kor": null,
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.MANY_WORDS",
+      "class": "ManyWords",
+      "pool": "CARD_POOL.WEAVER_CARD_POOL",
+      "character": "CHARACTER.WEAVER",
+      "type": "Skill",
+      "rarity": "Common",
+      "cost": 1,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "Self",
+      "gainsBlock": false,
+      "maxUpgrade": 1,
+      "multiplayer": "None",
+      "showInLibrary": true,
+      "keywords": [
+       "Exhaust",
+       "Ethereal",
+       "Innate",
+       "Retain",
+       "Sly",
+       "Eternal",
+       "Unplayable",
+       "Exhaust",
+       "Ethereal",
+       "Innate",
+       "Retain",
+       "Sly",
+       "Eternal"
+      ],
+      "tags": [
+       "Defend"
+      ],
+      "names": {
+       "kor": null,
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.ODD_VALUE",
+      "class": "OddValue",
+      "pool": "CARD_POOL.WEAVER_CARD_POOL",
+      "character": "CHARACTER.WEAVER",
+      "type": "Skill",
+      "rarity": "Rare",
+      "cost": null,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "Self",
+      "gainsBlock": false,
+      "maxUpgrade": 1,
+      "multiplayer": "None",
+      "showInLibrary": true,
+      "keywords": [],
+      "tags": [],
+      "names": {
+       "kor": null,
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [
+       "cost"
+      ],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.THREAD_NEEDLE",
+      "class": "ThreadNeedle",
+      "pool": "CARD_POOL.WEAVER_CARD_POOL",
+      "character": "CHARACTER.WEAVER",
+      "type": "Attack",
+      "rarity": "Basic",
+      "cost": 1,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "AnyEnemy",
+      "gainsBlock": false,
+      "maxUpgrade": 1,
+      "multiplayer": "None",
+      "showInLibrary": true,
+      "keywords": [],
+      "tags": [],
+      "names": {
+       "kor": null,
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.BANDAGE",
+      "class": "Bandage",
+      "pool": "CARD_POOL.GREY_CARD_POOL",
+      "character": null,
+      "type": "Skill",
+      "rarity": "Uncommon",
+      "cost": 0,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "Self",
+      "gainsBlock": false,
+      "maxUpgrade": 1,
+      "multiplayer": "None",
+      "showInLibrary": true,
+      "keywords": [],
+      "tags": [],
+      "names": {
+       "kor": null,
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.FLASH",
+      "class": "Flash",
+      "pool": "CARD_POOL.GREY_CARD_POOL",
+      "character": null,
+      "type": "Skill",
+      "rarity": "Rare",
+      "cost": 0,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "Self",
+      "gainsBlock": false,
+      "maxUpgrade": 1,
+      "multiplayer": "None",
+      "showInLibrary": true,
+      "keywords": [],
+      "tags": [],
+      "names": {
+       "kor": null,
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.GLOOM",
+      "class": "Gloom",
+      "pool": "CARD_POOL.CURSE_CARD_POOL",
+      "character": null,
+      "type": "Curse",
+      "rarity": "Curse",
+      "cost": -2,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "None",
+      "gainsBlock": false,
+      "maxUpgrade": 1,
+      "multiplayer": "None",
+      "showInLibrary": true,
+      "keywords": [
+       "Unplayable"
+      ],
+      "tags": [],
+      "names": {
+       "kor": null,
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.KEEPSAKE",
+      "class": "Keepsake",
+      "pool": null,
+      "character": null,
+      "type": "Skill",
+      "rarity": "Basic",
+      "cost": 0,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "None",
+      "gainsBlock": false,
+      "maxUpgrade": 0,
+      "multiplayer": "None",
+      "showInLibrary": false,
+      "keywords": [],
+      "tags": [],
+      "names": {
+       "kor": null,
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     }
+    ]
+   },
+   "loadouts": [
+    {
+     "character": "CHARACTER.BRAWLER",
+     "startingHp": 80,
+     "startingGold": 99,
+     "maxEnergy": 3,
+     "deck": [
+      "CARD.STRIKE_BRAWLER",
+      "CARD.STRIKE_BRAWLER",
+      "CARD.GUARD_BRAWLER",
+      "CARD.KEEPSAKE"
+     ],
+     "relics": [
+      "RELIC.WARM_STONE"
+     ]
+    },
+    {
+     "character": "CHARACTER.WEAVER",
+     "startingHp": 70,
+     "startingGold": null,
+     "maxEnergy": 4,
+     "deck": [
+      "CARD.THREAD_NEEDLE",
+      "CARD.GUARD_BRAWLER"
+     ],
+     "relics": [
+      "RELIC.SPOOL_CHARM"
+     ]
+    }
+   ],
+   "relics": [
+    {
+     "id": "RELIC.GLASS_JAR",
+     "rarity": "Common",
+     "hasUponPickupEffect": false,
+     "spawnsPets": false,
+     "usedUpOverride": true,
+     "addsPet": false,
+     "allowedOverride": false
+    },
+    {
+     "id": "RELIC.LEDGER",
+     "rarity": "Shop",
+     "hasUponPickupEffect": false,
+     "spawnsPets": false,
+     "usedUpOverride": false,
+     "addsPet": false,
+     "allowedOverride": false
+    },
+    {
+     "id": "RELIC.MOODY",
+     "rarity": null,
+     "hasUponPickupEffect": false,
+     "spawnsPets": false,
+     "usedUpOverride": false,
+     "addsPet": false,
+     "allowedOverride": false
+    },
+    {
+     "id": "RELIC.NEST_EGG",
+     "rarity": "Rare",
+     "hasUponPickupEffect": false,
+     "spawnsPets": true,
+     "usedUpOverride": false,
+     "addsPet": true,
+     "allowedOverride": true
+    },
+    {
+     "id": "RELIC.SPOOL_CHARM",
+     "rarity": "Starter",
+     "hasUponPickupEffect": true,
+     "spawnsPets": false,
+     "usedUpOverride": false,
+     "addsPet": false,
+     "allowedOverride": false
+    },
+    {
+     "id": "RELIC.WARM_STONE",
+     "rarity": "Starter",
+     "hasUponPickupEffect": false,
+     "spawnsPets": false,
+     "usedUpOverride": false,
+     "addsPet": false,
+     "allowedOverride": false
+    }
+   ],
+   "characterClasses": [
+    "Brawler",
+    "Weaver"
+   ],
+   "languages": [
+    "kor",
+    "eng"
+   ],
+   "multiPool": 1,
+   "warnings": []
+  },
+  {
+   "includeAll": true,
+   "catalog": {
+    "gameVersion": "v0.113.0",
+    "source": "static-il",
+    "cards": [
+     {
+      "id": "CARD.GUARD_BRAWLER",
+      "class": "GuardBrawler",
+      "pool": "CARD_POOL.BRAWLER_CARD_POOL",
+      "character": "CHARACTER.BRAWLER",
+      "type": "Skill",
+      "rarity": "Basic",
+      "cost": 1,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "Self",
+      "gainsBlock": true,
+      "maxUpgrade": 1,
+      "multiplayer": "None",
+      "showInLibrary": true,
+      "keywords": [],
+      "tags": [
+       "Defend"
+      ],
+      "names": {
+       "kor": null,
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.HEAVY_BLOW",
+      "class": "HeavyBlow",
+      "pool": "CARD_POOL.BRAWLER_CARD_POOL",
+      "character": "CHARACTER.BRAWLER",
+      "type": "Attack",
+      "rarity": "Common",
+      "cost": 2,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "AnyEnemy",
+      "gainsBlock": false,
+      "maxUpgrade": 3,
+      "multiplayer": "None",
+      "showInLibrary": true,
+      "keywords": [
+       "Exhaust",
+       "Ethereal",
+       "Innate",
+       "Retain",
+       "Sly"
+      ],
+      "tags": [],
+      "names": {
+       "kor": null,
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": "피해",
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.INNER_TRICK",
+      "class": "InnerTrick",
+      "pool": "CARD_POOL.BRAWLER_CARD_POOL",
+      "character": "CHARACTER.BRAWLER",
+      "type": "Skill",
+      "rarity": "Common",
+      "cost": 1,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "RandomEnemy",
+      "gainsBlock": false,
+      "maxUpgrade": 1,
+      "multiplayer": "None",
+      "showInLibrary": true,
+      "keywords": [
+       "Retain",
+       "Unplayable"
+      ],
+      "tags": [],
+      "names": {
+       "kor": null,
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.MAD_TINKER",
+      "class": "MadTinker",
+      "pool": "CARD_POOL.BRAWLER_CARD_POOL",
+      "character": "CHARACTER.BRAWLER",
+      "type": "Attack",
+      "rarity": "Rare",
+      "cost": 1,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "AnyEnemy",
+      "gainsBlock": false,
+      "maxUpgrade": 1,
+      "multiplayer": "None",
+      "showInLibrary": true,
+      "keywords": null,
+      "tags": [],
+      "names": {
+       "kor": null,
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [
+       "keywords"
+      ],
+      "dynamic": [
+       "type",
+       "rarity"
+      ]
+     },
+     {
+      "id": "CARD.RALLY_CRY",
+      "class": "RallyCry",
+      "pool": "CARD_POOL.BRAWLER_CARD_POOL",
+      "character": "CHARACTER.BRAWLER",
+      "type": "Skill",
+      "rarity": "Uncommon",
+      "cost": 2,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "AnyAlly",
+      "gainsBlock": false,
+      "maxUpgrade": 0,
+      "multiplayer": "None",
+      "showInLibrary": false,
+      "keywords": [],
+      "tags": [],
+      "names": {
+       "kor": null,
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.SPIKED",
+      "class": "Spiked",
+      "pool": "CARD_POOL.BRAWLER_CARD_POOL",
+      "character": "CHARACTER.BRAWLER",
+      "type": "42",
+      "rarity": "Common",
+      "cost": 1,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "AnyEnemy",
+      "gainsBlock": false,
+      "maxUpgrade": 1,
+      "multiplayer": "None",
+      "showInLibrary": true,
+      "keywords": [
+       "Exhaust",
+       "Ethereal",
+       "Innate",
+       "Retain",
+       "Sly",
+       "Eternal",
+       "Unplayable",
+       "Exhaust"
+      ],
+      "tags": [],
+      "names": {
+       "kor": null,
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.STAR_FALL",
+      "class": "StarFall",
+      "pool": "CARD_POOL.BRAWLER_CARD_POOL",
+      "character": "CHARACTER.BRAWLER",
+      "type": "Power",
+      "rarity": "Rare",
+      "cost": 0,
+      "costX": false,
+      "starCost": 3,
+      "starCostX": false,
+      "target": "Self",
+      "gainsBlock": false,
+      "maxUpgrade": 1,
+      "multiplayer": "MultiplayerOnly",
+      "showInLibrary": true,
+      "keywords": [],
+      "tags": [
+       "Minion",
+       "Strike, Defend"
+      ],
+      "names": {
+       "kor": null,
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.STRIKE_BRAWLER",
+      "class": "StrikeBrawler",
+      "pool": "CARD_POOL.BRAWLER_CARD_POOL",
+      "character": "CHARACTER.BRAWLER",
+      "type": "Attack",
+      "rarity": "Basic",
+      "cost": 1,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "AnyEnemy",
+      "gainsBlock": false,
+      "maxUpgrade": 1,
+      "multiplayer": "None",
+      "showInLibrary": true,
+      "keywords": [],
+      "tags": [
+       "Strike"
+      ],
+      "names": {
+       "kor": "타격",
+       "eng": "Strike"
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.TWIN_BLADE",
+      "class": "TwinBlade",
+      "pool": "CARD_POOL.BRAWLER_CARD_POOL",
+      "character": "CHARACTER.BRAWLER",
+      "type": "Attack",
+      "rarity": "Common",
+      "cost": 1,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "AnyEnemy",
+      "gainsBlock": false,
+      "maxUpgrade": 1,
+      "multiplayer": "None",
+      "showInLibrary": true,
+      "keywords": [],
+      "tags": [
+       "Strike",
+       "OstyAttack"
+      ],
+      "names": {
+       "kor": null,
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.WHIRL",
+      "class": "Whirl",
+      "pool": "CARD_POOL.BRAWLER_CARD_POOL",
+      "character": "CHARACTER.BRAWLER",
+      "type": "Attack",
+      "rarity": "Uncommon",
+      "cost": -1,
+      "costX": true,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "AllEnemies",
+      "gainsBlock": false,
+      "maxUpgrade": 1,
+      "multiplayer": "None",
+      "showInLibrary": true,
+      "keywords": [
+       "Exhaust"
+      ],
+      "tags": [],
+      "names": {
+       "kor": null,
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.DINGY_DAGGER",
+      "class": "DingyDagger",
+      "pool": "CARD_POOL.WEAVER_CARD_POOL",
+      "character": "CHARACTER.WEAVER",
+      "type": "Attack",
+      "rarity": "Event",
+      "cost": 0,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "AnyEnemy",
+      "gainsBlock": false,
+      "maxUpgrade": 1,
+      "multiplayer": "None",
+      "showInLibrary": true,
+      "keywords": [],
+      "tags": [],
+      "names": {
+       "kor": "녹슨 단검",
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.GENERIC_STITCH",
+      "class": "GenericStitch",
+      "pool": "CARD_POOL.WEAVER_CARD_POOL",
+      "character": "CHARACTER.WEAVER",
+      "type": "Skill",
+      "rarity": "Uncommon",
+      "cost": 2,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "Self",
+      "gainsBlock": false,
+      "maxUpgrade": 1,
+      "multiplayer": "None",
+      "showInLibrary": true,
+      "keywords": [],
+      "tags": [],
+      "names": {
+       "kor": null,
+       "eng": "Stitch"
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.LOOM_OF_FATE",
+      "class": "LoomOfFate",
+      "pool": "CARD_POOL.WEAVER_CARD_POOL",
+      "character": "CHARACTER.WEAVER",
+      "type": "Power",
+      "rarity": "Ancient",
+      "cost": 3,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "Self",
+      "gainsBlock": false,
+      "maxUpgrade": 1,
+      "multiplayer": "None",
+      "showInLibrary": true,
+      "keywords": [
+       "Innate",
+       "Ethereal"
+      ],
+      "tags": [],
+      "names": {
+       "kor": null,
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.MANY_WORDS",
+      "class": "ManyWords",
+      "pool": "CARD_POOL.WEAVER_CARD_POOL",
+      "character": "CHARACTER.WEAVER",
+      "type": "Skill",
+      "rarity": "Common",
+      "cost": 1,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "Self",
+      "gainsBlock": false,
+      "maxUpgrade": 1,
+      "multiplayer": "None",
+      "showInLibrary": true,
+      "keywords": [
+       "Exhaust",
+       "Ethereal",
+       "Innate",
+       "Retain",
+       "Sly",
+       "Eternal",
+       "Unplayable",
+       "Exhaust",
+       "Ethereal",
+       "Innate",
+       "Retain",
+       "Sly",
+       "Eternal"
+      ],
+      "tags": [
+       "Defend"
+      ],
+      "names": {
+       "kor": null,
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.ODD_VALUE",
+      "class": "OddValue",
+      "pool": "CARD_POOL.WEAVER_CARD_POOL",
+      "character": "CHARACTER.WEAVER",
+      "type": "Skill",
+      "rarity": "Rare",
+      "cost": null,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "Self",
+      "gainsBlock": false,
+      "maxUpgrade": 1,
+      "multiplayer": "None",
+      "showInLibrary": true,
+      "keywords": [],
+      "tags": [],
+      "names": {
+       "kor": null,
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [
+       "cost"
+      ],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.THREAD_NEEDLE",
+      "class": "ThreadNeedle",
+      "pool": "CARD_POOL.WEAVER_CARD_POOL",
+      "character": "CHARACTER.WEAVER",
+      "type": "Attack",
+      "rarity": "Basic",
+      "cost": 1,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "AnyEnemy",
+      "gainsBlock": false,
+      "maxUpgrade": 1,
+      "multiplayer": "None",
+      "showInLibrary": true,
+      "keywords": [],
+      "tags": [],
+      "names": {
+       "kor": null,
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.BANDAGE",
+      "class": "Bandage",
+      "pool": "CARD_POOL.GREY_CARD_POOL",
+      "character": null,
+      "type": "Skill",
+      "rarity": "Uncommon",
+      "cost": 0,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "Self",
+      "gainsBlock": false,
+      "maxUpgrade": 1,
+      "multiplayer": "None",
+      "showInLibrary": true,
+      "keywords": [],
+      "tags": [],
+      "names": {
+       "kor": null,
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.FLASH",
+      "class": "Flash",
+      "pool": "CARD_POOL.GREY_CARD_POOL",
+      "character": null,
+      "type": "Skill",
+      "rarity": "Rare",
+      "cost": 0,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "Self",
+      "gainsBlock": false,
+      "maxUpgrade": 1,
+      "multiplayer": "None",
+      "showInLibrary": true,
+      "keywords": [],
+      "tags": [],
+      "names": {
+       "kor": null,
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.GLOOM",
+      "class": "Gloom",
+      "pool": "CARD_POOL.CURSE_CARD_POOL",
+      "character": null,
+      "type": "Curse",
+      "rarity": "Curse",
+      "cost": -2,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "None",
+      "gainsBlock": false,
+      "maxUpgrade": 1,
+      "multiplayer": "None",
+      "showInLibrary": true,
+      "keywords": [
+       "Unplayable"
+      ],
+      "tags": [],
+      "names": {
+       "kor": null,
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.MOCK_CARD",
+      "class": "MockCard",
+      "pool": "CARD_POOL.MOCK_CARD_POOL",
+      "character": null,
+      "type": "Attack",
+      "rarity": "Common",
+      "cost": 1,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "AnyEnemy",
+      "gainsBlock": false,
+      "maxUpgrade": 1,
+      "multiplayer": "None",
+      "showInLibrary": true,
+      "keywords": [],
+      "tags": [],
+      "names": {
+       "kor": null,
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     },
+     {
+      "id": "CARD.KEEPSAKE",
+      "class": "Keepsake",
+      "pool": null,
+      "character": null,
+      "type": "Skill",
+      "rarity": "Basic",
+      "cost": 0,
+      "costX": false,
+      "starCost": -1,
+      "starCostX": false,
+      "target": "None",
+      "gainsBlock": false,
+      "maxUpgrade": 0,
+      "multiplayer": "None",
+      "showInLibrary": false,
+      "keywords": [],
+      "tags": [],
+      "names": {
+       "kor": null,
+       "eng": null
+      },
+      "descriptionTemplate": {
+       "kor": null,
+       "eng": null
+      },
+      "unresolved": [],
+      "dynamic": []
+     }
+    ]
+   },
+   "loadouts": [
+    {
+     "character": "CHARACTER.BRAWLER",
+     "startingHp": 80,
+     "startingGold": 99,
+     "maxEnergy": 3,
+     "deck": [
+      "CARD.STRIKE_BRAWLER",
+      "CARD.STRIKE_BRAWLER",
+      "CARD.GUARD_BRAWLER",
+      "CARD.KEEPSAKE"
+     ],
+     "relics": [
+      "RELIC.WARM_STONE"
+     ]
+    },
+    {
+     "character": "CHARACTER.WEAVER",
+     "startingHp": 70,
+     "startingGold": null,
+     "maxEnergy": 4,
+     "deck": [
+      "CARD.THREAD_NEEDLE",
+      "CARD.GUARD_BRAWLER"
+     ],
+     "relics": [
+      "RELIC.SPOOL_CHARM"
+     ]
+    }
+   ],
+   "relics": [
+    {
+     "id": "RELIC.GLASS_JAR",
+     "rarity": "Common",
+     "hasUponPickupEffect": false,
+     "spawnsPets": false,
+     "usedUpOverride": true,
+     "addsPet": false,
+     "allowedOverride": false
+    },
+    {
+     "id": "RELIC.LEDGER",
+     "rarity": "Shop",
+     "hasUponPickupEffect": false,
+     "spawnsPets": false,
+     "usedUpOverride": false,
+     "addsPet": false,
+     "allowedOverride": false
+    },
+    {
+     "id": "RELIC.MOODY",
+     "rarity": null,
+     "hasUponPickupEffect": false,
+     "spawnsPets": false,
+     "usedUpOverride": false,
+     "addsPet": false,
+     "allowedOverride": false
+    },
+    {
+     "id": "RELIC.NEST_EGG",
+     "rarity": "Rare",
+     "hasUponPickupEffect": false,
+     "spawnsPets": true,
+     "usedUpOverride": false,
+     "addsPet": true,
+     "allowedOverride": true
+    },
+    {
+     "id": "RELIC.SPOOL_CHARM",
+     "rarity": "Starter",
+     "hasUponPickupEffect": true,
+     "spawnsPets": false,
+     "usedUpOverride": false,
+     "addsPet": false,
+     "allowedOverride": false
+    },
+    {
+     "id": "RELIC.WARM_STONE",
+     "rarity": "Starter",
+     "hasUponPickupEffect": false,
+     "spawnsPets": false,
+     "usedUpOverride": false,
+     "addsPet": false,
+     "allowedOverride": false
+    }
+   ],
+   "characterClasses": [
+    "Brawler",
+    "Weaver"
+   ],
+   "languages": [
+    "kor",
+    "eng"
+   ],
+   "multiPool": 2,
+   "warnings": []
+  }
+ ],
+ "progress": [
+  [
+   "0.000",
+   "리소스 준비: 게임 파일 여는 중"
+  ],
+  [
+   "0.050",
+   "리소스 준비: 현지화 4개"
+  ],
+  [
+   "0.225",
+   "리소스 준비: 카드 그림 1/4"
+  ],
+  [
+   "0.400",
+   "리소스 준비: 카드 그림 2/4"
+  ],
+  [
+   "0.575",
+   "리소스 준비: 카드 그림 3/4"
+  ],
+  [
+   "0.750",
+   "리소스 준비: 카드 그림 4/4"
+  ],
+  [
+   "0.750",
+   "리소스 준비: 카드 목록 분석 중 (sts2.dll)"
+  ],
+  [
+   "0.970",
+   "리소스 준비: 카드 20장"
+  ]
+ ]
+}

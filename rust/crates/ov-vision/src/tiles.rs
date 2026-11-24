@@ -22,7 +22,7 @@ impl TileGrid {
         let cells_x = FULL_W as usize / tiles_x;
         let cells_y = FULL_H as usize / tiles_y;
         let segment_length = cells_x * 3;
-        assert!(count <= 64 && segment_length % 8 == 0, "Grid must have <= 64 tiles and segments of whole 8-float vectors.");
+        assert!(count <= 64 && segment_length.is_multiple_of(8), "Grid must have <= 64 tiles and segments of whole 8-float vectors.");
         let tile_of_segment = (0..FULL_H as usize * tiles_x).map(|seg| (seg / tiles_x) / cells_y * tiles_x + seg % tiles_x).collect();
         TileGrid {
             tiles_x,

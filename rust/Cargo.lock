@@ -2085,6 +2085,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ov-resources"
+version = "0.2.0"
+dependencies = [
+ "flate2",
+ "image",
+ "ov-core",
+ "serde",
+ "serde_json",
+ "sha1",
+ "sha2",
+ "windows",
+]
+
+[[package]]
 name = "ov-vision"
 version = "0.2.0"
 dependencies = [

@@ -94,11 +94,10 @@ impl CardArtDatabase {
         let len = query.len();
         let mut best: Vec<ArtMatch> = Vec::with_capacity(k + 1);
         for (i, e) in self.entries.iter().enumerate() {
-            if let Some(a) = allowed {
-                if !a(i) {
+            if let Some(a) = allowed
+                && !a(i) {
                     continue;
                 }
-            }
             let s = ncc::dot(query, &data[i * len..(i + 1) * len]);
             insert(&mut best, i, &e.card_id, s, k);
         }
@@ -323,6 +322,6 @@ impl Reader<'_> {
     }
     fn floats(&mut self, n: usize) -> Option<Vec<f32>> {
         let raw = self.take(n.checked_mul(4)?)?;
-        Some(raw.chunks_exact(4).map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]])).collect())
+        Some(raw.as_chunks::<4>().0.iter().map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]])).collect())
     }
 }

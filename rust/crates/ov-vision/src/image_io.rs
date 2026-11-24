@@ -24,7 +24,7 @@ pub fn load_rgba(path: &Path) -> Result<(Vec<u8>, i32, i32), String> {
 fn from_rgba(img: image::RgbaImage) -> OwnedFrame {
     let (w, h) = img.dimensions();
     let mut bgra = img.into_raw();
-    for px in bgra.chunks_exact_mut(4) {
+    for px in bgra.as_chunks_mut::<4>().0 {
         px.swap(0, 2);
     }
     OwnedFrame { bgra, width: w as i32, height: h as i32, stride: w as i32 * 4 }
@@ -35,7 +35,7 @@ pub fn save_png(frame: &ScreenFrame<'_>, path: &Path) -> Result<(), String> {
     let mut rgba = Vec::with_capacity(w * h * 4);
     for y in 0..h {
         let row = &frame.bgra[y * frame.stride as usize..y * frame.stride as usize + w * 4];
-        for px in row.chunks_exact(4) {
+        for px in row.as_chunks::<4>().0 {
             rgba.extend_from_slice(&[px[2], px[1], px[0], px[3]]);
         }
     }

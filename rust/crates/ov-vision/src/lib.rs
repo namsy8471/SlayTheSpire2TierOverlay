@@ -3,6 +3,9 @@
 //! Frames are BGRA. Positions are given in 1920x1080 reference units and mapped onto the frame with
 //! [`geometry::RefTransform`]. Float arithmetic follows the C# code step by step, so results match it.
 
+// Ports keep the C# index loops and signatures so they can be compared line by line.
+#![allow(clippy::needless_range_loop, clippy::type_complexity, clippy::too_many_arguments)]
+
 pub mod artdb;
 pub mod catalog;
 pub mod classifier;

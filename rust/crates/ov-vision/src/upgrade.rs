@@ -19,7 +19,7 @@ struct TitleCounts {
 
 impl RowSink for TitleCounts {
     fn row(&mut self, rgb: &[f32]) {
-        for px in rgb.chunks_exact(3) {
+        for px in rgb.as_chunks::<3>().0 {
             if is_upgrade_green(px[0], px[1], px[2]) {
                 self.green += 1;
             } else if is_tooltip_slate(px[0], px[1], px[2]) {
