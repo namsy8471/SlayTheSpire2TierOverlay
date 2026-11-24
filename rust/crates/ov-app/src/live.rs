@@ -14,6 +14,7 @@ use ov_gamestate::tracking::live::{LiveHandle, LiveOptions, LiveTracker};
 use ov_gamestate::tracking::tracked::{ScreenHint, TrackedRun};
 use ov_gamestate::tracking::tracker::TrackerOptions;
 use ov_live::advisor::AdvisorCommand;
+use ov_live::map_marks::{self, MapSight, MapTarget, MapWatcher};
 use ov_live::brain::{Brain, BrainOptions};
 use ov_live::paths::AppLayout;
 use ov_live::recognition::{Frame, Recognition, VisionRecognizer};
@@ -40,6 +41,8 @@ enum Cmd {
     Hint(Option<String>),
     /// Some(ancient?) in an event room: read its buttons.
     EventRoom(Option<bool>),
+    /// The act map to look for in each frame (None = skip the work).
+    Map(Option<Arc<MapTarget>>),
     Now,
 }
 
@@ -59,6 +62,16 @@ pub struct Live {
     interval: Option<Duration>,
     hint: Option<String>,
     event_room: Option<bool>,
+    map_rx: Receiver<MapSight>,
+    /// The map the capture worker looks for ("지도 위 표시" on, a run with a map and a seed).
+    map_target: Option<Arc<MapTarget>>,
+    map_key: String,
+    map_graph: Option<ov_core::map::MapGraph>,
+    map_on: bool,
+    map_open: bool,
+    /// The map is sliding in or easing its scroll: marks wait until two frames agree.
+    map_moving: bool,
+    map_scroll: f32,
     _tracker: LiveHandle,
 }
 
@@ -114,7 +127,8 @@ impl Live {
         let epoch = Arc::new(AtomicI32::new(0));
         let (cmd_tx, cmd_rx) = mpsc::channel();
         let (rec_tx, rec_rx) = mpsc::channel();
-        spawn_capture(cmd_rx, rec_tx, recognizer.clone(), epoch.clone(), ctx.clone());
+        let (map_tx, map_rx) = mpsc::channel();
+        spawn_capture(cmd_rx, rec_tx, map_tx, recognizer.clone(), epoch.clone(), ctx.clone());
 
         let prepare_line = Arc::new(Mutex::new(None));
         let prepared = Arc::new(AtomicBool::new(false));
@@ -136,12 +150,22 @@ impl Live {
             interval: None,
             hint: None,
             event_room: None,
+            map_rx,
+            map_target: None,
+            map_key: String::new(),
+            map_graph: None,
+            map_on: settings.map_overlay,
+            map_open: false,
+            map_moving: false,
+            map_scroll: 0.0,
             _tracker: tracker,
         }
     }
 
-    /// One UI tick. `game`: the game window now; `shown`: the overlay draws (not hidden, game in front).
-    pub fn tick(&mut self, game: Option<GameWindow>, shown: bool) {
+    /// One UI tick. `game`: the game window now; `shown`: the overlay draws (not hidden, game in front); `map_on`:
+    /// the "지도 위 표시" setting.
+    pub fn tick(&mut self, game: Option<GameWindow>, shown: bool, map_on: bool) {
+        self.map_on = map_on;
         if self.prepared.swap(false, Ordering::Relaxed) {
             self.text = GameText::load(&LocalLayout::new(&self.layout.local_data_dir).localization_dir());
             self.recognizer.reload();
@@ -167,6 +191,10 @@ impl Live {
         while let Ok(r) = self.rec_rx.try_recv() {
             self.brain.on_recognition(r, Instant::now());
         }
+        self.update_map_target();
+        while let Ok(m) = self.map_rx.try_recv() {
+            self.on_map_sight(m);
+        }
         self.brain.poll();
 
         let target = game.filter(|g| !g.minimized && !g.client.is_empty()).map(|g| Target { hwnd: g.hwnd, client: g.client });
@@ -178,6 +206,7 @@ impl Live {
             None
         } else {
             Some(match self.brain.run().map(|r| r.screen) {
+                _ if self.map_open => Duration::from_millis(200),
                 Some(ScreenHint::RewardScreenLikely | ScreenHint::ShopLikely | ScreenHint::RestSite | ScreenHint::Event | ScreenHint::Treasure) => Duration::from_millis(333),
                 Some(ScreenHint::Combat | ScreenHint::MainMenu) => Duration::from_millis(1500),
                 _ => Duration::from_millis(700),
@@ -189,13 +218,57 @@ impl Live {
         }
     }
 
+    /// Per act: where the game draws the map nodes (from the save's map and seed).
+    fn update_map_target(&mut self) {
+        let run = self.brain.run().filter(|_| self.map_on);
+        let key = run.map(MapTarget::key_for).unwrap_or_default();
+        let graph = run.and_then(|r| r.map.as_ref());
+        if key == self.map_key && graph == self.map_graph.as_ref() {
+            return; // nothing new (the usual case)
+        }
+        // Same act: the node positions stay (they don't depend on where we are); only the graph is newer.
+        let same_act = !key.is_empty() && key == self.map_key;
+        self.map_graph = graph.cloned();
+        self.map_key = key;
+        let target = run.and_then(MapTarget::for_run).map(Arc::new);
+        if !same_act {
+            if let Some(t) = &target {
+                crate::applog::info(format!("map overlay: act {} layout, {} nodes", t.map.act, t.layout.centers.len()));
+            }
+            self.map_open = false;
+            self.map_moving = false;
+        }
+        self.map_target = target.clone();
+        let _ = self.cmd_tx.send(Cmd::Map(target));
+    }
+
+    fn on_map_sight(&mut self, m: MapSight) {
+        let Some(t) = &self.map_target else { return };
+        if m.key != t.key {
+            return; // a frame from before the act changed
+        }
+        let was_open = self.map_open;
+        self.map_moving = m.is_map && (!was_open || (m.scroll - self.map_scroll).abs() > map_marks::STILL_TOLERANCE);
+        self.map_open = m.is_map;
+        self.map_scroll = m.scroll;
+        if was_open != self.map_open {
+            crate::applog::info(format!("map screen {}", if self.map_open { format!("open (scroll {:.0})", m.scroll) } else { "closed".into() }));
+        }
+    }
+
+    /// The map to mark and its scroll, while the map screen is open and still.
+    pub fn map_view(&self) -> Option<(&MapTarget, f32)> {
+        let t = self.map_target.as_deref().filter(|_| self.map_on && self.map_open && !self.map_moving)?;
+        Some((t, self.map_scroll))
+    }
+
     /// Hotkey "recognise now".
     pub fn recognize_now(&self) {
         let _ = self.cmd_tx.send(Cmd::Now);
     }
 }
 
-fn spawn_capture(rx: Receiver<Cmd>, tx: Sender<Recognition>, recognizer: Arc<VisionRecognizer>, epoch: Arc<AtomicI32>, ctx: egui::Context) {
+fn spawn_capture(rx: Receiver<Cmd>, tx: Sender<Recognition>, map_tx: Sender<MapSight>, recognizer: Arc<VisionRecognizer>, epoch: Arc<AtomicI32>, ctx: egui::Context) {
     let _ = std::thread::Builder::new().name("capture".into()).spawn(move || {
         unsafe {
             let _ = windows::Win32::System::WinRT::RoInitialize(windows::Win32::System::WinRT::RO_INIT_MULTITHREADED);
@@ -206,6 +279,8 @@ fn spawn_capture(rx: Receiver<Cmd>, tx: Sender<Recognition>, recognizer: Arc<Vis
         let mut interval: Option<Duration> = None;
         let mut hint: Option<String> = None;
         let mut event_room: Option<bool> = None;
+        let mut map: Option<Arc<MapTarget>> = None;
+        let mut watcher = MapWatcher::default();
         let mut session: Option<CaptureSession> = None;
         let mut next = Instant::now();
         let mut failures = 0u32;
@@ -237,6 +312,10 @@ fn spawn_capture(rx: Receiver<Cmd>, tx: Sender<Recognition>, recognizer: Arc<Vis
                 }
                 Ok(Cmd::EventRoom(e)) => {
                     event_room = e;
+                    continue;
+                }
+                Ok(Cmd::Map(m)) => {
+                    map = m;
                     continue;
                 }
                 Ok(Cmd::Now) => now_asked = true,
@@ -273,6 +352,12 @@ fn spawn_capture(rx: Receiver<Cmd>, tx: Sender<Recognition>, recognizer: Arc<Vis
             };
             let e = epoch.load(Ordering::Relaxed);
             let f = Frame { bgra: &frame.bgra, width: frame.width, height: frame.height, stride: frame.width * 4, origin: (frame.rect.x, frame.rect.y) };
+            if let Some(m) = &map {
+                if map_tx.send(watcher.analyze(&f, m)).is_err() {
+                    break;
+                }
+                ctx.request_repaint();
+            }
             if let Some(mut r) = recognizer.recognize_with(&f, hint.as_deref(), event_room) {
                 r.epoch = e;
                 if tx.send(r).is_err() {
