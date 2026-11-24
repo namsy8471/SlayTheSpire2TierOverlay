@@ -11,5 +11,7 @@ pub mod brain;
 pub mod broker;
 pub mod offer;
 pub mod paths;
+pub mod present;
 pub mod recognition;
 pub mod request;
+pub mod text;

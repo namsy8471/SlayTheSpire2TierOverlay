@@ -6,13 +6,13 @@ use ov_core::model::OfferContext;
 use ov_vision::rest::{RestOption, RestSiteResult};
 use serde_json::{Value, json};
 
-use crate::recognition::{Recognition, SeenCard, SeenShopItem};
+use crate::recognition::{Recognition, Rect, SeenCard, SeenShopItem};
 
 /// What a request showed, in the order of its arrays, so `card:i`, `shop_relic:i`, `opt:i` ... can be resolved.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Shown {
     Cards(Vec<SeenCard>),
-    Shop { cards: Vec<SeenCard>, relics: Vec<SeenShopItem>, potions: Vec<SeenShopItem>, removal: bool },
+    Shop { cards: Vec<SeenCard>, relics: Vec<SeenShopItem>, potions: Vec<SeenShopItem>, removal: Option<Rect> },
     Rest(Vec<RestOption>),
     Path(Vec<MapCoord>),
     /// Event / ancient option keys.
@@ -134,7 +134,7 @@ pub fn shop(r: &Recognition, run: Option<Value>) -> DecideRequest {
     relics.sort_by_key(|x| x.slot);
     let mut potions = r.potions.clone();
     potions.sort_by_key(|x| x.slot);
-    let removal = r.removal_service.is_some();
+    let removal = r.removal_service;
     let item = |x: &SeenShopItem| json!({"id": entry(&x.id), "price": x.price});
     DecideRequest {
         kind: "shop",
@@ -142,7 +142,7 @@ pub fn shop(r: &Recognition, run: Option<Value>) -> DecideRequest {
             "cards": cards.iter().map(|c| json!({"id": entry(&c.id), "upgrade": c.upgrade, "price": c.price, "sale": c.on_sale})).collect::<Vec<_>>(),
             "relics": relics.iter().map(item).collect::<Vec<_>>(),
             "potions": potions.iter().map(item).collect::<Vec<_>>(),
-            "removal": {"available": removal},
+            "removal": {"available": removal.is_some()},
         }),
         run,
         shown: Shop { cards, relics, potions, removal },
@@ -208,7 +208,7 @@ pub fn event(event_id: &str, ancient: bool, keys: &[String], locked: &dyn Fn(usi
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::recognition::{Rect, ScreenKind};
+    use crate::recognition::ScreenKind;
 
     fn card(slot: i32, id: &str, up: i32, price: Option<i32>) -> SeenCard {
         SeenCard { slot, id: id.into(), upgrade: up, bounds: Rect::default(), confidence: 1.0, price, unaffordable: None, on_sale: slot == 2, price_bounds: None, missing_portrait: false }

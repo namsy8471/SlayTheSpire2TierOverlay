@@ -105,6 +105,10 @@ pub struct Brain {
     shown: Option<Recognition>,
     verdict: PartialVerdict,
     rest_seen: bool,
+    tab_request: bool,
+    rest_site: Option<ov_vision::rest::RestSiteResult>,
+    /// Event buttons on screen (bounds, locked) when their count equals the logged options.
+    event_buttons: Vec<(crate::recognition::Rect, bool)>,
     epoch: i32,
     problems: HashSet<String>,
     /// Lines written to the helper (tests read them; capped).
@@ -126,6 +130,9 @@ impl Brain {
             shown: None,
             verdict: PartialVerdict::Complete,
             rest_seen: false,
+            tab_request: false,
+            rest_site: None,
+            event_buttons: Vec::new(),
             epoch: 0,
             problems: HashSet::new(),
             sent: Vec::new(),
@@ -170,6 +177,28 @@ impl Brain {
         self.shown.as_ref()
     }
 
+    /// A card / shop screen newly opened since the last call: the panel shows the 추천 tab.
+    pub fn take_tab_request(&mut self) -> bool {
+        std::mem::take(&mut self.tab_request)
+    }
+
+    /// Some(ancient?) while an event room with logged options is open: the capture reads its buttons.
+    pub fn event_room(&self) -> Option<bool> {
+        let e = self.run.as_ref()?.current_event.as_ref()?;
+        e.option_keys.as_ref().filter(|k| !k.is_empty())?;
+        Some(deck_effects::is_ancient(&e.event_id))
+    }
+
+    /// The event buttons on screen (screen pixels, locked), top to bottom; empty when not matched to the options.
+    pub fn event_buttons(&self) -> &[(crate::recognition::Rect, bool)] {
+        &self.event_buttons
+    }
+
+    /// The last rest-site buttons seen (for the layer marks).
+    pub fn rest_site(&self) -> Option<&ov_vision::rest::RestSiteResult> {
+        self.rest_site.as_ref()
+    }
+
     pub fn verdict(&self) -> PartialVerdict {
         self.verdict
     }
@@ -211,6 +240,7 @@ impl Brain {
         }
         if now_hint != Some(ScreenHint::RestSite) && before == Some(ScreenHint::RestSite) {
             self.rest_seen = false;
+            self.rest_site = None;
             self.broker.clear("rest");
         }
         self.update_helper();
@@ -240,11 +270,13 @@ impl Brain {
         match ev {
             Some((id, keys)) if !keys.is_empty() => {
                 let ancient = deck_effects::is_ancient(&id);
-                let req = request::event(&id, ancient, &keys, &|_| false);
+                let buttons = if self.event_buttons.len() == keys.len() { self.event_buttons.clone() } else { Vec::new() };
+                let req = request::event(&id, ancient, &keys, &|i| buttons.get(i).is_some_and(|b| b.1));
                 self.broker.clear(if ancient { "event" } else { "ancient" });
                 self.ask(req);
             }
             _ => {
+                self.event_buttons.clear();
                 self.broker.clear("event");
                 self.broker.clear("ancient");
             }
@@ -256,19 +288,29 @@ impl Brain {
         if !self.lifecycle.accept(&r, now) {
             return;
         }
+        if r.kind == ScreenKind::Other && self.event_room().is_some() && r.event_buttons != self.event_buttons {
+            let count = self.run.as_ref().and_then(|x| x.current_event.as_ref()).and_then(|e| e.option_keys.as_ref()).map_or(0, Vec::len);
+            if r.event_buttons.len() == count || r.event_buttons.is_empty() {
+                self.event_buttons = r.event_buttons.clone();
+                self.ask_from_run();
+            }
+        }
         if let Some(site) = r.rest_site.as_ref().filter(|s| s.choice_screen) {
             self.rest_seen = true;
+            self.rest_site = Some(site.clone());
             if let Some(req) = request::rest(site) {
                 self.ask(req);
             }
         }
         match r.kind {
             ScreenKind::Reward | ScreenKind::Shop => {
-                self.lifecycle.select_tab(&r);
+                if self.lifecycle.select_tab(&r) {
+                    self.tab_request = true;
+                }
                 self.verdict = self.lifecycle.verdict(&r, now);
                 let req = if r.kind == ScreenKind::Shop {
                     Some(request::shop(&r, self.run_overrides()))
-                } else if self.verdict == PartialVerdict::Hold || r.cards.is_empty() {
+                } else if self.verdict == PartialVerdict::Hold || r.cards.is_empty() || self.covered_by_asked_row(&r) {
                     None
                 } else {
                     let context = match self.run.as_ref() {
@@ -295,6 +337,22 @@ impl Brain {
                 }
             }
         }
+    }
+
+    /// A reward row that shows only cards of the row already asked (one is covered or enlarged for a moment): the
+    /// asked row stays the question.
+    fn covered_by_asked_row(&self, r: &Recognition) -> bool {
+        let Some((req, _)) = self.broker.get("card") else { return false };
+        let crate::request::Shown::Cards(asked) = &req.shown else { return false };
+        let mut left: Vec<(&str, i32)> = asked.iter().map(|c| (c.id.as_str(), c.upgrade)).collect();
+        r.cards.len() < asked.len()
+            && r.cards.iter().all(|c| match left.iter().position(|x| *x == (c.id.as_str(), c.upgrade)) {
+                Some(i) => {
+                    left.swap_remove(i);
+                    true
+                }
+                None => false,
+            })
     }
 
     fn ask(&mut self, req: DecideRequest) {
@@ -456,6 +514,8 @@ mod tests {
 
         b.on_recognition(r.clone(), Instant::now());
         assert_eq!(b.sent.len(), 1, "same screen: not asked again");
+        b.on_recognition(Recognition { cards: vec![card(1, "CARD.DUALCAST")], ..r.clone() }, Instant::now());
+        assert_eq!(b.sent.len(), 1, "one card covered: the asked row stays");
         run.screen = ScreenHint::Map;
         b.on_run(Some(run), Some("/s".into()));
         assert!(b.current_offer().is_none(), "the log closed the screen");

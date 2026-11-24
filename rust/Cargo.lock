@@ -2058,6 +2058,8 @@ dependencies = [
  "image",
  "ov-core",
  "ov-gamestate",
+ "ov-live",
+ "ov-resources",
  "serde",
  "serde_json",
  "tray-icon",
