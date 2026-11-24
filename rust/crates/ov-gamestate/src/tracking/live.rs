@@ -185,6 +185,7 @@ impl LiveTracker {
                             f(&mut live.tracker);
                             on_change(live.tracker.current().cloned(), live.saves_directory().map(|p| p.to_path_buf()));
                         }
+                        Ok(LiveCommand::Query(f)) => f(&mut live.tracker),
                         Err(mpsc::RecvTimeoutError::Timeout) => {}
                     }
                 }
@@ -199,6 +200,8 @@ type TrackerFn = Box<dyn FnOnce(&mut Tracker) + Send>;
 enum LiveCommand {
     Stop,
     Run(TrackerFn),
+    /// Like `Run`, for a read-only question: no snapshot is sent after it.
+    Query(TrackerFn),
 }
 
 /// Handle of a spawned tracker thread.
@@ -211,6 +214,12 @@ impl LiveHandle {
     /// Runs `f` on the tracker thread (e.g. `on_card_offer_seen`, `replayed_reward_cards` with a reply channel).
     pub fn with_tracker(&self, f: impl FnOnce(&mut Tracker) + Send + 'static) {
         let _ = self.tx.send(LiveCommand::Run(Box::new(f)));
+    }
+
+    /// Runs `f` on the tracker thread without sending a snapshot afterwards (questions such as
+    /// `replayed_reward_upgrades` with a reply channel).
+    pub fn query_tracker(&self, f: impl FnOnce(&mut Tracker) + Send + 'static) {
+        let _ = self.tx.send(LiveCommand::Query(Box::new(f)));
     }
 
     pub fn stop(mut self) {
