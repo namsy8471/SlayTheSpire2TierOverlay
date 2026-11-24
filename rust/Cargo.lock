@@ -2085,6 +2085,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "ov-live"
+version = "0.2.0"
+dependencies = [
+ "ov-core",
+ "ov-gamestate",
+ "ov-resources",
+ "ov-vision",
+ "serde",
+ "serde_json",
+ "windows",
+]
+
+[[package]]
 name = "ov-resources"
 version = "0.2.0"
 dependencies = [
