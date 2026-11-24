@@ -18,10 +18,12 @@ pub struct DecisionBroker {
 impl DecisionBroker {
     /// The stdin line to send for `req`, or None when the same screen (and run overrides) was already asked.
     pub fn ask(&mut self, req: DecideRequest) -> Option<String> {
-        if let Some((_, last)) = self.asked.get(req.kind)
+        if let Some((_, last)) = self.asked.get_mut(req.kind)
             && last.screen == req.screen
             && last.run == req.run
         {
+            // Same question: keep its id, but draw on where the items are now (a hovered card grows and moves).
+            last.shown = req.shown;
             return None;
         }
         self.next_id += 1;

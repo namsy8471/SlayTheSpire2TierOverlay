@@ -1,5 +1,6 @@
 //! Win32 / WinRT plumbing. Only built on Windows.
 
+pub mod capture;
 pub mod game;
 pub mod hotkey;
 pub mod style;

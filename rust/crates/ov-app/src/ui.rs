@@ -1,20 +1,18 @@
 //! The overlay app on eframe: the root viewport is the panel (clickable, never takes focus), and a second viewport is
 //! the full-game layer (transparent, click-through, topmost) where badges and map / rest / event marks are drawn.
 //!
-//! M0 draws a check pattern on the layer (corner marks and one badge) and offers the three spike checks on the panel:
-//! the layer sits on the game, one WGC frame, and the update check.
+//! The panel shows the AI advice ([`crate::panel`]); the layer draws badges on the offered cards, shop items and the
+//! advised rest-site button. Everything live (save/log tracker, capture, recognition, the advisor helper) is in
+//! [`crate::live::Live`].
 
 use crate::settings::Store;
 use crate::tray::{Tray, TrayAction};
 use crate::update::{UpdateEvent, Updater};
 use crate::win::hotkey::Hotkey;
 use crate::win::{PixelRect, game, style};
-use egui::{Color32, CornerRadius, Pos2, Rect, Stroke, Vec2, ViewportBuilder, ViewportCommand, ViewportId};
+use egui::{Color32, CornerRadius, Stroke, Vec2, ViewportBuilder, ViewportCommand, ViewportId};
 use ov_core::loc::{self, t};
-use ov_gamestate::paths::GamePaths;
-use ov_gamestate::tracking::live::{LiveHandle, LiveOptions, LiveTracker};
-use ov_gamestate::tracking::tracked::TrackedRun;
-use ov_gamestate::tracking::tracker::TrackerOptions;
+use crate::live::Live;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -46,10 +44,10 @@ impl Tab {
 
     fn label(self) -> &'static str {
         match self {
-            Tab::Recommend => t("실시간 추천", "Live"),
+            Tab::Recommend => t("AI 추천", "AI advice"),
             Tab::Deck => t("덱", "Deck"),
             Tab::Path => t("경로", "Path"),
-            Tab::Review => t("리뷰", "Review"),
+            Tab::Review => t("상태", "Status"),
         }
     }
 
@@ -81,9 +79,7 @@ pub struct OverlayApp {
     capture_line: String,
     started: Instant,
     first_update_check_done: bool,
-    /// Latest run from the save + log tracker (its own thread).
-    run: Arc<Mutex<Option<TrackedRun>>>,
-    _live: LiveHandle,
+    live: Live,
 }
 
 impl OverlayApp {
@@ -107,27 +103,9 @@ impl OverlayApp {
         }
         crate::applog::info(format!("start: {version_text}, update source {}", updater.source));
         let (update_tx, update_rx) = mpsc::channel();
-        let run: Arc<Mutex<Option<TrackedRun>>> = Arc::new(Mutex::new(None));
-        let live = {
-            let (run, ctx) = (run.clone(), cc.egui_ctx.clone());
-            let options = LiveOptions {
-                tracker: TrackerOptions { paths: Some(GamePaths::discover(None, None, None)), ..Default::default() },
-                ..Default::default()
-            };
-            LiveTracker::spawn(
-                options,
-                move |r| {
-                    if let Ok(mut slot) = run.lock() {
-                        *slot = r;
-                    }
-                    ctx.request_repaint();
-                },
-                |d| crate::applog::info(format!("tracker: {d}")),
-            )
-        };
+        let live = Live::new(&cc.egui_ctx, &store.settings);
         OverlayApp {
-            run,
-            _live: live,
+            live,
             tab: Tab::from_key(store.settings.selected_tab.as_deref()),
             store,
             hidden: false,
@@ -168,7 +146,8 @@ impl OverlayApp {
                 Hotkey::ToggleAlwaysOnTop => self.toggle_on_top(),
                 Hotkey::ToggleClickThrough => self.toggle_click_through(),
                 Hotkey::ToggleHidden => self.toggle_hidden(),
-                Hotkey::SaveCapture | Hotkey::RecognizeNow => self.start_capture(),
+                Hotkey::SaveCapture => self.start_capture(),
+                Hotkey::RecognizeNow => self.live.recognize_now(),
                 Hotkey::ToggleDebugOutlines => self.debug_outlines = !self.debug_outlines,
             }
         }
@@ -358,10 +337,10 @@ impl OverlayApp {
             });
             ui.separator();
             egui::ScrollArea::vertical().show(ui, |ui| match self.tab {
-                Tab::Recommend => self.spike_ui(ui),
-                _ => {
-                    ui.label(t("이 탭은 다음 단계(M6)에서 옮깁니다.", "This tab is ported in M6."));
-                }
+                Tab::Recommend => crate::panel::recommend_ui(ui, &self.live),
+                Tab::Deck => crate::panel::deck_ui(ui, &self.live),
+                Tab::Path => crate::panel::path_ui(ui, &self.live),
+                Tab::Review => self.spike_ui(ui),
             });
         });
     }
@@ -385,8 +364,7 @@ impl OverlayApp {
     }
 
     fn run_ui(&self, ui: &mut egui::Ui) {
-        let guard = self.run.lock();
-        let Some(r) = guard.as_ref().ok().and_then(|g| g.as_ref()) else {
+        let Some(r) = self.live.brain.run() else {
             ui.label(t("진행 중인 런을 찾지 못했습니다", "No run in progress"));
             return;
         };
@@ -413,7 +391,15 @@ impl OverlayApp {
         if self.store.loaded_from_broken_file() {
             ui.colored_label(Color32::from_rgb(255, 170, 60), t("settings.json을 읽지 못해 기본값으로 실행 중입니다 (원본은 settings.json.bad로 보관)", "settings.json could not be read, running with default settings (the original is kept as settings.json.bad)"));
         }
-        ui.heading(t("M0 확인", "M0 checks"));
+        if self.live.brain.advisor_available() {
+            let mut on = self.live.brain.enabled();
+            if ui.checkbox(&mut on, t("AI 추천 켜기 (조언 도우미 실행)", "AI advice on (runs the helper)")).changed() {
+                self.live.brain.set_enabled(on);
+                self.store.settings.combat_advisor_enabled = on;
+                self.save_settings();
+            }
+        }
+        ui.heading(t("연결 상태", "Connections"));
         egui::Grid::new("m0").num_columns(2).spacing([12.0, 6.0]).show(ui, |ui| {
             ui.label(t("게임 창", "Game window"));
             match self.game {
@@ -459,23 +445,12 @@ impl OverlayApp {
         }
     }
 
-    fn layer_ui(ui: &mut egui::Ui, outlines: bool) {
-        let r = ui.ctx().content_rect();
-        let p = ui.painter();
-        let accent = Color32::from_rgb(255, 196, 0);
-        let len = 40.0;
-        for (corner, dx, dy) in [(r.left_top(), 1.0, 1.0), (r.right_top(), -1.0, 1.0), (r.left_bottom(), 1.0, -1.0), (r.right_bottom(), -1.0, -1.0)] {
-            let c = corner + Vec2::new(dx * 2.0, dy * 2.0);
-            p.line_segment([c, c + Vec2::new(dx * len, 0.0)], Stroke::new(4.0, accent));
-            p.line_segment([c, c + Vec2::new(0.0, dy * len)], Stroke::new(4.0, accent));
-        }
-        let badge = Rect::from_center_size(Pos2::new(r.center().x, r.top() + r.height() * 0.12), Vec2::new(260.0, 44.0));
-        p.rect_filled(badge, CornerRadius::same(10), Color32::from_rgba_unmultiplied(20, 22, 28, 220));
-        p.rect_stroke(badge, CornerRadius::same(10), Stroke::new(2.0, accent), egui::StrokeKind::Inside);
-        p.text(badge.center(), egui::Align2::CENTER_CENTER, t("러스트 오버레이 M0", "Rust overlay M0"), egui::FontId::proportional(20.0), Color32::WHITE);
+    fn layer_ui(ui: &mut egui::Ui, live: &Live, layer: PixelRect, outlines: bool) {
         if outlines {
-            p.rect_stroke(r.shrink(1.0), 0.0, Stroke::new(1.0, Color32::RED), egui::StrokeKind::Inside);
+            let r = ui.ctx().content_rect();
+            ui.painter().rect_stroke(r.shrink(1.0), 0.0, Stroke::new(1.0, Color32::RED), egui::StrokeKind::Inside);
         }
+        crate::panel::layer_marks(ui, live, layer, 1.0, outlines);
     }
 }
 
@@ -491,6 +466,11 @@ impl eframe::App for OverlayApp {
             self.last_poll = Some(Instant::now());
             self.game = self.tracker.poll();
             self.find_windows();
+            let shown = self.layer_visible() && self.game.is_some_and(|g| g.foreground);
+            self.live.tick(self.game, shown);
+            if self.live.brain.take_tab_request() {
+                self.tab = Tab::Recommend;
+            }
             self.place_layer();
             if self.panel_hwnd != 0 && self.store.settings.always_on_top {
                 style::assert_topmost(self.panel_hwnd);
@@ -519,8 +499,9 @@ impl eframe::App for OverlayApp {
                 .with_taskbar(false)
                 .with_active(false)
                 .with_inner_size(Vec2::new(64.0, 64.0));
+            let (live, layer) = (&self.live, self.layer_rect);
             ui.ctx().show_viewport_immediate(ViewportId::from_hash_of("layer"), builder, |ui, _class| {
-                OverlayApp::layer_ui(ui, outlines);
+                OverlayApp::layer_ui(ui, live, layer, outlines);
             });
         } else if self.layer_hwnd != 0 {
             // The viewport is closed when it is not shown this pass; its HWND is gone.

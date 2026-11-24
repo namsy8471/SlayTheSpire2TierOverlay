@@ -75,6 +75,9 @@ pub struct Recognition {
     /// The shop's card-removal service, when it is still for sale.
     pub removal_service: Option<Rect>,
     pub rest_site: Option<RestSiteResult>,
+    /// Event / ancient option buttons top to bottom: bounds (screen pixels) and whether the button is locked. Read
+    /// only while an event room is open.
+    pub event_buttons: Vec<(Rect, bool)>,
     /// Card slots of the layout (a reward row with fewer read cards is partial).
     pub slots: usize,
     /// Changes when the tracker sees a new screen.
@@ -93,6 +96,7 @@ impl Recognition {
             potions: Vec::new(),
             removal_service: None,
             rest_site: None,
+            event_buttons: Vec::new(),
             slots: 0,
             screen_id: 0,
             unsettled: false,
@@ -167,6 +171,11 @@ impl VisionRecognizer {
 
     /// None when no local art exists (behave like "can't tell").
     pub fn recognize(&self, frame: &Frame<'_>, character_hint: Option<&str>) -> Option<Recognition> {
+        self.recognize_with(frame, character_hint, None)
+    }
+
+    /// [`VisionRecognizer::recognize`], plus the event buttons when `event_room` is Some (true = an ancient's room).
+    pub fn recognize_with(&self, frame: &Frame<'_>, character_hint: Option<&str>, event_room: Option<bool>) -> Option<Recognition> {
         let mut s = self.state.lock().unwrap_or_else(|e| e.into_inner());
         self.ensure(&mut s);
         let LoadState::Ready(rec) = &*s else { return None };
@@ -192,10 +201,19 @@ impl VisionRecognizer {
         };
         let rest = ov_vision::rest::detect(&vf);
         let rest_seen = (rest.choice_screen || rest.card_grid_open).then_some(rest);
-        if kind == ScreenKind::Other {
-            return Some(Recognition { rest_site: rest_seen, ..Recognition::other() });
-        }
         let (dx, dy) = frame.origin;
+        if kind == ScreenKind::Other {
+            let buttons = match event_room {
+                Some(true) => ov_vision::events::ancient::detect(&vf),
+                Some(false) => ov_vision::events::detect(&vf),
+                None => None,
+            };
+            let mut event_buttons: Vec<(Rect, bool)> = buttons
+                .map(|s| s.buttons.iter().map(|b| (Rect::of(&b.bounds, dx, dy), b.state == ov_vision::events::EventButtonState::Locked)).collect())
+                .unwrap_or_default();
+            event_buttons.sort_by_key(|(r, _)| r.y);
+            return Some(Recognition { rest_site: rest_seen, event_buttons, ..Recognition::other() });
+        }
         let cards = shown
             .cards
             .iter()
@@ -239,6 +257,7 @@ impl VisionRecognizer {
             potions: items(&shown.potions),
             removal_service: removal,
             rest_site: rest_seen,
+            event_buttons: Vec::new(),
             slots: shown.slot_count,
             screen_id: shown.generation,
             unsettled: shown.unsettled,
