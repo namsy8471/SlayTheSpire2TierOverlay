@@ -78,3 +78,30 @@ pub struct MapGraph {
     pub normal_fights_done: Option<i32>,
     pub easy_fights: Option<i32>,
 }
+
+/// A point in the map screen's 1920x1080 design space (`DesignPoint`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct DesignPoint {
+    pub x: f32,
+    pub y: f32,
+}
+
+/// Where the game draws each map node (`MapScreenLayout`). `centers` keeps insertion order (grid nodes column by
+/// column, then start, boss, second boss).
+#[derive(Clone, Debug, PartialEq)]
+pub struct MapScreenLayout {
+    pub centers: Vec<(MapCoord, DesignPoint)>,
+    pub row_spacing: f32,
+    pub default_scroll: f32,
+    pub act_index: i32,
+    pub seed: String,
+}
+
+impl MapScreenLayout {
+    pub const MIN_SCROLL: f32 = -600.0;
+    pub const MAX_SCROLL: f32 = 1800.0;
+
+    pub fn center(&self, c: MapCoord) -> Option<DesignPoint> {
+        self.centers.iter().find(|(k, _)| *k == c).map(|(_, p)| *p)
+    }
+}
