@@ -125,6 +125,7 @@ GitHub의 익명 API는 **IP당 시간당 60회**까지입니다. 같은 공유�
 | `combat-value-a0-boss3.json` | 0.4 MB | 아이언클래드 승천 0의 3막 보스에 채택한 mix75 가중치. 같은 방식으로 복사합니다. |
 | `combat-value-a10-first-boss.json`, `combat-value-a10-final-boss.json` | 각 0.3~0.4 MB | 승천 10의 3막 첫 보스와 둘째 보스 전용 가중치. 도우미 옆에 복사합니다. |
 | `combat-value-defect-boss2.json`, `combat-value-defect-boss3.json` | 각 0.3 MB | 디펙트 2막·3막 보스 전용 가중치. 도우미 옆에 복사합니다. |
+| `combat-value-defect-a10.json` | 1.4 MB | 디펙트 승천 10 전투 가중치(hyb23, 2막·3막 보스 가지 포함). 도우미 옆에 복사합니다. |
 
 `.pdb`, `runtimeconfig.json` 같은 다른 파일은 있어도 넣지 않습니다.
 
