@@ -2051,7 +2051,7 @@ dependencies = [
 
 [[package]]
 name = "ov-app"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "eframe",
  "egui",
@@ -2069,7 +2069,7 @@ dependencies = [
 
 [[package]]
 name = "ov-core"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "flate2",
  "serde",
@@ -2078,7 +2078,7 @@ dependencies = [
 
 [[package]]
 name = "ov-gamestate"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "flate2",
  "ov-core",
@@ -2088,7 +2088,7 @@ dependencies = [
 
 [[package]]
 name = "ov-live"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "ov-core",
  "ov-gamestate",
@@ -2101,7 +2101,7 @@ dependencies = [
 
 [[package]]
 name = "ov-resources"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "flate2",
  "image",
@@ -2116,7 +2116,7 @@ dependencies = [
 
 [[package]]
 name = "ov-vision"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "flate2",
  "image",
